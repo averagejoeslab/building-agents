@@ -89,13 +89,13 @@ export function ToolShapeSlide() {
           <Text fontSize="16px" color="quinary" margin="0 0 6px">
             <strong>Function</strong> — language-specific (Python here)
           </Text>
-          <Code language="python" fontSize="14px">{toolCode}</Code>
+          <Code language="python" fontSize={14}>{toolCode}</Code>
         </Box>
         <Box width="48%">
           <Text fontSize="16px" color="quaternary" margin="0 0 6px">
             <strong>Schema</strong> — JSON Schema, cross-language
           </Text>
-          <Code language="json" fontSize="14px">{schemaCode}</Code>
+          <Code language="json" fontSize={14}>{schemaCode}</Code>
         </Box>
       </FlexBox>
       <Text fontSize="14px" color="secondary" margin="14px 0 0" textAlign="center">

@@ -64,7 +64,7 @@ export function SyncCallSlide() {
       <Heading fontSize="32px">Sync — llm_call_sync.py</Heading>
       <FlexBox alignItems="flex-start" justifyContent="space-between" width="100%">
         <Box width="58%">
-          <Code language="python" fontSize="15px">{llmCallSync}</Code>
+          <Code language="python" fontSize={15}>{llmCallSync}</Code>
         </Box>
         <Box width="40%">
           <Text fontSize="16px" color="secondary" margin="0 0 8px">
@@ -147,7 +147,7 @@ export function AsyncStreamingSlide() {
       <Heading fontSize="32px">Async streaming — llm_call_async.py</Heading>
       <FlexBox alignItems="flex-start" justifyContent="space-between" width="100%">
         <Box width="55%">
-          <Code language="python" fontSize="13px">{llmCallAsync}</Code>
+          <Code language="python" fontSize={13}>{llmCallAsync}</Code>
         </Box>
         <Box width="43%">
           <Text fontSize="14px" color="secondary" margin="0 0 8px">

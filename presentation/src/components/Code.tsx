@@ -1,22 +1,28 @@
 import { ReactNode } from "react";
 import { CodePane } from "spectacle";
+import "./code.css";
 
 type Props = {
   language: string;
+  /** Defaults to `false` — Spectacle's CodePane defaults to true. */
   showLineNumbers?: boolean;
-  fontSize?: string | number;
+  /**
+   * Pixel font size. Maps to a CSS class with `!important` because
+   * Spectacle writes the monospace size inline from the theme and a parent
+   * font-size won't beat an inline value.
+   */
+  fontSize?: 12 | 13 | 14 | 15 | 16 | 18;
   children: string;
 };
 
-/**
- * Wraps Spectacle's CodePane so we can shrink the code-block font for
- * dense or long files. CodePane itself has no fontSize prop; the wrapper
- * uses CSS cascade — vsDark theme only sets color/background on the pre,
- * so font-size inherits through to the tokens.
- */
-export function Code({ language, showLineNumbers, fontSize = "14px", children }: Props): ReactNode {
+export function Code({
+  language,
+  showLineNumbers = false,
+  fontSize = 14,
+  children,
+}: Props): ReactNode {
   return (
-    <div style={{ fontSize }}>
+    <div className={`code-${fontSize}`}>
       <CodePane language={language} showLineNumbers={showLineNumbers}>
         {children}
       </CodePane>

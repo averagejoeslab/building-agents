@@ -1,0 +1,12 @@
+/* Spectacle CodePane writes fontSize as an inline style on the <pre>,
+ * pulled from theme.fontSizes.monospace (20px by default). Inline styles
+ * beat parent font-size in the cascade. These rules use !important to
+ * override the inline value so a wrapper component can shrink the code
+ * per-slide. */
+
+.code-12 pre, .code-12 code, .code-12 .prism-code { font-size: 12px !important; line-height: 1.45 !important; }
+.code-13 pre, .code-13 code, .code-13 .prism-code { font-size: 13px !important; line-height: 1.45 !important; }
+.code-14 pre, .code-14 code, .code-14 .prism-code { font-size: 14px !important; line-height: 1.45 !important; }
+.code-15 pre, .code-15 code, .code-15 .prism-code { font-size: 15px !important; line-height: 1.5 !important; }
+.code-16 pre, .code-16 code, .code-16 .prism-code { font-size: 16px !important; line-height: 1.5 !important; }
+.code-18 pre, .code-18 code, .code-18 .prism-code { font-size: 18px !important; line-height: 1.5 !important; }
