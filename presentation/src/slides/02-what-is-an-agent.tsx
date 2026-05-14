@@ -1,7 +1,8 @@
-import { Slide, Heading, Text, CodePane, Notes, Box, FlexBox } from "spectacle";
+import { Slide, Heading, Text, Notes, Box, FlexBox } from "spectacle";
 import { Mermaid } from "../components/Mermaid";
 import { Triad } from "../components/Triad";
 import { Timeline } from "../components/Timeline";
+import { Code } from "../components/Code";
 import { colors } from "../theme";
 
 export function ModuleOneTitleSlide() {
@@ -88,13 +89,13 @@ export function ToolShapeSlide() {
           <Text fontSize="16px" color="quinary" margin="0 0 6px">
             <strong>Function</strong> — language-specific (Python here)
           </Text>
-          <CodePane language="python" showLineNumbers={false}>{toolCode}</CodePane>
+          <Code language="python" fontSize="14px">{toolCode}</Code>
         </Box>
         <Box width="48%">
           <Text fontSize="16px" color="quaternary" margin="0 0 6px">
             <strong>Schema</strong> — JSON Schema, cross-language
           </Text>
-          <CodePane language="json" showLineNumbers={false}>{schemaCode}</CodePane>
+          <Code language="json" fontSize="14px">{schemaCode}</Code>
         </Box>
       </FlexBox>
       <Text fontSize="14px" color="secondary" margin="14px 0 0" textAlign="center">

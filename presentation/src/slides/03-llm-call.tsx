@@ -1,7 +1,8 @@
-import { Slide, Heading, Text, CodePane, Notes, FlexBox, Box } from "spectacle";
+import { Slide, Heading, Text, Notes, FlexBox, Box } from "spectacle";
 import { AnatomyBox } from "../components/AnatomyBox";
 import { Timeline } from "../components/Timeline";
 import { SequenceDiagram } from "../components/SequenceDiagram";
+import { Code } from "../components/Code";
 import { colors } from "../theme";
 import llmCallSync from "@examples/llm_call_sync.py?raw";
 import llmCallAsync from "@examples/llm_call_async.py?raw";
@@ -63,9 +64,7 @@ export function SyncCallSlide() {
       <Heading fontSize="32px">Sync — llm_call_sync.py</Heading>
       <FlexBox alignItems="flex-start" justifyContent="space-between" width="100%">
         <Box width="58%">
-          <CodePane language="python" showLineNumbers={false}>
-            {llmCallSync}
-          </CodePane>
+          <Code language="python" fontSize="15px">{llmCallSync}</Code>
         </Box>
         <Box width="40%">
           <Text fontSize="16px" color="secondary" margin="0 0 8px">
@@ -148,9 +147,7 @@ export function AsyncStreamingSlide() {
       <Heading fontSize="32px">Async streaming — llm_call_async.py</Heading>
       <FlexBox alignItems="flex-start" justifyContent="space-between" width="100%">
         <Box width="55%">
-          <CodePane language="python" showLineNumbers={false}>
-            {llmCallAsync}
-          </CodePane>
+          <Code language="python" fontSize="13px">{llmCallAsync}</Code>
         </Box>
         <Box width="43%">
           <Text fontSize="14px" color="secondary" margin="0 0 8px">

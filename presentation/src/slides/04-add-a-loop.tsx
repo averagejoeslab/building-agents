@@ -1,7 +1,8 @@
-import { Slide, Heading, Text, CodePane, Notes } from "spectacle";
+import { Slide, Heading, Text, Notes } from "spectacle";
 import { StateSplit } from "../components/StateSplit";
 import { EnvironmentGrid } from "../components/EnvironmentGrid";
 import { CapabilityMatrix } from "../components/CapabilityMatrix";
+import { Code } from "../components/Code";
 import { colors } from "../theme";
 import chatbotCode from "@examples/stateless_chatbot.py?raw";
 
@@ -101,11 +102,9 @@ export function TieToEnvironmentSlide() {
 export function ChatbotCodeSlide() {
   return (
     <Slide>
-      <Heading fontSize="32px">The chatbot — stateless_chatbot.py</Heading>
-      <CodePane language="python" showLineNumbers={false}>
-        {chatbotCode}
-      </CodePane>
-      <Text fontSize="16px" color="secondary" margin="14px 0 0">
+      <Heading fontSize="28px">The chatbot — stateless_chatbot.py</Heading>
+      <Code language="python" fontSize="13px">{chatbotCode}</Code>
+      <Text fontSize="14px" color="secondary" margin="10px 0 0">
         Async streaming, REPL-shaped, history in a single in-process list.
       </Text>
     </Slide>
