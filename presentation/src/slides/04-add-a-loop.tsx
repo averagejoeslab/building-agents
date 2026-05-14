@@ -102,11 +102,8 @@ export function TieToEnvironmentSlide() {
 export function ChatbotCodeSlide() {
   return (
     <Slide>
-      <Heading fontSize="28px">The chatbot — stateless_chatbot.py</Heading>
-      <Code language="python" fontSize={13}>{chatbotCode}</Code>
-      <Text fontSize="14px" color="secondary" margin="10px 0 0">
-        Async streaming, REPL-shaped, history in a single in-process list.
-      </Text>
+      <Heading fontSize="24px">The chatbot — stateless_chatbot.py</Heading>
+      <Code language="python" fontSize={12}>{chatbotCode}</Code>
     </Slide>
   );
 }

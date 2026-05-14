@@ -11,7 +11,7 @@ type Props = {
    * Spectacle writes the monospace size inline from the theme and a parent
    * font-size won't beat an inline value.
    */
-  fontSize?: 12 | 13 | 14 | 15 | 16 | 18;
+  fontSize?: 11 | 12 | 13 | 14 | 15 | 16 | 18;
   children: string;
 };
 
