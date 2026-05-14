@@ -24,23 +24,30 @@ export function Spectrum({
   highlightTo,
   highlightLabel,
 }: Props) {
-  const width = 1000;
-  const height = 220;
+  const width = 1200;
+  const height = 240;
   const lineY = 130;
-  const margin = 80;
+  const margin = 150;
   const lineLength = width - margin * 2;
   const xAt = (p: number) => margin + p * lineLength;
 
+  // Smart anchoring so leftmost/rightmost labels don't overflow.
+  const anchorFor = (p: number): "start" | "middle" | "end" => {
+    if (p <= 0.1) return "start";
+    if (p >= 0.7) return "end";
+    return "middle";
+  };
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ maxHeight: "40vh" }}>
-      {/* highlighted range */}
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ maxHeight: "55vh" }}>
+      {/* Highlight band (drawn behind the line) */}
       {highlightFrom !== undefined && highlightTo !== undefined && (
         <g>
           <rect
             x={xAt(highlightFrom)}
-            y={lineY - 30}
+            y={lineY - 28}
             width={xAt(highlightTo) - xAt(highlightFrom)}
-            height={60}
+            height={56}
             fill={colors.quinary}
             opacity={0.18}
             rx="6"
@@ -48,7 +55,7 @@ export function Spectrum({
           {highlightLabel && (
             <text
               x={(xAt(highlightFrom) + xAt(highlightTo)) / 2}
-              y={lineY - 40}
+              y={lineY - 42}
               textAnchor="middle"
               fontSize="16"
               fill={colors.quinary}
@@ -61,30 +68,52 @@ export function Spectrum({
         </g>
       )}
 
-      {/* main line */}
-      <line x1={margin} y1={lineY} x2={width - margin} y2={lineY} stroke={colors.border} strokeWidth="3" />
-      <polygon points={`${margin - 6},${lineY} ${margin + 6},${lineY - 8} ${margin + 6},${lineY + 8}`} fill={colors.border} />
-      <polygon points={`${width - margin + 6},${lineY} ${width - margin - 6},${lineY - 8} ${width - margin - 6},${lineY + 8}`} fill={colors.border} />
+      {/* Main line */}
+      <line
+        x1={margin}
+        y1={lineY}
+        x2={width - margin}
+        y2={lineY}
+        stroke={colors.border}
+        strokeWidth="3"
+      />
 
-      {/* edge labels */}
-      <text x={margin - 12} y={lineY + 6} textAnchor="end" fontSize="20" fill={colors.workflow} fontWeight="700" fontFamily={colors.sans}>
+      {/* Edge labels — sit in the side margins, anchored toward the line */}
+      <text
+        x={margin - 18}
+        y={lineY + 7}
+        textAnchor="end"
+        fontSize="22"
+        fill={colors.workflow}
+        fontWeight="700"
+        fontFamily={colors.sans}
+      >
         {leftLabel}
       </text>
-      <text x={width - margin + 12} y={lineY + 6} textAnchor="start" fontSize="20" fill={colors.quinary} fontWeight="700" fontFamily={colors.sans}>
+      <text
+        x={width - margin + 18}
+        y={lineY + 7}
+        textAnchor="start"
+        fontSize="22"
+        fill={colors.quinary}
+        fontWeight="700"
+        fontFamily={colors.sans}
+      >
         {rightLabel}
       </text>
 
-      {/* points */}
+      {/* Points (drawn on top of the line and band) */}
       {points.map((p, i) => {
         const x = xAt(p.position);
         const color = p.color ?? colors.primary;
+        const anchor = anchorFor(p.position);
         return (
           <g key={i}>
             <circle cx={x} cy={lineY} r="9" fill={color} stroke={colors.surface} strokeWidth="2" />
             <text
               x={x}
-              y={lineY + 30}
-              textAnchor="middle"
+              y={lineY + 32}
+              textAnchor={anchor}
               fontSize="15"
               fill={colors.primary}
               fontWeight="600"
@@ -95,8 +124,8 @@ export function Spectrum({
             {p.sublabel && (
               <text
                 x={x}
-                y={lineY + 50}
-                textAnchor="middle"
+                y={lineY + 52}
+                textAnchor={anchor}
                 fontSize="12"
                 fill={colors.secondary}
                 fontFamily={colors.sans}
