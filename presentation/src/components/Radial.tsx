@@ -22,11 +22,44 @@ export function Radial({ center, centerSub, spokes, legend }: Props) {
   const groupColor = (g?: number) =>
     g === 1 ? colors.quinary : g === 2 ? colors.workflow : colors.quaternary;
 
+  const positions = spokes.map((spoke, i) => {
+    const angle = (i / spokes.length) * 2 * Math.PI - Math.PI / 2;
+    return {
+      spoke,
+      angle,
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle),
+    };
+  });
+
+  const centerR = 84;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
       <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxHeight: "65vh" }}>
+        {/* Layer 1: dashed outer ring (behind everything) */}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={colors.border} strokeDasharray="3 6" />
-        <circle cx={cx} cy={cy} r="84" fill={colors.quaternary} />
+
+        {/* Layer 2: spoke lines — start at the center node's edge, end at the spoke's edge */}
+        {positions.map(({ angle, x, y }, i) => {
+          const startX = cx + centerR * Math.cos(angle);
+          const startY = cy + centerR * Math.sin(angle);
+          const endX = x - nodeR * Math.cos(angle);
+          const endY = y - nodeR * Math.sin(angle);
+          return (
+            <line
+              key={`line-${i}`}
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={colors.border}
+            />
+          );
+        })}
+
+        {/* Layer 3: center node (on top of lines) */}
+        <circle cx={cx} cy={cy} r={centerR} fill={colors.quaternary} />
         <text x={cx} y={cy - 6} textAnchor="middle" fill="white" fontSize="18" fontWeight="700" fontFamily={colors.sans}>
           {center}
         </text>
@@ -36,16 +69,22 @@ export function Radial({ center, centerSub, spokes, legend }: Props) {
           </text>
         )}
 
-        {spokes.map((spoke, i) => {
-          const angle = (i / spokes.length) * 2 * Math.PI - Math.PI / 2;
-          const x = cx + r * Math.cos(angle);
-          const y = cy + r * Math.sin(angle);
+        {/* Layer 4: spoke nodes (on top of lines, like the center) */}
+        {positions.map(({ spoke, x, y }, i) => {
           const color = groupColor(spoke.group);
           return (
-            <g key={i}>
-              <line x1={cx} y1={cy} x2={x} y2={y} stroke={colors.border} />
+            <g key={`spoke-${i}`}>
               <circle cx={x} cy={y} r={nodeR} fill={colors.surface} stroke={color} strokeWidth="2.5" />
-              <text x={x} y={y} textAnchor="middle" alignmentBaseline="central" fill={colors.primary} fontSize="13" fontFamily={colors.sans} fontWeight="600">
+              <text
+                x={x}
+                y={y}
+                textAnchor="middle"
+                alignmentBaseline="central"
+                fill={colors.primary}
+                fontSize="13"
+                fontFamily={colors.sans}
+                fontWeight="600"
+              >
                 {spoke.label}
               </text>
             </g>
