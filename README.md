@@ -1,6 +1,57 @@
 # building-agents
 
-A framework-free, code-first curriculum for building the **harness** of an autonomous coding agent — the runtime around a model that turns it into an agent.
+A code-first curriculum for building harnesses around foundational models — the runtime that turns a model into an autonomous coding agent.
+
+## Why this repo exists
+
+I made this because the industry has been throwing around "agentic engineering" as a catchall for everything from training models to writing prompts to wiring tools to using Claude Code on your day job. That's not wrong — it's just imprecise enough that you can't tell what you're learning, what you're hiring for, or what you're actually building.
+
+There are three distinct disciplines stacked on top of each other. They depend on each other, but they aren't the same skill. This repo puts down what I believe to be the correct framing — and then teaches the middle one.
+
+## The journey from model to agent
+
+Three layers, in the order they came into existence.
+
+### 1. Model development — the foundational models
+
+First, the substrate. A handful of labs — Anthropic, OpenAI, Google, Meta, a few others — build foundational large language models. They curate web-scale corpora, run pretraining on thousands of GPUs, fine-tune for instruction following, and use human-rated preference data (RLHF / DPO) to teach helpfulness and safety. The output is a model you can call: send in messages, get back tokens.
+
+This is where the *intelligence* comes from. Most of us aren't doing this work — it's a multi-billion-dollar effort that requires capital, data pipelines, and distributed-training expertise. We consume the output.
+
+### 2. Harness engineering — the runtime that produced Claude Code
+
+A raw model can complete text. It can't read files, run commands, remember anything across sessions, or stop when it's done. To turn intelligence into an agent, you wrap the model in a **harness**: code, state, tools, sandboxes, guardrails, observability, and a loop that ties it all together.
+
+> **Agent = Model + Harness.** The harness is every piece of code, configuration, and execution logic that isn't the model itself.
+
+Harness engineering is what produced **Claude Code, Cursor, Devin, Aider, nanoagent** — every coding agent you've used. Someone wrote a system prompt, picked a tool surface, designed a memory layer, set up a sandbox, wired up tracing, built an eval suite. The model is the same Claude that anyone else can call. The harness is the *product*.
+
+**This is the layer this repo teaches.** Not because the other layers don't matter — they do — but because this is the layer where most engineers can directly intervene, build, and improve. And it's where the most leverage compounds: a great harness on a decent model often beats a mediocre harness on a great one.
+
+### 3. Agentic engineering — the professional version of vibe coding
+
+Once a model is wrapped in a harness, you have an **agent**. And an agent is a building block for the next thing.
+
+**Agentic engineering** is what you do *with* that agent: directing it to build software, products, workflows, infrastructure, or more agents. The agent stops being the artifact and becomes the tool.
+
+If "vibe coding" (Karpathy's term) is the casual end of this — give in to the vibes, let the AI write, accept what works — then agentic engineering is the disciplined version. Same fundamental move: have AI write the code. But with thought about what you ask the agent to do, what context and tools it gets, how you verify its work, how it fits into your delivery process.
+
+A concrete example: **Peter Steinberg built [openclaw](#) by directing existing coding agents to produce most of its implementation.** He didn't write every line — he directed agents to write them. And once openclaw was working, he embedded an agent harness *inside* the project itself, so openclaw ships with an agent of its own. That loop captures both halves of the third layer: **agents produced the artifact, and the artifact can include agents.**
+
+This is how the three layers actually interact in 2026: a small team ships substantial software because they're operating at the agentic-engineering layer, sitting on top of harnesses someone else built, which sit on top of models the labs trained.
+
+## What you'll build here
+
+This curriculum teaches **harness engineering**. The way that sticks: by building one.
+
+You start with a single LLM call. Then you add a loop. Then memory. Then tools. Then a sandbox. Then guardrails. Then observability. Then evals. Then performance. By the end you have a production-shaped coding-agent harness — one you understand because you constructed it, piece by piece, from primitives.
+
+Once you have that harness, two paths open:
+
+- **Use it to develop itself.** Point your agent at the curriculum. Extend the modules. Refactor the harness. Improve the components. Recursive.
+- **Use it to develop other products.** Point your agent at the next codebase. That's agentic engineering, performed with a harness you own and understand.
+
+Either way, the harness is the through-line.
 
 ## What are agentic systems?
 
@@ -110,7 +161,7 @@ By composing the above workflows and agent patterns, you can build multi-agent s
 
 ## The Average Joes Lab stance: purist agents only
 
-We believe in the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents): **a real agent has autonomy over its own control flow** where the model decides what tool to call, what to do with the result, and when the task is done. Building for purist agents is the focus of this repository.
+We believe in the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents): **a real agent has autonomy over its own control flow** where the model decides what tool to call, what to do with the result, and when the task is done. Building harnesses for purist agents is the focus of this repo.
 
 Workflows are outside the scope of what follows.
 
@@ -139,40 +190,18 @@ In each case, the next action depends on what the previous action produced. The 
 
 ---
 
-## Building and using agentic systems
+## Model development (in depth)
 
-Building agentic systems takes work at three distinct layers. Each is a discipline of its own:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  AGENTIC ENGINEERING                                     │
-│  Using agents to build software, products, and more      │
-│  agents.                                                  │
-├──────────────────────────────────────────────────────────┤
-│  HARNESS ENGINEERING                  ← this repo        │
-│  The runtime around a model that makes it an agent.      │
-├──────────────────────────────────────────────────────────┤
-│  MODEL DEVELOPMENT                                       │
-│  Building, training, and fine-tuning the model itself.   │
-└──────────────────────────────────────────────────────────┘
-```
-
-> A model is intelligence. A harness is the runtime that turns intelligence into an agent. Agentic engineering is the practice of using that agent to build software.
-
-You don't have to work at all three layers to ship something useful — most engineers operate at one layer and consume what the layer below produces. This repo focuses squarely on the middle layer: **harness engineering**. The next three sections unpack each layer so you know where this curriculum fits.
-
-## Model development
-
-The bottom of the stack: producing a large language model. This repo doesn't teach model development — the harness assumes a model already exists and is accessible by API — but a one-page orientation helps anchor what the model layer actually contains.
+The bottom of the stack. This repo doesn't teach model development — the harness assumes the model already exists and is consumed by API — but a one-page orientation grounds what the model layer actually contains.
 
 ### What a modern LLM is made of
 
 A large language model is a probabilistic next-token predictor built from a small set of architectural primitives:
 
 - **Tokenizer** — chops raw text into sub-word tokens via byte-pair encoding (BPE) or similar. Vocabularies are typically 30k–200k entries.
-- **Token embeddings** — each token ID maps to a learned vector (often 2,048–16,384 dimensions in modern models).
+- **Token embeddings** — each token ID maps to a learned vector, often 2,048–16,384 dimensions in modern models.
 - **Positional information** — added to the embeddings so the model knows token order (rotary position embeddings / RoPE, ALiBi, or learned position vectors).
-- **The transformer block** — the workhorse. Each block contains **multi-head self-attention** (every token attends to every other token in the context), a **feed-forward network** (per-token nonlinear transformation, often with SwiGLU), **residual connections**, and **layer normalization** (RMSNorm is now common). Modern frontier models stack 60–120 of these blocks.
+- **The transformer block** — the workhorse. Each block contains **multi-head self-attention** (every token attends to every other token in the context), a **feed-forward network** (per-token nonlinear transformation, often with SwiGLU), **residual connections**, and **layer normalization** (RMSNorm is common). Modern frontier models stack 60–120 of these blocks.
 - **The output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled from that distribution.
 
 ### How a model is trained
@@ -186,25 +215,25 @@ flowchart LR
     E --> F[Released model]
 ```
 
-1. **Pretraining.** The expensive step. The model learns to predict the next token over a massive web-scale corpus (trillions of tokens). This is where it acquires syntax, facts, reasoning patterns, and a general sense of how language works. Takes thousands of GPUs and months of wall-clock time.
-2. **Supervised fine-tuning (SFT).** Train on curated instruction/response pairs so the model learns to *follow instructions* rather than just continuing arbitrary text. Much smaller dataset; much smaller compute.
+1. **Pretraining.** The expensive step. The model learns to predict the next token over a massive web-scale corpus (trillions of tokens). This is where it acquires syntax, facts, reasoning patterns, and a general sense of how language works. Thousands of GPUs, months of wall-clock time.
+2. **Supervised fine-tuning (SFT).** Train on curated instruction/response pairs so the model learns to *follow instructions* rather than just continuing arbitrary text. Much smaller dataset, much smaller compute.
 3. **Preference tuning (RLHF or DPO).** Train on human-rated comparisons of model outputs so the model learns what counts as a *good* response. This is where helpfulness, honesty, and safety behaviours are instilled.
 4. **(Optional) Specialty fine-tuning.** Additional training on domain-specific data (code, math, tool use) for sharper task performance.
 
 ### Inference
 
-Calling the model API runs a forward pass through every layer, producing a probability distribution over the vocabulary. A token is sampled — modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), and **top-p** / **nucleus** (smallest set of tokens whose probabilities sum to p). Repeat until an end-of-sequence token or max length is reached.
+Calling the model API runs a forward pass through every layer, producing a probability distribution over the vocabulary. A token is sampled — modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), and **top-p / nucleus** (smallest set of tokens whose probabilities sum to p). Repeat until an end-of-sequence token or max length is reached.
 
-### Why model development is its own discipline
+### Why it's its own discipline
 
-It requires distributed training infrastructure, data curation pipelines, dedicated evaluation suites, and capital that does not pencil out for most projects. Frontier-model training is a multi-billion-dollar effort. The harness layer above assumes that effort has happened upstream and the model is now a callable service.
+Model development requires distributed training infrastructure, data curation pipelines, dedicated evaluation suites, and capital that does not pencil out for most projects. Frontier-model training is a multi-billion-dollar effort. The harness layer above assumes that effort has happened upstream and the model is now a callable service.
 
-## Harness engineering
+## Harness engineering (in depth) — learn by doing
 
-The middle layer — and the focus of this repo.
+The middle layer. **This is what we build in this repo.** And we do it the only way the discipline really sticks: by building one harness end-to-end, from a single LLM call to a production-shaped runtime, one component at a time.
 
 > **Agent = Model + Harness.**
-> The harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability. A raw model is not an agent until a harness gives it those things.
+> The harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability.
 
 The discipline of harness engineering covers:
 
@@ -218,33 +247,36 @@ The discipline of harness engineering covers:
 - **Building evaluations** — benchmarking the harness's behaviour and catching regressions.
 - **Optimizing the system** — prompt caching, tool caching, threading, structured prompts.
 
-**Each of these is one module in this curriculum.** The modules build cumulatively, one harness component at a time, until you reach a production-shaped coding-agent harness.
+Each of these is one module in this curriculum. The modules build cumulatively — every checkpoint in [`examples/`](./examples/) is a runnable harness at a different stage of construction.
 
 > [!NOTE]
 > The term *harness* in this sense was consolidated through 2025–2026 by Anthropic ([effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents); [harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)), LangChain ([*The Anatomy of an Agent Harness*](https://www.langchain.com/blog/the-anatomy-of-an-agent-harness)), Martin Fowler ([Birgitta Böckeler, *Harness engineering for coding agent users*](https://martinfowler.com/articles/harness-engineering.html)), [Addy Osmani](https://addyosmani.com/blog/agent-harness-engineering/), and [O'Reilly Radar](https://www.oreilly.com/radar/agent-harness-engineering/). The framing has converged: harness = everything except the model.
 
-## Agentic engineering
+## Agentic engineering (in depth)
 
-The top layer. Once a model is wrapped in a harness, you have an **agent** — and an agent is a building block for the next thing.
+The top layer. Once you've built an agent — a model wrapped in a harness — what do you do with it? Two things, both called agentic engineering.
 
-**Agentic engineering** is the practice of *using* agents — combining models with harnesses, then using the result — to build software, products, workflows, and sometimes more agents. The agent stops being the artifact and becomes the tool.
+### Use the agent to keep developing itself
 
-What that looks like in practice:
+Point the agent at the curriculum it was built from. Have it write a new module. Have it refactor one of the harness components. Have it improve its own tracing, tighten its own evals, raise its own performance. The harness becomes its own development tool.
 
-- A developer uses Claude Code (Claude + the Claude Code harness) to ship a feature in their codebase — that's agentic engineering.
-- A team builds a customer-support product by orchestrating multiple agents — using the agent layer as the primitive instead of writing the loop themselves.
-- A researcher runs a coding agent to author an evaluation suite for a different agent — agentic engineering produces the test artifact.
-- **You read this repo, build a harness, then turn around and use the resulting agent to build whatever comes next.** That's the loop the three layers close.
-
-### The recursive moment
-
-This repo is being built using Claude Code — itself a coding-agent harness — running on Claude (the model). The author drives that agent to write modules, build the deck, write code, ship commits. That's a live instance of the three-layer stack at work:
+The recursive nature is the point: this repo is being built using Claude Code — a coding-agent harness — running on Claude. The author drives that agent to write modules, build the deck, ship commits. Every layer of the stack is visible in the act of producing the repo:
 
 1. Anthropic does **model development** to produce Claude.
 2. The Claude Code team does **harness engineering** to build Claude Code.
-3. The repo's author does **agentic engineering** to build this curriculum *using* that agent.
+3. The author does **agentic engineering** to build this curriculum *using* that agent.
 
-What this curriculum teaches is how to do the middle layer — so you can build harnesses like Claude Code from first principles, and then use the agents you build to do the top-layer work on whatever comes next.
+What this curriculum teaches you is how to do step 2 — so you can do steps 1 and 3 with intent, knowing what each layer contains.
+
+### Use the agent to develop other products
+
+The more visible flavor of agentic engineering: take the agent and point it at the next codebase. Ship features. Build infrastructure. Author tooling.
+
+A concrete example: **Peter Steinberg built [openclaw](#) by directing existing coding agents to produce most of its implementation.** He didn't write every line — he directed agents to write them. And once openclaw was working, he embedded an agent harness *inside* the project itself, so openclaw users get an agent as part of the product. Two halves of agentic engineering captured in one project: agents produced the artifact, and the artifact ships with an agent.
+
+That's the shape of mature agentic engineering: it compounds. Each agent you build with becomes a building block for the next thing. Each thing you ship can itself include an agent. The discipline isn't about replacing the engineer; it's about giving the engineer leverage at every layer.
+
+If "vibe coding" is the casual end of this — *give in to the vibes, accept what the model produces* — agentic engineering is the disciplined version. Same essential move (have AI write the code), but with thought about what to ask, what tools to provide, how to verify the result, and how to fit it into a delivery process you trust.
 
 ## Scope
 
@@ -252,8 +284,9 @@ What this curriculum teaches is how to do the middle layer — so you can build 
 |---|---|
 | ✓ | Building the harness around a model accessed via API |
 | ✓ | The full set of harness components — 10 modules, one runnable checkpoint each |
+| ✓ | Orientation on the layers below (model development) and above (agentic engineering) |
 | ✗ | Training or fine-tuning the model itself *(model development)* |
-| ✗ | Using a finished coding agent to ship product features *(agentic engineering, downstream of this)* |
+| ✗ | A practical course on using a finished coding agent to ship product features *(agentic engineering downstream)* |
 | ✗ | Multi-agent orchestration as a primary focus *(mentioned in context only)* |
 
 ## Setup
