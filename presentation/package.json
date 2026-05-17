@@ -1,8 +1,8 @@
 {
-  "name": "agenteng-presentation",
+  "name": "building-agents-presentation",
   "private": true,
   "version": "0.1.0",
-  "description": "Intro deck for the agenteng curriculum (Modules 1-3).",
+  "description": "Intro deck for the building-agents curriculum (Modules 1-3).",
   "type": "module",
   "scripts": {
     "dev": "vite",

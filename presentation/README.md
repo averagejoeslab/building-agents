@@ -1,6 +1,6 @@
 # presentation
 
-Spectacle intro deck for the [agenteng](../) curriculum. Covers the orientation material plus Modules 1-3 (what is an agent → an LLM call → add a loop).
+Spectacle intro deck for the [building-agents](../) curriculum. Covers the orientation material plus Modules 1-3 (what is an agent → an LLM call → add a loop).
 
 About 22 slides total. Designed for a 25-30 minute talk that introduces the agent concept and lands on the chatbot before tools come in.
 

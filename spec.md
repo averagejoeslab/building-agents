@@ -1,4 +1,4 @@
-# agenteng rebuild spec
+# building-agents rebuild spec
 
 A planning document for the reframe of this repo around **harness engineering** as the consolidating 2026 terminology for what the curriculum actually teaches.
 
@@ -6,7 +6,7 @@ A planning document for the reframe of this repo around **harness engineering** 
 
 ## Goal
 
-Reframe agenteng so its terminology matches what the modules actually build, and so a reader immediately understands:
+Reframe building-agents so its terminology matches what the modules actually build, and so a reader immediately understands:
 
 1. **Model development** — training/fine-tuning the model itself. *(Out of scope.)*
 2. **Harness engineering** — the runtime around a model that turns it into an autonomous agent. ***(What this repo teaches.)***
@@ -30,7 +30,7 @@ These sources converge on:
 
 > **Agent = Model + Harness.** The harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability.
 
-The agenteng modules are an *exact enumeration* of harness components. Adopting the term is not a rebrand toward something contested — it's aligning with the term that already won.
+The building-agents modules are an *exact enumeration* of harness components. Adopting the term is not a rebrand toward something contested — it's aligning with the term that already won.
 
 ## The new mental model
 

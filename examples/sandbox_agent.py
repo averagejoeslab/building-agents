@@ -23,7 +23,7 @@ CONTEXT_BUDGET = 150_000
 MAX_RESPONSE_TOKENS = 1024
 RECALL_K = 3
 RECALL_THRESHOLD = 0.3
-SANDBOX_IMAGE = "agenteng-sandbox"
+SANDBOX_IMAGE = "building-agents-sandbox"
 
 STATE_DIR = Path.home() / ".sandbox-agent"
 MESSAGES_FILE = STATE_DIR / "messages.json"

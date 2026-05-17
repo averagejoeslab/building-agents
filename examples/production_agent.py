@@ -35,7 +35,7 @@ RECALL_THRESHOLD = 0.3
 MAX_ITERATIONS = 30
 DANGEROUS_TOOLS = {"write", "edit", "bash"}
 IDEMPOTENT_TOOLS = {"read", "glob", "grep"}
-SANDBOX_IMAGE = "agenteng-sandbox"
+SANDBOX_IMAGE = "building-agents-sandbox"
 
 STATE_DIR = Path.home() / ".production-agent"
 MESSAGES_FILE = STATE_DIR / "messages.json"

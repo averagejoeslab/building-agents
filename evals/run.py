@@ -1,4 +1,4 @@
-"""Evaluation harness for agenteng agents.
+"""Evaluation harness for building-agents.
 
 Loads YAML test cases from evals/cases/, runs each against the target agent
 N times via subprocess, scores outputs (contains/tool_used/tool_count_max/

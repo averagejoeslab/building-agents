@@ -1,4 +1,4 @@
-# agenteng
+# building-agents
 
 A framework-free, code-first curriculum for building the **harness** of an autonomous coding agent — the runtime around a model that turns it into an agent.
 

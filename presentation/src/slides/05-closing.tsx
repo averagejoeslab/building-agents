@@ -40,7 +40,7 @@ export function ClosingSlide() {
       <FlexBox height="100%" flexDirection="column" justifyContent="center">
         <Heading fontSize="80px">Thank you.</Heading>
         <Text fontSize="24px" color="secondary" margin="32px 0 0">
-          github.com/averagejoeslab/agenteng
+          github.com/averagejoeslab/building-agents
         </Text>
         <Text fontSize="18px" color="secondary" margin="40px 0 0">
           A model is intelligence. A harness is the runtime.

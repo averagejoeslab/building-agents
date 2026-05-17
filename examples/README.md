@@ -1,6 +1,6 @@
 # examples
 
-Runnable harness checkpoints for the [agenteng curriculum](../README.md). Each script is one stage in the construction of a coding-agent harness — the cumulative end state of one module. Read the module first, then run the script to see that stage's harness in action. The filename describes what the system has *become* at that point.
+Runnable harness checkpoints for the [building-agents curriculum](../README.md). Each script is one stage in the construction of a coding-agent harness — the cumulative end state of one module. Read the module first, then run the script to see that stage's harness in action. The filename describes what the system has *become* at that point.
 
 Each is one self-contained file with no imports between scripts. Code is duplicated across files on purpose: a reader can open any script and understand the entire harness at that level without jumping around.
 

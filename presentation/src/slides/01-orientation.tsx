@@ -203,7 +203,7 @@ export function AverageJoesStanceSlide() {
           { position: 0.35, label: "Cursor 2.0", sublabel: "parallel workers, no supervisor", color: colors.workflow },
           { position: 0.55, label: "Anthropic multi-agent", sublabel: "research mode", color: colors.quaternary },
           { position: 0.85, label: "Cognition / Devin", sublabel: "single-threaded agent", color: colors.quinary },
-          { position: 1.0, label: "agenteng", sublabel: "this repo", color: colors.quinary },
+          { position: 1.0, label: "building-agents", sublabel: "this repo", color: colors.quinary },
         ]}
         highlightFrom={0.75}
         highlightTo={1.0}
