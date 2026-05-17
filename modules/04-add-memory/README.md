@@ -1,5 +1,7 @@
 # Add memory
 
+> **Harness component: memory and context management.** What the harness persists, what it evicts under budget pressure, and what it recalls when relevant. The harness is what gives the model continuity across sessions.
+
 Module 3's chatbot can hold a conversation, but only inside a single session. Quit the program and the messages list — your only state — evaporates. Next session it's a stranger again.
 
 Adding **memory** turns the chatbot into a **stateful chatbot** — one that recognizes you when you come back next week, instead of starting from zero every run. "Memory" sounds like one feature, but it's three distinct problems hiding under one word, and they need different solutions:

@@ -1,5 +1,7 @@
 # Add guardrails
 
+> **Harness component: safety constraints.** What the harness allows, what it asks the human about, what it refuses, and how long it's willing to run. The harness's policy layer.
+
 > [!NOTE]
 > **Coming soon.** This module is stubbed.
 

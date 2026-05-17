@@ -5,15 +5,81 @@ import { ComparisonPanel } from "../components/ComparisonPanel";
 import { Spectrum } from "../components/Spectrum";
 import { colors } from "../theme";
 
-export function DisciplineSlide() {
+export function ThreeLayersSlide() {
+  const layer = (
+    title: string,
+    body: string,
+    accent: string,
+    note?: string,
+    highlighted = false,
+  ) => (
+    <div
+      style={{
+        border: `2px solid ${highlighted ? accent : colors.border}`,
+        borderLeft: `6px solid ${accent}`,
+        background: highlighted ? `${colors.surface}` : colors.tertiary,
+        padding: "14px 20px",
+        borderRadius: 6,
+        fontFamily: colors.sans,
+        boxShadow: highlighted ? `0 0 0 1px ${accent}33` : undefined,
+        opacity: note?.includes("out of scope") ? 0.55 : 1,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: accent }}>{title}</div>
+        {note && (
+          <div style={{ fontSize: 13, color: highlighted ? colors.quinary : colors.secondary, fontWeight: 600 }}>
+            {note}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 15, color: colors.primary, marginTop: 4 }}>{body}</div>
+    </div>
+  );
+
   return (
     <Slide>
-      <Heading fontSize="38px">What is agentic engineering?</Heading>
-      <Text fontSize="20px" color="quaternary" margin="-12px 0 0">
-        The discipline of building agentic systems.
+      <Heading fontSize="42px">The three layers</Heading>
+      <Text fontSize="18px" color="secondary" margin="-8px 0 12px">
+        A model is intelligence. A harness is the runtime that turns intelligence into an
+        agent. Agentic engineering is the practice of using those agents to build software.
+      </Text>
+      <Box>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {layer(
+            "Agentic engineering",
+            "The practice of using agents to build products, software, and workflows.",
+            colors.quaternary,
+          )}
+          {layer(
+            "Harness engineering",
+            "The runtime around a model — control flow, memory, tools, sandbox, guardrails, observability, evals, performance.",
+            colors.quinary,
+            "← this repo",
+            true,
+          )}
+          {layer(
+            "Model development",
+            "Training and fine-tuning the model itself.",
+            colors.workflow,
+            "out of scope",
+          )}
+        </div>
+      </Box>
+    </Slide>
+  );
+}
+
+export function HarnessEngineeringSlide() {
+  return (
+    <Slide>
+      <Heading fontSize="38px">What is harness engineering?</Heading>
+      <Text fontSize="18px" color="quaternary" margin="-10px 0 6px">
+        <strong>Agent = Model + Harness.</strong> The harness is every piece of code,
+        configuration, and execution logic that isn't the model.
       </Text>
       <Radial
-        center="Agentic"
+        center="Harness"
         centerSub="Engineering"
         spokes={[
           { label: "Model", group: 0 },
@@ -83,6 +149,10 @@ export function WorkflowsVsAgentsSlide() {
   return (
     <Slide>
       <Heading fontSize="38px">Two shapes of agentic system</Heading>
+      <Text fontSize="15px" color="secondary" margin="-8px 0 4px">
+        Both shapes describe the harness's control flow. Workflows hard-code the path;
+        agents let the model pick it.
+      </Text>
       <FlexBox alignItems="flex-start" justifyContent="space-around" width="100%">
         <Box width="48%">
           <Heading fontSize="22px" color="workflow" style={{ color: colors.workflow }}>
@@ -123,7 +193,7 @@ export function AverageJoesStanceSlide() {
       <Heading fontSize="36px">The purist stance</Heading>
       <Text fontSize="20px" margin="-8px 0 0">
         A <strong>real agent has autonomy over its own control flow.</strong>{" "}
-        Workflows are outside the scope of this curriculum.
+        This curriculum builds harnesses for purist agents; workflows are out of scope.
       </Text>
       <Spectrum
         leftLabel="Workflow"

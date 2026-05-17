@@ -1,5 +1,7 @@
 # Add sandboxing
 
+> **Harness component: the execution environment.** Where the harness lets dangerous tools run safely. The harness wraps the model's actions in an isolation boundary.
+
 > [!NOTE]
 > **Coming soon.** This module is stubbed.
 

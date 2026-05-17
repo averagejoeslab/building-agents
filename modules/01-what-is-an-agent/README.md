@@ -1,14 +1,19 @@
 # What is an agent?
 
-An agent is system that can think, act, and observe without human intervention.
+An agent is a system that can think, act, and observe without human intervention.
+
+> **Agent = Model + Harness.**
+> The model is the intelligence substrate (Claude, GPT, etc.) — typically consumed via API. The harness is everything else: the code, configuration, and execution logic around the model that gives it state, tools, execution, feedback, and constraints.
+>
+> A raw model is not an agent. The harness is what turns it into one. This curriculum teaches **harness engineering** — how to build that surrounding runtime from first principles.
 
 ## The three components
 
-An agent has three moving parts:
+An agent has three moving parts. One is the model; two are the irreducible primitives of the harness:
 
-1. **An LLM call** — the reasoning engine
-2. **A loop** (Think, Act, Observe) — the structure that turns single calls into sustained work
-3. **Tools** — the agent's means of acting on its environment
+1. **An LLM call** — the reasoning engine (the **model**)
+2. **A loop** (Think, Act, Observe) — the harness's body, turning single calls into sustained work
+3. **Tools** — the harness's interface to the environment
 
 ## Show an LLM call
 

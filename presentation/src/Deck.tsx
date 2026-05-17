@@ -3,7 +3,8 @@ import { theme } from "./theme";
 
 import { CoverSlide } from "./slides/00-cover";
 import {
-  DisciplineSlide,
+  ThreeLayersSlide,
+  HarnessEngineeringSlide,
   WhatAreAgenticSystemsSlide,
   WorkflowsVsAgentsSlide,
   AverageJoesStanceSlide,
@@ -38,7 +39,8 @@ export function Deck() {
       <CoverSlide />
 
       {/* Orientation */}
-      <DisciplineSlide />
+      <ThreeLayersSlide />
+      <HarnessEngineeringSlide />
       <WhatAreAgenticSystemsSlide />
       <WorkflowsVsAgentsSlide />
       <AverageJoesStanceSlide />

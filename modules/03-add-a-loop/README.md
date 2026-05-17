@@ -1,5 +1,7 @@
 # Add a loop
 
+> **Harness component: control flow.** The first real harness piece. A loop turns a single model call into continuous existence — and binds that existence to an environment (here, the terminal).
+
 Module 2 made one LLM call. The model answered, the program ended. Most useful interactions are conversations — questions, follow-ups, clarifications. The fix is a loop around the API call so the program can keep talking.
 
 By the end you have a chatbot. Not an agent yet — the model can only emit text, not act. Tools come next.

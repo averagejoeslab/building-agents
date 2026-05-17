@@ -1,5 +1,7 @@
 # Add evaluation
 
+> **Harness component: the test harness for the harness.** How you measure whether the harness you've built actually produces a good agent — repeatably, regressably, with a judging signal you can trust.
+
 > [!NOTE]
 > **Coming soon.** This module is stubbed.
 

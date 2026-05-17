@@ -1,5 +1,7 @@
 # Add performance
 
+> **Harness component: production hardening.** Prompt caching, tool output caching, threading, streaming the final answer, structured prompts, and the `assemble()` convergence — what turns a working harness into a fast and cheap one.
+
 > [!NOTE]
 > **Coming soon.** This module is stubbed.
 

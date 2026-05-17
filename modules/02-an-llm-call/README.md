@@ -1,5 +1,7 @@
 # An LLM call
 
+> **Harness component: the model interface.** The harness has exactly one external dependency — a call to the model. This module builds that call. Everything else in the curriculum is added around it.
+
 This module makes one LLM call. One prompt in, one response out. No loop, no tools, no state between calls.
 
 ## The Messages API

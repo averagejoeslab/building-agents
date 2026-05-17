@@ -7,9 +7,12 @@ export function CoverSlide() {
         <Heading fontSize="96px" margin="0">
           agenteng
         </Heading>
-        <Text fontSize="32px" color="secondary" margin="24px 0 0">
-          A framework-free take on{" "}
-          <span style={{ color: "#58a6ff" }}>agentic engineering</span>.
+        <Text fontSize="28px" color="secondary" margin="24px 0 0">
+          A framework-free, code-first curriculum for{" "}
+          <span style={{ color: "#3fb950" }}>harness engineering</span>.
+        </Text>
+        <Text fontSize="18px" color="secondary" margin="12px 0 0">
+          Build the runtime that turns a model into an autonomous coding agent.
         </Text>
         <Text fontSize="20px" color="secondary" margin="60px 0 0">
           github.com/averagejoeslab/agenteng

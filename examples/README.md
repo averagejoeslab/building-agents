@@ -1,8 +1,8 @@
 # examples
 
-Runnable checkpoints for the [agenteng curriculum](../README.md). Each script is the cumulative end state of one module — read the module first, then run the script to see it in action. The filename describes what the system has *become* at that point.
+Runnable harness checkpoints for the [agenteng curriculum](../README.md). Each script is one stage in the construction of a coding-agent harness — the cumulative end state of one module. Read the module first, then run the script to see that stage's harness in action. The filename describes what the system has *become* at that point.
 
-Each is one self-contained file with no imports between scripts. Code is duplicated across files on purpose: a reader can open any script and understand the entire system at that level without jumping around.
+Each is one self-contained file with no imports between scripts. Code is duplicated across files on purpose: a reader can open any script and understand the entire harness at that level without jumping around.
 
 ## Setup (once)
 
@@ -25,16 +25,16 @@ Run from `examples/` — the `.env` and `.venv` are resolved relative to this di
 
 Each script is a strict superset of the previous one's capabilities.
 
-| # | Script | Module | Adds |
+| # | Script | Module | Harness component added |
 |---|---|---|---|
-| 1 | [`llm_call_sync.py`](./llm_call_sync.py) / [`llm_call_async.py`](./llm_call_async.py) | [2](../modules/02-an-llm-call/) | One LLM call — sync `messages.create` and async streaming versions |
-| 2 | [`stateless_chatbot.py`](./stateless_chatbot.py) | [3](../modules/03-add-a-loop/) | A loop around the API call → multi-turn conversation, in-memory only |
-| 3 | [`stateful_chatbot.py`](./stateful_chatbot.py) | [4](../modules/04-add-memory/) | Persistence + token budget eviction + semantic recall |
-| 4 | [`agent.py`](./agent.py) | [5](../modules/05-add-tools/) | Tools + TAO loop + async parallel dispatch — stateful agent |
-| 5 | [`sandbox_agent.py`](./sandbox_agent.py) | [6](../modules/06-add-sandboxing/) | Docker-isolated `bash` |
-| 6 | [`safe_agent.py`](./safe_agent.py) | [7](../modules/07-add-guardrails/) | Approval gates + loop bounds + retry/backoff |
-| 7 | [`traced_agent.py`](./traced_agent.py) | [8](../modules/08-add-observability/) | Structured tracing emitted as JSONL spans |
-| 8 | [`production_agent.py`](./production_agent.py) | [10](../modules/10-add-performance/) | Prompt caching + tool caching + threading + structured prompts + `assemble()` — the curriculum's destination |
+| 1 | [`llm_call_sync.py`](./llm_call_sync.py) / [`llm_call_async.py`](./llm_call_async.py) | [2](../modules/02-an-llm-call/) | **Model interface** — sync `messages.create` and async streaming |
+| 2 | [`stateless_chatbot.py`](./stateless_chatbot.py) | [3](../modules/03-add-a-loop/) | **Control flow** — a loop bound to the terminal |
+| 3 | [`stateful_chatbot.py`](./stateful_chatbot.py) | [4](../modules/04-add-memory/) | **Memory + context management** — persistence, token budget eviction, semantic recall |
+| 4 | [`agent.py`](./agent.py) | [5](../modules/05-add-tools/) | **Tool / action layer** — tools, TAO loop, async parallel dispatch |
+| 5 | [`sandbox_agent.py`](./sandbox_agent.py) | [6](../modules/06-add-sandboxing/) | **Execution environment** — Docker-isolated `bash` |
+| 6 | [`safe_agent.py`](./safe_agent.py) | [7](../modules/07-add-guardrails/) | **Safety constraints** — approval gates, loop bounds, retry/backoff |
+| 7 | [`traced_agent.py`](./traced_agent.py) | [8](../modules/08-add-observability/) | **Structured tracing** — JSONL spans for every LLM and tool call |
+| 8 | [`production_agent.py`](./production_agent.py) | [10](../modules/10-add-performance/) | **Production hardening** — prompt caching, tool caching, threading, structured prompts, `assemble()` |
 
 (Module 9 — Evaluation — ships at [`evals/`](../evals/) at the repo root, since it tests the scripts here rather than being one.)
 

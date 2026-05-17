@@ -1,5 +1,7 @@
 # Add tools
 
+> **Harness component: the tool/action layer.** Without tools the harness can only ferry text. With them, the harness gives the model effects on the world — and the TAO loop hands control of *what* to do next to the model. This is the moment the stateful chatbot becomes a stateful agent.
+
 Module 4's stateful chatbot can remember but not act. Tools change that — they let the model ask your code to run a function on its behalf, see the result, and decide what to do next. **The stateful chatbot becomes a stateful agent the moment it gets tools and a loop to use them in.**
 
 This module covers the whole arc:

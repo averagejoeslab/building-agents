@@ -1,5 +1,7 @@
 # Add observability
 
+> **Harness component: structured tracing.** What the harness reports about its own activity — every LLM call, every tool call, every span — so you can debug, replay, and improve it.
+
 > [!NOTE]
 > **Coming soon.** This module is stubbed.
 
