@@ -12,6 +12,8 @@ I am Chase Dovey, and I conduct research on agentic systems. Most of that work i
 - **Harness engineering.** Wrapping that model in code, state, tools, sandboxing, guardrails, observability, and a loop. *Agent = Model + Harness.* This layer produced Claude Code, Cursor, Devin, Aider.
 - **Agentic engineering.** Using an agent to build software, products, infrastructure, or more agents. The agent becomes the tool.
 
+The middle layer is where I go deep. Building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering most engineers are already doing — they use Claude Code, Cursor, or Devin day to day. What's missing is how to build something like Claude Code yourself.
+
 > [!NOTE]
 > For the precise definition of "agentic system" — workflows vs. agents, the multi-agent composition debate, the purist stance this curriculum takes — see [Module 1](./modules/01-what-is-an-agent/).
 
