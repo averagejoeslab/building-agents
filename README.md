@@ -6,24 +6,25 @@ To document how to build your own agent from scratch, which you can do by buildi
 
 I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see vendors pitching their harness, which typically includes their control flow, memory layer, and tool execution layer, etc. To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs. In this repo I document how to build your own agent from scratch by building the harness around a model.
 
-## The three disciplines
+## Getting Started: The three disciplines
 
-- **Model development.** Training foundational models. The work that produces GPT, Claude, Gemini, Llama. A small number of labs with capital, GPUs, and data pipelines. Output: a model you call by API.
-- **Harness engineering.** Wrapping that model in code, state, tools, sandboxing, guardrails, observability, and a loop. *Agent = Model + Harness.* This layer produced Claude Code, Cursor, Devin, Aider.
-- **Agentic engineering.** Using an agent to build software, products, infrastructure, or more agents. The agent becomes the tool.
+There are three disciplines that lead up to building and using an agent:
 
-The middle layer is where I go deep. Building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering most engineers are already doing — they use Claude Code, Cursor, or Devin day to day. What's missing is how to build something like Claude Code yourself.
+- **Model development.** This discipline is responsible for training the models most use today. A small number of labs with capital, GPUs, and data pipelines have the resources to train these models and the output of their work is a model you call via an API endpoint. Examples of these models are GPT, Claude, Gemini, Llama, etc.
+- **Harness engineering.** This discipline is responsible for wrapping that model in a control flow, memory layer, tool execution layer, sandboxing, guardrails, observability, etc. When you wrap a model in a harness you get an agent because *Agent = Model + Harness.* The output of this discipline is a harness that wraps a model gives rise to an agent. Examples of these harnesses are Claude Code, Cursor, Codex, Mistral's Vibe, etc.
+- **Agentic engineering.** This discipline is responsible for using an agent to build software, products, infrastructure, or more agents. The agent becomes the tool. The output of this discipline is products built by agents orchestrated by humans. Examples of agentic engineering are things like OpenClaw, but could also be a non-AI product that was built by an agent that was orchestrated by a human.
 
-> [!NOTE]
-> For the precise definition of "agentic system" — workflows vs. agents, the multi-agent composition debate, the purist stance this curriculum takes — see [Module 1](./modules/01-what-is-an-agent/).
+Harness engineering is the primary content of this repo in the [modules](./modules/). We won't cover model development other than in theory because building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. We will lightly touch on agentic engineering at the end because the agent we make could be used to build other agents or products.
 
-Here's how you get from nothing to an agent, layer by layer.
+## Building an agent: a journey through the disciplines
 
-## 1. Model development → a callable model
+Each discipline in dependency order. Section 1 ends where section 2 starts; section 2 ends where section 3 starts.
 
-I don't teach this here; the harness consumes the model as a callable API. What's inside it:
+### 1. Model development → a callable model
 
-### What a modern LLM is made of
+I don't teach this here; the harness consumes the model as a callable API.
+
+#### What a modern LLM is made of
 
 A probabilistic next-token predictor built from a small set of primitives:
 
@@ -33,7 +34,7 @@ A probabilistic next-token predictor built from a small set of primitives:
 - **Transformer block** — multi-head self-attention (every token attends to every other), feed-forward network (per-token nonlinear, often SwiGLU), residual connections, layer normalization (RMSNorm is common). Frontier models stack 60–120 of these.
 - **Output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled.
 
-### Training
+#### Training
 
 ```mermaid
 flowchart LR
@@ -49,13 +50,13 @@ flowchart LR
 3. **Preference tuning (RLHF or DPO).** Human-rated comparisons — learn what counts as a good response. Helpfulness, honesty, safety instilled here.
 4. **(Optional) Specialty fine-tuning.** Domain-specific data: code, math, tool use.
 
-### Inference
+#### Inference
 
 A forward pass produces a distribution over the vocabulary. A token is sampled — modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), **top-p / nucleus** (smallest set whose probabilities sum to p). Repeat until end-of-sequence or max length.
 
 A callable model can complete text. It can't read files, run commands, remember across sessions, or stop when done. To get any of that, you wrap it in a harness.
 
-## 2. Harness engineering → an agent
+### 2. Harness engineering → an agent
 
 This is the layer I teach in this repo. A harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability. Wrap a model in one and you have an agent.
 
@@ -76,15 +77,15 @@ One module per component. Every checkpoint in [`examples/`](./examples/) is a ru
 > [!NOTE]
 > The term *harness* in this sense was consolidated through 2025–2026 by Anthropic ([effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents); [harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)), LangChain ([*The Anatomy of an Agent Harness*](https://www.langchain.com/blog/the-anatomy-of-an-agent-harness)), Martin Fowler ([Birgitta Böckeler, *Harness engineering for coding agent users*](https://martinfowler.com/articles/harness-engineering.html)), [Addy Osmani](https://addyosmani.com/blog/agent-harness-engineering/), and [O'Reilly Radar](https://www.oreilly.com/radar/agent-harness-engineering/).
 
-## 3. Agentic engineering — what you do with the agent
+### 3. Agentic engineering — what you do with the agent
 
 Two things.
 
-### Develop other products
+#### Develop other products
 
 Point the agent at the next codebase. Peter Steinberg built [openclaw](#) by directing existing coding agents to produce most of its implementation, and embedded an agent harness inside openclaw itself, so the product ships with an agent of its own. Agents produced the artifact; the artifact ships with an agent.
 
-### Develop the agent itself
+#### Develop the agent itself
 
 Point the agent at its own curriculum. Have it write a new module, refactor a harness component, improve its tracing, tighten its evals, raise its performance.
 
