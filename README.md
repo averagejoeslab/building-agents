@@ -1,74 +1,45 @@
 # building-agents
 
-A code-first curriculum for building harnesses around foundational models — the runtime that turns a model into an autonomous coding agent.
+**Build your own agent by building the harness around a foundational model.** Agent = Model + Harness — and this repo teaches you how to construct the *harness* half end-to-end. Along the way it sets the record straight on three disciplines that the current industry hype keeps conflating: model development, harness engineering, and agentic engineering.
 
-## Why this repo exists
+## Why I made this
 
-I made this because the industry has been throwing around "agentic engineering" as a catchall for everything from training models to writing prompts to wiring tools to using Claude Code on your day job. That's not wrong — it's just imprecise enough that you can't tell what you're learning, what you're hiring for, or what you're actually building.
+I've spent a long time researching agentic systems, and a large portion of that work has been building harnesses — the runtimes that turn a model into an agent. Right now most of the industry conversation is a race to claim *the best harness*: every vendor, every framework, every newsletter pitching their loop, their memory layer, their tool registry as the one you should adopt.
 
-There are three distinct disciplines stacked on top of each other. They depend on each other, but they aren't the same skill. This repo puts down what I believe to be the correct framing — and then teaches the middle one.
+My view is the opposite: **the best harness is the one you build yourself.** Not because the off-the-shelf ones are bad, but because a harness you constructed from primitives is one you understand — you know which trade-offs were made, you know which knobs exist, you know what to change when the model misbehaves. That understanding is what this repo is for.
 
-## The journey from model to agent
+It also gives me a chance to put down what I believe is the correct framing for what people mean (and often don't mean) when they say "agentic engineering."
 
-Three layers, in the order they came into existence.
+## The three disciplines
 
-### 1. Model development — the foundational models
+The industry uses "agentic engineering" as a catchall for three distinct disciplines stacked on top of each other. They depend on each other, but they aren't the same skill.
 
-First, the substrate. A handful of labs — Anthropic, OpenAI, Google, Meta, a few others — build foundational large language models. They curate web-scale corpora, run pretraining on thousands of GPUs, fine-tune for instruction following, and use human-rated preference data (RLHF / DPO) to teach helpfulness and safety. The output is a model you can call: send in messages, get back tokens.
+- **Model development.** Training the foundational model itself. The work that produces GPT, Claude, Gemini, Llama. Done by a small number of labs with capital, GPUs, and data-pipeline expertise. The output is a model you can call by API.
 
-This is where the *intelligence* comes from. Most of us aren't doing this work — it's a multi-billion-dollar effort that requires capital, data pipelines, and distributed-training expertise. We consume the output.
+- **Harness engineering.** Wrapping that model in code, state, tools, sandboxing, guardrails, observability, and a loop — everything required to turn intelligence into an agent. *Agent = Model + Harness.* This is the layer that produced Claude Code, Cursor, Devin, Aider.
 
-### 2. Harness engineering — the runtime that produced Claude Code
+- **Agentic engineering.** Using an agent — a model wrapped in a harness — to build software, products, infrastructure, or more agents. The agent stops being the artifact and becomes the tool you ship with.
 
-A raw model can complete text. It can't read files, run commands, remember anything across sessions, or stop when it's done. To turn intelligence into an agent, you wrap the model in a **harness**: code, state, tools, sandboxes, guardrails, observability, and a loop that ties it all together.
+This repo teaches the middle one. The other two are explained in depth below so you can place them.
 
-> **Agent = Model + Harness.** The harness is every piece of code, configuration, and execution logic that isn't the model itself.
+## What an agentic system is
 
-Harness engineering is what produced **Claude Code, Cursor, Devin, Aider, nanoagent** — every coding agent you've used. Someone wrote a system prompt, picked a tool surface, designed a memory layer, set up a sandbox, wired up tracing, built an eval suite. The model is the same Claude that anyone else can call. The harness is the *product*.
+Before going into the three layers in depth, a brief grounding in what "agentic system" actually means — because the harness exists to *produce one*, and the shape of the system you're targeting determines what the harness has to do.
 
-**This is the layer this repo teaches.** Not because the other layers don't matter — they do — but because this is the layer where most engineers can directly intervene, build, and improve. And it's where the most leverage compounds: a great harness on a decent model often beats a mediocre harness on a great one.
+The idea comes from cognitive science: systems that can act on their own, without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to reach a goal without supervision.
 
-### 3. Agentic engineering — the professional version of vibe coding
+### Two shapes: workflows and agents
 
-Once a model is wrapped in a harness, you have an **agent**. And an agent is a building block for the next thing.
+In my opinion, agentic systems come in two forms, as defined in Anthropic's [*Building Effective Agents*](https://www.anthropic.com/engineering/building-effective-agents). The distinction is about *what shape the system's control flow takes*.
 
-**Agentic engineering** is what you do *with* that agent: directing it to build software, products, workflows, infrastructure, or more agents. The agent stops being the artifact and becomes the tool.
-
-If "vibe coding" (Karpathy's term) is the casual end of this — give in to the vibes, let the AI write, accept what works — then agentic engineering is the disciplined version. Same fundamental move: have AI write the code. But with thought about what you ask the agent to do, what context and tools it gets, how you verify its work, how it fits into your delivery process.
-
-A concrete example: **Peter Steinberg built [openclaw](#) by directing existing coding agents to produce most of its implementation.** He didn't write every line — he directed agents to write them. And once openclaw was working, he embedded an agent harness *inside* the project itself, so openclaw ships with an agent of its own. That loop captures both halves of the third layer: **agents produced the artifact, and the artifact can include agents.**
-
-This is how the three layers actually interact in 2026: a small team ships substantial software because they're operating at the agentic-engineering layer, sitting on top of harnesses someone else built, which sit on top of models the labs trained.
-
-## What you'll build here
-
-This curriculum teaches **harness engineering**. The way that sticks: by building one.
-
-You start with a single LLM call. Then you add a loop. Then memory. Then tools. Then a sandbox. Then guardrails. Then observability. Then evals. Then performance. By the end you have a production-shaped coding-agent harness — one you understand because you constructed it, piece by piece, from primitives.
-
-Once you have that harness, two paths open:
-
-- **Use it to develop itself.** Point your agent at the curriculum. Extend the modules. Refactor the harness. Improve the components. Recursive.
-- **Use it to develop other products.** Point your agent at the next codebase. That's agentic engineering, performed with a harness you own and understand.
-
-Either way, the harness is the through-line.
-
-## What are agentic systems?
-
-The idea of agentic systems comes from cognitive science — systems that can act on their own, without human intervention. In modern agentic systems, this agency is provided by an LLM coordinating calls to accomplish a goal without supervision.
-
-## Types of agentic systems
-
-In my opinion, agentic systems come in two forms — **workflows** and **agents** — as defined in Anthropic's [*Building Effective Agents*](https://www.anthropic.com/engineering/building-effective-agents). The distinction is about *what shape the system's control flow takes*.
-
-**Workflows** — systems where LLMs and tools are orchestrated through **predefined code paths**. Prescriptive code paths define the sequence of steps that will be taken to accomplish a goal.
+**Workflows** — LLMs and tools orchestrated through **predefined code paths**. Prescriptive code paths define the sequence of steps that will be taken to accomplish a goal.
 
 ```mermaid
 flowchart LR
     In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
 ```
 
-**Agents** — systems where **LLMs dynamically direct their own path through the control flow**. The model decides the sequence of steps to take to accomplish a goal; no prescriptive code paths are followed and the model exercises its probability distribution to determine the next step.
+**Agents** — **LLMs dynamically direct their own path through the control flow**. The model decides the sequence of steps; no prescriptive code paths are followed and the model exercises its probability distribution to determine the next step.
 
 ```mermaid
 flowchart LR
@@ -137,7 +108,7 @@ flowchart LR
     E -->|refine| G
 ```
 
-### Common agent patterns
+### The agent pattern
 
 Workflows are a catalog of orchestration shapes. Agents are **one pattern** — an autonomous loop — and that's the whole list. What varies between agents in practice is the *harness around the model*: the environment, memory and context management, the toolkit, and whether one of the tools happens to be another agent.
 
@@ -152,14 +123,14 @@ flowchart LR
     Q -->|no| Out[Output]
 ```
 
-## Composition
+### Composition
 
 By composing the above workflows and agent patterns, you can build multi-agent systems, multi-workflow systems, or systems that mix both.
 
 > [!NOTE]
 > **Whether to use multi-agent composition at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code subagents). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
 
-## The Average Joes Lab stance: purist agents only
+### The Average Joes Lab stance: purist agents only
 
 We believe in the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents): **a real agent has autonomy over its own control flow** where the model decides what tool to call, what to do with the result, and when the task is done. Building harnesses for purist agents is the focus of this repo.
 
@@ -173,11 +144,9 @@ flowchart LR
 
 The primitives are the same — LLM calls, tools, context, memory. An agent's control flow is the model making those choices live; a workflow's control flow is you making them in advance. The building blocks transfer; how you orchestrate them into a fixed sequence is its own discipline.
 
-For most production systems a workflow is more reliable, cheaper, and easier to evaluate — build a workflow if you can. But the interesting engineering problems — designing tools the model will use well, managing an open-ended context, making a non-deterministic loop reliable, evaluating a trajectory you can't enumerate — are agent problems. If you want a workflow, compose the primitives from this content into the sequence your problem needs.
+For most production systems a workflow is more reliable, cheaper, and easier to evaluate — build a workflow if you can. But the interesting engineering problems — designing tools the model will use well, managing an open-ended context, making a non-deterministic loop reliable, evaluating a trajectory you can't enumerate — are agent problems.
 
-## What agents look like
-
-Production examples:
+### What agents look like
 
 - **Coding agents** — [Claude Code](https://claude.com/claude-code), [Cursor](https://cursor.com), [Devin](https://devin.ai), [Aider](https://aider.chat), [nanoagent](https://github.com/averagejoeslab/nanoagent). The model opens files, edits them, runs tests, iterates.
 - **Research agents** — [OpenAI Deep Research](https://openai.com/index/introducing-deep-research/), Claude's research mode. The model searches, synthesizes, digs deeper.
@@ -190,7 +159,11 @@ In each case, the next action depends on what the previous action produced. The 
 
 ---
 
-## Model development (in depth)
+## The journey from nothing to agentic engineering, in depth
+
+You now have a working picture of what an agentic system is. The rest of this README walks the three disciplines in order — model development → harness engineering → agentic engineering — so you can see how you actually get from *nothing* to *shipping software with agents you built*.
+
+## 1. Model development (in depth)
 
 The bottom of the stack. This repo doesn't teach model development — the harness assumes the model already exists and is consumed by API — but a one-page orientation grounds what the model layer actually contains.
 
@@ -228,7 +201,9 @@ Calling the model API runs a forward pass through every layer, producing a proba
 
 Model development requires distributed training infrastructure, data curation pipelines, dedicated evaluation suites, and capital that does not pencil out for most projects. Frontier-model training is a multi-billion-dollar effort. The harness layer above assumes that effort has happened upstream and the model is now a callable service.
 
-## Harness engineering (in depth) — learn by doing
+**What you take away:** the model is a *callable substrate*. It can complete text. It cannot read files, run commands, remember anything across sessions, or stop when it's done. To get any of that, you need the next layer.
+
+## 2. Harness engineering (in depth) — what this repo teaches
 
 The middle layer. **This is what we build in this repo.** And we do it the only way the discipline really sticks: by building one harness end-to-end, from a single LLM call to a production-shaped runtime, one component at a time.
 
@@ -252,7 +227,9 @@ Each of these is one module in this curriculum. The modules build cumulatively �
 > [!NOTE]
 > The term *harness* in this sense was consolidated through 2025–2026 by Anthropic ([effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents); [harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)), LangChain ([*The Anatomy of an Agent Harness*](https://www.langchain.com/blog/the-anatomy-of-an-agent-harness)), Martin Fowler ([Birgitta Böckeler, *Harness engineering for coding agent users*](https://martinfowler.com/articles/harness-engineering.html)), [Addy Osmani](https://addyosmani.com/blog/agent-harness-engineering/), and [O'Reilly Radar](https://www.oreilly.com/radar/agent-harness-engineering/). The framing has converged: harness = everything except the model.
 
-## Agentic engineering (in depth)
+**What you take away:** once you've stacked these nine components around a model, you have an *agent* — something that can run on its own, take actions, recover from mistakes, and stop when it's done. That agent is now a tool. The next discipline is about using it.
+
+## 3. Agentic engineering (in depth)
 
 The top layer. Once you've built an agent — a model wrapped in a harness — what do you do with it? Two things, both called agentic engineering.
 
@@ -260,7 +237,7 @@ The top layer. Once you've built an agent — a model wrapped in a harness — w
 
 Point the agent at the curriculum it was built from. Have it write a new module. Have it refactor one of the harness components. Have it improve its own tracing, tighten its own evals, raise its own performance. The harness becomes its own development tool.
 
-The recursive nature is the point: this repo is being built using Claude Code — a coding-agent harness — running on Claude. The author drives that agent to write modules, build the deck, ship commits. Every layer of the stack is visible in the act of producing the repo:
+The recursive nature is the point: this repo is itself being built using Claude Code — a coding-agent harness — running on Claude. The author drives that agent to write modules, build the deck, ship commits. Every layer of the stack is visible in the act of producing the repo:
 
 1. Anthropic does **model development** to produce Claude.
 2. The Claude Code team does **harness engineering** to build Claude Code.
@@ -274,9 +251,32 @@ The more visible flavor of agentic engineering: take the agent and point it at t
 
 A concrete example: **Peter Steinberg built [openclaw](#) by directing existing coding agents to produce most of its implementation.** He didn't write every line — he directed agents to write them. And once openclaw was working, he embedded an agent harness *inside* the project itself, so openclaw users get an agent as part of the product. Two halves of agentic engineering captured in one project: agents produced the artifact, and the artifact ships with an agent.
 
-That's the shape of mature agentic engineering: it compounds. Each agent you build with becomes a building block for the next thing. Each thing you ship can itself include an agent. The discipline isn't about replacing the engineer; it's about giving the engineer leverage at every layer.
+That's the shape of mature agentic engineering: it compounds. Each agent you build with becomes a building block for the next thing. Each thing you ship can itself include an agent.
 
-If "vibe coding" is the casual end of this — *give in to the vibes, accept what the model produces* — agentic engineering is the disciplined version. Same essential move (have AI write the code), but with thought about what to ask, what tools to provide, how to verify the result, and how to fit it into a delivery process you trust.
+If "vibe coding" (Karpathy's term) is the casual end of this — *give in to the vibes, accept what the model produces* — agentic engineering is the disciplined version. Same essential move (have AI write the code), but with thought about what to ask, what tools to provide, how to verify the result, and how to fit it into a delivery process you trust.
+
+---
+
+## The curriculum
+
+The repo's content lives here. The path: **use Claude as the model**, **build a harness around it one component at a time**, and **end with an agent you understand**. From there, you can either keep developing the agent itself or point it at the next product — i.e. do agentic engineering with a harness you own.
+
+Each module pairs a prose explanation with a runnable checkpoint in [`examples/`](./examples/) — the file's name describes what the system has become at that step.
+
+| # | Module | Harness component | Checkpoint |
+|---|---|---|---|
+| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | *(no code)* |
+| 2 | [An LLM call](./modules/02-an-llm-call/) | **Model interface** | [`llm_call_sync.py`](./examples/llm_call_sync.py), [`llm_call_async.py`](./examples/llm_call_async.py) |
+| 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
+| 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |
+| 5 | [Add tools](./modules/05-add-tools/) | **Tool / action layer** | [`agent.py`](./examples/agent.py) |
+| 6 | [Add sandboxing](./modules/06-add-sandboxing/) | **Execution environment** *(stubbed)* | [`sandbox_agent.py`](./examples/sandbox_agent.py) |
+| 7 | [Add guardrails](./modules/07-add-guardrails/) | **Safety constraints** *(stubbed)* | [`safe_agent.py`](./examples/safe_agent.py) |
+| 8 | [Add observability](./modules/08-add-observability/) | **Structured tracing** *(stubbed)* | [`traced_agent.py`](./examples/traced_agent.py) |
+| 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** *(stubbed)* | [`evals/`](./evals/) |
+| 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** *(stubbed)* | [`production_agent.py`](./examples/production_agent.py) |
+
+Modules 1–5 are written end-to-end. Modules 6–10 are stubbed; their checkpoints in [`examples/`](./examples/) already implement what each one will describe — feel free to run those in the meantime.
 
 ## Scope
 
@@ -295,25 +295,6 @@ If "vibe coding" is the casual end of this — *give in to the vibes, accept wha
 - [Python 3.13 or newer](https://www.python.org/downloads/)
 - [uv](https://docs.astral.sh/uv/) for dependency management
 - An [Anthropic API key](https://console.anthropic.com) (or other model provider API key)
-
-## Content
-
-The curriculum is one straight line: start with a single LLM call and build outward, one harness component at a time, until you reach a production-shaped coding-agent harness. Each module pairs a prose explanation with a runnable checkpoint in [`examples/`](./examples/) — the file's name describes what the system has become at that step.
-
-| # | Module | Harness component | Checkpoint |
-|---|---|---|---|
-| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | *(no code)* |
-| 2 | [An LLM call](./modules/02-an-llm-call/) | **Model interface** | [`llm_call_sync.py`](./examples/llm_call_sync.py), [`llm_call_async.py`](./examples/llm_call_async.py) |
-| 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
-| 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |
-| 5 | [Add tools](./modules/05-add-tools/) | **Tool / action layer** | [`agent.py`](./examples/agent.py) |
-| 6 | [Add sandboxing](./modules/06-add-sandboxing/) | **Execution environment** *(stubbed)* | [`sandbox_agent.py`](./examples/sandbox_agent.py) |
-| 7 | [Add guardrails](./modules/07-add-guardrails/) | **Safety constraints** *(stubbed)* | [`safe_agent.py`](./examples/safe_agent.py) |
-| 8 | [Add observability](./modules/08-add-observability/) | **Structured tracing** *(stubbed)* | [`traced_agent.py`](./examples/traced_agent.py) |
-| 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** *(stubbed)* | [`evals/`](./evals/) |
-| 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** *(stubbed)* | [`production_agent.py`](./examples/production_agent.py) |
-
-Modules 1-5 are written end-to-end. Modules 6-10 are stubbed; their checkpoints in [`examples/`](./examples/) already implement what each one will describe — feel free to run those in the meantime.
 
 ## License
 
