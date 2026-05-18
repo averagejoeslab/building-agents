@@ -431,83 +431,17 @@ class: ''
 <div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept only · modules/01-what-is-an-agent/</div>
 </div>
 
-<div style="margin-top: 1rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+<div style="margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
 <div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
 
-<svg viewBox="0 0 750 280" style="width: 92%; max-width: 1000px; height: auto;" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="rgba(255,255,255,0.4)"/>
-    </marker>
-    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="#EB6E1F"/>
-    </marker>
-  </defs>
-
-  <!-- MUTED BASE LAYER (always visible) -->
-  <rect x="20" y="115" width="90" height="45" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/>
-  <text x="65" y="143" fill="rgba(255,255,255,0.65)" text-anchor="middle" font-size="14" font-weight="600">Input</text>
-
-  <rect x="175" y="115" width="90" height="45" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/>
-  <text x="220" y="143" fill="rgba(255,255,255,0.65)" text-anchor="middle" font-size="14" font-weight="600">LLM</text>
-
-  <polygon points="370,110 415,137.5 370,165 325,137.5" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/>
-  <text x="370" y="142" fill="rgba(255,255,255,0.65)" text-anchor="middle" font-size="13" font-weight="600">Tool?</text>
-
-  <rect x="490" y="40" width="115" height="45" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/>
-  <text x="547" y="68" fill="rgba(255,255,255,0.65)" text-anchor="middle" font-size="14" font-weight="600">Execute</text>
-
-  <rect x="490" y="190" width="115" height="45" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.3)" stroke-width="1.2"/>
-  <text x="547" y="218" fill="rgba(255,255,255,0.65)" text-anchor="middle" font-size="14" font-weight="600">Output</text>
-
-  <path d="M 110 137.5 L 173 137.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" fill="none" marker-end="url(#arrowMuted)"/>
-  <path d="M 265 137.5 L 323 137.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" fill="none" marker-end="url(#arrowMuted)"/>
-  <path d="M 412 121 L 488 70" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" fill="none" marker-end="url(#arrowMuted)"/>
-  <path d="M 412 154 L 488 205" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" fill="none" marker-end="url(#arrowMuted)"/>
-  <path d="M 547 40 Q 380 -20 220 105 L 220 113" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" fill="none" marker-end="url(#arrowMuted)"/>
-
-  <text x="447" y="95" fill="rgba(255,255,255,0.45)" font-size="11">yes</text>
-  <text x="447" y="195" fill="rgba(255,255,255,0.45)" font-size="11">no</text>
-
-  <!-- HIGHLIGHTED OVERLAYS — revealed step-by-step -->
-
-  <!-- Step 1: Input → LLM -->
-  <g v-click="1">
-    <rect x="20" y="115" width="90" height="45" rx="4" fill="rgba(235,110,31,0.22)" stroke="#EB6E1F" stroke-width="2"/>
-    <text x="65" y="143" fill="white" text-anchor="middle" font-size="14" font-weight="700">Input</text>
-    <path d="M 110 137.5 L 173 137.5" stroke="#EB6E1F" stroke-width="2.5" fill="none" marker-end="url(#arrowOrange)"/>
-  </g>
-
-  <!-- Step 2: LLM → Tool? -->
-  <g v-click="2">
-    <rect x="175" y="115" width="90" height="45" rx="4" fill="rgba(235,110,31,0.22)" stroke="#EB6E1F" stroke-width="2"/>
-    <text x="220" y="143" fill="white" text-anchor="middle" font-size="14" font-weight="700">LLM</text>
-    <path d="M 265 137.5 L 323 137.5" stroke="#EB6E1F" stroke-width="2.5" fill="none" marker-end="url(#arrowOrange)"/>
-  </g>
-
-  <!-- Step 3: Tool? → Execute (yes) -->
-  <g v-click="3">
-    <polygon points="370,110 415,137.5 370,165 325,137.5" fill="rgba(235,110,31,0.22)" stroke="#EB6E1F" stroke-width="2"/>
-    <text x="370" y="142" fill="white" text-anchor="middle" font-size="13" font-weight="700">Tool?</text>
-    <path d="M 412 121 L 488 70" stroke="#EB6E1F" stroke-width="2.5" fill="none" marker-end="url(#arrowOrange)"/>
-    <text x="447" y="95" fill="#EB6E1F" font-size="11" font-weight="700">yes</text>
-    <rect x="490" y="40" width="115" height="45" rx="4" fill="rgba(235,110,31,0.22)" stroke="#EB6E1F" stroke-width="2"/>
-    <text x="547" y="68" fill="white" text-anchor="middle" font-size="14" font-weight="700">Execute</text>
-  </g>
-
-  <!-- Step 4: Execute → LLM (tool result back to model) -->
-  <g v-click="4">
-    <path d="M 547 40 Q 380 -20 220 105 L 220 113" stroke="#EB6E1F" stroke-width="2.5" fill="none" marker-end="url(#arrowOrange)"/>
-  </g>
-
-  <!-- Step 5: Tool? → Output (no) -->
-  <g v-click="5">
-    <path d="M 412 154 L 488 205" stroke="#EB6E1F" stroke-width="2.5" fill="none" marker-end="url(#arrowOrange)"/>
-    <text x="447" y="195" fill="#EB6E1F" font-size="11" font-weight="700">no</text>
-    <rect x="490" y="190" width="115" height="45" rx="4" fill="rgba(235,110,31,0.22)" stroke="#EB6E1F" stroke-width="2"/>
-    <text x="547" y="218" fill="white" text-anchor="middle" font-size="14" font-weight="700">Output</text>
-  </g>
-</svg>
+```mermaid {scale: 0.7}
+flowchart LR
+    Input --> LLM
+    LLM --> Tool{Tool?}
+    Tool -- yes --> Execute
+    Execute --> LLM
+    Tool -- no --> Output
+```
 
 </div>
 
