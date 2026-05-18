@@ -186,45 +186,45 @@ class: ''
 
 <div style="display: flex; flex-direction: column; gap: 0.2rem;">
 
-<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you type text</div>
+<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you type something</div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Preprocessing</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.6rem;">
-<div style="font-size: 0.7rem;"><strong style="color: #EB6E1F;">Tokenizer</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">chops text into chunks, each gets a number ID</span></div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Setting up · not part of the learning</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.22rem 0.6rem;">
+<div style="font-size: 0.72rem;">Turn your text into numbers — the model only does math, not words.</div>
 </div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
 <div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.35rem 0.5rem; background: rgba(235,110,31,0.05);">
-<div style="font-size: 0.5rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.25rem;">Neural network · learned during training</div>
+<div style="font-size: 0.5rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.25rem;">The learned part · this is what training shaped</div>
 <div style="display: flex; flex-direction: column; gap: 0.18rem;">
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem;">
-<div style="font-size: 0.7rem;"><strong>Embedding</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">turns each ID into a "meaning vector"</span></div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-size: 0.72rem;">Give each number a "meaning" — similar words land near each other.</div>
 </div>
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.28rem 0.55rem;">
-<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">Transformer block × 60–120</div>
-<div style="font-size: 0.6rem; opacity: 0.88; margin-top: 0.1rem;">the "thinking" — every token looks at every other, refining meaning over and over</div>
+<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.32rem 0.55rem;">
+<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">The thinking · repeated 60–120 times</div>
+<div style="font-size: 0.62rem; opacity: 0.9; margin-top: 0.1rem;">Every word looks at every other word and refines what it means in this context.</div>
 </div>
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem;">
-<div style="font-size: 0.7rem;"><strong>LM head</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">scores every possible next word</span></div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-size: 0.72rem;">Rank every possible next word — give each a score.</div>
 </div>
 </div>
 </div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Postprocessing</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.6rem;">
-<div style="font-size: 0.7rem;"><strong style="color: #EB6E1F;">Sample &amp; detokenize</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">pick one word from the scores, turn back to text</span></div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Wrapping up · not part of the learning</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.22rem 0.6rem;">
+<div style="font-size: 0.72rem;">Pick one word from the ranking and write it out.</div>
 </div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you see one word — repeat the whole thing for the next word</div>
+<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you see one word — and the whole thing repeats for the next word</div>
 
 </div>
 </div>
