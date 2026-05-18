@@ -539,8 +539,31 @@ async def main():
 
 </div>
 
-<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 0.98rem; line-height: 1.55;">The Messages API is stateless. The program holds the state. <strong style="color: #EB6E1F;">Terminal as the simplest environment.</strong></div>
+<div style="margin-top: 1rem; padding: 0.85rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.95rem; line-height: 1.5;">The Messages API is stateless. The program holds the state. <strong style="color: #EB6E1F;">Terminal is just our pick — the loop is environment-agnostic.</strong></div>
+</div>
+
+<div style="margin-top: 0.85rem; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem;">
+<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.78rem;">Terminal</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">stdin / stdout</div>
+</div>
+<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.78rem;">WebSocket</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">browser SSE</div>
+</div>
+<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.78rem;">Slack</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">slash command</div>
+</div>
+<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.78rem;">Gameboy</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">emulator I/O</div>
+</div>
+<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.78rem;">Spreadsheet</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">cell formula</div>
+</div>
 </div>
 
 </div>
@@ -617,8 +640,9 @@ flowchart LR
 
 </div>
 
-<div style="margin-top: 0.75rem; padding: 0.6rem 1.25rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
+<div style="margin-top: 0.75rem; padding: 0.65rem 1.25rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
 <div style="color: white; font-size: 0.95rem; font-weight: 700;">The model — not your code — decides what comes next.</div>
+<div style="color: rgba(255,255,255,0.85); font-size: 0.82rem; margin-top: 0.25rem;">The stateful chatbot becomes a stateful agent.</div>
 </div>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
