@@ -437,8 +437,8 @@ class: ''
 </div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1.25rem; margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; justify-content: center;">
-<div class="eyebrow" style="text-align: center; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
+<div style="margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+<div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
 
 ```mermaid {scale: 0.55}
 flowchart LR
