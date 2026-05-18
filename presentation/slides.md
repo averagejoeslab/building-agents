@@ -8,10 +8,10 @@ info: |
 class: text-center
 highlighter: shiki
 lineNumbers: false
-controls: false
 editor: false
 record: false
 download: false
+contextMenu: false
 drawings:
   persist: false
 transition: slide-left

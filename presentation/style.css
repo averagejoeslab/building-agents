@@ -1,13 +1,10 @@
-/* Hide Slidev's slide-list drawer / navigation menu overlay.
-   These selectors cover the common drawer/menu element classes
-   Slidev renders for the slide list and table of contents. */
+/* Hide Slidev's bottom controls bar (contains the menu trigger button)
+   plus any slide-list/menu drawer overlay that might still pop. */
 
-#slide-list,
-.slidev-nav-side-menu,
-.slidev-nav-go-to-list,
-.menu-container,
-[aria-label="Slides overview"],
-[aria-label="Menu"],
-nav.menu {
+#slidev-controls,
+.slidev-controls,
+[class*="page-list"],
+[class*="slidev-menu"],
+[class*="nav-menu"] {
   display: none !important;
 }
