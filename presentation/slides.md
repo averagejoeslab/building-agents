@@ -442,12 +442,24 @@ class: ''
 
 ```mermaid {scale: 0.5}
 flowchart LR
-    In(["User input"]) --> Think
-    Think["<b>THINK</b><br/>LLM call<br/><i>the model</i>"] --> Branch{Tool<br/>call?}
-    Branch -- yes --> Act["<b>ACT</b><br/>run a tool<br/><i>Tools — harness</i>"]
-    Act --> Observe["<b>OBSERVE</b><br/>result → context<br/><i>Loop — harness</i>"]
-    Observe --> Think
-    Branch -- no --> Out(["Response"])
+    User(["User"])
+
+    User -- prompt --> Think
+
+    subgraph TAO ["The TAO loop"]
+        direction LR
+        Think["<b>THINK</b><br/>LLM call<br/><i>the model</i>"]
+        Branch{Tool<br/>call?}
+        Act["<b>ACT</b><br/>run a tool<br/><i>Tools — harness</i>"]
+        Observe["<b>OBSERVE</b><br/>result → context<br/><i>Loop — harness</i>"]
+
+        Think --> Branch
+        Branch -- yes --> Act
+        Act --> Observe
+        Observe --> Think
+    end
+
+    Branch -- "no · response" --> User
 ```
 
 </div>
