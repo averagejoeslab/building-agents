@@ -195,12 +195,12 @@ class: ''
 <div class="hero-card" style="padding: 1.5rem 1.75rem;">
 <div class="eyebrow">How it's trained</div>
 
-```mermaid {scale: 0.45}
-flowchart TD
-    A[Web-scale<br/>corpus] --> B[Pretraining]
-    B --> C[Base model]
+```mermaid {scale: 0.4}
+flowchart LR
+    A[Corpus] --> B[Pretrain]
+    B --> C[Base]
     C --> D[SFT]
-    D --> E[RLHF / DPO]
+    D --> E[RLHF]
     E --> F[Released]
 ```
 
