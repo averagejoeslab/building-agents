@@ -308,75 +308,75 @@ class: ''
 class: ''
 ---
 
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+<div style="position: absolute; inset: 0; padding: 1.5rem 2.75rem; display: flex; flex-direction: column; text-align: left;">
 
 <div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Discipline 2 · Harness engineering</div>
+<div class="accent-bar" style="width: 70px; height: 3px; margin-bottom: 0.6rem;"></div>
+<div style="color: white; font-size: 2rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em;">Discipline 2 · Harness engineering</div>
 </div>
 
-<div style="margin: 1.5rem 0 0; text-align: center;">
-<div style="display: inline-block; padding: 0.85rem 2.25rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
-<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.55rem; font-weight: 600;">Agent = Model + Harness</span>
+<div style="margin: 0.85rem 0 0; text-align: center;">
+<div style="display: inline-block; padding: 0.5rem 1.5rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
+<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.15rem; font-weight: 600;">Agent = Model + Harness</span>
 </div>
 </div>
 
-<div style="color: rgba(255,255,255,0.75); font-size: 1rem; text-align: center; margin: 1.25rem auto; max-width: 760px;">
+<div style="color: rgba(255,255,255,0.7); font-size: 0.82rem; text-align: center; margin: 0.6rem auto; max-width: 720px;">
 The harness is every piece of code, configuration, and execution logic that isn't the model itself.
 </div>
 
-<div class="eyebrow" style="text-align: center; margin: 0.5rem 0 0.85rem;">The 9 primary components</div>
+<div class="eyebrow" style="text-align: center; font-size: 0.62rem; margin: 0.3rem 0 0.55rem;">The 9 primary components</div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem;">
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem;">
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Model interface</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">How the harness calls the LLM — which model, sync or streaming, response parsing.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Model interface</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">How the harness calls the LLM — which model, sync or streaming, response parsing.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Control flow</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">The loop that drives the model continuously — the TAO loop is the workhorse.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Control flow</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The loop that drives the model continuously — the TAO loop is the workhorse.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Memory + context</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">What persists across sessions; what fits into each call's token budget.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Memory + context</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">What persists across sessions; what fits into each call's token budget.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Tools · action layer</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">The model's hands — functions it can invoke to affect the world.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Tools · action layer</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The model's hands — functions it can invoke to affect the world.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Execution environment</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">Where dangerous tool calls actually run — sandbox, container, isolated VM.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Execution environment</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Where dangerous tool calls actually run — sandbox, container, isolated VM.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Safety · guardrails</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">What the model is allowed to do — approval gates, loop bounds, retry policy.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Safety · guardrails</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">What the model is allowed to do — approval gates, loop bounds, retry policy.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Observability</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">Structured traces of every LLM call, tool call, and state transition.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Observability</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Structured traces of every LLM call, tool call, and state transition.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Evaluation</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">A test harness for the harness — task suites, success criteria, regression detection.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Evaluation</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">A test harness for the harness — task suites, success criteria, regression detection.</div>
 </div>
 
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">
-<div style="color: white; font-size: 1rem; font-weight: 700;">Optimization</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-top: 0.25rem; line-height: 1.35;">Prompt caching, tool caching, threading — make the harness affordable and fast.</div>
+<div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Optimization</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Prompt caching, tool caching, threading — make the harness affordable and fast.</div>
 </div>
 
 </div>
 
-<div style="margin-top: 1.25rem; text-align: center; color: white; font-size: 1rem; font-weight: 600;">
+<div style="margin-top: 0.85rem; text-align: center; color: white; font-size: 0.82rem; font-weight: 600;">
 10 modules build these end-to-end. <span style="color: #EB6E1F;">This is the talk's focus.</span>
 </div>
 
