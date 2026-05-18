@@ -431,35 +431,46 @@ class: ''
 <div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept only · modules/01-what-is-an-agent/</div>
 </div>
 
-<div style="margin: 1.5rem 0 0.5rem; text-align: center;">
-<div style="display: inline-block; padding: 0.75rem 2rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
-<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.4rem; font-weight: 600;">Agent = Model + Harness</span>
+<div style="margin: 0.85rem 0 0; text-align: center;">
+<div style="display: inline-block; padding: 0.5rem 1.5rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
+<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.15rem; font-weight: 600;">Agent = Model + Harness</span>
 </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; flex: 1; margin-top: 1.25rem;">
+<div class="hero-card" style="padding: 1rem 1.5rem; margin-top: 1rem; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+<div class="eyebrow" style="text-align: center; margin-bottom: 0.4rem;">The three primitives, wired together</div>
 
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">01 · reasoning engine</div>
-<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">An LLM call</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">The <strong>model</strong>. One HTTP POST in, one JSON response out.</div>
-</div>
+```mermaid {scale: 0.55}
+flowchart LR
+    User["User<br/>prompt / response"]
+    Loop["<b>LOOP</b><br/>Think · Act · Observe<br/><i>(harness)</i>"]
+    LLM["<b>LLM call</b><br/>messages.create<br/><i>(the model)</i>"]
+    Tools["<b>Tools</b><br/>functions in your code<br/><i>(harness)</i>"]
 
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">02 · the body</div>
-<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">A loop</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">Think · Act · Observe. Drives the model continuously.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">03 · interface to the world</div>
-<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">Tools</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">Functions the model can ask your code to run.</div>
-</div>
+    User -->|input| Loop
+    Loop -->|response| User
+    Loop <-->|HTTP POST| LLM
+    Loop <-->|dispatch / result| Tools
+```
 
 </div>
 
-<div style="margin-top: 1.25rem; text-align: center; color: rgba(255,255,255,0.85); font-size: 1.05rem;">
+<div style="margin-top: 0.85rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;">
+<div style="padding: 0.45rem 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px;">
+<div style="color: #EB6E1F; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">01 · reasoning</div>
+<div style="color: white; font-size: 0.82rem; margin-top: 0.1rem;"><strong>LLM call</strong> · the model — external API</div>
+</div>
+<div style="padding: 0.45rem 0.7rem; background: rgba(235,110,31,0.15); border: 1px solid #EB6E1F; border-radius: 5px;">
+<div style="color: #EB6E1F; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">02 · the body</div>
+<div style="color: white; font-size: 0.82rem; margin-top: 0.1rem;"><strong>Loop</strong> · the harness — your code's control flow</div>
+</div>
+<div style="padding: 0.45rem 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px;">
+<div style="color: #EB6E1F; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">03 · world interface</div>
+<div style="color: white; font-size: 0.82rem; margin-top: 0.1rem;"><strong>Tools</strong> · the harness — your functions</div>
+</div>
+</div>
+
+<div style="margin-top: 0.7rem; text-align: center; color: rgba(255,255,255,0.85); font-size: 0.9rem;">
 Three primitives. The harness is <strong style="color: #EB6E1F;">two of them</strong>.
 </div>
 
