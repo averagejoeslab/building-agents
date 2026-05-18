@@ -66,31 +66,35 @@ mdc: true
 </div>
 
 ---
-layout: two-cols
+class: ''
 ---
 
-# What are agentic systems?
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-Systems that act on their own. The agency comes from an LLM coordinating calls to reach a goal without supervision.
-
-<div class="mt-8">
-
-**Two shapes** — based on what shape the control flow takes:
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.75rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">What are agentic systems?</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-top: 0.5rem; max-width: 780px;">Systems that act on their own. The agency comes from an LLM coordinating calls to reach a goal without supervision.</div>
 </div>
 
-```mermaid {scale: 0.7}
+<div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2.5rem; flex: 1; margin-top: 1.75rem; min-height: 0;">
+
+<div style="display: flex; flex-direction: column; gap: 1rem;">
+
+<div class="hero-card" style="padding: 1rem 1.5rem;">
+<div class="eyebrow">Workflow · code decides the path</div>
+
+```mermaid {scale: 0.55}
 flowchart LR
     In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
 ```
 
-<div class="text-sm opacity-70 -mt-2">
-
-*Workflow — code decides the path*
-
 </div>
 
-```mermaid {scale: 0.7}
+<div class="hero-card" style="padding: 1rem 1.5rem;">
+<div class="eyebrow">Agent · model decides the path</div>
+
+```mermaid {scale: 0.55}
 flowchart LR
     In[Input] --> A1[LLM]
     A1 --> A2{Tool?}
@@ -98,29 +102,25 @@ flowchart LR
     A2 -->|no| Out[Output]
 ```
 
-<div class="text-sm opacity-70 -mt-2">
-
-*Agent — model decides the path*
+</div>
 
 </div>
 
-::right::
+<div>
+<div style="color: white; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.4rem;">I focus on agents.</div>
+<div style="color: rgba(255,255,255,0.7); font-size: 0.95rem; margin-bottom: 1.75rem;">Systems with autonomy over their own control flow.</div>
 
-<div class="ml-8 mt-16">
+<div class="eyebrow" style="margin-bottom: 0.85rem;">Examples in the wild</div>
 
-## I focus on agents.
+<div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 1.05rem;">
+<div style="display: flex; align-items: center; gap: 0.7rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Claude Code</span></div>
+<div style="display: flex; align-items: center; gap: 0.7rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Cursor</span></div>
+<div style="display: flex; align-items: center; gap: 0.7rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Devin</span></div>
+<div style="display: flex; align-items: center; gap: 0.7rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Aider</span></div>
+<div style="display: flex; align-items: center; gap: 0.7rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>openclaw</span></div>
+</div>
 
-Systems with autonomy over their own control flow.
-
-<div class="mt-8 text-base">
-
-**Examples in the wild:**
-
-- Claude Code
-- Cursor
-- Devin
-- Aider
-- openclaw
+</div>
 
 </div>
 
