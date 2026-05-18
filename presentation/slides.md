@@ -245,48 +245,48 @@ class: ''
 
 <div style="display: flex; flex-direction: column; gap: 0.22rem;">
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">1</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">1</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Pretraining</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Next-token prediction over trillions of web tokens — produces the base model.</div>
 </div>
 </div>
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">2</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">2</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Mid-training</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Continued pretraining on curated data — sharpens code, math, reasoning.</div>
 </div>
 </div>
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">3</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">3</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Supervised Fine-Tuning (SFT)</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Instruction/response pairs — teach the model to follow instructions.</div>
 </div>
 </div>
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">4</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">4</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Preference tuning · RLHF / DPO / GRPO</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Human-rated comparisons — align outputs to be helpful, honest, harmless.</div>
 </div>
 </div>
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">5</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">5</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Constitutional AI / RLAIF</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">AI feedback against written principles — scales alignment past human-only labeling.</div>
 </div>
 </div>
 
-<div style="display: flex; gap: 0.45rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">6</div>
+<div style="display: flex; gap: 0.45rem; align-items: flex-start;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700; margin-top: 0.2rem;">6</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Reasoning RL · GRPO + verifiable rewards</div>
 <div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Math/code with rule-based rewards — trains explicit chain-of-thought (R1, o-series).</div>
