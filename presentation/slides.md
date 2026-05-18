@@ -476,10 +476,10 @@ class: ''
 <div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: tool / action layer · modules/05-add-tools/ → agent.py</div>
 </div>
 
-<div class="hero-card" style="padding: 1.25rem 1.5rem; margin-top: 1.25rem;">
+<div class="hero-card" style="padding: 0.75rem 1.25rem; margin-top: 1rem;">
 <div class="eyebrow">The TAO loop</div>
 
-```mermaid {scale: 0.55}
+```mermaid {scale: 0.38}
 flowchart LR
     Start[User input] --> Think[THINK<br/>LLM call]
     Think --> Branch{Tool call?}
@@ -491,20 +491,20 @@ flowchart LR
 
 </div>
 
-<div style="margin-top: 1rem; padding: 0.85rem 1.5rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
-<div style="color: white; font-size: 1.1rem; font-weight: 700;">The model — not your code — decides what comes next.</div>
+<div style="margin-top: 0.75rem; padding: 0.6rem 1.25rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
+<div style="color: white; font-size: 0.95rem; font-weight: 700;">The model — not your code — decides what comes next.</div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1rem;">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
 
-<div class="hero-card" style="padding: 1.15rem 1.5rem;">
+<div class="hero-card" style="padding: 0.9rem 1.25rem;">
 <div class="eyebrow">Toolkit · 6 tools</div>
-<div style="color: white; font-size: 0.95rem; font-family: ui-monospace, monospace; line-height: 1.7; margin-top: 0.4rem;">read · grep · glob<br/>write · edit · bash</div>
+<div style="color: white; font-size: 0.9rem; font-family: ui-monospace, monospace; line-height: 1.55; margin-top: 0.3rem;">read · grep · glob<br/>write · edit · bash</div>
 </div>
 
-<div class="hero-card" style="padding: 1.15rem 1.5rem;">
+<div class="hero-card" style="padding: 0.9rem 1.25rem;">
 <div class="eyebrow">How they scale</div>
-<div style="color: white; font-size: 0.9rem; line-height: 1.5; margin-top: 0.4rem;">
+<div style="color: white; font-size: 0.82rem; line-height: 1.45; margin-top: 0.3rem;">
 <strong>Registry</strong> collapses repeat plumbing.<br/>
 <strong>Central executor</strong> catches all errors.<br/>
 <strong style="color: #EB6E1F;">asyncio.gather</strong> dispatches in parallel.
