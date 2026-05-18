@@ -1,10 +1,165 @@
-/* Hide Slidev's bottom controls bar (the menu/goto trigger) */
+/* =========================================================
+   Astros palette — applied globally across the deck.
+   Navy background · orange accent · white text.
+   ========================================================= */
+
+:root {
+  --astros-navy: #002D62;
+  --astros-navy-dark: #001638;
+  --astros-orange: #EB6E1F;
+  --astros-orange-soft: rgba(235, 110, 31, 0.3);
+  --astros-orange-tint: rgba(235, 110, 31, 0.15);
+}
+
+/* Hide Slidev's bottom controls bar + go-to autocomplete */
 #slidev-controls,
-.slidev-controls {
+.slidev-controls,
+.autocomplete-list {
   display: none !important;
 }
 
-/* Hide the go-to-slide autocomplete drawer (opens via the `G` shortcut) */
-.autocomplete-list {
-  display: none !important;
+/* All slide backgrounds — navy gradient */
+.slidev-layout,
+.slidev-layout.cover,
+.slidev-layout.default,
+.slidev-layout.two-cols {
+  background: linear-gradient(135deg, #002D62 0%, #001638 100%) !important;
+  color: white !important;
+}
+
+/* Default text color on the navy background */
+.slidev-layout h1,
+.slidev-layout h2,
+.slidev-layout h3,
+.slidev-layout h4,
+.slidev-layout p,
+.slidev-layout li,
+.slidev-layout strong,
+.slidev-layout td,
+.slidev-layout th {
+  color: white;
+}
+
+/* Inline code on dark background */
+.slidev-layout :not(pre) > code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #EB6E1F;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+/* Code block container */
+.slidev-layout pre {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid var(--astros-orange-soft);
+  border-radius: 8px;
+}
+
+.slidev-layout pre code {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Tables */
+.slidev-layout table {
+  width: 100%;
+  border-collapse: collapse;
+  color: white;
+}
+
+.slidev-layout thead th {
+  color: #EB6E1F;
+  border-bottom: 2px solid #EB6E1F;
+  text-align: left;
+  padding: 0.5em;
+}
+
+.slidev-layout tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.slidev-layout tbody td {
+  padding: 0.5em;
+}
+
+/* Mermaid diagrams - keep them readable on navy */
+.slidev-layout .mermaid svg {
+  background: transparent !important;
+}
+
+/* Links */
+.slidev-layout a {
+  color: #EB6E1F;
+}
+
+/* =========================================================
+   Remap existing color classes used in the deck to Astros.
+   Lets existing slides pick up the new palette automatically.
+   ========================================================= */
+
+/* Green accents → orange */
+.slidev-layout .text-green-400,
+.slidev-layout .text-green-500,
+.slidev-layout .text-green-300 { color: #EB6E1F !important; }
+
+.slidev-layout .border-green-500,
+.slidev-layout .border-green-400 { border-color: #EB6E1F !important; }
+
+.slidev-layout .bg-green-900 { background-color: var(--astros-orange-tint) !important; }
+
+/* Blue accents → orange (softened) */
+.slidev-layout .text-blue-400 { color: #EB6E1F !important; }
+.slidev-layout .border-blue-500 { border-color: #EB6E1F !important; }
+
+/* Orange-named accents stay orange */
+.slidev-layout .text-orange-400 { color: #EB6E1F !important; }
+
+/* Purple accents → orange */
+.slidev-layout .text-purple-400 { color: #EB6E1F !important; }
+.slidev-layout .border-purple-500 { border-color: #EB6E1F !important; }
+
+/* Yellow accents → orange */
+.slidev-layout .text-yellow-400 { color: #EB6E1F !important; }
+
+/* Cyan accents → orange */
+.slidev-layout .text-cyan-400 { color: #EB6E1F !important; }
+
+/* Gray borders → muted white */
+.slidev-layout .border-gray-500 { border-color: rgba(255, 255, 255, 0.2) !important; }
+
+/* Existing dark bg classes adjusted to navy variants */
+.slidev-layout .bg-active { background: rgba(255, 255, 255, 0.06) !important; }
+
+/* Default border color on cards using `border` utility */
+.slidev-layout div[class*="border rounded"] {
+  border-color: var(--astros-orange-soft) !important;
+}
+
+/* =========================================================
+   Reusable card patterns (used by the intro and reusable
+   anywhere via class="hero-card" / .eyebrow / .accent-bar).
+   ========================================================= */
+
+.hero-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--astros-orange-soft);
+  border-top: 3px solid var(--astros-orange);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  color: var(--astros-orange);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.accent-bar {
+  height: 4px;
+  width: 90px;
+  background: var(--astros-orange);
+  margin-bottom: 1rem;
 }

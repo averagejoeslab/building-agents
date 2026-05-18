@@ -7,11 +7,22 @@ info: |
   github.com/averagejoeslab/building-agents
 class: text-center
 highlighter: shiki
+colorSchema: dark
 lineNumbers: false
 editor: false
 record: false
 download: false
 contextMenu: false
+mermaid:
+  theme: dark
+  themeVariables:
+    primaryColor: '#EB6E1F'
+    primaryTextColor: '#FFFFFF'
+    primaryBorderColor: '#EB6E1F'
+    lineColor: '#EB6E1F'
+    secondaryColor: '#002D62'
+    tertiaryColor: '#001638'
+    background: '#001638'
 drawings:
   persist: false
 transition: slide-left
