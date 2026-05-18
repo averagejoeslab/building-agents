@@ -184,22 +184,31 @@ class: ''
 <div class="hero-card" style="padding: 0.7rem 1rem;">
 <div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · GPT-style transformer</div>
 
-<div style="display: flex; flex-direction: column; gap: 0.1rem; align-items: stretch;">
+<div style="display: flex; flex-direction: column; gap: 0.22rem;">
 
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Input text</div>
+<div style="font-size: 0.52rem; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Preprocessing · no learned weights</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Tokenizer (BPE) — text → token IDs</div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1; margin: 0.05rem 0;">↓</div>
+
+<div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.4rem 0.55rem; background: rgba(235,110,31,0.05);">
+<div style="font-size: 0.52rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.3rem;">Neural network · learned weights</div>
+<div style="display: flex; flex-direction: column; gap: 0.13rem;">
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Embedding lookup</div>
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Tokenizer (BPE) · token IDs</div>
-<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Token embeddings + RoPE</div>
-<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(235,110,31,0.15); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.28rem 0.55rem; text-align: center;">
+<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.3rem 0.55rem; text-align: center;">
 <div style="font-weight: 700; font-size: 0.78rem; line-height: 1.1;">Transformer block × 60–120</div>
-<div style="font-size: 0.62rem; opacity: 0.85; margin-top: 0.1rem;">Self-Attention · MLP · RMSNorm · Residual</div>
+<div style="font-size: 0.62rem; opacity: 0.85; margin-top: 0.1rem;">RMSNorm · Attention (RoPE) · FFN (SwiGLU) · residuals</div>
 </div>
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">LM head → distribution over vocab</div>
-<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Sample next token</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Final RMSNorm + LM head → logits</div>
+</div>
+</div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1; margin: 0.05rem 0;">↓</div>
+
+<div style="font-size: 0.52rem; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Postprocessing · no learned weights</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Softmax + sample → next token</div>
 
 </div>
 </div>
