@@ -2,24 +2,15 @@
   "name": "building-agents-presentation",
   "private": true,
   "version": "0.1.0",
-  "description": "Intro deck for the building-agents curriculum (Modules 1-3).",
+  "description": "Slidev deck for the building-agents curriculum (top-level README through Module 10).",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "dev": "slidev --open",
+    "build": "slidev build",
+    "export": "slidev export"
   },
   "dependencies": {
-    "mermaid": "^11.4.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "spectacle": "^10.1.5"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "@slidev/cli": "^0.49.0",
+    "@slidev/theme-default": "^0.25.0"
   }
 }

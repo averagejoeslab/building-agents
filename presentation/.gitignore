@@ -1,5 +1,5 @@
-node_modules/
-dist/
-*.tsbuildinfo
-.DS_Store
-*.log
+node_modules
+dist
+.remote-assets
+.vite
+components.d.ts
