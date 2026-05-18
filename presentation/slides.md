@@ -431,13 +431,7 @@ class: ''
 <div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept only · modules/01-what-is-an-agent/</div>
 </div>
 
-<div style="margin: 0.6rem 0 0; text-align: center;">
-<div style="display: inline-block; padding: 0.4rem 1.25rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
-<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.05rem; font-weight: 600;">Agent = Model + Harness</span>
-</div>
-</div>
-
-<div style="margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+<div style="margin-top: 1rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
 <div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
 
 ```mermaid {scale: 0.7}
