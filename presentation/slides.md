@@ -171,99 +171,99 @@ class: ''
 class: ''
 ---
 
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+<div style="position: absolute; inset: 0; padding: 1.25rem 2.5rem; display: flex; flex-direction: column; text-align: left;">
 
 <div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Discipline 1 · Model development</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-top: 0.5rem; max-width: 820px;">A handful of labs (Anthropic, OpenAI, Google, Meta) train foundational models. The output is a service you call by API.</div>
+<div class="accent-bar" style="width: 70px; height: 3px; margin-bottom: 0.5rem;"></div>
+<div style="color: white; font-size: 1.85rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em;">Discipline 1 · Model development</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.82rem; margin-top: 0.35rem;">A handful of labs (Anthropic, OpenAI, Google, Meta) train foundational models. The output is a service you call by API.</div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; margin-top: 1.75rem; flex: 1;">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.85rem; flex: 1; min-height: 0;">
 
-<div class="hero-card" style="padding: 1.15rem 1.4rem;">
-<div class="eyebrow">Architecture · GPT-style transformer</div>
+<div class="hero-card" style="padding: 0.7rem 1rem;">
+<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · GPT-style transformer</div>
 
-<div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch; margin-top: 0.6rem;">
+<div style="display: flex; flex-direction: column; gap: 0.1rem; align-items: stretch;">
 
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 6px; padding: 0.35rem 0.75rem; text-align: center; font-size: 0.82rem;">Input text</div>
-<div style="text-align: center; color: rgba(235,110,31,0.6); font-size: 0.8rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 6px; padding: 0.35rem 0.75rem; text-align: center; font-size: 0.82rem;">Tokenizer (BPE) · token IDs</div>
-<div style="text-align: center; color: rgba(235,110,31,0.6); font-size: 0.8rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 6px; padding: 0.35rem 0.75rem; text-align: center; font-size: 0.82rem;">Token embeddings + RoPE</div>
-<div style="text-align: center; color: rgba(235,110,31,0.6); font-size: 0.8rem; line-height: 1;">↓</div>
-<div style="background: rgba(235,110,31,0.15); border: 2px solid #EB6E1F; border-radius: 6px; padding: 0.45rem 0.75rem; text-align: center;">
-<div style="font-weight: 700; font-size: 0.88rem;">Transformer block × 60–120</div>
-<div style="font-size: 0.7rem; opacity: 0.85; margin-top: 0.1rem;">Self-Attention · MLP · RMSNorm · Residual</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Input text</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Tokenizer (BPE) · token IDs</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Token embeddings + RoPE</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(235,110,31,0.15); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.28rem 0.55rem; text-align: center;">
+<div style="font-weight: 700; font-size: 0.78rem; line-height: 1.1;">Transformer block × 60–120</div>
+<div style="font-size: 0.62rem; opacity: 0.85; margin-top: 0.1rem;">Self-Attention · MLP · RMSNorm · Residual</div>
 </div>
-<div style="text-align: center; color: rgba(235,110,31,0.6); font-size: 0.8rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 6px; padding: 0.35rem 0.75rem; text-align: center; font-size: 0.82rem;">LM head → distribution over vocab</div>
-<div style="text-align: center; color: rgba(235,110,31,0.6); font-size: 0.8rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 6px; padding: 0.35rem 0.75rem; text-align: center; font-size: 0.82rem;">Sample next token</div>
-
-</div>
-</div>
-
-<div class="hero-card" style="padding: 1.15rem 1.4rem;">
-<div class="eyebrow">Training · modern pipeline</div>
-
-<div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem;">
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; height: auto; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">1</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Pretraining</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">Next-token prediction · trillions of tokens of web-scale data</div>
-</div>
-</div>
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">2</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Mid-training</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">Continued pretraining on curated data — code, math, reasoning</div>
-</div>
-</div>
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">3</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Supervised Fine-Tuning (SFT)</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">Instruction/response pairs · learn to follow instructions</div>
-</div>
-</div>
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">4</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Preference tuning · RLHF / DPO</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">Human-rated comparisons · helpfulness, honesty, safety</div>
-</div>
-</div>
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">5</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Constitutional AI / RLAIF</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">AI feedback against a written constitution (Anthropic)</div>
-</div>
-</div>
-
-<div style="display: flex; gap: 0.6rem; align-items: stretch;">
-<div style="background: #EB6E1F; color: white; min-width: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; padding: 0 6px;">6</div>
-<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 6px; padding: 0.35rem 0.7rem;">
-<div style="font-weight: 700; font-size: 0.85rem;">Reasoning training (RLVR)</div>
-<div style="font-size: 0.7rem; opacity: 0.75;">Verifiable rewards on math/code · chain-of-thought (o1, o3, Claude)</div>
-</div>
-</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">LM head → distribution over vocab</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem; text-align: center; font-size: 0.7rem;">Sample next token</div>
 
 </div>
 </div>
 
+<div class="hero-card" style="padding: 0.7rem 1rem;">
+<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Training · modern pipeline</div>
+
+<div style="display: flex; flex-direction: column; gap: 0.22rem;">
+
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">1</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Pretraining</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Next-token prediction · trillions of tokens of web-scale data</div>
+</div>
 </div>
 
-<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 0.98rem;">We don't teach this. The harness layer assumes it's already happened <strong style="color: #EB6E1F;">upstream</strong>.</div>
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">2</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Mid-training</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Continued pretraining on curated data — code, math, reasoning</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">3</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Supervised Fine-Tuning (SFT)</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Instruction/response pairs · learn to follow instructions</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">4</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Preference tuning · RLHF / DPO</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Human-rated comparisons · helpfulness, honesty, safety</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">5</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Constitutional AI / RLAIF</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">AI feedback against a written constitution (Anthropic)</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 0.45rem; align-items: stretch;">
+<div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">6</div>
+<div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Reasoning training (RLVR)</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Verifiable rewards on math/code · chain-of-thought (o1, o3, Claude)</div>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+
+<div style="margin-top: 0.6rem; padding: 0.4rem 1rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 6px 6px 0;">
+<div style="color: white; font-size: 0.78rem;">We don't teach this. The harness layer assumes it's already happened <strong style="color: #EB6E1F;">upstream</strong>.</div>
 </div>
 
 </div>
