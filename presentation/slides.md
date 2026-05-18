@@ -182,55 +182,66 @@ class: ''
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.85rem; flex: 1; min-height: 0;">
 
 <div class="hero-card" style="padding: 0.7rem 1rem;">
-<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · how a prompt becomes a response</div>
+<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · how it answers</div>
 
-<div style="display: flex; flex-direction: column; gap: 0.2rem;">
+<div style="display: flex; flex-direction: column; gap: 0.16rem;">
 
-<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you type something</div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Pre · not learned</div>
 
-<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
-
-<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Setting up · not part of the learning</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.22rem 0.6rem;">
-<div style="font-size: 0.72rem;">Turn your text into numbers — the model only does math, not words.</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Input layer</strong> &nbsp;·&nbsp; <span style="opacity: 0.75;">your prompt arrives</span></div>
 </div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.35rem 0.5rem; background: rgba(235,110,31,0.05);">
-<div style="font-size: 0.5rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.25rem;">The learned part · this is what training shaped</div>
-<div style="display: flex; flex-direction: column; gap: 0.18rem;">
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.22rem 0.55rem;">
-<div style="font-size: 0.72rem;">Give each number a "meaning" — similar words land near each other.</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Tokenizer</strong> &nbsp;·&nbsp; <span style="opacity: 0.75;">text → number IDs (BPE)</span></div>
 </div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
+
+<div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.35rem 0.45rem; background: rgba(235,110,31,0.05);">
+<div style="font-size: 0.5rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.25rem;">Neural network · learned during training</div>
+<div style="display: flex; flex-direction: column; gap: 0.13rem;">
+
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Embedding</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">IDs → "meaning vectors"</span></div>
+</div>
+
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.32rem 0.55rem;">
-<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">The thinking · repeated 60–120 times</div>
-<div style="font-size: 0.62rem; opacity: 0.9; margin-top: 0.1rem;">Every word looks at every other word and refines what it means in this context.</div>
+
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Positional encoding</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">adds word-order info (RoPE)</span></div>
 </div>
+
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.22rem 0.55rem;">
-<div style="font-size: 0.72rem;">Rank every possible next word — give each a score.</div>
+
+<div style="background: rgba(235,110,31,0.22); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.3rem 0.55rem;">
+<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">Transformer block × 30–100</div>
+<div style="font-size: 0.6rem; opacity: 0.9; margin-top: 0.08rem;">the "thinking" — every word looks at every other, refining meaning over and over</div>
 </div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>LM head</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">score every possible next word</span></div>
+</div>
+
 </div>
 </div>
 
 <div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Wrapping up · not part of the learning</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.22rem 0.6rem;">
-<div style="font-size: 0.72rem;">Pick one word from the ranking and write it out.</div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Post · not learned</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.18rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Output layer</strong> &nbsp;·&nbsp; <span style="opacity: 0.75;">sample one word, return text → loop</span></div>
 </div>
-
-<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
-
-<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you see one word — and the whole thing repeats for the next word</div>
 
 </div>
 </div>
 
 <div class="hero-card" style="padding: 0.7rem 1rem;">
-<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Training · modern pipeline</div>
+<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Training · how it learned (shapes the neural network)</div>
 
 <div style="display: flex; flex-direction: column; gap: 0.22rem;">
 
@@ -238,7 +249,7 @@ class: ''
 <div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">1</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
 <div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Pretraining</div>
-<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Next-token prediction · trillions of tokens of web-scale data</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Next-token prediction over trillions of web tokens — produces the base model.</div>
 </div>
 </div>
 
@@ -261,8 +272,8 @@ class: ''
 <div style="display: flex; gap: 0.45rem; align-items: stretch;">
 <div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">4</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
-<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Preference tuning · RLHF / DPO</div>
-<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Human-rated comparisons · helpfulness, honesty, safety</div>
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Preference tuning · RLHF / DPO / GRPO</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Human-rated comparisons — align outputs to be helpful, honest, harmless.</div>
 </div>
 </div>
 
@@ -277,8 +288,8 @@ class: ''
 <div style="display: flex; gap: 0.45rem; align-items: stretch;">
 <div style="background: #EB6E1F; color: white; width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.62rem; font-weight: 700;">6</div>
 <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.2); border-left: 3px solid #EB6E1F; border-radius: 5px; padding: 0.22rem 0.55rem;">
-<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Reasoning training (RLVR)</div>
-<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Verifiable rewards on math/code · chain-of-thought (o1, o3, Claude)</div>
+<div style="font-weight: 700; font-size: 0.74rem; line-height: 1.15;">Reasoning RL · GRPO + verifiable rewards</div>
+<div style="font-size: 0.62rem; opacity: 0.78; line-height: 1.25;">Rule-based rewards on math/code — trains chain-of-thought (R1, o-series, Claude reasoning).</div>
 </div>
 </div>
 
