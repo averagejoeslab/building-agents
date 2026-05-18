@@ -440,20 +440,13 @@ class: ''
 <div style="margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
 <div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
 
-```mermaid {scale: 0.55}
+```mermaid {scale: 0.7}
 flowchart LR
-    User(["User"])
-    Think["<b>THINK</b><br/>LLM call<br/><i>the model</i>"]
-    Branch{Tool<br/>call?}
-    Act["<b>ACT</b><br/>tool call<br/><i>Tools — harness</i>"]
-    Observe["<b>OBSERVE</b><br/>tool result<br/><i>Loop — harness</i>"]
-
-    User -- input --> Think
-    Think --> Branch
-    Branch -- yes --> Act
-    Act --> Observe
-    Observe --> Think
-    Branch -- "no · output" --> User
+    Input --> LLM
+    LLM --> Tool{Tool?}
+    Tool -- yes --> Execute
+    Execute --> LLM
+    Tool -- no --> Output
 ```
 
 </div>
