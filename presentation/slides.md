@@ -127,71 +127,76 @@ flowchart LR
 </div>
 
 ---
+class: ''
+---
 
-# The three disciplines
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="mt-8 grid grid-cols-3 gap-6">
-
-<div class="border-2 border-gray-500 rounded p-5">
-<div class="text-lg font-bold mb-2">1. Model development</div>
-<div class="text-sm">Trains the foundational model.</div>
-<div class="mt-3 text-xs opacity-70">Output: a callable model API.</div>
-<div class="mt-3 text-xs opacity-60">Examples: GPT, Claude, Gemini, Llama</div>
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.75rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">The three disciplines</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-top: 0.5rem;">Three layers stacked. You go through them in order — from nothing to agent-built software.</div>
 </div>
 
-<div class="border-2 border-green-500 rounded p-5 bg-green-900 bg-opacity-20">
-<div class="text-lg font-bold mb-2 text-green-400">2. Harness engineering</div>
-<div class="text-sm">Wraps the model in code, state, tools, loop.</div>
-<div class="mt-3 text-xs opacity-90"><code>Agent = Model + Harness</code></div>
-<div class="mt-3 text-xs opacity-70">Output: an agent.</div>
-<div class="mt-3 text-xs opacity-60">Examples: Claude Code, Cursor, Codex</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; flex: 1; margin-top: 2rem; align-items: stretch;">
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">01 · output: callable model</div>
+<div style="color: white; font-size: 1.45rem; font-weight: 700; margin-bottom: 0.7rem; line-height: 1.1;">Model development</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">A handful of labs train the foundational model.</div>
+<div style="color: rgba(255,255,255,0.5); font-size: 0.82rem; margin-top: 0.9rem;">GPT · Claude · Gemini · Llama</div>
 </div>
 
-<div class="border-2 border-gray-500 rounded p-5">
-<div class="text-lg font-bold mb-2">3. Agentic engineering</div>
-<div class="text-sm">Uses an agent to build other software.</div>
-<div class="mt-3 text-xs opacity-70">Output: products built by agents orchestrated by humans.</div>
-<div class="mt-3 text-xs opacity-60">Example: openclaw</div>
+<div class="hero-card" style="padding: 1.75rem; background: rgba(235,110,31,0.12); border-color: #EB6E1F;">
+<div class="eyebrow">02 · output: an agent</div>
+<div style="color: white; font-size: 1.45rem; font-weight: 700; margin-bottom: 0.7rem; line-height: 1.1;">Harness engineering</div>
+<div style="color: rgba(255,255,255,0.85); font-size: 0.92rem; line-height: 1.55;">Wrap the model in code, state, tools, loop.</div>
+<div style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 0.85rem; margin-top: 0.7rem;">Agent = Model + Harness</div>
+<div style="color: rgba(255,255,255,0.5); font-size: 0.82rem; margin-top: 0.6rem;">Claude Code · Cursor · Codex</div>
+<div style="color: #EB6E1F; font-size: 0.78rem; margin-top: 0.7rem; font-weight: 700;">← this talk's focus</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">03 · output: products built by agents</div>
+<div style="color: white; font-size: 1.45rem; font-weight: 700; margin-bottom: 0.7rem; line-height: 1.1;">Agentic engineering</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">Use the agent to build other software, products, agents.</div>
+<div style="color: rgba(255,255,255,0.5); font-size: 0.82rem; margin-top: 0.9rem;">openclaw · vibe coding's pro cousin</div>
 </div>
 
 </div>
-
-<div class="mt-10 text-center text-lg">
-
-This repo teaches the <span class="text-green-400 font-bold">middle one</span>.
 
 </div>
 
 ---
+class: ''
+---
 
-# Discipline 1 · Model development
-
-<div class="mt-6 text-base">
-
-A handful of labs (Anthropic, OpenAI, Google, Meta) train foundational models. The output is a service you call by API.
-
-</div>
-
-<div class="mt-8 grid grid-cols-2 gap-12">
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
 <div>
-
-**What's inside:**
-
-- Tokenizer (BPE, 30k–200k vocab)
-- Token embeddings (2,048–16,384 dim)
-- Positional info (RoPE / ALiBi)
-- Transformer blocks (60–120 stacked)
-- Output head (→ distribution → sample)
-
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Discipline 1 · Model development</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-top: 0.5rem; max-width: 820px;">A handful of labs (Anthropic, OpenAI, Google, Meta) train foundational models. The output is a service you call by API.</div>
 </div>
 
-<div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; margin-top: 1.75rem; flex: 1;">
 
-**How it's trained:**
+<div class="hero-card" style="padding: 1.5rem 1.75rem;">
+<div class="eyebrow">What's inside</div>
+<div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.95rem; margin-top: 0.65rem;">
+<div style="display: flex; align-items: start; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700; flex-shrink: 0;">·</span><span>Tokenizer (BPE, 30k–200k vocab)</span></div>
+<div style="display: flex; align-items: start; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700; flex-shrink: 0;">·</span><span>Token embeddings (2,048–16,384 dim)</span></div>
+<div style="display: flex; align-items: start; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700; flex-shrink: 0;">·</span><span>Positional info (RoPE / ALiBi)</span></div>
+<div style="display: flex; align-items: start; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700; flex-shrink: 0;">·</span><span>Transformer blocks (60–120 stacked)</span></div>
+<div style="display: flex; align-items: start; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700; flex-shrink: 0;">·</span><span>Output head (→ distribution → sample)</span></div>
+</div>
+</div>
 
-```mermaid {scale: 0.55}
-flowchart LR
+<div class="hero-card" style="padding: 1.5rem 1.75rem;">
+<div class="eyebrow">How it's trained</div>
+
+```mermaid {scale: 0.45}
+flowchart TD
     A[Web-scale<br/>corpus] --> B[Pretraining]
     B --> C[Base model]
     C --> D[SFT]
@@ -199,159 +204,154 @@ flowchart LR
     E --> F[Released]
 ```
 
-Thousands of GPUs. Months. Multi-billion dollar capital.
-
+<div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 0.6rem;">Thousands of GPUs. Months. Multi-billion-dollar capital.</div>
 </div>
 
 </div>
 
-<div class="mt-10 text-center text-base opacity-80">
-
-We don't teach this. The harness layer assumes it's already happened upstream.
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem;">We don't teach this. The harness layer assumes it's already happened <strong style="color: #EB6E1F;">upstream</strong>.</div>
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Discipline 2 · Harness engineering
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="mt-4 text-2xl text-center text-green-400">
-
-`Agent = Model + Harness`
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Discipline 2 · Harness engineering</div>
 </div>
 
-<div class="mt-6 text-base text-center opacity-90">
+<div style="margin: 1.5rem 0 0; text-align: center;">
+<div style="display: inline-block; padding: 0.85rem 2.25rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
+<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.55rem; font-weight: 600;">Agent = Model + Harness</span>
+</div>
+</div>
 
+<div style="color: rgba(255,255,255,0.75); font-size: 1rem; text-align: center; margin: 1.25rem auto; max-width: 760px;">
 The harness is every piece of code, configuration, and execution logic that isn't the model itself.
-
 </div>
 
-<div class="mt-8 grid grid-cols-3 gap-4 text-sm">
+<div class="eyebrow" style="text-align: center; margin: 0.5rem 0 0.85rem;">The 9 components</div>
 
-<div>
-• Selecting the model<br/>
-• Control flow<br/>
-• Memory
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; font-size: 0.98rem;">
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Selecting the model</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Control flow</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Memory</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Context management</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Tools</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Safety / guardrails</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Observability</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Evaluation</div>
+<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Optimization</div>
 </div>
 
-<div>
-• Context management<br/>
-• Tools<br/>
-• Safety / guardrails
+<div style="margin-top: 1.5rem; text-align: center; color: white; font-size: 1.1rem; font-weight: 600;">
+10 modules cover all of it. <span style="color: #EB6E1F;">This is the talk's focus.</span>
 </div>
-
-<div>
-• Observability<br/>
-• Evaluation<br/>
-• Optimization
-</div>
-
-</div>
-
-<div class="mt-10 text-center text-lg">
-
-10 modules cover all of it. <strong class="text-green-400">This is the talk's focus.</strong>
-
-</div>
-
-<div class="mt-4 text-center text-sm opacity-60">
-
-The next 10 slides walk the curriculum module by module.
 
 </div>
 
 ---
+class: ''
+---
 
-# Discipline 3 · Agentic engineering
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="mt-6 text-base">
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Discipline 3 · Agentic engineering</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-top: 0.5rem;">Once you have an agent — a model wrapped in a harness — what do you do with it?</div>
+</div>
 
-Once you have an agent — a model wrapped in a harness — what do you do with it?
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.75rem; flex: 1;">
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">A · outward</div>
+<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.1;">Develop other products</div>
+<div style="color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.5;">Point the agent at the next codebase. Ship features, build infrastructure, author tooling.</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">Example: Peter Steinberg built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">B · recursive</div>
+<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.1;">Develop the agent itself</div>
+<div style="color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.5;">Point the agent at its own curriculum. Write a new module, refactor a component, raise the evals.</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">This repo and deck are built that way: Claude Code (a harness) running on Claude, driven by me.</div>
+</div>
 
 </div>
 
-<div class="mt-8 grid grid-cols-2 gap-8">
-
-<div class="border-l-4 border-blue-500 pl-4">
-<div class="text-lg font-bold mb-2 text-blue-400">Develop other products</div>
-<div class="text-sm">Point the agent at the next codebase. Ship features, build infrastructure, author tooling.</div>
-<div class="mt-3 text-xs opacity-70">Example: Peter Steinberg built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 1.02rem; font-weight: 600; margin-bottom: 0.3rem;">Vibe coding's disciplined cousin.</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.9rem;">Same fundamental move — have AI write the code — but with thought about what to ask, what tools to provide, how to verify, how to ship. <span style="color: #EB6E1F;">You're the human orchestrating agents to do the engineering.</span></div>
 </div>
-
-<div class="border-l-4 border-purple-500 pl-4">
-<div class="text-lg font-bold mb-2 text-purple-400">Develop the agent itself</div>
-<div class="text-sm">Point the agent at its own curriculum. Write a new module, refactor a component, raise the evals.</div>
-<div class="mt-3 text-xs opacity-70">This repo and deck are built that way: Claude Code (a harness) running on Claude, driven by me.</div>
-</div>
-
-</div>
-
-<div class="mt-10 text-center text-base">
-
-<strong>Vibe coding's disciplined cousin.</strong> Same fundamental move — have AI write the code — but with thought about what to ask, what tools to provide, how to verify, how to ship.
-
-</div>
-
-<div class="mt-4 text-center text-sm text-green-400">
-
-You're the human orchestrating agents to do the engineering.
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 1 · What is an agent?
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-6">
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 1 · What is an agent?</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept only · modules/01-what-is-an-agent/</div>
+</div>
 
-Concept only. No code. (`modules/01-what-is-an-agent/`)
+<div style="margin: 1.5rem 0 0.5rem; text-align: center;">
+<div style="display: inline-block; padding: 0.75rem 2rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px;">
+<span style="color: #EB6E1F; font-family: ui-monospace, monospace; font-size: 1.4rem; font-weight: 600;">Agent = Model + Harness</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; flex: 1; margin-top: 1.25rem;">
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">01 · reasoning engine</div>
+<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">An LLM call</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">The <strong>model</strong>. One HTTP POST in, one JSON response out.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">02 · the body</div>
+<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">A loop</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">Think · Act · Observe. Drives the model continuously.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">03 · interface to the world</div>
+<div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.55rem;">Tools</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.95rem; line-height: 1.5;">Functions the model can ask your code to run.</div>
+</div>
 
 </div>
 
-<div class="mt-2 text-xl text-center text-green-400">
-
-`Agent = Model + Harness`
-
+<div style="margin-top: 1.25rem; text-align: center; color: rgba(255,255,255,0.85); font-size: 1.05rem;">
+Three primitives. The harness is <strong style="color: #EB6E1F;">two of them</strong>.
 </div>
-
-<div class="mt-8 grid grid-cols-3 gap-6">
-
-<div class="border-l-4 border-green-500 pl-4">
-<div class="text-3xl font-bold mb-2 text-green-400">1</div>
-<div class="text-lg font-bold mb-2">An LLM call</div>
-<div class="text-sm opacity-80">The reasoning engine. The <strong>model</strong>.</div>
-</div>
-
-<div class="border-l-4 border-blue-500 pl-4">
-<div class="text-3xl font-bold mb-2 text-blue-400">2</div>
-<div class="text-lg font-bold mb-2">A loop</div>
-<div class="text-sm opacity-80">Think · Act · Observe. The harness's body.</div>
-</div>
-
-<div class="border-l-4 border-orange-500 pl-4">
-<div class="text-3xl font-bold mb-2 text-orange-400">3</div>
-<div class="text-lg font-bold mb-2">Tools</div>
-<div class="text-sm opacity-80">The harness's interface to the environment.</div>
-</div>
-
-</div>
-
-<div class="mt-10 text-center text-base">
-
-Three primitives. The harness is two of them.
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 2 · An LLM call
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>model interface</strong>. (`modules/02-an-llm-call/` → <code>llm_call_sync.py</code>, <code>llm_call_async.py</code>)
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 2 · An LLM call</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: model interface · modules/02-an-llm-call/ → llm_call_sync.py, llm_call_async.py</div>
 </div>
+
+<div style="margin-top: 1.5rem;">
 
 ```python {all|1-2|4-9|11}
 from anthropic import Anthropic
@@ -366,27 +366,31 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-<div class="mt-6 text-sm opacity-80 text-center">
-
-One HTTP POST. One JSON response. <code>content</code> is a list of blocks (text + optional tool requests).
-
 </div>
 
-<div class="mt-4 text-sm opacity-70 text-center">
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.55;">One HTTP POST. One JSON response. <code>content</code> is a list of blocks (text + optional tool requests).</div>
+</div>
 
-Streaming version uses <code>messages.stream</code> + <code>await stream.get_final_message()</code> — text lands token-by-token, structured response captured at the end. Every example downstream uses async streaming.
+<div style="margin-top: 0.85rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border-left: 3px solid rgba(235,110,31,0.4); border-radius: 0 8px 8px 0;">
+<div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; line-height: 1.55;">Streaming version uses <code>messages.stream</code> + <code>await stream.get_final_message()</code> — text lands token-by-token, structured response captured at the end. <strong style="color: #EB6E1F;">Every example downstream uses async streaming.</strong></div>
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 3 · Add a loop
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>control flow</strong>. (`modules/03-add-a-loop/` → <code>stateless_chatbot.py</code>)
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 3 · Add a loop</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: control flow · modules/03-add-a-loop/ → stateless_chatbot.py</div>
 </div>
+
+<div style="margin-top: 1.25rem;">
 
 ```python {all|3-4|6|8-17}
 async def main():
@@ -407,67 +411,75 @@ async def main():
         messages.append({"role": "assistant", "content": response.content[0].text})
 ```
 
-<div class="mt-6 text-sm opacity-80 text-center">
+</div>
 
-The Messages API is stateless. The program holds the state. Terminal as the simplest environment.
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.55;">The Messages API is stateless. The program holds the state. <strong style="color: #EB6E1F;">Terminal as the simplest environment.</strong></div>
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 4 · Add memory
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 4 · Add memory</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: memory + context management · modules/04-add-memory/ → stateful_chatbot.py</div>
+</div>
 
-Harness component: <strong>memory + context management</strong>. (`modules/04-add-memory/` → <code>stateful_chatbot.py</code>)
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 1.5rem;">
+
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">01 · survive a restart</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Persistence</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Save <code>messages.json</code> to disk. Load at startup.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">02 · fit the window</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Token budget</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Compute upfront. Walk past turns newest-first until full.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">03 · don't lose context</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Semantic recall</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Summarize each turn, embed, retrieve by similarity.</div>
+</div>
 
 </div>
 
-<div class="mt-4 grid grid-cols-3 gap-4">
-
-<div class="border-l-4 border-blue-500 pl-3">
-<div class="text-base font-bold mb-2 text-blue-400">Persistence</div>
-<div class="text-sm">Save <code>messages.json</code> to disk. Survive a restart.</div>
+<div style="margin-top: 1.5rem; padding: 1.25rem 1.5rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(235,110,31,0.3); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 0.9rem; color: rgba(255,255,255,0.95); line-height: 1.6;">
+past_turn_budget = CONTEXT_BUDGET - MAX_RESPONSE_TOKENS<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- tokens(system) - tokens(tools) - tokens(user_input)
 </div>
 
-<div class="border-l-4 border-orange-500 pl-3">
-<div class="text-base font-bold mb-2 text-orange-400">Token budget</div>
-<div class="text-sm">Compute upfront. Walk past turns newest-first until full.</div>
-</div>
-
-<div class="border-l-4 border-purple-500 pl-3">
-<div class="text-base font-bold mb-2 text-purple-400">Semantic recall</div>
-<div class="text-sm">Summarize each turn, embed, retrieve by similarity.</div>
-</div>
-
-</div>
-
-<div class="mt-6 text-center text-sm font-mono">
-
-```
-past_turn_budget = CONTEXT_BUDGET - MAX_RESPONSE_TOKENS
-                 - tokens(system) - tokens(tools) - tokens(user_input)
-```
-
-</div>
-
-<div class="mt-6 text-center text-sm opacity-70">
-
+<div style="margin-top: 1rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem;">
 <code>tiktoken cl100k_base</code> · <code>sentence-transformers all-MiniLM-L6-v2</code> · normalized vectors → dot product = cosine
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 5 · Add tools  ·  the agent moment
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>tool / action layer</strong>. (`modules/05-add-tools/` → <code>agent.py</code>)
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 5 · Add tools <span style="color: #EB6E1F;">·</span> the agent moment</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: tool / action layer · modules/05-add-tools/ → agent.py</div>
 </div>
 
-```mermaid {scale: 0.7}
+<div class="hero-card" style="padding: 1.25rem 1.5rem; margin-top: 1.25rem;">
+<div class="eyebrow">The TAO loop</div>
+
+```mermaid {scale: 0.55}
 flowchart LR
     Start[User input] --> Think[THINK<br/>LLM call]
     Think --> Branch{Tool call?}
@@ -477,51 +489,52 @@ flowchart LR
     Branch -->|no| End[Response]
 ```
 
-<div class="mt-4 text-center text-lg text-green-400">
-
-The model — not your code — decides what comes next.
-
 </div>
 
-<div class="mt-6 grid grid-cols-2 gap-6 text-sm">
-
-<div>
-
-**The toolkit (6 tools):**<br/>
-`read` · `grep` · `glob`<br/>
-`write` · `edit` · `bash`
-
+<div style="margin-top: 1rem; padding: 0.85rem 1.5rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
+<div style="color: white; font-size: 1.1rem; font-weight: 700;">The model — not your code — decides what comes next.</div>
 </div>
 
-<div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1rem;">
 
-**Registry collapses repeat plumbing.**<br/>
-**Central executor catches all errors.**<br/>
-**`asyncio.gather` dispatches in parallel.**
+<div class="hero-card" style="padding: 1.15rem 1.5rem;">
+<div class="eyebrow">Toolkit · 6 tools</div>
+<div style="color: white; font-size: 0.95rem; font-family: ui-monospace, monospace; line-height: 1.7; margin-top: 0.4rem;">read · grep · glob<br/>write · edit · bash</div>
+</div>
+
+<div class="hero-card" style="padding: 1.15rem 1.5rem;">
+<div class="eyebrow">How they scale</div>
+<div style="color: white; font-size: 0.9rem; line-height: 1.5; margin-top: 0.4rem;">
+<strong>Registry</strong> collapses repeat plumbing.<br/>
+<strong>Central executor</strong> catches all errors.<br/>
+<strong style="color: #EB6E1F;">asyncio.gather</strong> dispatches in parallel.
+</div>
+</div>
 
 </div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 6 · Add sandboxing
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>execution environment</strong>. (`modules/06-add-sandboxing/` → <code>sandbox_agent.py</code> + <code>Dockerfile.sandbox</code>)
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 6 · Add sandboxing</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: execution environment · modules/06-add-sandboxing/ → sandbox_agent.py + Dockerfile.sandbox</div>
 </div>
 
-<div class="mt-6 text-base opacity-90">
-
-The agent has a <code>bash</code> tool that runs commands directly on the host. The model can write your filesystem, install packages, exfiltrate data — by mistake or by prompt injection.
-
+<div style="margin-top: 1.5rem; padding: 1.1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 1rem; line-height: 1.55;">The agent has a <code>bash</code> tool that runs <strong style="color: #EB6E1F;">directly on the host</strong>. The model can write your filesystem, install packages, exfiltrate data — by mistake or by prompt injection.</div>
 </div>
 
-<div class="mt-8 flex justify-center">
+<div class="hero-card" style="padding: 1.5rem 1.75rem; margin-top: 1.25rem; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+<div class="eyebrow" style="text-align: center;">The fix · contain bash in Docker</div>
 
-```mermaid {scale: 0.8}
+```mermaid {scale: 0.6}
 flowchart LR
     Agent[agent.py] --> Bash[bash tool]
     Bash --> Docker[Docker container<br/>--cap-drop ALL<br/>--network none<br/>--read-only]
@@ -531,63 +544,71 @@ flowchart LR
 
 </div>
 
-<div class="mt-6 text-sm opacity-70 text-center">
-
+<div style="margin-top: 0.85rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem;">
 Only <code>bash</code> is sandboxed. <code>read</code> / <code>write</code> / <code>edit</code> still touch the host — file editing has to be visible.
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 7 · Add guardrails
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 7 · Add guardrails</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: safety constraints · modules/07-add-guardrails/ → safe_agent.py</div>
+</div>
 
-Harness component: <strong>safety constraints</strong>. (`modules/07-add-guardrails/` → <code>safe_agent.py</code>)
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; flex: 1; margin-top: 1.75rem;">
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">01 · before the action</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Approval gates</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">Before running a dangerous tool (<code>write</code> / <code>edit</code> / <code>bash</code>), prompt the human y/N.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">02 · cap the runtime</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Loop bounds</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;"><code>MAX_ITERATIONS</code> cap on the inner TAO loop. Stop before the agent burns budget.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.75rem;">
+<div class="eyebrow">03 · survive transients</div>
+<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Retry / backoff</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">Exponential backoff on transient API errors. Tool errors handled by the model.</div>
+</div>
 
 </div>
 
-<div class="mt-6 grid grid-cols-3 gap-6">
-
-<div class="border rounded p-5">
-<div class="text-lg font-bold mb-3 text-yellow-400">Approval gates</div>
-<div class="text-sm opacity-80">Before running a dangerous tool (<code>write</code> / <code>edit</code> / <code>bash</code>), prompt the human y/N.</div>
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 1rem; line-height: 1.5;">
+Sandbox constrains <strong style="color: #EB6E1F;">where</strong> the agent can act. Guardrails constrain <strong style="color: #EB6E1F;">whether</strong> it gets to act at all.
 </div>
-
-<div class="border rounded p-5">
-<div class="text-lg font-bold mb-3 text-yellow-400">Loop bounds</div>
-<div class="text-sm opacity-80"><code>MAX_ITERATIONS</code> cap on the inner TAO loop. Stop before the agent burns budget.</div>
 </div>
-
-<div class="border rounded p-5">
-<div class="text-lg font-bold mb-3 text-yellow-400">Retry / backoff</div>
-<div class="text-sm opacity-80">Exponential backoff on transient API errors. Tool errors handled by the model.</div>
-</div>
-
-</div>
-
-<div class="mt-10 text-center text-base">
-
-Sandbox constrains <strong>where</strong> the agent can act.<br/>
-Guardrails constrain <strong>whether</strong> it gets to act at all.
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 8 · Add observability
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>structured tracing</strong>. (`modules/08-add-observability/` → <code>traced_agent.py</code>)
-
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 8 · Add observability</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: structured tracing · modules/08-add-observability/ → traced_agent.py</div>
 </div>
 
-<div class="mt-4 text-base opacity-90">
-
-Every LLM call and tool call becomes a structured span. JSONL — one span per line.
-
+<div style="margin-top: 1.5rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 1rem; line-height: 1.55;">Every LLM call and tool call becomes a <strong style="color: #EB6E1F;">structured span</strong>. JSONL — one span per line.</div>
 </div>
+
+<div style="margin-top: 1.25rem;">
 
 ```json {all|1|2-3|4}
 {"type":"llm_call","span_id":"abc","start":1714,"end":1716,"tokens_in":1842,"tokens_out":187,"model":"claude-sonnet-4-5"}
@@ -596,28 +617,34 @@ Every LLM call and tool call becomes a structured span. JSONL — one span per l
 {"type":"llm_call","span_id":"jkl","start":1718,"end":1720,"tokens_in":2104,"tokens_out":94}
 ```
 
-<div class="mt-6 text-sm opacity-70 text-center">
+</div>
 
-Search · replay · feed to evals.<br/>
-<code>tail -f ~/.traced-agent/traces.jsonl | jq</code> — live debugging.
+<div style="margin-top: 1.25rem; text-align: center; color: rgba(255,255,255,0.75); font-size: 0.95rem;">
+Search · replay · feed to evals.
+</div>
+
+<div style="margin-top: 0.4rem; text-align: center; color: rgba(255,255,255,0.55); font-size: 0.85rem; font-family: ui-monospace, monospace;">
+tail -f ~/.traced-agent/traces.jsonl | jq
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 9 · Add evaluation
-
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>test infrastructure</strong>. (`modules/09-add-evaluation/` → <code>evals/</code> at the repo root)
-
-</div>
-
-<div class="mt-4 grid grid-cols-2 gap-8">
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
 <div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 9 · Add evaluation</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: test infrastructure · modules/09-add-evaluation/ → evals/</div>
+</div>
 
-**A YAML case:**
+<div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.75rem; margin-top: 1.5rem; flex: 1; min-height: 0;">
+
+<div class="hero-card" style="padding: 1.25rem 1.5rem;">
+<div class="eyebrow">A YAML case</div>
 
 ```yaml
 id: find-imports
@@ -635,63 +662,68 @@ checks:
 
 </div>
 
-<div>
-
-**The runner:**
-
-- Subprocess per case (fresh state)
-- N runs per case (default 3)
-- Stochastic pass rate
-- LLM-as-judge with Haiku
-- Result file per timestamp
-- <code>diff.py</code> flags >10% regression
-
+<div class="hero-card" style="padding: 1.25rem 1.5rem;">
+<div class="eyebrow">The runner</div>
+<div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.92rem; margin-top: 0.5rem;">
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Subprocess per case (fresh state)</span></div>
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>N runs per case (default 3)</span></div>
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Stochastic pass rate</span></div>
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>LLM-as-judge with Haiku</span></div>
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Result file per timestamp</span></div>
+<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span><code>diff.py</code> flags &gt;10% regression</span></div>
+</div>
 </div>
 
 </div>
 
-<div class="mt-4 text-center text-sm opacity-70">
-
-<code>uv run --project examples evals/run.py examples/production_agent.py</code>
+<div style="margin-top: 1rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem; font-family: ui-monospace, monospace;">
+uv run --project examples evals/run.py examples/production_agent.py
+</div>
 
 </div>
 
 ---
+class: ''
+---
 
-# Module 10 · Add performance
-
-<div class="text-sm opacity-70 mb-4">
-
-Harness component: <strong>production hardening</strong>. (`modules/10-add-performance/` → <code>production_agent.py</code>)
-
-</div>
-
-<div class="mt-6 grid grid-cols-2 gap-x-12 gap-y-6">
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
 
 <div>
-<div class="text-base font-bold mb-2 text-cyan-400">Prompt caching</div>
-<div class="text-sm opacity-80">Mark system + tool schemas <code>cache_control</code>. Amortize input cost across many turns.</div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 10 · Add performance</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: production hardening · modules/10-add-performance/ → production_agent.py</div>
 </div>
 
-<div>
-<div class="text-base font-bold mb-2 text-cyan-400">Tool output caching</div>
-<div class="text-sm opacity-80">Two reads of the same file in one turn shouldn't pay twice. Content-addressed cache around <code>read</code> / <code>grep</code> / <code>glob</code>.</div>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-top: 1.5rem; flex: 1;">
+
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">01 · amortize input cost</div>
+<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Prompt caching</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Mark system + tool schemas <code>cache_control</code>. Amortize input cost across many turns.</div>
 </div>
 
-<div>
-<div class="text-base font-bold mb-2 text-cyan-400">Threading</div>
-<div class="text-sm opacity-80">CPU work (big regex trees, embedding inference) runs on a thread so concurrent tools aren't serialized behind it.</div>
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">02 · don't pay twice</div>
+<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Tool output caching</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Two reads of the same file in one turn shouldn't pay twice. Content-addressed cache around <code>read</code> / <code>grep</code> / <code>glob</code>.</div>
 </div>
 
-<div>
-<div class="text-base font-bold mb-2 text-cyan-400">Structured prompts · <code>assemble()</code></div>
-<div class="text-sm opacity-80">One function brings together system, recalled memory, tool schemas, trimmed messages. One named call site.</div>
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">03 · off the event loop</div>
+<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Threading</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">CPU work (big regex trees, embedding inference) runs on a thread so concurrent tools aren't serialized behind it.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.5rem;">
+<div class="eyebrow">04 · one named call site</div>
+<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Structured prompts · <code>assemble()</code></div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">One function brings together system, recalled memory, tool schemas, trimmed messages. One named call site.</div>
 </div>
 
 </div>
 
-<div class="mt-8 text-center text-lg text-green-400">
-
-The curriculum's destination: <code>examples/production_agent.py</code>
+<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; text-align: center;">
+<div style="color: white; font-size: 1rem;">The curriculum's destination: <strong style="color: #EB6E1F; font-family: ui-monospace, monospace;">examples/production_agent.py</strong></div>
+</div>
 
 </div>
