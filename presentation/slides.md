@@ -450,11 +450,11 @@ flowchart LR
 <div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">01 · reasoning</div>
 <div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>LLM call</strong> — the model</div>
 </div>
-<div style="padding: 0.4rem 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px;">
+<div style="padding: 0.4rem 0.7rem; background: rgba(235,110,31,0.15); border: 1px solid #EB6E1F; border-radius: 5px;">
 <div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">02 · the body</div>
 <div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>Loop</strong> — the harness's control flow</div>
 </div>
-<div style="padding: 0.4rem 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px;">
+<div style="padding: 0.4rem 0.7rem; background: rgba(235,110,31,0.15); border: 1px solid #EB6E1F; border-radius: 5px;">
 <div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">03 · world interface</div>
 <div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>Tools</strong> — the harness's hands</div>
 </div>
