@@ -1,0 +1,13 @@
+/* Hide Slidev's slide-list drawer / navigation menu overlay.
+   These selectors cover the common drawer/menu element classes
+   Slidev renders for the slide list and table of contents. */
+
+#slide-list,
+.slidev-nav-side-menu,
+.slidev-nav-go-to-list,
+.menu-container,
+[aria-label="Slides overview"],
+[aria-label="Menu"],
+nav.menu {
+  display: none !important;
+}
