@@ -8,6 +8,7 @@ info: |
 class: text-center
 highlighter: shiki
 lineNumbers: false
+controls: false
 drawings:
   persist: false
 transition: slide-left
