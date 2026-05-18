@@ -1,10 +1,10 @@
-/* Hide Slidev's bottom controls bar (contains the menu trigger button)
-   plus any slide-list/menu drawer overlay that might still pop. */
-
+/* Hide Slidev's bottom controls bar (the menu/goto trigger) */
 #slidev-controls,
-.slidev-controls,
-[class*="page-list"],
-[class*="slidev-menu"],
-[class*="nav-menu"] {
+.slidev-controls {
+  display: none !important;
+}
+
+/* Hide the go-to-slide autocomplete drawer (opens via the `G` shortcut) */
+.autocomplete-list {
   display: none !important;
 }
