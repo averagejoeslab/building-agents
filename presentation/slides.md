@@ -325,22 +325,74 @@ class: ''
 The harness is every piece of code, configuration, and execution logic that isn't the model itself.
 </div>
 
-<div class="eyebrow" style="text-align: center; margin: 0.5rem 0 0.85rem;">The 9 components</div>
+<div class="eyebrow" style="text-align: center; margin: 0.5rem 0 0.85rem;">10 modules · one harness component each</div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; font-size: 0.98rem;">
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Selecting the model</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Control flow</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Memory</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Context management</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Tools</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Safety / guardrails</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Observability</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Evaluation</div>
-<div class="hero-card" style="padding: 0.85rem 1rem; border-top-width: 2px;">Optimization</div>
+<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.7rem;">
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M1</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">What is an agent?</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">concept · the three primitives</div>
 </div>
 
-<div style="margin-top: 1.5rem; text-align: center; color: white; font-size: 1.1rem; font-weight: 600;">
-10 modules cover all of it. <span style="color: #EB6E1F;">This is the talk's focus.</span>
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M2</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">An LLM call</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">model interface</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M3</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add a loop</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">control flow</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M4</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add memory</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">memory + context</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px; background: rgba(235,110,31,0.18); border-color: #EB6E1F;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M5</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add tools</div>
+<div style="color: rgba(255,255,255,0.85); font-size: 0.7rem; margin-top: 0.2rem;">tool / action layer · <strong>becomes agent</strong></div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M6</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add sandboxing</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">execution environment</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M7</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add guardrails</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">safety constraints</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M8</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add observability</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">structured tracing</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M9</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add evaluation</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">test infrastructure</div>
+</div>
+
+<div class="hero-card" style="padding: 0.65rem 0.8rem; border-top-width: 2px;">
+<div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;">M10</div>
+<div style="color: white; font-size: 0.88rem; font-weight: 700; margin-top: 0.15rem; line-height: 1.15;">Add performance</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.7rem; margin-top: 0.2rem;">production hardening</div>
+</div>
+
+</div>
+
+<div style="margin-top: 1.5rem; text-align: center; color: white; font-size: 1.05rem; font-weight: 600;">
+Each module adds one component to a runnable harness. <span style="color: #EB6E1F;">Stack them all and you have a production agent.</span>
 </div>
 
 </div>
