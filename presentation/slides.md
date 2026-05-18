@@ -182,33 +182,49 @@ class: ''
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.85rem; flex: 1; min-height: 0;">
 
 <div class="hero-card" style="padding: 0.7rem 1rem;">
-<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · GPT-style transformer</div>
+<div class="eyebrow" style="font-size: 0.6rem; margin-bottom: 0.35rem;">Architecture · how a prompt becomes a response</div>
 
-<div style="display: flex; flex-direction: column; gap: 0.22rem;">
+<div style="display: flex; flex-direction: column; gap: 0.2rem;">
 
-<div style="font-size: 0.52rem; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Preprocessing · no learned weights</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Tokenizer (BPE) — text → token IDs</div>
+<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you type text</div>
 
-<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1; margin: 0.05rem 0;">↓</div>
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.4rem 0.55rem; background: rgba(235,110,31,0.05);">
-<div style="font-size: 0.52rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.3rem;">Neural network · learned weights</div>
-<div style="display: flex; flex-direction: column; gap: 0.13rem;">
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Embedding lookup</div>
-<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.3rem 0.55rem; text-align: center;">
-<div style="font-weight: 700; font-size: 0.78rem; line-height: 1.1;">Transformer block × 60–120</div>
-<div style="font-size: 0.62rem; opacity: 0.85; margin-top: 0.1rem;">RMSNorm · Attention (RoPE) · FFN (SwiGLU) · residuals</div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Preprocessing</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.6rem;">
+<div style="font-size: 0.7rem;"><strong style="color: #EB6E1F;">Tokenizer</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">chops text into chunks, each gets a number ID</span></div>
+</div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
+
+<div style="border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; padding: 0.35rem 0.5rem; background: rgba(235,110,31,0.05);">
+<div style="font-size: 0.5rem; color: #EB6E1F; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 0.25rem;">Neural network · learned during training</div>
+<div style="display: flex; flex-direction: column; gap: 0.18rem;">
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>Embedding</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">turns each ID into a "meaning vector"</span></div>
 </div>
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
-<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Final RMSNorm + LM head → logits</div>
+<div style="background: rgba(235,110,31,0.2); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.28rem 0.55rem;">
+<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">Transformer block × 60–120</div>
+<div style="font-size: 0.6rem; opacity: 0.88; margin-top: 0.1rem;">the "thinking" — every token looks at every other, refining meaning over and over</div>
+</div>
+<div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px; padding: 0.2rem 0.55rem;">
+<div style="font-size: 0.7rem;"><strong>LM head</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">scores every possible next word</span></div>
+</div>
 </div>
 </div>
 
-<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1; margin: 0.05rem 0;">↓</div>
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
 
-<div style="font-size: 0.52rem; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Postprocessing · no learned weights</div>
-<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.55rem; text-align: center; font-size: 0.72rem;">Softmax + sample → next token</div>
+<div style="font-size: 0.5rem; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Postprocessing</div>
+<div style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.22); border-radius: 5px; padding: 0.2rem 0.6rem;">
+<div style="font-size: 0.7rem;"><strong style="color: #EB6E1F;">Sample &amp; detokenize</strong> &nbsp;·&nbsp; <span style="opacity: 0.78;">pick one word from the scores, turn back to text</span></div>
+</div>
+
+<div style="text-align: center; color: rgba(235,110,31,0.5); font-size: 0.55rem; line-height: 1;">↓</div>
+
+<div style="text-align: center; font-size: 0.62rem; color: rgba(255,255,255,0.55); font-style: italic;">you see one word — repeat the whole thing for the next word</div>
 
 </div>
 </div>
