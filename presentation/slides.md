@@ -544,26 +544,30 @@ async def main():
 <div style="color: white; font-size: 0.95rem; line-height: 1.5;">The Messages API is stateless. The program holds the state. <strong style="color: #EB6E1F;">Terminal is just our pick — the loop is environment-agnostic.</strong></div>
 </div>
 
-<div style="margin-top: 0.85rem; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem;">
-<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.78rem;">Terminal</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">stdin / stdout</div>
+<div style="margin-top: 0.85rem; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem;">
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">Terminal</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">stdin / stdout</div>
 </div>
-<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.78rem;">WebSocket</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">browser SSE</div>
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">WebSocket</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">browser SSE</div>
 </div>
-<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.78rem;">Slack</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">slash command</div>
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">Slack</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">slash command</div>
 </div>
-<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.78rem;">Gameboy</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">emulator I/O</div>
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">Gameboy</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">emulator I/O</div>
 </div>
-<div style="text-align: center; padding: 0.4rem 0.3rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.78rem;">Spreadsheet</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.62rem; margin-top: 0.15rem;">cell formula</div>
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">Minecraft</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">block actions</div>
+</div>
+<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
+<div style="color: white; font-weight: 700; font-size: 0.72rem;">Spreadsheet</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">cell formula</div>
 </div>
 </div>
 
