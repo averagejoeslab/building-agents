@@ -2,11 +2,11 @@
 
 To document how to build your own agent from scratch, which you can do by building a harness around a model because `Agent = Model + Harness`. Additionally this repo makes clear the differences between: model development, harness engineering, and agentic engineering.
 
-I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see vendors pitching their harness, which typically includes their control flow, memory layer, and tool execution layer, etc. To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs.
+I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see vendors pitching their harness, which typically includes their control flow, memory layer, and tool execution layer, etc. To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs. If you know how to build a harness you can build agentic systems in any form factor you need.
 
 ## What is an agentic system?
 
-The idea of agentic systems comes from cognitive science — systems that can act on their own, without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to accomplish a goal without supervision.
+The idea of agentic systems comes from cognitive science — systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
 
 ### Two shapes: workflows and agents
 
@@ -30,6 +30,8 @@ flowchart LR
 ```
 
 ### Common workflow patterns
+
+Below are some common workflow patterns that are used to orchestrate LLM calls.
 
 **Prompt chaining** — LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
 
@@ -132,7 +134,7 @@ For most production systems a workflow is more reliable, cheaper, and easier to 
 - **Research agents** — [OpenAI Deep Research](https://openai.com/index/introducing-deep-research/), Claude's research mode. The model searches, synthesizes, digs deeper.
 - **Task completion agents** — [SWE-agent](https://swe-agent.com), browser-use agents. The model manipulates a filesystem or GUI to complete a task.
 
-In each case, the next action depends on what the previous action produced. The paths can't be enumerated in advance.
+In each case, the next action depends on what the previous action produced. The paths aren't known in advance and are determined by the model's probability distribution.
 
 > [!IMPORTANT]
 > Most systems marketed as "agents" in 2026 are workflows. That's often the right answer. This content is about the case when it isn't.
@@ -141,9 +143,9 @@ In each case, the next action depends on what the previous action produced. The 
 
 There are three disciplines that lead up to building and using an agent:
 
-- **Model development.** This discipline is responsible for training the models most use today. A small number of labs with capital, GPUs, and data pipelines have the resources to train these models and the output of their work is a model you call via an API endpoint. Examples of these models are GPT, Claude, Gemini, Llama, etc.
+- **Model development.** This discipline is responsible for training the models. A small number of labs with capital, GPUs, and data pipelines have the resources to train these models and the output of their work is a model you call via an API endpoint. Examples of these models are GPT, Claude, Gemini, Llama, etc.
 - **Harness engineering.** This discipline is responsible for wrapping that model in a control flow, memory layer, tool execution layer, sandboxing, guardrails, observability, etc. When you wrap a model in a harness you get an agent because *Agent = Model + Harness.* The output of this discipline is a harness that wraps a model gives rise to an agent. Examples of these harnesses are Claude Code, Cursor, Codex, Mistral's Vibe, etc.
-- **Agentic engineering.** This discipline is responsible for using an agent to build software, products, infrastructure, or more agents. The agent becomes the tool. The output of this discipline is products built by agents orchestrated by humans. Examples of agentic engineering are things like OpenClaw, but could also be a non-AI product that was built by an agent that was orchestrated by a human.
+- **Agentic engineering.** This discipline is responsible for using an agentic system to build software, products, infrastructure, or more agentic systems. The agent becomes the tool. The output of this discipline is products built by agents orchestrated by humans. An example of agentic engineering is how Peter Steinberg used coding agents to build OpenClaw, but agentic engineering doesn't always mean building an AI product, it could also be a non-AI product that was built by an agent that was orchestrated by a human.
 
 Harness engineering is the primary content of this repo in the [modules](./modules/). We won't cover model development other than in theory because building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering picks up after the curriculum with a section on what to do with the agent you've built.
 
@@ -161,25 +163,31 @@ A probabilistic next-token predictor built from a small set of primitives:
 
 - **Tokenizer** — chops raw text into sub-word tokens via byte-pair encoding (BPE) or similar. Vocabularies are typically 30k–200k entries.
 - **Token embeddings** — each token ID maps to a learned vector, often 2,048–16,384 dimensions in modern models.
-- **Positional information** — added to embeddings so the model knows token order (RoPE, ALiBi, or learned position vectors).
-- **Transformer block** — multi-head self-attention (every token attends to every other), feed-forward network (per-token nonlinear, often SwiGLU), residual connections, layer normalization (RMSNorm is common). Frontier models stack 60–120 of these.
-- **Output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled.
+- **Positional information** — added to embeddings so the model knows token order (RoPE in modern designs, sometimes ALiBi).
+- **Transformer block** — self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, SwiGLU is the modern choice), residual connections, layer normalization (RMSNorm). Frontier models stack 60–120 of these.
+  - **Attention variants**: plain MHA is legacy; **GQA** (grouped-query attention) is the field standard in 2026; **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by ~10× and is the frontier choice for very long contexts.
+  - **FFN variants**: the FFN can be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, GPT-4 likely). R1 is 671B total parameters / 37B active per token via 256 routed experts + 1 shared per layer.
+- **Output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled. Often weight-tied to the input embedding matrix.
 
 #### Training
 
 ```mermaid
 flowchart LR
-    A[Web-scale corpus<br/>trillions of tokens] --> B[Pretraining<br/>next-token prediction]
-    B --> C[Base model]
-    C --> D[Supervised fine-tuning<br/>instruction data]
-    D --> E[Preference tuning<br/>RLHF / DPO]
-    E --> F[Released model]
+    A[Web-scale corpus] --> B[Pretraining]
+    B --> C[Mid-training]
+    C --> D[SFT]
+    D --> E[Preference tuning<br/>RLHF / DPO / GRPO]
+    E --> F[Constitutional AI<br/>RLAIF]
+    F --> G[Reasoning RL<br/>GRPO + verifiable rewards]
+    G --> H[Released model]
 ```
 
-1. **Pretraining.** Predict the next token over trillions of tokens of web-scale data. Acquires syntax, facts, reasoning patterns. Thousands of GPUs, months of wall-clock time.
-2. **Supervised fine-tuning (SFT).** Curated instruction/response pairs — learn to follow instructions rather than continue arbitrary text.
-3. **Preference tuning (RLHF or DPO).** Human-rated comparisons — learn what counts as a good response. Helpfulness, honesty, safety instilled here.
-4. **(Optional) Specialty fine-tuning.** Domain-specific data: code, math, tool use.
+1. **Pretraining.** Predict the next token over trillions of tokens of web-scale data. Acquires syntax, facts, reasoning patterns. Thousands of GPUs, months of wall-clock time. Produces the *base model*.
+2. **Mid-training.** Continued pretraining on curated higher-quality data — code, math, reasoning. Sharpens specific domains without restarting from scratch.
+3. **Supervised fine-tuning (SFT).** Curated instruction/response pairs — learn to follow instructions rather than continue arbitrary text.
+4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons — learn what counts as a good response. Helpfulness, honesty, safety instilled here.
+5. **Constitutional AI / RLAIF (optional, Anthropic-style).** AI feedback against a written set of principles — scales alignment past what humans can directly label.
+6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks — trains explicit chain-of-thought. This is the stage that produces o1, o3, Claude reasoning, and DeepSeek R1 from their respective base models.
 
 #### Inference
 
