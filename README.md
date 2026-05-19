@@ -6,20 +6,20 @@ I am Chase Dovey, and I conduct research on agentic systems. Most of that work i
 
 ## What is an agentic system?
 
-The idea of agentic systems comes from cognitive science — systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
+The idea of agentic systems comes from cognitive science: systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
 
 ### Two shapes: workflows and agents
 
 In my opinion, agentic systems come in two forms, as defined in Anthropic's [*Building Effective Agents*](https://www.anthropic.com/engineering/building-effective-agents). The distinction is about *what shape the system's control flow takes*.
 
-**Workflows** — LLMs and tools orchestrated through **predefined code paths**. Prescriptive code paths define the sequence of steps that will be taken to accomplish a goal.
+**Workflows**: LLMs and tools orchestrated through **predefined code paths**. Prescriptive code paths define the sequence of steps that will be taken to accomplish a goal.
 
 ```mermaid
 flowchart LR
     In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
 ```
 
-**Agents** — **LLMs dynamically direct their own path through the control flow**. The model decides the sequence of steps; no prescriptive code paths are followed and the model exercises its probability distribution to determine the next step.
+**Agents**: **LLMs dynamically direct their own path through the control flow**. The model decides the sequence of steps; no prescriptive code paths are followed and the model exercises its probability distribution to determine the next step.
 
 ```mermaid
 flowchart LR
@@ -33,14 +33,14 @@ flowchart LR
 
 Below are some common workflow patterns that are used to orchestrate LLM calls.
 
-**Prompt chaining** — LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
+**Prompt chaining**: LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
 
 ```mermaid
 flowchart LR
     In[Input] --> A[LLM 1] --> B[LLM 2] --> C[LLM 3] --> Out[Output]
 ```
 
-**Routing** — Classify input → dispatch to one of N handlers. Example: support tickets routed to billing / technical / refunds.
+**Routing**: Classify input → dispatch to one of N handlers. Example: support tickets routed to billing / technical / refunds.
 
 ```mermaid
 flowchart LR
@@ -53,7 +53,7 @@ flowchart LR
     H3 --> Out
 ```
 
-**Parallelization** — Run N LLM calls in parallel → aggregate. Example: N perspectives on one question.
+**Parallelization**: Run N LLM calls in parallel → aggregate. Example: N perspectives on one question.
 
 ```mermaid
 flowchart LR
@@ -66,7 +66,7 @@ flowchart LR
     Agg --> Out[Output]
 ```
 
-**Orchestrator-workers** — One LLM splits work → workers handle sub-tasks. Example: research report with multiple sections.
+**Orchestrator-workers**: One LLM splits work → workers handle sub-tasks. Example: research report with multiple sections.
 
 ```mermaid
 flowchart LR
@@ -80,7 +80,7 @@ flowchart LR
     S --> Out[Output]
 ```
 
-**Evaluator-optimizer** — Generator → Evaluator → loop until good. Example: draft with a quality-gate loop.
+**Evaluator-optimizer**: Generator → Evaluator → loop until good. Example: draft with a quality-gate loop.
 
 ```mermaid
 flowchart LR
@@ -92,9 +92,9 @@ flowchart LR
 
 ### The agent pattern
 
-Workflows are a catalog of orchestration shapes. Agents are **one pattern** — an autonomous loop — and that's the whole list. What varies between agents in practice is the *harness around the model*: the environment, memory and context management, the toolkit, and whether one of the tools happens to be another agent.
+Workflows are a catalog of orchestration shapes. Agents are **one pattern**: an autonomous loop, and that's the whole list. What varies between agents in practice is the *harness around the model*: the environment, memory and context management, the toolkit, and whether one of the tools happens to be another agent.
 
-**Autonomous agent** — an LLM in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
+**Autonomous agent**: an LLM in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
 
 ```mermaid
 flowchart LR
@@ -110,7 +110,7 @@ flowchart LR
 By composing the above workflows and agent patterns, you can build multi-agent systems, multi-workflow systems, or systems that mix both.
 
 > [!NOTE]
-> **Whether to use multi-agent composition at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code subagents). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
+> **Whether to use multi-agent composition at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code subagents). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context, citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state; there is no default answer.
 
 ### The Average Joes Lab stance: purist agents only
 
@@ -124,15 +124,15 @@ flowchart LR
     W -.cannot derive.-> A
 ```
 
-The primitives are the same — LLM calls, tools, context, memory. An agent's control flow is the model making those choices live; a workflow's control flow is you making them in advance. The building blocks transfer; how you orchestrate them into a fixed sequence is its own discipline.
+The primitives are the same: LLM calls, tools, context, memory. An agent's control flow is the model making those choices live; a workflow's control flow is you making them in advance. The building blocks transfer; how you orchestrate them into a fixed sequence is its own discipline.
 
-For most production systems a workflow is more reliable, cheaper, and easier to evaluate — build a workflow if you can. But the interesting engineering problems — designing tools the model will use well, managing an open-ended context, making a non-deterministic loop reliable, evaluating a trajectory you can't enumerate — are agent problems.
+For most production systems a workflow is more reliable, cheaper, and easier to evaluate. Build a workflow if you can. But the interesting engineering problems (designing tools the model will use well, managing an open-ended context, making a non-deterministic loop reliable, evaluating a trajectory you can't enumerate) are agent problems.
 
 ### What agents look like
 
-- **Coding agents** — [Claude Code](https://claude.com/claude-code), [Cursor](https://cursor.com), [Devin](https://devin.ai), [Aider](https://aider.chat), [nanoagent](https://github.com/averagejoeslab/nanoagent). The model opens files, edits them, runs tests, iterates.
-- **Research agents** — [OpenAI Deep Research](https://openai.com/index/introducing-deep-research/), Claude's research mode. The model searches, synthesizes, digs deeper.
-- **Task completion agents** — [SWE-agent](https://swe-agent.com), browser-use agents. The model manipulates a filesystem or GUI to complete a task.
+- **Coding agents**: [Claude Code](https://claude.com/claude-code), [Cursor](https://cursor.com), [Devin](https://devin.ai), [Aider](https://aider.chat), [nanoagent](https://github.com/averagejoeslab/nanoagent). The model opens files, edits them, runs tests, iterates.
+- **Research agents**: [OpenAI Deep Research](https://openai.com/index/introducing-deep-research/), Claude's research mode. The model searches, synthesizes, digs deeper.
+- **Task completion agents**: [SWE-agent](https://swe-agent.com), browser-use agents. The model manipulates a filesystem or GUI to complete a task.
 
 In each case, the next action depends on what the previous action produced. The paths aren't known in advance and are determined by the model's probability distribution.
 
@@ -161,13 +161,13 @@ I don't teach this here; the harness consumes the model as a callable API.
 
 A probabilistic next-token predictor built from a small set of primitives:
 
-- **Tokenizer** — chops raw text into sub-word tokens via byte-pair encoding (BPE) or similar. Vocabularies are typically 30k–200k entries.
-- **Token embeddings** — each token ID maps to a learned vector, often 2,048–16,384 dimensions in modern models.
-- **Positional information** — added to embeddings so the model knows token order (RoPE in modern designs, sometimes ALiBi).
-- **Transformer block** — self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, SwiGLU is the modern choice), residual connections, layer normalization (RMSNorm). Frontier models stack 60–120 of these.
+- **Tokenizer**: chops raw text into sub-word tokens via byte-pair encoding (BPE) or similar. Vocabularies are typically 30k–200k entries.
+- **Token embeddings**: each token ID maps to a learned vector, often 2,048–16,384 dimensions in modern models.
+- **Positional information**: added to embeddings so the model knows token order (RoPE in modern designs, sometimes ALiBi).
+- **Transformer block**: self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, SwiGLU is the modern choice), residual connections, layer normalization (RMSNorm). Frontier models stack 60–120 of these.
   - **Attention variants**: plain MHA is legacy; **GQA** (grouped-query attention) is the field standard in 2026; **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by ~10× and is the frontier choice for very long contexts.
   - **FFN variants**: the FFN can be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, GPT-4 likely). R1 is 671B total parameters / 37B active per token via 256 routed experts + 1 shared per layer.
-- **Output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled. Often weight-tied to the input embedding matrix.
+- **Output head**: projects the final hidden state to a distribution over the vocabulary; the next token is sampled. Often weight-tied to the input embedding matrix.
 
 #### Training
 
@@ -183,33 +183,33 @@ flowchart LR
 ```
 
 1. **Pretraining.** Predict the next token over trillions of tokens of web-scale data. Acquires syntax, facts, reasoning patterns. Thousands of GPUs, months of wall-clock time. Produces the *base model*.
-2. **Mid-training.** Continued pretraining on curated higher-quality data — code, math, reasoning. Sharpens specific domains without restarting from scratch.
-3. **Supervised fine-tuning (SFT).** Curated instruction/response pairs — learn to follow instructions rather than continue arbitrary text.
-4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons — learn what counts as a good response. Helpfulness, honesty, safety instilled here.
-5. **Constitutional AI / RLAIF (optional, Anthropic-style).** AI feedback against a written set of principles — scales alignment past what humans can directly label.
-6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks — trains explicit chain-of-thought. This is the stage that produces o1, o3, Claude reasoning, and DeepSeek R1 from their respective base models.
+2. **Mid-training.** Continued pretraining on curated higher-quality data: code, math, reasoning. Sharpens specific domains without restarting from scratch.
+3. **Supervised fine-tuning (SFT).** Curated instruction/response pairs. The model learns to follow instructions rather than continue arbitrary text.
+4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons. The model learns what counts as a good response. Helpfulness, honesty, safety instilled here.
+5. **Constitutional AI / RLAIF (optional, Anthropic-style).** AI feedback against a written set of principles. Scales alignment past what humans can directly label.
+6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks. Trains explicit chain-of-thought. This is the stage that produces o1, o3, Claude reasoning, and DeepSeek R1 from their respective base models.
 
 #### Inference
 
-A forward pass produces a distribution over the vocabulary. A token is sampled — modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), **top-p / nucleus** (smallest set whose probabilities sum to p). Repeat until end-of-sequence or max length.
+A forward pass produces a distribution over the vocabulary. A token is sampled, modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), **top-p / nucleus** (smallest set whose probabilities sum to p). Repeat until end-of-sequence or max length.
 
 A callable model can complete text. It can't read files, run commands, remember across sessions, or stop when done. To get any of that, you wrap it in a harness.
 
 ### 2. Harness engineering → an agent
 
-This is the layer I teach in this repo. A harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability. Wrap a model in one and you have an agent.
+This is the layer I teach in this repo. A harness is every piece of code, configuration, and execution logic that isn't the model itself: state, tools, execution, feedback loops, constraints, observability. Wrap a model in one and you have an agent.
 
 The discipline covers:
 
-- **Selecting the model** — which model the harness wraps.
-- **Control flow** — the loop that drives the model continuously.
-- **Memory** — what's remembered, when, how it's retrieved.
-- **Context management** — the context window is a token budget; what goes in, what gets evicted.
-- **Tools** — what capabilities the harness exposes, at what granularity, with what error semantics.
-- **Safety / guardrails** — sandboxing, approval gates, loop bounds, input/output detection.
-- **Observability** — structured traces of every LLM call, tool call, and state transition.
-- **Evaluation** — benchmarking harness behaviour, catching regressions.
-- **Optimization** — prompt caching, tool caching, threading, structured prompts.
+- **Selecting the model**: which model the harness wraps.
+- **Control flow**: the loop that drives the model continuously.
+- **Memory**: what's remembered, when, how it's retrieved.
+- **Context management**: the context window is a token budget; what goes in, what gets evicted.
+- **Tools**: what capabilities the harness exposes, at what granularity, with what error semantics.
+- **Safety / guardrails**: sandboxing, approval gates, loop bounds, input/output detection.
+- **Observability**: structured traces of every LLM call, tool call, and state transition.
+- **Evaluation**: benchmarking harness behaviour, catching regressions.
+- **Optimization**: prompt caching, tool caching, threading, structured prompts.
 
 One module per component. Every checkpoint in [`examples/`](./examples/) is a runnable harness at a different stage. Stack the components around a model and you have an agent.
 
@@ -224,7 +224,7 @@ The modules below are the harness-engineering work: take Claude as the model and
 
 | # | Module | Harness component | Checkpoint |
 |---|---|---|---|
-| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | *(no code)* |
+| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept: Model + Harness) | *(no code)* |
 | 2 | [An LLM call](./modules/02-an-llm-call/) | **Model interface** | [`llm_call_sync.py`](./examples/llm_call_sync.py), [`llm_call_async.py`](./examples/llm_call_async.py) |
 | 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
 | 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |
@@ -257,7 +257,7 @@ This repo is built that way. Claude Code (a coding-agent harness) running on Cla
 
 This curriculum teaches step 2.
 
-"Vibe coding" (Karpathy) is the casual end of this — accept what the model produces. Agentic engineering is the disciplined version: thought about what to ask, what tools to provide, how to verify, how to fit into a delivery process you trust.
+"Vibe coding" (Karpathy) is the casual end of this. Accept what the model produces. Agentic engineering is the disciplined version: thought about what to ask, what tools to provide, how to verify, how to fit into a delivery process you trust.
 
 ## Scope
 
