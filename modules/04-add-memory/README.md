@@ -301,6 +301,13 @@ State lives in `~/.stateful-chatbot/`:
 
 Quit and restart; the conversation is still there. Have a long conversation; the chatbot trims old turns. Ask about something from a week ago; the chatbot recalls the summary.
 
+> [!NOTE]
+> **What these files are (and aren't).** `messages.json` and `recall.json` are **state files**: the agent's working memory. They're what the harness *reads at startup and writes after each turn* to keep being itself across sessions. They serve as the session-level checkpoint — quit and restart, and the agent picks up exactly where it left off.
+>
+> They are **not a record of what happened** during a turn. They don't capture which memories were considered but rejected, which tool calls were retried, which guardrails fired, how long anything took, or the full system prompt as actually sent. That history is what *observability* is for, and it belongs in a separate file with different durability and access patterns. We'll add that in M8 as `traces.jsonl` — a write-only audit trail that the agent itself never reads.
+>
+> The split matters because state and trace have different jobs: state is mutable, agent-consumed, and shaped for *the next turn*; trace is immutable, human/eval-consumed, and shaped for *understanding the last turn*. Production agent frameworks (LangSmith, OpenAI Assistants, Letta, Mastra, Logfire) all enforce this separation — usually as two distinct storage backends. We're doing it as two files in the same directory.
+
 ## Why this still isn't an agent
 
 The chatbot now remembers — but it still can't *do* anything. It can describe how to read a file, recall what you said about a project last month, propose what a config change might look like — but it cannot read, run, or write.

@@ -4,26 +4,34 @@
 
 Module 7 made the agent safer. It also made it more opaque. Approvals scroll off the terminal. Sentiment flags disappear. Retries happen silently inside the SDK. The hallucination judge runs once and forgets. When something goes wrong, *"what just happened?"* has no answer.
 
-Module 8 fixes that by tracing the agent's entire activity to a structured log. By the end you have [`examples/traced_agent.py`](../../examples/traced_agent.py) — `safe_agent.py` plus a span-based observability layer, comprehensive enough to support **four distinct downstream uses**:
+Module 8 fixes that by tracing the agent's entire activity to a structured log. By the end you have [`examples/traced_agent.py`](../../examples/traced_agent.py) — `safe_agent.py` plus a span-based observability layer, comprehensive enough to support **three distinct downstream uses**:
 
 | Purpose | What it needs |
 |---|---|
 | **Auditability** | Post-hoc readability — what did the agent do, when, why, with what arguments. |
 | **Replay** | Enough captured state to re-issue every LLM call and reproduce a turn. |
-| **Checkpointing** | Enough captured state to resume from any point mid-turn. |
 | **Evaluation** | Structured trajectories that an offline judge (M9) can score. |
 
-These four shape every decision about *what* to capture and *how*. A trace that supports all four is a trace that captures the full agent activity, not just summaries.
+These three shape every decision about *what* to capture and *how*. A trace that supports all three is a trace that captures the full agent activity, not just summaries.
 
-## The four purposes, concretely
+## The three purposes, concretely
 
 **Auditability.** A human (or compliance system) needs to read what the agent did. "On Tuesday at 2:14 PM the agent received this prompt; it consulted these stored memories; it called `read` on `pyproject.toml`; it returned this answer; the hallucination judge flagged it as ungrounded." Every step accounted for.
 
 **Replay.** Given a trace_id, the harness should be able to re-issue every LLM call with the exact prompts originally sent. Useful for debugging non-deterministic failures ("what if the model had been asked again?"), for evaluating a prompt change ("re-run yesterday's turn with the new system prompt and see if it goes differently"), and for forensics.
 
-**Checkpointing.** A long-running agent can crash, get interrupted, or hit the iteration cap mid-task. The trace plus the persisted state files (`messages.json`, `recall.json`) should be enough to resume — pick up at iteration N, feed in the same context, continue.
-
 **Feeding evaluation.** Module 9 will judge agent behaviour automatically. Its inputs are traces: the trajectory of tool calls, the final response, the cost, the guardrail verdicts. Without tracing, M9 would have nothing to score except the final stdout.
+
+## What this file is *not* for
+
+It's worth being precise about this, because the temptation is to make `traces.jsonl` do everything. It shouldn't.
+
+- **Not state.** The agent doesn't read `traces.jsonl` at startup. It reads `messages.json` and `recall.json` (M4). The trace is *write-only* from the agent's perspective — it appends to the file during a turn, and never opens it again.
+- **Not the conversation buffer.** The next iteration's prompt comes from `messages.json`, not from the trace. If you reconstructed the buffer from the trace tree you'd get the same content, but that's an accident of completeness, not the file's job.
+- **Not the session-level checkpoint.** Quit and relaunch the agent; the conversation comes back because `messages.json` was on disk, not because `traces.jsonl` was. The state files *are* the resume point between sessions.
+- **Not the source of truth for what the agent currently knows.** That's the state files. The trace is the source of truth for *what the agent did*. Two different questions, two different files.
+
+This separation isn't a quirk of our example — it's the pattern every production agent framework follows. LangSmith splits app state from `Runs`; OpenAI's Assistants API splits `Threads/Messages` from `Runs/RunSteps`; Letta splits `core_memory` from the event log; Pydantic Logfire splits application state from OTel spans. Mutable, agent-consumed state on one side; immutable, observability-consumed trace on the other.
 
 ## The span model
 
@@ -450,39 +458,21 @@ You can use this:
 - To A/B test prompt changes — replay yesterday's turn with a new system prompt and compare.
 - To recover from a crash — the trace shows what was happening when things died.
 
-## Checkpointing: resuming from any iteration
+## A note on resume: state files vs. mid-turn recovery
 
-A long-running agent can crash, be interrupted, or hit the iteration cap before completing. The trace + the persisted state files (`messages.json` + `recall.json` from M4) together contain enough to resume.
+Checkpointing is worth a short detour because it's where state and trace come closest to overlapping — without actually doing so.
 
-The pattern (sketched, not in the example):
+**Session-level resume is the state files' job, not the trace's.** Quit the agent between turns, relaunch it, and the conversation comes back because `messages.json` and `recall.json` (M4) are on disk. The trace doesn't participate in this. You could delete `traces.jsonl` entirely and the next session would still pick up correctly. This is the resume case 99% of agents care about, and the state files already handle it.
 
-```python
-async def resume_from(trace_id: str, from_iteration: int) -> None:
-    """Replay the agent up to iteration N, then continue the live loop."""
-    # Load the persisted state files (M4 already does this).
-    history = load_messages()
-    recall_entries = load_recall()
+**Mid-turn resume — picking up *inside* a TAO loop that crashed at iteration 3 of 5 — is a niche use case.** It is the one place the trace *would* be load-bearing, because the in-flight loop state (which iteration, what messages had been assembled, what tool was running) isn't in the state files. But the current example's buffer-and-emit format flushes the whole trace tree only when the root `turn` span closes. If the process dies mid-turn, that turn's spans are lost from the buffer.
 
-    # Walk forward through the trace, replaying each iteration up to from_iteration.
-    spans = [json.loads(line) for line in open(TRACE_FILE)]
-    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
-    llm_spans = sorted(
-        (s for s in turn_spans if s["name"] == "llm.call"),
-        key=lambda s: s["attributes"]["iteration"],
-    )
+If you actually need mid-turn recovery in production, the fix is one of:
 
-    # Pull the system prompt and messages from the iteration we want to resume at.
-    target = next(s for s in llm_spans if s["attributes"]["iteration"] == from_iteration)
-    messages = target["attributes"]["messages"]
-    system = target["attributes"]["system"]
+- **Flush spans live, one per line, as they close.** Forfeit the "one turn = one line" readability, gain crash-safety. Most production observability platforms do this and rely on a downstream collector to rebuild trees.
+- **Periodically checkpoint the in-flight buffer to disk** alongside the state files. The harness reads it on startup; if non-empty, it's a crash recovery situation.
+- **Don't bother.** This is what most agents do. A crashed turn just gets retried as a new turn; the user re-types or the orchestrator re-fires.
 
-    # Continue the TAO loop from here, in a new turn span if you want fresh tracing.
-    ...
-```
-
-Because every `llm.call` span captures the exact `messages` and `system` that were sent at that iteration, you can pick any iteration N as the new starting point. The conversation state and the recall state are independently persisted (M4); the trace tells you what the in-flight loop was doing.
-
-This is the discipline behind real agent fault-tolerance: durable state files + structured traces = recoverable agents.
+The point of mentioning it: the trace's *format* shapes what it can be used for. The default chosen here (one nested tree per turn, written at turn close) optimises for human readability and replay, at the cost of mid-turn crash recovery. That's a deliberate trade, and the right one for almost every agent — but it's worth knowing it exists.
 
 ## Feeding evaluation (preview of M9)
 
