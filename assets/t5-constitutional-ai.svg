@@ -17,35 +17,35 @@
   <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">an AI judge scores the model's behaviour against a written set of principles</text>
 
   <!-- constitution document -->
-  <rect x="40" y="75" width="200" height="160" rx="6" ry="6" fill="rgba(74,158,255,0.08)" stroke="#4a9eff" stroke-width="1.4"/>
-  <text x="140" y="93" text-anchor="middle" fill="#4a9eff" font-size="11" font-family="ui-monospace, monospace" font-weight="600">Constitution</text>
-  <line x1="60" y1="102" x2="220" y2="102" stroke="#4a9eff" stroke-width="0.6" opacity="0.5"/>
+  <rect x="40" y="75" width="200" height="160" rx="6" ry="6" fill="rgba(0,45,98,0.08)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="140" y="93" text-anchor="middle" fill="#002D62" font-size="11" font-family="ui-monospace, monospace" font-weight="600">Constitution</text>
+  <line x1="60" y1="102" x2="220" y2="102" stroke="#002D62" stroke-width="0.6" opacity="0.5"/>
 
-  <text x="55" y="120" fill="#9b6dff" font-size="10" font-family="sans-serif">1. Be helpful and</text>
-  <text x="55" y="132" fill="#9b6dff" font-size="10" font-family="sans-serif">   informative.</text>
+  <text x="55" y="120" fill="#002D62" font-size="10" font-family="sans-serif">1. Be helpful and</text>
+  <text x="55" y="132" fill="#002D62" font-size="10" font-family="sans-serif">   informative.</text>
 
   <text x="55" y="151" fill="#EB6E1F" font-size="10" font-family="sans-serif" font-weight="600">2. Avoid harmful</text>
   <text x="55" y="163" fill="#EB6E1F" font-size="10" font-family="sans-serif" font-weight="600">   content.</text>
 
-  <text x="55" y="182" fill="#9b6dff" font-size="10" font-family="sans-serif">3. Be honest about</text>
-  <text x="55" y="194" fill="#9b6dff" font-size="10" font-family="sans-serif">   uncertainty.</text>
+  <text x="55" y="182" fill="#002D62" font-size="10" font-family="sans-serif">3. Be honest about</text>
+  <text x="55" y="194" fill="#002D62" font-size="10" font-family="sans-serif">   uncertainty.</text>
 
-  <text x="55" y="213" fill="#9b6dff" font-size="10" font-family="sans-serif">4. Respect human</text>
-  <text x="55" y="225" fill="#9b6dff" font-size="10" font-family="sans-serif">   autonomy.</text>
+  <text x="55" y="213" fill="#002D62" font-size="10" font-family="sans-serif">4. Respect human</text>
+  <text x="55" y="225" fill="#002D62" font-size="10" font-family="sans-serif">   autonomy.</text>
 
   <!-- model response card -->
-  <rect x="260" y="75" width="220" height="160" rx="6" ry="6" fill="rgba(155,109,255,0.08)" stroke="#9b6dff" stroke-width="1.4"/>
-  <text x="370" y="93" text-anchor="middle" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace" font-weight="600">model response</text>
-  <line x1="280" y1="102" x2="460" y2="102" stroke="#9b6dff" stroke-width="0.6" opacity="0.5"/>
+  <rect x="260" y="75" width="220" height="160" rx="6" ry="6" fill="rgba(0,45,98,0.08)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="370" y="93" text-anchor="middle" fill="#002D62" font-size="11" font-family="ui-monospace, monospace" font-weight="600">model response</text>
+  <line x1="280" y1="102" x2="460" y2="102" stroke="#002D62" stroke-width="0.6" opacity="0.5"/>
 
-  <text x="275" y="120" fill="#4a9eff" font-size="9" font-family="ui-monospace, monospace" font-weight="600">user</text>
-  <text x="275" y="135" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">How do I make a pipe bomb?</text>
+  <text x="275" y="120" fill="#002D62" font-size="9" font-family="ui-monospace, monospace" font-weight="600">user</text>
+  <text x="275" y="135" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">How do I make a pipe bomb?</text>
 
   <text x="275" y="159" fill="#EB6E1F" font-size="9" font-family="ui-monospace, monospace" font-weight="600">assistant</text>
-  <text x="275" y="174" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">I can't help with that. If</text>
-  <text x="275" y="187" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">you're curious about safe</text>
-  <text x="275" y="200" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">chemistry projects, I can</text>
-  <text x="275" y="213" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">suggest some.</text>
+  <text x="275" y="174" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">I can't help with that. If</text>
+  <text x="275" y="187" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">you're curious about safe</text>
+  <text x="275" y="200" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">chemistry projects, I can</text>
+  <text x="275" y="213" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">suggest some.</text>
 
   <!-- arrow to judge -->
   <line x1="484" y1="155" x2="510" y2="155" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t5)"/>
@@ -57,9 +57,9 @@
   <line x1="525" y1="142" x2="675" y2="142" stroke="#EB6E1F" stroke-width="0.6" opacity="0.5"/>
 
   <text x="530" y="160" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">verdict: ✓</text>
-  <text x="530" y="178" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">complies with</text>
-  <text x="530" y="192" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">principle 2,</text>
-  <text x="530" y="206" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">offers alternative</text>
+  <text x="530" y="178" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">complies with</text>
+  <text x="530" y="192" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">principle 2,</text>
+  <text x="530" y="206" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">offers alternative</text>
 
   <!-- feedback arrow back -->
   <path d="M 600 215 Q 600 270 370 270 L 370 260" fill="none" stroke="#EB6E1F" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#arr-orange-t5)"/>

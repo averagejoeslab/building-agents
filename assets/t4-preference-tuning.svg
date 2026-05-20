@@ -17,24 +17,24 @@
   <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">humans rank pairs of model responses; model learns which one to favor</text>
 
   <!-- shared prompt -->
-  <rect x="160" y="68" width="400" height="34" rx="6" ry="6" fill="rgba(74,158,255,0.10)" stroke="#4a9eff" stroke-width="1.2"/>
-  <text x="170" y="84" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
-  <text x="170" y="97" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">What's a good first programming language to learn?</text>
+  <rect x="160" y="68" width="400" height="34" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="170" y="84" fill="#002D62" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
+  <text x="170" y="97" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">What's a good first programming language to learn?</text>
 
   <!-- response A (preferred, orange) -->
   <rect x="40" y="118" width="290" height="98" rx="6" ry="6" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.6"/>
   <text x="52" y="134" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">response A</text>
   <text x="280" y="134" text-anchor="end" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">★ preferred</text>
-  <text x="52" y="153" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Python is a popular first choice — it</text>
-  <text x="52" y="168" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">has clean syntax, a large community,</text>
-  <text x="52" y="183" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">and is used in web, data, and</text>
-  <text x="52" y="198" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">scripting work.</text>
+  <text x="52" y="153" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">Python is a popular first choice — it</text>
+  <text x="52" y="168" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">has clean syntax, a large community,</text>
+  <text x="52" y="183" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">and is used in web, data, and</text>
+  <text x="52" y="198" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">scripting work.</text>
 
   <!-- response B (rejected, faded) -->
-  <rect x="390" y="118" width="290" height="98" rx="6" ry="6" fill="rgba(155,109,255,0.04)" stroke="#9b6dff" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-  <text x="402" y="134" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace" font-weight="600" opacity="0.75">response B</text>
-  <text x="402" y="153" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace" opacity="0.7">Just pick one and start.</text>
-  <text x="402" y="180" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace" opacity="0.5" font-style="italic">(short, low-effort)</text>
+  <rect x="390" y="118" width="290" height="98" rx="6" ry="6" fill="rgba(0,45,98,0.04)" stroke="#002D62" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+  <text x="402" y="134" fill="#002D62" font-size="10" font-family="ui-monospace, monospace" font-weight="600" opacity="0.75">response B</text>
+  <text x="402" y="153" fill="#002D62" font-size="11" font-family="ui-monospace, monospace" opacity="0.7">Just pick one and start.</text>
+  <text x="402" y="180" fill="#002D62" font-size="11" font-family="ui-monospace, monospace" opacity="0.5" font-style="italic">(short, low-effort)</text>
 
   <!-- human picks A -->
   <text x="360" y="246" text-anchor="middle" fill="#EB6E1F" font-size="14" font-family="ui-monospace, monospace" font-weight="600">human prefers A over B</text>

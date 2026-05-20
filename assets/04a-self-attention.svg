@@ -36,20 +36,20 @@
 
   <!-- 5 token pills at y=194 -->
   <!-- the -->
-  <rect x="110" y="194" width="60" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
-  <text x="140" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">the</text>
+  <rect x="110" y="194" width="60" height="32" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="140" y="215" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace">the</text>
   <!-- river -->
-  <rect x="200" y="194" width="80" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
-  <text x="240" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">river</text>
+  <rect x="200" y="194" width="80" height="32" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="240" y="215" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace">river</text>
   <!-- bank (highlighted) -->
   <rect x="285" y="194" width="70" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.18)" stroke="#EB6E1F" stroke-width="1.8"/>
   <text x="320" y="215" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace" font-weight="600">bank</text>
   <!-- is -->
-  <rect x="385" y="194" width="50" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
-  <text x="410" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">is</text>
+  <rect x="385" y="194" width="50" height="32" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="410" y="215" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace">is</text>
   <!-- muddy -->
-  <rect x="460" y="194" width="100" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
-  <text x="510" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">muddy</text>
+  <rect x="460" y="194" width="100" height="32" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="510" y="215" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace">muddy</text>
 
   <!-- result annotation -->
   <line x1="320" y1="232" x2="320" y2="260" stroke="#EB6E1F" stroke-width="1.2" marker-end="url(#arr-orange-4a)"/>

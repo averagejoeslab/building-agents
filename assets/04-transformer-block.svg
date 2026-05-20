@@ -8,7 +8,7 @@
       <polygon points="0,0 6,3 0,6" fill="#888"/>
     </marker>
     <marker id="arr-purple-4" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
-      <polygon points="0,0 5,2.5 0,5" fill="#9b6dff"/>
+      <polygon points="0,0 5,2.5 0,5" fill="#002D62"/>
     </marker>
   </defs>
 
@@ -18,12 +18,12 @@
 
   <!-- Input vectors -->
   <text x="360" y="80" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">input vectors</text>
-  <circle cx="270" cy="105" r="14" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1.4"/>
-  <text x="270" y="109" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace">v₁</text>
-  <circle cx="360" cy="105" r="14" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1.4"/>
-  <text x="360" y="109" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace">v₂</text>
-  <circle cx="450" cy="105" r="14" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1.4"/>
-  <text x="450" y="109" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace">v₃</text>
+  <circle cx="270" cy="105" r="14" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="270" y="109" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace">v₁</text>
+  <circle cx="360" cy="105" r="14" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="360" y="109" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace">v₂</text>
+  <circle cx="450" cy="105" r="14" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="450" y="109" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace">v₃</text>
 
   <!-- arrows down to self-attention -->
   <line x1="270" y1="120" x2="270" y2="148" stroke="#888" stroke-width="1" marker-end="url(#arr-gray-4)"/>
@@ -31,22 +31,22 @@
   <line x1="450" y1="120" x2="450" y2="148" stroke="#888" stroke-width="1" marker-end="url(#arr-gray-4)"/>
 
   <!-- Self-attention block -->
-  <rect x="210" y="150" width="300" height="60" rx="6" ry="6" fill="rgba(74,158,255,0.08)" stroke="#4a9eff" stroke-width="1.4"/>
-  <text x="360" y="172" text-anchor="middle" fill="#4a9eff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">Self-attention</text>
+  <rect x="210" y="150" width="300" height="60" rx="6" ry="6" fill="rgba(0,45,98,0.08)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="360" y="172" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace" font-weight="600">Self-attention</text>
   <text x="360" y="190" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">every token attends to every other</text>
   <!-- attention arrows inside the block (small bidirectional) -->
-  <g stroke="#4a9eff" stroke-width="0.8" opacity="0.6">
+  <g stroke="#002D62" stroke-width="0.8" opacity="0.6">
     <line x1="245" y1="202" x2="290" y2="202"/>
     <line x1="295" y1="202" x2="340" y2="202"/>
     <line x1="345" y1="202" x2="390" y2="202"/>
     <line x1="395" y1="202" x2="440" y2="202"/>
     <line x1="445" y1="202" x2="475" y2="202"/>
-    <circle cx="245" cy="202" r="2" fill="#4a9eff"/>
-    <circle cx="290" cy="202" r="2" fill="#4a9eff"/>
-    <circle cx="340" cy="202" r="2" fill="#4a9eff"/>
-    <circle cx="390" cy="202" r="2" fill="#4a9eff"/>
-    <circle cx="440" cy="202" r="2" fill="#4a9eff"/>
-    <circle cx="475" cy="202" r="2" fill="#4a9eff"/>
+    <circle cx="245" cy="202" r="2" fill="#002D62"/>
+    <circle cx="290" cy="202" r="2" fill="#002D62"/>
+    <circle cx="340" cy="202" r="2" fill="#002D62"/>
+    <circle cx="390" cy="202" r="2" fill="#002D62"/>
+    <circle cx="440" cy="202" r="2" fill="#002D62"/>
+    <circle cx="475" cy="202" r="2" fill="#002D62"/>
   </g>
 
   <!-- arrows to residual + norm -->
@@ -76,11 +76,11 @@
   <line x1="360" y1="384" x2="360" y2="404" stroke="#888" stroke-width="1" marker-end="url(#arr-gray-4)"/>
 
   <!-- Output vectors -->
-  <circle cx="270" cy="420" r="14" fill="rgba(155,109,255,0.55)" stroke="#9b6dff" stroke-width="1.4"/>
+  <circle cx="270" cy="420" r="14" fill="rgba(0,45,98,0.55)" stroke="#002D62" stroke-width="1.4"/>
   <text x="270" y="424" text-anchor="middle" fill="#fff" font-size="12" font-family="ui-monospace, monospace">v'₁</text>
-  <circle cx="360" cy="420" r="14" fill="rgba(155,109,255,0.55)" stroke="#9b6dff" stroke-width="1.4"/>
+  <circle cx="360" cy="420" r="14" fill="rgba(0,45,98,0.55)" stroke="#002D62" stroke-width="1.4"/>
   <text x="360" y="424" text-anchor="middle" fill="#fff" font-size="12" font-family="ui-monospace, monospace">v'₂</text>
-  <circle cx="450" cy="420" r="14" fill="rgba(155,109,255,0.55)" stroke="#9b6dff" stroke-width="1.4"/>
+  <circle cx="450" cy="420" r="14" fill="rgba(0,45,98,0.55)" stroke="#002D62" stroke-width="1.4"/>
   <text x="450" y="424" text-anchor="middle" fill="#fff" font-size="12" font-family="ui-monospace, monospace">v'₃</text>
 
   <text x="540" y="424" fill="#888" font-size="11" font-family="ui-monospace, monospace">refined</text>

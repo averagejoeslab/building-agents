@@ -17,20 +17,20 @@
   <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">project the final vector into a probability over the vocabulary, then sample</text>
 
   <!-- Left: final vector as a column of cells -->
-  <text x="85" y="85" text-anchor="middle" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">final vector</text>
+  <text x="85" y="85" text-anchor="middle" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">final vector</text>
   <text x="85" y="100" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">(last position)</text>
 
   <g font-family="ui-monospace, monospace" font-size="9">
-    <rect x="65" y="115" width="40" height="18" fill="rgba(155,109,255,0.85)"/>
-    <rect x="65" y="133" width="40" height="18" fill="rgba(155,109,255,0.35)"/>
-    <rect x="65" y="151" width="40" height="18" fill="rgba(155,109,255,0.60)"/>
-    <rect x="65" y="169" width="40" height="18" fill="rgba(155,109,255,0.20)"/>
-    <rect x="65" y="187" width="40" height="18" fill="rgba(155,109,255,0.75)"/>
-    <rect x="65" y="205" width="40" height="18" fill="rgba(155,109,255,0.45)"/>
-    <rect x="65" y="223" width="40" height="18" fill="rgba(155,109,255,0.55)"/>
-    <rect x="65" y="241" width="40" height="18" fill="rgba(155,109,255,0.30)"/>
-    <rect x="65" y="259" width="40" height="18" fill="rgba(155,109,255,0.70)"/>
-    <rect x="65" y="277" width="40" height="18" fill="rgba(155,109,255,0.40)"/>
+    <rect x="65" y="115" width="40" height="18" fill="rgba(0,45,98,0.85)"/>
+    <rect x="65" y="133" width="40" height="18" fill="rgba(0,45,98,0.35)"/>
+    <rect x="65" y="151" width="40" height="18" fill="rgba(0,45,98,0.60)"/>
+    <rect x="65" y="169" width="40" height="18" fill="rgba(0,45,98,0.20)"/>
+    <rect x="65" y="187" width="40" height="18" fill="rgba(0,45,98,0.75)"/>
+    <rect x="65" y="205" width="40" height="18" fill="rgba(0,45,98,0.45)"/>
+    <rect x="65" y="223" width="40" height="18" fill="rgba(0,45,98,0.55)"/>
+    <rect x="65" y="241" width="40" height="18" fill="rgba(0,45,98,0.30)"/>
+    <rect x="65" y="259" width="40" height="18" fill="rgba(0,45,98,0.70)"/>
+    <rect x="65" y="277" width="40" height="18" fill="rgba(0,45,98,0.40)"/>
   </g>
   <text x="85" y="307" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">dim ≈ 2k–16k</text>
 
@@ -53,33 +53,33 @@
   <text x="285" y="295" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">"."</text>
 
   <!-- bar 2: " and" 0.18 -->
-  <rect x="320" y="208" width="40" height="72" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="340" y="200" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.18</text>
+  <rect x="320" y="208" width="40" height="72" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="340" y="200" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.18</text>
   <text x="340" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·and"</text>
 
   <!-- bar 3: "," 0.12 -->
-  <rect x="375" y="232" width="40" height="48" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="395" y="224" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.12</text>
+  <rect x="375" y="232" width="40" height="48" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="395" y="224" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.12</text>
   <text x="395" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">","</text>
 
   <!-- bar 4: " but" 0.08 -->
-  <rect x="430" y="248" width="40" height="32" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="450" y="240" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.08</text>
+  <rect x="430" y="248" width="40" height="32" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="450" y="240" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.08</text>
   <text x="450" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·but"</text>
 
   <!-- bar 5: " though" 0.06 -->
-  <rect x="485" y="256" width="40" height="24" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="505" y="248" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.06</text>
+  <rect x="485" y="256" width="40" height="24" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="505" y="248" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.06</text>
   <text x="505" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·though"</text>
 
   <!-- bar 6: " for" 0.04 -->
-  <rect x="540" y="264" width="40" height="16" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="560" y="256" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.04</text>
+  <rect x="540" y="264" width="40" height="16" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="560" y="256" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.04</text>
   <text x="560" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·for"</text>
 
   <!-- bar 7: " when" 0.03 -->
-  <rect x="595" y="268" width="40" height="12" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
-  <text x="615" y="260" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.03</text>
+  <rect x="595" y="268" width="40" height="12" fill="rgba(0,45,98,0.30)" stroke="#002D62" stroke-width="1"/>
+  <text x="615" y="260" text-anchor="middle" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">0.03</text>
   <text x="615" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·when"</text>
 
   <!-- "..." for remaining vocab -->

@@ -12,27 +12,27 @@
   <line x1="480" y1="70" x2="480" y2="320" stroke="#888" stroke-width="0.5" stroke-dasharray="3,4" opacity="0.5"/>
 
   <!-- ====== MHA (left column, x: 0-240) ====== -->
-  <text x="120" y="85" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">MHA</text>
+  <text x="120" y="85" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace" font-weight="600">MHA</text>
   <text x="120" y="100" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">multi-head (legacy)</text>
 
   <!-- 4 Q heads -->
-  <rect x="40"  y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="40"  y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="58"  y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₁</text>
-  <rect x="82"  y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="82"  y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="100" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₂</text>
-  <rect x="124" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="124" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="142" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₃</text>
-  <rect x="166" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="166" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="184" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₄</text>
 
   <!-- 4 K -->
-  <rect x="40"  y="155" width="36" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="40"  y="155" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="58"  y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K₁</text>
-  <rect x="82"  y="155" width="36" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="82"  y="155" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="100" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K₂</text>
-  <rect x="124" y="155" width="36" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="124" y="155" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="142" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K₃</text>
-  <rect x="166" y="155" width="36" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="166" y="155" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="184" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K₄</text>
 
   <!-- 4 V -->
@@ -51,23 +51,23 @@
   <text x="120" y="255" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">100% (baseline)</text>
 
   <!-- ====== GQA (middle column, x: 240-480) ====== -->
-  <text x="360" y="85" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">GQA</text>
+  <text x="360" y="85" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace" font-weight="600">GQA</text>
   <text x="360" y="100" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">grouped-query (2026 standard)</text>
 
   <!-- 4 Q heads -->
-  <rect x="280" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="280" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="298" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₁</text>
-  <rect x="322" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="322" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="340" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₂</text>
-  <rect x="364" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="364" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="382" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₃</text>
-  <rect x="406" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="406" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="424" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₄</text>
 
   <!-- 2 shared K (covering pairs Q1/Q2 and Q3/Q4) -->
-  <rect x="280" y="155" width="78" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="280" y="155" width="78" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="319" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K (shared)</text>
-  <rect x="364" y="155" width="78" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="364" y="155" width="78" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="403" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K (shared)</text>
 
   <!-- 2 shared V -->
@@ -82,21 +82,21 @@
   <text x="325" y="255" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">~50%</text>
 
   <!-- ====== MLA (right column, x: 480-720) ====== -->
-  <text x="600" y="85" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">MLA</text>
+  <text x="600" y="85" text-anchor="middle" fill="#002D62" font-size="13" font-family="ui-monospace, monospace" font-weight="600">MLA</text>
   <text x="600" y="100" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">multi-head latent (frontier)</text>
 
   <!-- 4 Q heads -->
-  <rect x="520" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="520" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="538" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₁</text>
-  <rect x="562" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="562" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="580" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₂</text>
-  <rect x="604" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="604" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="622" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₃</text>
-  <rect x="646" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.4)" stroke="#9b6dff" stroke-width="1"/>
+  <rect x="646" y="115" width="36" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="664" y="130" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">Q₄</text>
 
   <!-- 1 latent K (compressed, shared) -->
-  <rect x="520" y="155" width="162" height="22" rx="3" ry="3" fill="rgba(74,158,255,0.4)" stroke="#4a9eff" stroke-width="1"/>
+  <rect x="520" y="155" width="162" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.4)" stroke="#002D62" stroke-width="1"/>
   <text x="601" y="170" text-anchor="middle" fill="#fff" font-size="10" font-family="ui-monospace, monospace">K_lat (compressed)</text>
 
   <!-- 1 latent V -->

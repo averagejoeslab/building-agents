@@ -8,7 +8,7 @@
       <polygon points="0,0 6,3 0,6" fill="#888"/>
     </marker>
     <marker id="arr-purple-3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <polygon points="0,0 6,3 0,6" fill="#9b6dff"/>
+      <polygon points="0,0 6,3 0,6" fill="#002D62"/>
     </marker>
     <marker id="arr-orange-3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
@@ -26,42 +26,42 @@
   <text x="180" y="85" text-anchor="middle" fill="#888" font-size="13" font-family="ui-monospace, monospace">"dog bites man"</text>
 
   <!-- left: pos 1 "dog" -->
-  <text x="80" y="135" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
+  <text x="80" y="135" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
   <text x="80" y="150" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 1</text>
-  <line x1="170" y1="140" x2="240" y2="115" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="170" y1="140" x2="240" y2="115" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="245" y="118" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₁</text>
 
   <!-- left: pos 2 "bites" -->
-  <text x="80" y="195" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
+  <text x="80" y="195" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
   <text x="80" y="210" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 2</text>
-  <line x1="170" y1="200" x2="250" y2="200" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="170" y1="200" x2="250" y2="200" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="255" y="203" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₂</text>
 
   <!-- left: pos 3 "man" -->
-  <text x="80" y="255" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">man</text>
+  <text x="80" y="255" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">man</text>
   <text x="80" y="270" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 3</text>
-  <line x1="170" y1="260" x2="245" y2="285" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="170" y1="260" x2="245" y2="285" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="250" y="288" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₃</text>
 
   <!-- RIGHT: "man bites dog" -->
   <text x="540" y="85" text-anchor="middle" fill="#888" font-size="13" font-family="ui-monospace, monospace">"man bites dog"</text>
 
   <!-- right: pos 1 "man" -->
-  <text x="440" y="135" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">man</text>
+  <text x="440" y="135" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">man</text>
   <text x="440" y="150" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 1</text>
-  <line x1="530" y1="140" x2="600" y2="115" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="530" y1="140" x2="600" y2="115" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="605" y="118" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₁</text>
 
   <!-- right: pos 2 "bites" -->
-  <text x="440" y="195" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
+  <text x="440" y="195" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
   <text x="440" y="210" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 2</text>
-  <line x1="530" y1="200" x2="610" y2="200" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="530" y1="200" x2="610" y2="200" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="615" y="203" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₂</text>
 
   <!-- right: pos 3 "dog" -->
-  <text x="440" y="255" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
+  <text x="440" y="255" fill="#002D62" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
   <text x="440" y="270" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 3</text>
-  <line x1="530" y1="260" x2="605" y2="285" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <line x1="530" y1="260" x2="605" y2="285" stroke="#002D62" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
   <text x="610" y="288" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₃</text>
 
   <!-- callout: same token "dog" at different positions -->

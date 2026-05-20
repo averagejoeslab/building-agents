@@ -23,16 +23,16 @@
   <!-- iter 1 -->
   <text x="30" y="92" fill="#888" font-size="10" font-family="ui-monospace, monospace">iter 1</text>
   <g font-family="ui-monospace, monospace" font-size="11">
-    <rect x="74" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="93"  y="93" text-anchor="middle" fill="#9b6dff">The</text>
-    <rect x="114" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="133" y="93" text-anchor="middle" fill="#9b6dff">cat</text>
-    <rect x="154" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="173" y="93" text-anchor="middle" fill="#9b6dff">sat</text>
-    <rect x="194" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="213" y="93" text-anchor="middle" fill="#9b6dff">on</text>
-    <rect x="234" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="253" y="93" text-anchor="middle" fill="#9b6dff">the</text>
+    <rect x="74" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="93"  y="93" text-anchor="middle" fill="#002D62">The</text>
+    <rect x="114" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="133" y="93" text-anchor="middle" fill="#002D62">cat</text>
+    <rect x="154" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="173" y="93" text-anchor="middle" fill="#002D62">sat</text>
+    <rect x="194" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="213" y="93" text-anchor="middle" fill="#002D62">on</text>
+    <rect x="234" y="78" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="253" y="93" text-anchor="middle" fill="#002D62">the</text>
   </g>
   <text x="295" y="93" fill="#888" font-size="11" font-family="ui-monospace, monospace">→ model + sample →</text>
   <rect x="442" y="78" width="46" height="22" rx="3" ry="3" fill="rgba(235,110,31,0.30)" stroke="#EB6E1F" stroke-width="1.4"/>
@@ -41,16 +41,16 @@
   <!-- iter 2 -->
   <text x="30" y="132" fill="#888" font-size="10" font-family="ui-monospace, monospace">iter 2</text>
   <g font-family="ui-monospace, monospace" font-size="11">
-    <rect x="74"  y="118" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="93"  y="133" text-anchor="middle" fill="#9b6dff">The</text>
-    <rect x="114" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="133" y="133" text-anchor="middle" fill="#9b6dff">cat</text>
-    <rect x="154" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="173" y="133" text-anchor="middle" fill="#9b6dff">sat</text>
-    <rect x="194" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="213" y="133" text-anchor="middle" fill="#9b6dff">on</text>
-    <rect x="234" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="253" y="133" text-anchor="middle" fill="#9b6dff">the</text>
+    <rect x="74"  y="118" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="93"  y="133" text-anchor="middle" fill="#002D62">The</text>
+    <rect x="114" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="133" y="133" text-anchor="middle" fill="#002D62">cat</text>
+    <rect x="154" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="173" y="133" text-anchor="middle" fill="#002D62">sat</text>
+    <rect x="194" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="213" y="133" text-anchor="middle" fill="#002D62">on</text>
+    <rect x="234" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="253" y="133" text-anchor="middle" fill="#002D62">the</text>
     <!-- newly appended "mat" -->
     <rect x="274" y="118" width="38" height="22" rx="3" ry="3" fill="rgba(235,110,31,0.18)" stroke="#EB6E1F" stroke-width="1.2"/>
     <text x="293" y="133" text-anchor="middle" fill="#EB6E1F">mat</text>
@@ -62,18 +62,18 @@
   <!-- iter 3 -->
   <text x="30" y="172" fill="#888" font-size="10" font-family="ui-monospace, monospace">iter 3</text>
   <g font-family="ui-monospace, monospace" font-size="11">
-    <rect x="74"  y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="93"  y="173" text-anchor="middle" fill="#9b6dff">The</text>
-    <rect x="114" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="133" y="173" text-anchor="middle" fill="#9b6dff">cat</text>
-    <rect x="154" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="173" y="173" text-anchor="middle" fill="#9b6dff">sat</text>
-    <rect x="194" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="213" y="173" text-anchor="middle" fill="#9b6dff">on</text>
-    <rect x="234" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="253" y="173" text-anchor="middle" fill="#9b6dff">the</text>
-    <rect x="274" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(155,109,255,0.18)" stroke="#9b6dff" stroke-width="1"/>
-    <text x="293" y="173" text-anchor="middle" fill="#9b6dff">mat</text>
+    <rect x="74"  y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="93"  y="173" text-anchor="middle" fill="#002D62">The</text>
+    <rect x="114" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="133" y="173" text-anchor="middle" fill="#002D62">cat</text>
+    <rect x="154" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="173" y="173" text-anchor="middle" fill="#002D62">sat</text>
+    <rect x="194" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="213" y="173" text-anchor="middle" fill="#002D62">on</text>
+    <rect x="234" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="253" y="173" text-anchor="middle" fill="#002D62">the</text>
+    <rect x="274" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(0,45,98,0.18)" stroke="#002D62" stroke-width="1"/>
+    <text x="293" y="173" text-anchor="middle" fill="#002D62">mat</text>
     <!-- newly appended "." -->
     <rect x="314" y="158" width="38" height="22" rx="3" ry="3" fill="rgba(235,110,31,0.18)" stroke="#EB6E1F" stroke-width="1.2"/>
     <text x="333" y="173" text-anchor="middle" fill="#EB6E1F">.</text>
@@ -97,7 +97,7 @@
   <line x1="480" y1="258" x2="480" y2="430" stroke="#888" stroke-width="0.5" stroke-dasharray="3,4" opacity="0.4"/>
 
   <!-- ========== Temperature panel (x: 20-240) ========== -->
-  <text x="130" y="270" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace" font-weight="600">temperature</text>
+  <text x="130" y="270" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace" font-weight="600">temperature</text>
   <text x="130" y="284" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">low → peaky, high → flat</text>
 
   <!-- T=0.3 mini bar chart (peaky) -->
@@ -119,21 +119,21 @@
   <!-- T=1.5 mini bar chart (flatter) -->
   <text x="40" y="365" fill="#888" font-size="10" font-family="ui-monospace, monospace">T=1.5</text>
   <g>
-    <rect x="76"  y="394" width="12" height="14" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="90"  y="389" width="12" height="19" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="104" y="382" width="12" height="26" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="118" y="378" width="12" height="30" fill="rgba(155,109,255,0.6)"  stroke="#9b6dff" stroke-width="0.8"/>
-    <rect x="132" y="385" width="12" height="23" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="146" y="391" width="12" height="17" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="160" y="395" width="12" height="13" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
-    <rect x="174" y="398" width="12" height="10" fill="rgba(155,109,255,0.45)" stroke="#9b6dff" stroke-width="0.6"/>
+    <rect x="76"  y="394" width="12" height="14" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="90"  y="389" width="12" height="19" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="104" y="382" width="12" height="26" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="118" y="378" width="12" height="30" fill="rgba(0,45,98,0.6)"  stroke="#002D62" stroke-width="0.8"/>
+    <rect x="132" y="385" width="12" height="23" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="146" y="391" width="12" height="17" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="160" y="395" width="12" height="13" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
+    <rect x="174" y="398" width="12" height="10" fill="rgba(0,45,98,0.45)" stroke="#002D62" stroke-width="0.6"/>
   </g>
   <line x1="74" y1="408" x2="190" y2="408" stroke="#888" stroke-width="0.6"/>
   <text x="195" y="392" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">more</text>
   <text x="195" y="403" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">random</text>
 
   <!-- ========== top-k panel (x: 260-460) ========== -->
-  <text x="362" y="270" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace" font-weight="600">top-k</text>
+  <text x="362" y="270" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace" font-weight="600">top-k</text>
   <text x="362" y="284" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">keep only the k highest, drop the rest</text>
 
   <!-- 8 bars sorted high → low; top 3 highlighted -->
@@ -142,11 +142,11 @@
     <rect x="300" y="328" width="18" height="62" fill="rgba(235,110,31,0.7)"  stroke="#EB6E1F" stroke-width="0.8"/>
     <rect x="320" y="346" width="18" height="44" fill="rgba(235,110,31,0.7)"  stroke="#EB6E1F" stroke-width="0.8"/>
     <!-- below cut-off, dimmed -->
-    <rect x="340" y="364" width="18" height="26" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="360" y="372" width="18" height="18" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="380" y="378" width="18" height="12" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="400" y="383" width="18" height="7"  fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="420" y="386" width="18" height="4"  fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="340" y="364" width="18" height="26" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="360" y="372" width="18" height="18" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="380" y="378" width="18" height="12" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="400" y="383" width="18" height="7"  fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="420" y="386" width="18" height="4"  fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
   </g>
   <line x1="278" y1="390" x2="440" y2="390" stroke="#888" stroke-width="0.6"/>
 
@@ -163,7 +163,7 @@
   <text x="362" y="422" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">re-normalize the survivors → sample</text>
 
   <!-- ========== top-p / nucleus panel (x: 500-700) ========== -->
-  <text x="600" y="270" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace" font-weight="600">top-p / nucleus</text>
+  <text x="600" y="270" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace" font-weight="600">top-p / nucleus</text>
   <text x="600" y="284" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">smallest set summing to p</text>
 
   <!-- 8 bars sorted; bars summing to 0.9 highlighted -->
@@ -174,10 +174,10 @@
     <rect x="550" y="346" width="18" height="44" fill="rgba(235,110,31,0.7)"  stroke="#EB6E1F" stroke-width="0.8"/>
     <rect x="570" y="364" width="18" height="26" fill="rgba(235,110,31,0.7)"  stroke="#EB6E1F" stroke-width="0.8"/>
     <!-- outside nucleus -->
-    <rect x="590" y="372" width="18" height="18" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="610" y="378" width="18" height="12" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="630" y="383" width="18" height="7"  fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
-    <rect x="650" y="386" width="18" height="4"  fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="590" y="372" width="18" height="18" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="610" y="378" width="18" height="12" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="630" y="383" width="18" height="7"  fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <rect x="650" y="386" width="18" height="4"  fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="0.6" stroke-dasharray="2,2"/>
   </g>
   <line x1="508" y1="390" x2="670" y2="390" stroke="#888" stroke-width="0.6"/>
 

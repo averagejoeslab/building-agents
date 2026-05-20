@@ -17,20 +17,20 @@
   <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">rule-based rewards on math and code teach the model to think step by step</text>
 
   <!-- prompt -->
-  <rect x="200" y="68" width="320" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.10)" stroke="#4a9eff" stroke-width="1.2"/>
-  <text x="212" y="82" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
-  <text x="212" y="95" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">What is 17 × 23?</text>
+  <rect x="200" y="68" width="320" height="32" rx="6" ry="6" fill="rgba(0,45,98,0.10)" stroke="#002D62" stroke-width="1.2"/>
+  <text x="212" y="82" fill="#002D62" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
+  <text x="212" y="95" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">What is 17 × 23?</text>
 
   <line x1="360" y1="102" x2="360" y2="120" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t6)"/>
 
   <!-- model output: chain of thought -->
-  <rect x="80" y="124" width="380" height="148" rx="6" ry="6" fill="rgba(155,109,255,0.08)" stroke="#9b6dff" stroke-width="1.4"/>
-  <text x="92" y="140" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">model output (chain of thought)</text>
-  <line x1="92" y1="147" x2="448" y2="147" stroke="#9b6dff" stroke-width="0.6" opacity="0.5"/>
+  <rect x="80" y="124" width="380" height="148" rx="6" ry="6" fill="rgba(0,45,98,0.08)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="92" y="140" fill="#002D62" font-size="10" font-family="ui-monospace, monospace" font-weight="600">model output (chain of thought)</text>
+  <line x1="92" y1="147" x2="448" y2="147" stroke="#002D62" stroke-width="0.6" opacity="0.5"/>
 
-  <text x="92"  y="165" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 1: 17 × 20 = 340</text>
-  <text x="92"  y="183" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 2: 17 × 3  = 51</text>
-  <text x="92"  y="201" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 3: 340 + 51 = 391</text>
+  <text x="92"  y="165" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">Step 1: 17 × 20 = 340</text>
+  <text x="92"  y="183" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">Step 2: 17 × 3  = 51</text>
+  <text x="92"  y="201" fill="#002D62" font-size="11" font-family="ui-monospace, monospace">Step 3: 340 + 51 = 391</text>
   <text x="92"  y="225" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">Final answer:</text>
   <rect x="195" y="213" width="56" height="20" rx="4" ry="4" fill="rgba(235,110,31,0.20)" stroke="#EB6E1F" stroke-width="1.2"/>
   <text x="223" y="227" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="ui-monospace, monospace" font-weight="600">391</text>
@@ -44,7 +44,7 @@
   <text x="600" y="166" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">verifier</text>
   <text x="600" y="180" text-anchor="middle" fill="#888"    font-size="9" font-family="sans-serif" font-style="italic">(deterministic, rule-based)</text>
   <line x1="525" y1="190" x2="675" y2="190" stroke="#EB6E1F" stroke-width="0.6" opacity="0.5"/>
-  <text x="530" y="208" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">check: 17×23 = 391</text>
+  <text x="530" y="208" fill="#002D62" font-size="10" font-family="ui-monospace, monospace">check: 17×23 = 391</text>
   <text x="530" y="228" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace" font-weight="600">reward = +1 ✓</text>
 
   <!-- gradient feedback arrow -->
