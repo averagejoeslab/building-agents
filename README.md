@@ -230,20 +230,16 @@ That's the entire forward pass. Text comes in, gets chopped into tokens, looked 
 
 #### Training
 
-Getting from a raw architecture to a released frontier model takes a specific sequence of training stages. The diagram below shows the canonical pipeline:
+Getting from a raw architecture to a released frontier model takes a specific sequence of training stages. At a glance, the canonical pipeline goes:
 
-```mermaid
-flowchart LR
-    A[Web-scale corpus] --> B[Pretraining]
-    B --> C[Mid-training]
-    C --> D[SFT]
-    D --> E[Preference tuning<br/>RLHF / DPO / GRPO]
-    E --> F[Constitutional AI<br/>RLAIF]
-    F --> G[Reasoning RL<br/>GRPO + verifiable rewards]
-    G --> H[Released model]
-```
+- **Pretraining** — predict the next token over trillions of tokens of web text; produces the *base model*.
+- **Mid-training** — continued pretraining on a curated higher-quality corpus (code, math, reasoning) to sharpen specific domains.
+- **Supervised fine-tuning (SFT)** — train on curated instruction/response pairs so the model follows instructions instead of just continuing text.
+- **Preference tuning (RLHF / DPO / GRPO)** — train on human-rated comparisons between responses; helpfulness, honesty, and safety get instilled here.
+- **Constitutional AI / RLAIF** — replace human labellers with an AI judge that scores responses against a written set of principles.
+- **Reasoning RL (GRPO + verifiable rewards)** — rule-based rewards on math and code that teach the model explicit chain-of-thought.
 
-Walking through each stage:
+Now let's walk through each of these in a bit more detail.
 
 1. **Pretraining.** This is where the model is taught to predict the next token across trillions of tokens of web-scale data. By the end of pretraining the model has picked up syntax, facts, and reasoning patterns. Takes thousands of GPUs running for months of wall-clock time. The output of this stage is what we call the *base model*.
 
