@@ -140,25 +140,27 @@ Given that we will be building an agent from scratch, harness engineering is the
 
 ## Building an agent: a journey through the disciplines
 
-Model development produces a callable model. Harness engineering turns that into an agent. Each discipline in dependency order, ending where the curriculum starts.
+So with all three disciplines on the table, let's actually walk through them and see how they stack up. The way I think about it, the disciplines depend on each other in a specific order — you can't engineer a harness until you understand what the model is, and you can't do agentic engineering until you have a harness. So I'll go in that order: a quick orientation on model development to set the stage, a longer expansion on harness engineering which is what this whole repo is really about, and a closing note on where agentic engineering picks up once the curriculum is over.
 
 ### 1. Model development → a callable model
 
-I don't teach this here; the harness consumes the model as a callable API.
+I won't be teaching model development here because, as I mentioned earlier, this is the discipline that a handful of well-resourced labs handle, and most of us don't have the GPUs, the training corpora, or the budget to do it ourselves. But I do want to give you enough orientation that you know what's actually inside the model your harness will be calling. So before we get to the harness work let's spend a moment on what a modern LLM is made of, how it gets trained, and how it produces output at inference time. If you already know all this you can skim or skip ahead.
 
 #### What a modern LLM is made of
 
-A probabilistic next-token predictor built from a small set of primitives:
+At its core a modern LLM is a probabilistic next-token predictor — it sees some text and produces a probability distribution over what word should come next. That's the whole game. Everything we're going to do in the harness sits on top of that one capability. But to actually get that one capability, the model is built out of a small set of primitives stacked together:
 
-- **Tokenizer** — chops raw text into sub-word tokens via byte-pair encoding (BPE) or similar. Vocabularies are typically 30k–200k entries.
-- **Token embeddings** — each token ID maps to a learned vector, often 2,048–16,384 dimensions in modern models.
-- **Positional information** — added to embeddings so the model knows token order (RoPE in modern designs, sometimes ALiBi).
-- **Transformer block** — self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, SwiGLU is the modern choice), residual connections, layer normalization (RMSNorm). Frontier models stack 60–120 of these.
-  - **Attention variants**: plain MHA is legacy; **GQA** (grouped-query attention) is the field standard in 2026; **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by ~10× and is the frontier choice for very long contexts.
-  - **FFN variants**: the FFN can be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, GPT-4 likely). R1 is 671B total parameters / 37B active per token via 256 routed experts + 1 shared per layer.
-- **Output head** — projects the final hidden state to a distribution over the vocabulary; the next token is sampled. Often weight-tied to the input embedding matrix.
+- **Tokenizer.** This is what chops raw text into sub-word tokens via byte-pair encoding (BPE) or something similar. Modern vocabularies typically have between 30k and 200k entries.
+- **Token embeddings.** Each token ID gets mapped to a learned vector — often somewhere between 2,048 and 16,384 dimensions in modern models. This is where the model starts to develop a sense of what each token actually means.
+- **Positional information.** Added on top of the embeddings so the model knows what order the tokens came in (RoPE in modern designs, sometimes ALiBi).
+- **Transformer block.** This is the workhorse layer where most of the actual thinking happens — it's made up of self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, usually SwiGLU these days), residual connections, and layer normalization (RMSNorm). Frontier models typically stack 60 to 120 of these on top of each other.
+  - **Attention variants.** Plain multi-head attention (MHA) is legacy at this point. **GQA** (grouped-query attention) is the field standard in 2026. **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by ~10× and is the frontier choice for very long contexts.
+  - **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
+- **Output head.** This projects the final hidden state into a distribution over the entire vocabulary so the next token can be sampled. It's often weight-tied to the input embedding matrix.
 
 #### Training
+
+Getting from a raw architecture to a released frontier model takes a specific sequence of training stages. The diagram below shows the canonical pipeline:
 
 ```mermaid
 flowchart LR
@@ -171,36 +173,38 @@ flowchart LR
     G --> H[Released model]
 ```
 
-1. **Pretraining.** Predict the next token over trillions of tokens of web-scale data. Acquires syntax, facts, reasoning patterns. Thousands of GPUs, months of wall-clock time. Produces the *base model*.
-2. **Mid-training.** Continued pretraining on curated higher-quality data — code, math, reasoning. Sharpens specific domains without restarting from scratch.
-3. **Supervised fine-tuning (SFT).** Curated instruction/response pairs — learn to follow instructions rather than continue arbitrary text.
-4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons — learn what counts as a good response. Helpfulness, honesty, safety instilled here.
-5. **Constitutional AI / RLAIF (optional, Anthropic-style).** AI feedback against a written set of principles — scales alignment past what humans can directly label.
-6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks — trains explicit chain-of-thought. This is the stage that produces o1, o3, Claude reasoning, and DeepSeek R1 from their respective base models.
+Walking through each stage:
+
+1. **Pretraining.** This is where the model is taught to predict the next token across trillions of tokens of web-scale data. By the end of pretraining the model has picked up syntax, facts, and reasoning patterns. Takes thousands of GPUs running for months of wall-clock time. The output of this stage is what we call the *base model*.
+2. **Mid-training.** Continued pretraining on a higher-quality and more curated corpus — code, math, reasoning data. This sharpens specific domains without having to start over from scratch.
+3. **Supervised fine-tuning (SFT).** Now we feed the model curated instruction/response pairs so it learns to actually follow instructions rather than continue arbitrary text.
+4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons between responses teach the model what counts as a good answer. This is the stage where helpfulness, honesty, and safety mostly get instilled.
+5. **Constitutional AI / RLAIF.** This one is optional and is Anthropic's signature contribution — instead of relying on humans to label everything, you have AI feedback against a written set of principles. Scales alignment past what humans could directly label on their own.
+6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks teach the model to do explicit chain-of-thought reasoning. This is the stage that produces o1, o3, Claude's reasoning mode, and DeepSeek R1 from their respective base models.
 
 #### Inference
 
-A forward pass produces a distribution over the vocabulary. A token is sampled — modulated by **temperature** (randomness), **top-k** (only the k highest-probability tokens), **top-p / nucleus** (smallest set whose probabilities sum to p). Repeat until end-of-sequence or max length.
+Once you have a fully trained model, generating text from it works like this. The model does a forward pass and produces a probability distribution over the entire vocabulary. From that distribution a single token is sampled — and the sampling itself is modulated by a few knobs: **temperature** controls how random the pick is, **top-k** restricts the choice to only the k highest-probability tokens, and **top-p / nucleus** restricts it to the smallest set of tokens whose probabilities sum to p. Once a token is picked it gets fed back in as part of the input and the model predicts the next one. This repeats until the model emits an end-of-sequence token or hits the max length.
 
-A callable model can complete text. It can't read files, run commands, remember across sessions, or stop when done. To get any of that, you wrap it in a harness.
+So that's what you have at the end of model development: a callable model that can complete text. What it cannot do on its own is read files, run commands, remember across sessions, or even decide when it's finished with a task. To get any of that we need to wrap it in a harness, and that's where harness engineering picks up.
 
 ### 2. Harness engineering → an agent
 
-This is the layer I teach in this repo. A harness is every piece of code, configuration, and execution logic that isn't the model itself — state, tools, execution, feedback loops, constraints, observability. Wrap a model in one and you have an agent.
+Harness engineering is the layer I'm actually teaching in this repo. The way I think about a harness is pretty simple — a harness is every piece of code, configuration, and execution logic that isn't the model itself. So that includes the state the agent carries between turns, the tools it can call, the execution environment those tools run in, the feedback loops that drive the agent forward, the constraints on what it's allowed to do, and the observability layer that lets you see what it did and why. Wrap a model in one of those and what you have is an agent.
 
-The discipline covers nine components:
+The way I break down a harness is into nine components, and the rest of this repo builds them up one at a time:
 
-- **Model interface** — which model the harness wraps and how the call is made (sync, streaming, response parsing).
-- **Control flow** — the loop that drives the model continuously (the TAO loop is the workhorse).
-- **Memory + context management** — what persists across sessions, and what fits into each call's token budget.
-- **Tools / action layer** — what capabilities the harness exposes, at what granularity, with what error semantics.
-- **Execution environment** — where dangerous tool calls actually run (sandbox, container, isolated VM).
-- **Safety / guardrails** — what the model is allowed to do (approval gates, loop bounds, retry policy).
-- **Observability** — structured traces of every LLM call, tool call, and state transition.
-- **Evaluation** — benchmarking harness behavior, catching regressions.
-- **Optimization** — prompt caching, tool caching, threading, structured prompts.
+- **Model interface.** How the harness actually calls the underlying model. This covers which model you wrap, whether you call it sync or streaming, and how you parse the response back into something the rest of the harness can use.
+- **Control flow.** The loop that drives the model continuously, turn after turn. The TAO loop (Think → Act → Observe) is the workhorse here and it's what every checkpoint downstream of Module 3 uses.
+- **Memory + context management.** What the harness persists across sessions and what it fits into each call's token budget. This is where the decisions about pruning, recall, and summarization live.
+- **Tools / action layer.** What capabilities the harness actually exposes to the model. The choice of which tools, at what granularity, and with what error semantics is one of the biggest design levers you have as a harness engineer.
+- **Execution environment.** Where dangerous tool calls actually run. For most production agents this is a sandbox, a container, or an isolated VM — somewhere the model can do its work without damaging the host.
+- **Safety / guardrails.** What the model is actually allowed to do in practice. Approval gates, loop bounds, retry policies, and content gates on both input and output all live here.
+- **Observability.** Structured traces of every LLM call, every tool call, and every state transition. This is what makes the harness debuggable, replayable, and feedable into evals.
+- **Evaluation.** How you actually measure whether the harness you've built produces a good agent. Test cases, judging criteria, regression detection — basically a harness for testing the harness.
+- **Optimization.** Everything you do to make the harness fast and cheap once it works. Prompt caching, tool output caching, threading for blocking work, and structured prompts all sit here.
 
-One module per component (plus M1 as the conceptual on-ramp). Every checkpoint in [`examples/`](./examples/) is a runnable harness at a different stage. Stack the components around a model and you have an agent.
+Each one of these components gets its own module, plus Module 1 as the conceptual on-ramp. Every checkpoint in [`examples/`](./examples/) is a runnable harness at a different stage of construction — you read the module, then you run the script, and you can see exactly what each component is buying you. Stack all nine around a model and what you've got is an agent.
 
 > [!NOTE]
 > The term *harness* in this sense was consolidated through 2025–2026 by Anthropic ([effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents); [harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)), LangChain ([*The Anatomy of an Agent Harness*](https://www.langchain.com/blog/the-anatomy-of-an-agent-harness)), Martin Fowler ([Birgitta Böckeler, *Harness engineering for coding agent users*](https://martinfowler.com/articles/harness-engineering.html)), [Addy Osmani](https://addyosmani.com/blog/agent-harness-engineering/), and [O'Reilly Radar](https://www.oreilly.com/radar/agent-harness-engineering/).
@@ -209,7 +213,7 @@ One module per component (plus M1 as the conceptual on-ramp). Every checkpoint i
 
 ## Curriculum
 
-The modules below are the harness-engineering work: take Claude as the model and build the harness around it, one component at a time.
+Below is the actual curriculum. The model I picked for this repo is Claude — partly because Anthropic is where the harness vocabulary consolidated, and partly because the Claude API and SDK are what I work with day to day. But the harness work itself is largely model-agnostic, so if you wanted to swap Claude for GPT or Gemini almost nothing about these modules would have to change. With Claude as the model, here are the ten modules that build the harness around it, one component at a time:
 
 | # | Module | Harness component | Checkpoint |
 |---|---|---|---|
@@ -224,47 +228,53 @@ The modules below are the harness-engineering work: take Claude as the model and
 | 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** | [`evals/`](./evals/) |
 | 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** | [`production_agent.py`](./examples/production_agent.py) |
 
-All ten modules are written end-to-end, each grounded in the runnable checkpoint in [`examples/`](./examples/) (or [`evals/`](./evals/) for M9). Read the module, then run the script to see the harness at that stage.
+All ten modules are written end-to-end and each one is grounded in a runnable checkpoint that lives in [`examples/`](./examples/) — or in [`evals/`](./evals/) for Module 9. My recommendation is to read the module first to get the framing, and then run the script to see the harness at that stage actually doing the thing. Both halves matter, and the two together is what makes the curriculum stick.
 
 ## Agentic engineering in practice
 
-Once you've built the harness from the curriculum, you have an agent: a model wrapped in code, state, tools, and a loop you built and understand. Two things you do with it.
+Once you've gone through all ten modules what you have at the end is an agent — a model wrapped in code, state, tools, and a loop that you built and understand top to bottom. So the natural question is, what do you actually do with it? In my experience there are two directions you can go from here, and both are worth pursuing.
 
 ### Develop other products
 
-Point the agent at the next codebase. Peter Steinberg built **openclaw** by directing existing coding agents to produce most of its implementation, and embedded an agent harness inside openclaw itself, so the product ships with an agent of its own. Agents produced the artifact; the artifact ships with an agent.
+The first direction is outward — you point the agent at the next codebase and use it to build other software. A good example here is Peter Steinberg, who built **openclaw** by directing existing coding agents to produce most of the implementation, and then went one step further by embedding an agent harness inside openclaw itself so the final product ships with its own agent. Agents produced the artifact, and the artifact ships with an agent. That's agentic engineering in its purest form — you orchestrate the agent, and the agent builds the thing.
 
 ### Develop the agent itself
 
-Point the agent at its own curriculum. Have it write a new module, refactor a harness component, improve its tracing, tighten its evals, raise its performance.
-
-This repo is built that way. Claude Code (a coding-agent harness) running on Claude, driven by me to write modules and ship commits. Every layer is visible:
+The second direction is recursive — you point the agent at its own curriculum and use it to develop itself. Have the agent write a new module, refactor one of the harness components, tighten up the eval suite, raise the performance, or improve the tracing. This is exactly how I'm building this repo. Claude Code (which is itself a coding-agent harness running on Claude) is writing modules and shipping commits while I drive the agentic engineering side of things. Every layer of the stack is visible in the work itself:
 
 1. Anthropic does **model development** → Claude.
 2. The Claude Code team does **harness engineering** → Claude Code.
 3. I do **agentic engineering** → this curriculum.
 
-This curriculum teaches step 2.
+So in this stack, model development is happening at Anthropic, harness engineering is happening at the Claude Code team, and agentic engineering is happening at my desk. This curriculum is teaching step 2 — harness engineering — because that's the discipline I think most people who want to build their own agent need to learn, and right now it's the one with the least available guidance.
 
-"Vibe coding" (Karpathy) is the casual end of this — accept what the model produces. Agentic engineering is the disciplined version: thought about what to ask, what tools to provide, how to verify, how to fit into a delivery process you trust.
+A quick note on terminology while we're here. You might have seen the phrase "vibe coding" floating around at some point (it's a Karpathy coinage). The way I think about it, vibe coding is the casual end of agentic engineering — you ask the agent for something, and you accept what it gives you. Agentic engineering is the disciplined version of that same activity. You think carefully about what to ask, what tools to provide, how to verify what comes back, and how to fit the whole thing into a delivery process you actually trust. Same underlying move, just at different levels of rigor.
 
 ## Scope
+
+Before we get into the curriculum proper, here's a quick map of what is and isn't covered in this repo so you know what to expect going in:
 
 | | |
 |---|---|
 | ✓ | Harness around a model accessed via API |
-| ✓ | All 9 harness components, one runnable checkpoint each (M2–M10), plus M1 as the conceptual on-ramp |
+| ✓ | All 9 harness components, with one runnable checkpoint each (Modules 2–10), plus Module 1 as the conceptual on-ramp |
 | ✓ | Orientation on model development (upstream) and agentic engineering (downstream) |
 | ✗ | Training or fine-tuning the model itself |
 | ✗ | A practical course on using a finished agent to ship product features |
 | ✗ | Multi-agent orchestration as a primary focus |
 
+If your goal is purely to use a finished agent to ship product features, you'll want to pair this repo with a more agentic-engineering-focused resource. If your goal is to actually train a foundational model from scratch, you'll want to look at model-training literature instead. But if your goal is to genuinely understand and build the runtime that turns a model into an agent — that's exactly what this is.
+
 ## Setup
+
+A few things you'll need to have installed and configured before you can run any of the example scripts in the curriculum:
 
 - Python 3.13 or newer
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- An [Anthropic API key](https://console.anthropic.com)
+- An [Anthropic API key](https://console.anthropic.com) for the model calls
+
+Once those three are in place you should be able to walk through the modules in order and run each checkpoint as you go.
 
 ## License
 
-MIT
+Released under MIT — use it however you find useful. If you end up building something interesting with it I'd love to hear about it.
