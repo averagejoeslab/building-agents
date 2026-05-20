@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" role="img" aria-label="FFN variants: dense versus Mixture of Experts. Dense routes every token through one large FFN. MoE routes each token through a router that selects K of N experts.">
+  <title>FFN variants: dense vs. Mixture of Experts</title>
+  <desc>Two side-by-side diagrams compare FFN variants. On the left, a dense FFN: a single token vector goes through one large SwiGLU box and out the other side. On the right, an MoE block: a token vector goes through a small router which picks 2 of 8 experts (selected experts are highlighted in orange, dimmed experts are grayed out). The selected experts independently process the token and their outputs are combined via a weighted sum. A footnote contrasts the per-token compute (similar to dense) with the total parameter count (which scales with N, the number of experts). DeepSeek R1 is cited as an example: 671B total parameters, 37B active per token.</desc>
+
+  <defs>
+    <marker id="arr-gray-4d" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-orange-4d" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">FFN variants</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">dense FFN vs. Mixture of Experts (MoE) — same per-token compute, very different total parameters</text>
+
+  <!-- divider -->
+  <line x1="360" y1="75" x2="360" y2="320" stroke="#888" stroke-width="0.5" stroke-dasharray="3,4" opacity="0.5"/>
+
+  <!-- ====== LEFT: Dense FFN ====== -->
+  <text x="180" y="90" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">Dense FFN</text>
+  <text x="180" y="105" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">one big SwiGLU box, all tokens go through it</text>
+
+  <!-- Input vector -->
+  <rect x="90" y="135" width="32" height="80" rx="4" ry="4" fill="rgba(155,109,255,0.40)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="106" y="127" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">token</text>
+
+  <line x1="125" y1="175" x2="148" y2="175" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4d)"/>
+
+  <!-- FFN box -->
+  <rect x="152" y="125" width="120" height="100" rx="6" ry="6" fill="rgba(235,110,31,0.20)" stroke="#EB6E1F" stroke-width="1.4"/>
+  <text x="212" y="170" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="ui-monospace, monospace" font-weight="600">SwiGLU FFN</text>
+  <text x="212" y="188" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">single dense expert</text>
+
+  <line x1="275" y1="175" x2="298" y2="175" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4d)"/>
+
+  <!-- Output vector -->
+  <rect x="302" y="135" width="32" height="80" rx="4" ry="4" fill="rgba(155,109,255,0.65)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="318" y="127" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">output</text>
+
+  <!-- params stat -->
+  <text x="212" y="250" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">total params ≈ active params</text>
+  <text x="212" y="266" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">e.g. Llama 3, Gemma</text>
+
+  <!-- ====== RIGHT: MoE ====== -->
+  <text x="540" y="90" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace" font-weight="600">Mixture of Experts (MoE)</text>
+  <text x="540" y="105" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">router picks K of N experts per token</text>
+
+  <!-- Input vector -->
+  <rect x="384" y="135" width="32" height="80" rx="4" ry="4" fill="rgba(155,109,255,0.40)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="400" y="127" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">token</text>
+
+  <line x1="419" y1="175" x2="442" y2="175" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4d)"/>
+
+  <!-- Router -->
+  <rect x="446" y="155" width="56" height="40" rx="6" ry="6" fill="rgba(74,158,255,0.20)" stroke="#4a9eff" stroke-width="1.4"/>
+  <text x="474" y="172" text-anchor="middle" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">router</text>
+  <text x="474" y="186" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif">picks K</text>
+
+  <!-- 8 experts in a vertical stack to the right, 2 selected (E2 and E5) highlighted -->
+  <!-- Lines from router to each expert -->
+  <g stroke="#888" stroke-width="0.6" opacity="0.3">
+    <line x1="502" y1="175" x2="530" y2="135"/>
+    <line x1="502" y1="175" x2="530" y2="153"/>
+    <line x1="502" y1="175" x2="530" y2="171"/>
+    <line x1="502" y1="175" x2="530" y2="189"/>
+    <line x1="502" y1="175" x2="530" y2="207"/>
+    <line x1="502" y1="175" x2="530" y2="225"/>
+    <line x1="502" y1="175" x2="530" y2="243"/>
+    <line x1="502" y1="175" x2="530" y2="261"/>
+  </g>
+  <!-- Highlight active routes -->
+  <line x1="502" y1="175" x2="530" y2="153" stroke="#EB6E1F" stroke-width="1.4"/>
+  <line x1="502" y1="175" x2="530" y2="225" stroke="#EB6E1F" stroke-width="1.4"/>
+
+  <!-- 8 expert boxes -->
+  <g font-family="ui-monospace, monospace" font-size="9">
+    <rect x="530" y="128" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="138" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 1</text>
+
+    <rect x="530" y="146" width="44" height="14" rx="2" ry="2" fill="rgba(235,110,31,0.30)" stroke="#EB6E1F" stroke-width="1.2"/>
+    <text x="552" y="156" text-anchor="middle" fill="#EB6E1F" font-weight="600">expert 2</text>
+
+    <rect x="530" y="164" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="174" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 3</text>
+
+    <rect x="530" y="182" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="192" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 4</text>
+
+    <rect x="530" y="200" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="210" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 5</text>
+
+    <rect x="530" y="218" width="44" height="14" rx="2" ry="2" fill="rgba(235,110,31,0.30)" stroke="#EB6E1F" stroke-width="1.2"/>
+    <text x="552" y="228" text-anchor="middle" fill="#EB6E1F" font-weight="600">expert 6</text>
+
+    <rect x="530" y="236" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="246" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 7</text>
+
+    <rect x="530" y="254" width="44" height="14" rx="2" ry="2" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="0.8" opacity="0.45"/>
+    <text x="552" y="264" text-anchor="middle" fill="#9b6dff" opacity="0.55">expert 8</text>
+  </g>
+
+  <!-- weighted sum + output -->
+  <line x1="574" y1="153" x2="606" y2="178" stroke="#EB6E1F" stroke-width="1.2" marker-end="url(#arr-orange-4d)"/>
+  <line x1="574" y1="225" x2="606" y2="195" stroke="#EB6E1F" stroke-width="1.2" marker-end="url(#arr-orange-4d)"/>
+
+  <circle cx="615" cy="186" r="9" fill="rgba(235,110,31,0.18)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="615" y="190" text-anchor="middle" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace">Σ</text>
+
+  <line x1="625" y1="186" x2="648" y2="186" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4d)"/>
+
+  <rect x="652" y="146" width="32" height="80" rx="4" ry="4" fill="rgba(155,109,255,0.65)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="668" y="138" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">output</text>
+
+  <!-- params stat -->
+  <text x="540" y="290" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">active per token ≈ K/N of total</text>
+  <text x="540" y="306" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">e.g. DeepSeek R1: 671B total / 37B active</text>
+
+  <!-- caption -->
+  <text x="360" y="345" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">MoE buys far more total parameters at the same per-token cost — the router decides which experts each token visits.</text>
+  <text x="360" y="362" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Different tokens often visit different experts, which lets the model specialize parts of its knowledge.</text>
+</svg>

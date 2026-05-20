@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" role="img" aria-label="Self-attention: in the sentence 'the river bank is muddy', the token 'bank' attends most strongly to 'river' and 'muddy', disambiguating its meaning toward 'geological feature'">
+  <title>Self-attention</title>
+  <desc>The sentence "the river bank is muddy" is shown as a row of token pills. Curved arcs are drawn above the row from the highlighted token "bank" to every other token, including a small self-loop. Arc thickness and opacity are proportional to the attention weight, which is also labelled at each arc apex. The strongest arcs go to "river" (weight 0.42) and "muddy" (0.28); weaker arcs go to "the" (0.04), "is" (0.06), and the self-loop (0.20). An annotation below explains that the output of "bank" incorporates the values of the tokens it attended to, shifting its meaning toward "geological feature".</desc>
+
+  <defs>
+    <marker id="arr-orange-4a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Self-attention</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">every token pulls weighted context from every other — arc thickness = attention weight</text>
+
+  <!-- attention arcs from "bank" (top of pill at 320,194) to each target -->
+  <!-- bank → the (weight 0.04, gray) -->
+  <path d="M 320 194 Q 230 60 140 194" fill="none" stroke="#888" stroke-width="0.8" opacity="0.35"/>
+  <text x="230" y="76" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace" opacity="0.7">0.04</text>
+
+  <!-- bank → river (weight 0.42, strong orange) -->
+  <path d="M 320 194 Q 280 78 240 194" fill="none" stroke="#EB6E1F" stroke-width="3.4" opacity="0.85"/>
+  <text x="280" y="95" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">0.42</text>
+
+  <!-- bank → bank (self-loop, weight 0.20) -->
+  <path d="M 320 184 C 305 140 335 140 320 184" fill="none" stroke="#EB6E1F" stroke-width="1.8" opacity="0.55"/>
+  <text x="320" y="148" text-anchor="middle" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" opacity="0.85">0.20</text>
+
+  <!-- bank → is (weight 0.06, gray) -->
+  <path d="M 320 194 Q 365 92 410 194" fill="none" stroke="#888" stroke-width="1" opacity="0.4"/>
+  <text x="365" y="105" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace" opacity="0.7">0.06</text>
+
+  <!-- bank → muddy (weight 0.28, medium orange) -->
+  <path d="M 320 194 Q 420 70 510 194" fill="none" stroke="#EB6E1F" stroke-width="2.4" opacity="0.7"/>
+  <text x="420" y="87" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">0.28</text>
+
+  <!-- 5 token pills at y=194 -->
+  <!-- the -->
+  <rect x="110" y="194" width="60" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="140" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">the</text>
+  <!-- river -->
+  <rect x="200" y="194" width="80" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="240" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">river</text>
+  <!-- bank (highlighted) -->
+  <rect x="285" y="194" width="70" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.18)" stroke="#EB6E1F" stroke-width="1.8"/>
+  <text x="320" y="215" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace" font-weight="600">bank</text>
+  <!-- is -->
+  <rect x="385" y="194" width="50" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="410" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">is</text>
+  <!-- muddy -->
+  <rect x="460" y="194" width="100" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="510" y="215" text-anchor="middle" fill="#9b6dff" font-size="13" font-family="ui-monospace, monospace">muddy</text>
+
+  <!-- result annotation -->
+  <line x1="320" y1="232" x2="320" y2="260" stroke="#EB6E1F" stroke-width="1.2" marker-end="url(#arr-orange-4a)"/>
+  <text x="360" y="280" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="sans-serif" font-weight="600">bank's output shifts toward "geological feature"</text>
+  <text x="360" y="298" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">— it absorbs context from "river" (0.42) and "muddy" (0.28), and less from "the" / "is"</text>
+
+  <!-- caption -->
+  <text x="360" y="324" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Weights are computed via Q · K then softmaxed; every token does this in parallel, in every layer.</text>
+</svg>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" role="img" aria-label="Feed-forward network with SwiGLU: per-token vector is expanded, gated by a nonlinearity, and contracted back">
+  <title>Feed-forward network (SwiGLU)</title>
+  <desc>A per-token vector is shown as a tall thin rectangle on the left. An arrow labelled "W_up · W_gate (expand ~4×)" projects it into a much wider hidden rectangle in the middle. Element-wise SwiGLU activation is shown by a small wave pattern inside the hidden vector. An arrow labelled "W_down (contract)" projects it back into a tall thin output rectangle on the right, the same shape as the input. A note clarifies that this happens per token with no cross-token mixing — exactly the opposite of self-attention.</desc>
+
+  <defs>
+    <marker id="arr-gray-4b" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Feed-forward network (SwiGLU)</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">per-token nonlinear transform: expand → gate with SwiGLU → contract</text>
+
+  <!-- Input vector (tall skinny rectangle) -->
+  <rect x="90" y="100" width="36" height="160" rx="4" ry="4" fill="rgba(155,109,255,0.40)" stroke="#9b6dff" stroke-width="1.4"/>
+  <text x="108" y="92" text-anchor="middle" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">input</text>
+  <text x="108" y="278" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace">dim d</text>
+
+  <!-- arrow expand -->
+  <line x1="130" y1="180" x2="218" y2="180" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4b)"/>
+  <text x="174" y="166" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">× W_up</text>
+  <text x="174" y="200" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">expand ~4×</text>
+
+  <!-- Hidden vector (wide rectangle) -->
+  <rect x="226" y="76" width="180" height="208" rx="4" ry="4" fill="rgba(235,110,31,0.25)" stroke="#EB6E1F" stroke-width="1.4"/>
+  <text x="316" y="68" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace">hidden (SwiGLU gated)</text>
+  <text x="316" y="298" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace">dim ≈ 4d</text>
+
+  <!-- wave pattern inside the hidden block to suggest nonlinearity -->
+  <g stroke="#EB6E1F" stroke-width="1.4" fill="none" opacity="0.7">
+    <path d="M 240 130 Q 256 110 272 130 T 304 130 T 336 130 T 368 130 T 396 130"/>
+    <path d="M 240 170 Q 256 150 272 170 T 304 170 T 336 170 T 368 170 T 396 170"/>
+    <path d="M 240 210 Q 256 190 272 210 T 304 210 T 336 210 T 368 210 T 396 210"/>
+    <path d="M 240 250 Q 256 230 272 250 T 304 250 T 336 250 T 368 250 T 396 250"/>
+  </g>
+  <text x="316" y="115" text-anchor="middle" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" opacity="0.85">SiLU(x · W_gate) ⊙ (x · W_up)</text>
+
+  <!-- arrow contract -->
+  <line x1="410" y1="180" x2="498" y2="180" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-4b)"/>
+  <text x="454" y="166" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">× W_down</text>
+  <text x="454" y="200" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">contract back</text>
+
+  <!-- Output vector (tall skinny rectangle, same shape as input but tinted) -->
+  <rect x="506" y="100" width="36" height="160" rx="4" ry="4" fill="rgba(155,109,255,0.65)" stroke="#9b6dff" stroke-width="1.4"/>
+  <text x="524" y="92" text-anchor="middle" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">output</text>
+  <text x="524" y="278" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace">dim d</text>
+
+  <!-- side note "per token" -->
+  <text x="620" y="180" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">applied independently</text>
+  <text x="620" y="196" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">to every token</text>
+
+  <!-- caption -->
+  <text x="360" y="312" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">No cross-token mixing happens here — that's self-attention's job. FFN is where stored knowledge gets injected.</text>
+</svg>

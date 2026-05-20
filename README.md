@@ -185,8 +185,20 @@ So with that as the foundation — that meaning lives as vectors in a learned hi
 **4. Transformer blocks.** Now we're at the workhorse layer of the model, and this is where most of the actual thinking happens. A single transformer block is made up of a few moving parts working together:
 
 - **Self-attention.** Each token gets to "look at" every other token in the sequence and pull in context from them. So the vector for *bank* in "river bank" gets influenced by the surrounding vectors for *river* and ends up shifted toward "geological feature" rather than "financial institution." Every token attends to every other, all in parallel.
+
+<p align="center">
+  <img src="./assets/04a-self-attention.svg" alt="Self-attention example on the sentence 'the river bank is muddy'. The token 'bank' has attention arcs going to every other token, with arc thickness proportional to attention weight. The strongest arcs go to 'river' (0.42) and 'muddy' (0.28); much weaker arcs go to 'the' (0.04) and 'is' (0.06). An annotation explains that bank's output incorporates the values of the tokens it attended to and shifts toward 'geological feature'." width="720">
+</p>
+
 - **A feed-forward network (FFN).** After attention, each token vector goes through a per-token nonlinear transformation. The modern choice for this is SwiGLU. This is where a lot of the model's stored knowledge gets injected and where individual token meanings get further refined.
+
+<p align="center">
+  <img src="./assets/04b-ffn.svg" alt="Feed-forward network: a per-token vector is expanded roughly 4× into a wider hidden vector via W_up, gated by SwiGLU activation (shown as a wave pattern inside the hidden block), and contracted back via W_down into an output vector the same shape as the input. The transformation is applied independently to every token — no cross-token mixing." width="720">
+</p>
+
 - **Residual connections and layer normalization (RMSNorm).** These don't change the meaning of the vectors directly — they're plumbing that keeps the math stable as the network gets deeper.
+
+Putting all three together inside one block:
 
 <p align="center">
   <img src="./assets/04-transformer-block.svg" alt="Transformer block: three input token vectors at the top enter a self-attention layer where every token attends to every other (drawn as bidirectional arrows between three points). The output is added back to the input via a residual connection and normalized. Each token then passes independently through a feed-forward network (SwiGLU). A second residual + normalization follows, and three refined output vectors emerge at the bottom. The block is stacked 60 to 120 times in a real model." width="720">
@@ -197,7 +209,16 @@ One pass through this block refines every token vector a little — incorporatin
 A couple of architectural variations are worth knowing about because they show up in current frontier models:
 
 - **Attention variants.** Plain multi-head attention (MHA) is legacy at this point. **GQA** (grouped-query attention) is the field standard in 2026. **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by about 10× and is the frontier choice for very long contexts.
+
+<p align="center">
+  <img src="./assets/04c-attention-variants.svg" alt="Attention variants side by side. Each variant has four query heads (Q1–Q4) and shows how K and V are stored. MHA on the left gives every head its own K and V, producing the largest KV-cache (100%). GQA in the middle groups heads two-by-two and shares one K and one V per group, halving the KV-cache to about 50%. MLA on the right compresses K and V into a single shared latent representation, shrinking the KV-cache to roughly 10%. A note maps each variant to the models that use it." width="720">
+</p>
+
 - **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). DeepSeek R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
+
+<p align="center">
+  <img src="./assets/04d-ffn-variants.svg" alt="FFN variants. On the left, a dense FFN: a single token vector goes through one large SwiGLU box and out the other side. On the right, an MoE block: the token goes through a small router which picks 2 of 8 experts. The two selected experts (experts 2 and 6) are highlighted in orange; the six unselected experts are dimmed. The selected experts' outputs are weighted-summed (Σ) and produce the output vector. The note on the right side cites DeepSeek R1 at 671B total parameters but only 37B active per token." width="720">
+</p>
 
 **5. Output head.** After the final transformer block we've got a refined vector for every position in the sequence. The model takes the vector at the last position — the one that represents "what should come next" — and projects it back into the vocabulary space using the *output head*. What comes out the other side is a probability for every single token in the vocabulary, and the next token is sampled from that distribution. The output head is often weight-tied to the embedding matrix from step 2, meaning the same numbers used to look up token vectors at the start are reused to project back out at the end. This both saves parameters and pushes the model toward consistency between its input and output representations.
 
