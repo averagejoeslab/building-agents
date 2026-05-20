@@ -765,11 +765,23 @@ class: ''
 
 <div style="margin-top: 1.25rem;">
 
-```json {all|1|2-3|4}
-{"type":"llm_call","span_id":"abc","start":1714,"end":1716,"tokens_in":1842,"tokens_out":187,"model":"claude-sonnet-4-5"}
-{"type":"tool_call","span_id":"def","parent":"abc","name":"read","input":{"path":"foo.py"},"latency_ms":12}
-{"type":"tool_call","span_id":"ghi","parent":"abc","name":"grep","input":{"pattern":"TODO","path":"."},"latency_ms":340}
-{"type":"llm_call","span_id":"jkl","start":1718,"end":1720,"tokens_in":2104,"tokens_out":94}
+```json {all|1-4|5-12|13-16}
+{
+  "name": "turn", "trace_id": "a1b2…", "duration_ms": 8240,
+  "attributes": {"user_input": "what does foo.py import?", "iterations": 2},
+  "children": [
+    {"name": "memory.recall",    "duration_ms": 0.02},
+    {"name": "llm.call", "attributes": {"iteration": 0, "input_tokens": 1059},
+     "children": [
+       {"name": "tool.call", "attributes": {"tool.name": "read"}}
+     ]
+    },
+    {"name": "llm.call", "attributes": {"iteration": 1, "input_tokens": 1183}},
+    {"name": "guardrail.sentiment",     "attributes": {"label": "POSITIVE"}},
+    {"name": "guardrail.hallucination", "attributes": {"grounded": true}},
+    {"name": "memory.summarize"}
+  ]
+}
 ```
 
 </div>

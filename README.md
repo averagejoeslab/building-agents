@@ -229,13 +229,13 @@ The modules below are the harness-engineering work: take Claude as the model and
 | 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
 | 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |
 | 5 | [Add tools](./modules/05-add-tools/) | **Tool / action layer** | [`agent.py`](./examples/agent.py) |
-| 6 | [Add sandboxing](./modules/06-add-sandboxing/) | **Execution environment** *(stubbed)* | [`sandbox_agent.py`](./examples/sandbox_agent.py) |
-| 7 | [Add guardrails](./modules/07-add-guardrails/) | **Safety constraints** *(stubbed)* | [`safe_agent.py`](./examples/safe_agent.py) |
-| 8 | [Add observability](./modules/08-add-observability/) | **Structured tracing** *(stubbed)* | [`traced_agent.py`](./examples/traced_agent.py) |
-| 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** *(stubbed)* | [`evals/`](./evals/) |
-| 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** *(stubbed)* | [`production_agent.py`](./examples/production_agent.py) |
+| 6 | [Add sandboxing](./modules/06-add-sandboxing/) | **Execution environment** | [`sandbox_agent.py`](./examples/sandbox_agent.py) |
+| 7 | [Add guardrails](./modules/07-add-guardrails/) | **Safety constraints** | [`safe_agent.py`](./examples/safe_agent.py) |
+| 8 | [Add observability](./modules/08-add-observability/) | **Structured tracing** | [`traced_agent.py`](./examples/traced_agent.py) |
+| 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** | [`evals/`](./evals/) |
+| 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** | [`production_agent.py`](./examples/production_agent.py) |
 
-Modules 1–5 are written end-to-end. Modules 6–10 are stubbed; their checkpoints in [`examples/`](./examples/) already implement what each will describe.
+All ten modules are written end-to-end, each grounded in the runnable checkpoint in [`examples/`](./examples/) (or [`evals/`](./evals/) for M9). Read the module, then run the script to see the harness at that stage.
 
 ## Agentic engineering in practice
 

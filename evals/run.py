@@ -1,7 +1,7 @@
 """Evaluation harness for building-agents.
 
 Loads YAML test cases from evals/cases/, runs each against the target agent
-N times via subprocess, scores outputs (contains/tool_used/tool_count_max/
+N times via subprocess, scores outputs (contains/not_contains/exit_zero/
 llm_judge), aggregates pass rates with stochastic averaging, and writes a
 timestamped result file to evals/results/.
 """

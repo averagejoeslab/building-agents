@@ -65,24 +65,11 @@ def message_tokens(msg) -> int:
     return approx_tokens(msg["content"]) + 5  # role overhead
 
 
-def _is_tool_result(block) -> bool:
-    if isinstance(block, dict):
-        return block.get("type") == "tool_result"
-    return getattr(block, "type", None) == "tool_result"
-
-
 def find_turn_boundaries(messages: list) -> list:
-    """Indices where a fresh user turn starts (not a reply carrying tool_results)."""
-    boundaries = []
-    for i, msg in enumerate(messages):
-        if msg["role"] != "user":
-            continue
-        content = msg["content"]
-        if isinstance(content, str):
-            boundaries.append(i)
-        elif not any(_is_tool_result(b) for b in content):
-            boundaries.append(i)
-    return boundaries
+    """Indices where a fresh user turn starts. The chatbot has no tools yet
+    so every user message is a boundary; M5 extends this to skip user
+    messages that are replies carrying tool_result blocks."""
+    return [i for i, msg in enumerate(messages) if msg["role"] == "user"]
 
 
 def assemble(user_input: str, system: str, history: list) -> list:
