@@ -1,42 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 380" role="img" aria-label="A 3D slice of an embedding space showing semantic clusters">
-  <title>A 3D slice of an embedding space showing semantic clusters</title>
-  <desc>Three axes labelled dim 1, dim 2, and dim 3 form a 3D coordinate system. Three semantic clusters are plotted: animals (cat, dog, kitten) on the right in orange, vehicles (car, truck, bicycle) on the left in blue, and royalty (king, queen) above in purple.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" role="img" aria-label="An embedding space showing semantic clusters and parallel gender-relationship directions">
+  <title>Embedding space with semantic clusters and gender-relationship arithmetic</title>
+  <desc>Three axes labelled dim 1, dim 2, and dim 3 form a 3D coordinate system. Two semantic clusters are plotted at the bottom: animals (cat, dog, kitten) on the right in orange, and vehicles (car, truck, bicycle) on the left in blue. Three gender pairs in purple — boy/girl, man/woman, and king/queen — are each connected by an arrow, and the three arrows are parallel and equal in length, illustrating that the same "gender" direction in the vector space corresponds to the same relationship between concepts. The equation queen approximately equals king minus man plus woman is shown as a banner at the top.</desc>
+
   <defs>
-    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+    <marker id="arr-gray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
       <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-purple" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#9b6dff"/>
     </marker>
   </defs>
 
-  <!-- 3D axes from origin -->
-  <line x1="300" y1="280" x2="540" y2="280" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="300" y1="280" x2="300" y2="50"  stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="300" y1="280" x2="160" y2="350" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <text x="545" y="284" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 1</text>
-  <text x="305" y="48"  fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 2</text>
-  <text x="115" y="362" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 3</text>
+  <!-- arithmetic banner -->
+  <text x="360" y="40" text-anchor="middle" fill="#9b6dff" font-size="15" font-family="ui-monospace, monospace" font-weight="600">queen ≈ king − man + woman</text>
+  <text x="360" y="60" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">same direction = same relationship</text>
 
-  <!-- animals cluster (right, orange) -->
-  <circle cx="420" cy="180" r="5" fill="#EB6E1F"/>
-  <text x="430" y="184" fill="#EB6E1F" font-size="12" font-family="sans-serif">cat</text>
-  <circle cx="450" cy="200" r="5" fill="#EB6E1F"/>
-  <text x="460" y="204" fill="#EB6E1F" font-size="12" font-family="sans-serif">dog</text>
-  <circle cx="430" cy="155" r="5" fill="#EB6E1F"/>
-  <text x="440" y="159" fill="#EB6E1F" font-size="12" font-family="sans-serif">kitten</text>
+  <!-- 3D axes from origin (340, 340) -->
+  <line x1="340" y1="340" x2="600" y2="340" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+  <line x1="340" y1="340" x2="340" y2="90"  stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+  <line x1="340" y1="340" x2="200" y2="405" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+  <text x="605" y="344" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 1</text>
+  <text x="345" y="88"  fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 2</text>
+  <text x="155" y="417" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 3</text>
+
+  <!-- gender pair: boy → girl -->
+  <line x1="190" y1="123" x2="260" y2="97" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple)"/>
+  <circle cx="185" cy="125" r="5" fill="#9b6dff"/>
+  <text x="180" y="129" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">boy</text>
+  <circle cx="265" cy="95" r="5" fill="#9b6dff"/>
+  <text x="273" y="99" fill="#9b6dff" font-size="12" font-family="sans-serif">girl</text>
+
+  <!-- gender pair: man → woman -->
+  <line x1="190" y1="183" x2="260" y2="157" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple)"/>
+  <circle cx="185" cy="185" r="5" fill="#9b6dff"/>
+  <text x="180" y="189" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">man</text>
+  <circle cx="265" cy="155" r="5" fill="#9b6dff"/>
+  <text x="273" y="159" fill="#9b6dff" font-size="12" font-family="sans-serif">woman</text>
+
+  <!-- gender pair: king → queen -->
+  <line x1="445" y1="153" x2="515" y2="127" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple)"/>
+  <circle cx="440" cy="155" r="5" fill="#9b6dff"/>
+  <text x="435" y="159" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">king</text>
+  <circle cx="520" cy="125" r="5" fill="#9b6dff"/>
+  <text x="528" y="129" fill="#9b6dff" font-size="12" font-family="sans-serif">queen</text>
+
+  <!-- "gender" direction annotation, placed between the boy→girl and man→woman arrows -->
+  <text x="225" y="148" fill="#9b6dff" font-size="11" font-family="sans-serif" font-style="italic" text-anchor="middle">"gender" direction</text>
 
   <!-- vehicles cluster (left, blue) -->
-  <circle cx="200" cy="180" r="5" fill="#4a9eff"/>
-  <text x="150" y="184" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">car</text>
-  <circle cx="175" cy="205" r="5" fill="#4a9eff"/>
-  <text x="125" y="209" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">truck</text>
-  <circle cx="195" cy="155" r="5" fill="#4a9eff"/>
-  <text x="145" y="159" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">bicycle</text>
+  <circle cx="130" cy="240" r="5" fill="#4a9eff"/>
+  <text x="125" y="244" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">car</text>
+  <circle cx="105" cy="265" r="5" fill="#4a9eff"/>
+  <text x="100" y="269" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">truck</text>
+  <circle cx="125" cy="215" r="5" fill="#4a9eff"/>
+  <text x="120" y="219" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">bicycle</text>
 
-  <!-- royalty cluster (top, purple) -->
-  <circle cx="290" cy="110" r="5" fill="#9b6dff"/>
-  <text x="285" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">king</text>
-  <circle cx="335" cy="110" r="5" fill="#9b6dff"/>
-  <text x="345" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif">queen</text>
+  <!-- animals cluster (right, orange) -->
+  <circle cx="510" cy="240" r="5" fill="#EB6E1F"/>
+  <text x="520" y="244" fill="#EB6E1F" font-size="12" font-family="sans-serif">cat</text>
+  <circle cx="540" cy="260" r="5" fill="#EB6E1F"/>
+  <text x="550" y="264" fill="#EB6E1F" font-size="12" font-family="sans-serif">dog</text>
+  <circle cx="520" cy="215" r="5" fill="#EB6E1F"/>
+  <text x="530" y="219" fill="#EB6E1F" font-size="12" font-family="sans-serif">kitten</text>
 
-  <text x="320" y="368" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">A 3D slice of an embedding space. Similar meanings end up clustered nearby.</text>
+  <!-- caption -->
+  <text x="360" y="430" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">A 3D slice of an embedding space. Similar meanings cluster nearby; consistent relationships become parallel directions.</text>
 </svg>

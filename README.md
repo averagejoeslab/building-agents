@@ -159,7 +159,7 @@ What makes this useful is that the model is trained such that semantically simil
 Here's a tiny slice of what that looks like in three dimensions — keeping in mind that a real model is doing this in thousands:
 
 <p align="center">
-  <img src="./assets/embedding-space.svg" alt="A 3D slice of an embedding space showing semantic clusters: animals (cat, dog, kitten), vehicles (car, truck, bicycle), and royalty (king, queen) clustered in distinct regions of the space." width="640">
+  <img src="./assets/embedding-space.svg" alt="A 3D slice of an embedding space. Two semantic clusters at the bottom — animals (cat, dog, kitten) and vehicles (car, truck, bicycle) — show that similar meanings sit near each other. Three purple gender pairs above — boy/girl, man/woman, king/queen — are connected by parallel arrows of equal length, visualizing that the same 'gender' direction in the space corresponds to the same relationship, which is why queen ≈ king − man + woman." width="720">
 </p>
 
 So with that as the foundation — that meaning lives as vectors in a learned high-dimensional space — let's walk through what actually happens when you send the model some text. I'm going to follow a single forward pass from raw input to a sampled output token, and at each step explain which part of the architecture is doing the work.
