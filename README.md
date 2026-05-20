@@ -246,11 +246,40 @@ flowchart LR
 Walking through each stage:
 
 1. **Pretraining.** This is where the model is taught to predict the next token across trillions of tokens of web-scale data. By the end of pretraining the model has picked up syntax, facts, and reasoning patterns. Takes thousands of GPUs running for months of wall-clock time. The output of this stage is what we call the *base model*.
+
+<p align="center">
+  <img src="./assets/t1-pretraining.svg" alt="Pretraining: a sample 'The Eiffel Tower is in [?]' is drawn from a web corpus and fed into the model. The model predicts a probability distribution over the next token, with 'Paris' highlighted at 0.78 as the correct target. A dashed feedback arrow loops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width="720">
+</p>
+
 2. **Mid-training.** Continued pretraining on a higher-quality and more curated corpus — code, math, reasoning data. This sharpens specific domains without having to start over from scratch.
+
+<p align="center">
+  <img src="./assets/t2-mid-training.svg" alt="Mid-training: a faded 'general web corpus' on the left is filtered through a funnel into three smaller curated document boxes on the right — a Python factorial function, an algebra equation, and a step-by-step reasoning chain — which then feed into the model. The annotation notes that no training restart from scratch is needed." width="720">
+</p>
+
 3. **Supervised fine-tuning (SFT).** Now we feed the model curated instruction/response pairs so it learns to actually follow instructions rather than continue arbitrary text.
+
+<p align="center">
+  <img src="./assets/t3-sft.svg" alt="SFT: three example instruction-response cards on the left (photosynthesis question, Python string-reverse request, article summarization) each show a 'user' prompt and an 'assistant' response. An arrow with the label 'train on assistant tokens' leads to a model box on the right that transitions from 'base model' to 'instruction-following model'." width="720">
+</p>
+
 4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons between responses teach the model what counts as a good answer. This is the stage where helpfulness, honesty, and safety mostly get instilled.
+
+<p align="center">
+  <img src="./assets/t4-preference-tuning.svg" alt="Preference tuning: a shared prompt 'What's a good first programming language to learn?' is followed by two response cards. Response A on the left is detailed and helpful, marked 'star preferred' in orange. Response B on the right is dismissive and faded. Annotations indicate that the model's probability mass on A is pushed up and on B is pushed down." width="720">
+</p>
+
 5. **Constitutional AI / RLAIF.** This one is optional and is Anthropic's signature contribution — instead of relying on humans to label everything, you have AI feedback against a written set of principles. Scales alignment past what humans could directly label on their own.
+
+<p align="center">
+  <img src="./assets/t5-constitutional-ai.svg" alt="Constitutional AI: a 'Constitution' document on the left lists principles like 'be helpful', 'avoid harmful content', 'be honest about uncertainty', and 'respect human autonomy'. A model response card in the middle shows the assistant refusing a harmful request and offering safe alternatives. An AI judge on the right returns a verdict that the response complies with principle 2, and a feedback arrow loops back to reinforce the behavior." width="720">
+</p>
+
 6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks teach the model to do explicit chain-of-thought reasoning. This is the stage that produces o1, o3, Claude's reasoning mode, and DeepSeek R1 from their respective base models.
+
+<p align="center">
+  <img src="./assets/t6-reasoning-rl.svg" alt="Reasoning RL: a prompt asks 'What is 17 × 23?' and the model produces a chain-of-thought response (Step 1: 17 × 20 = 340, Step 2: 17 × 3 = 51, Step 3: 340 + 51 = 391) with a boxed final answer 391. A rule-based verifier on the right computes 17 × 23 = 391, confirms the answer, and emits reward +1. A feedback arrow loops back to reinforce CoT trajectories that produce correct answers." width="720">
+</p>
 
 #### Inference
 

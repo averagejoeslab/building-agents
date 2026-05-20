@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" role="img" aria-label="Mid-training: continued pretraining on a curated high-quality subset focused on code, math, and reasoning">
+  <title>Stage 2: Mid-training</title>
+  <desc>A large faded document stack on the left labelled "general web corpus" represents the broad pretraining data. A funnel in the middle filters down to three smaller, more sharply drawn documents on the right, each labelled with a different curated data type: a code snippet (a Python factorial function), a math example (an algebra equation solved), and a reasoning example (a step-by-step chain-of-thought). An arrow leads from the curated documents down to the model, with an annotation indicating that the base model gets sharper in these specific domains without restarting training from scratch.</desc>
+
+  <defs>
+    <marker id="arr-gray-t2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Mid-training</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">continued pretraining on a curated higher-quality subset: code · math · reasoning</text>
+
+  <!-- general corpus (faded) -->
+  <g opacity="0.45">
+    <rect x="40" y="92"  width="58" height="72" rx="3" ry="3" fill="rgba(74,158,255,0.10)" stroke="#4a9eff" stroke-width="1"/>
+    <rect x="48" y="86"  width="58" height="72" rx="3" ry="3" fill="rgba(74,158,255,0.14)" stroke="#4a9eff" stroke-width="1"/>
+    <rect x="56" y="80"  width="58" height="72" rx="3" ry="3" fill="rgba(74,158,255,0.22)" stroke="#4a9eff" stroke-width="1.2"/>
+    <line x1="62" y1="94"  x2="108" y2="94"  stroke="#4a9eff" stroke-width="0.6"/>
+    <line x1="62" y1="104" x2="108" y2="104" stroke="#4a9eff" stroke-width="0.6"/>
+    <line x1="62" y1="114" x2="98"  y2="114" stroke="#4a9eff" stroke-width="0.6"/>
+    <line x1="62" y1="124" x2="108" y2="124" stroke="#4a9eff" stroke-width="0.6"/>
+    <line x1="62" y1="134" x2="96"  y2="134" stroke="#4a9eff" stroke-width="0.6"/>
+    <line x1="62" y1="144" x2="108" y2="144" stroke="#4a9eff" stroke-width="0.6"/>
+  </g>
+  <text x="78" y="178" text-anchor="middle" fill="#888" font-size="10" font-family="ui-monospace, monospace">general web</text>
+  <text x="78" y="192" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">noisy, broad</text>
+
+  <!-- funnel -->
+  <path d="M 130 90 L 230 90 L 200 145 L 200 170 L 180 170 L 180 145 Z" fill="rgba(155,109,255,0.10)" stroke="#9b6dff" stroke-width="1.2"/>
+  <text x="190" y="195" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">filter</text>
+
+  <!-- arrow from funnel -->
+  <line x1="232" y1="118" x2="266" y2="118" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t2)"/>
+
+  <!-- curated examples (three documents side by side) -->
+  <!-- 1. code snippet -->
+  <rect x="270" y="75" width="140" height="92" rx="4" ry="4" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="280" y="92" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">code</text>
+  <text x="280" y="108" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">def fact(n):</text>
+  <text x="280" y="120" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">  if n &lt; 2:</text>
+  <text x="280" y="132" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">    return 1</text>
+  <text x="280" y="144" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">  return n*</text>
+  <text x="280" y="156" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">    fact(n-1)</text>
+
+  <!-- 2. math -->
+  <rect x="425" y="75" width="140" height="92" rx="4" ry="4" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="435" y="92" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">math</text>
+  <text x="435" y="110" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">∫₀¹ x² dx = ⅓</text>
+  <text x="435" y="124" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">2x + 5 = 13</text>
+  <text x="435" y="138" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">  → x = 4</text>
+  <text x="435" y="156" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">∀ε &gt; 0 ∃δ ...</text>
+
+  <!-- 3. reasoning -->
+  <rect x="580" y="75" width="120" height="92" rx="4" ry="4" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="590" y="92" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">reasoning</text>
+  <text x="590" y="110" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">Step 1: ...</text>
+  <text x="590" y="124" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">Step 2: ...</text>
+  <text x="590" y="138" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">Step 3: ...</text>
+  <text x="590" y="156" fill="#9b6dff" font-size="9" font-family="ui-monospace, monospace">Therefore ...</text>
+
+  <text x="485" y="182" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">curated subset</text>
+
+  <!-- arrow down to model -->
+  <line x1="485" y1="190" x2="485" y2="228" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t2)"/>
+
+  <!-- model -->
+  <rect x="160" y="232" width="400" height="32" rx="6" ry="6" fill="rgba(155,109,255,0.20)" stroke="#9b6dff" stroke-width="1.4"/>
+  <text x="360" y="253" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace" font-weight="600">base model → sharpened model</text>
+
+  <text x="580" y="252" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">no restart</text>
+  <text x="580" y="265" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">from scratch</text>
+
+  <!-- caption -->
+  <text x="360" y="305" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Same next-token loss as pretraining, but the model now sees a much higher signal-to-noise corpus.</text>
+  <text x="360" y="322" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Behaviour in code, math, and reasoning gets sharper without losing what was learned earlier.</text>
+</svg>

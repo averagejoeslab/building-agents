@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" role="img" aria-label="Reasoning RL: the model is rewarded for explicit chain-of-thought that arrives at a verifiable answer">
+  <title>Stage 6: Reasoning RL (GRPO + verifiable rewards)</title>
+  <desc>A math prompt at the top asks for 17 multiplied by 23. The model produces a chain-of-thought card below, showing step 1 (17 × 20 = 340), step 2 (17 × 3 = 51), step 3 (340 + 51 = 391), and a final boxed answer of 391. An arrow leads to a rule-based verifier on the right which computes 17 × 23 = 391 and confirms the answer is correct, emitting a reward of +1. A dashed feedback arrow loops back to the model with an annotation that the model learns to produce explicit chain-of-thought because it gets rewarded for it. A caption notes this stage is what turns base models into o1, o3, Claude reasoning, and DeepSeek R1.</desc>
+
+  <defs>
+    <marker id="arr-gray-t6" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-orange-t6" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Reasoning RL (GRPO + verifiable rewards)</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">rule-based rewards on math and code teach the model to think step by step</text>
+
+  <!-- prompt -->
+  <rect x="200" y="68" width="320" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.10)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="212" y="82" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
+  <text x="212" y="95" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">What is 17 × 23?</text>
+
+  <line x1="360" y1="102" x2="360" y2="120" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t6)"/>
+
+  <!-- model output: chain of thought -->
+  <rect x="80" y="124" width="380" height="148" rx="6" ry="6" fill="rgba(155,109,255,0.08)" stroke="#9b6dff" stroke-width="1.4"/>
+  <text x="92" y="140" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">model output (chain of thought)</text>
+  <line x1="92" y1="147" x2="448" y2="147" stroke="#9b6dff" stroke-width="0.6" opacity="0.5"/>
+
+  <text x="92"  y="165" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 1: 17 × 20 = 340</text>
+  <text x="92"  y="183" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 2: 17 × 3  = 51</text>
+  <text x="92"  y="201" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Step 3: 340 + 51 = 391</text>
+  <text x="92"  y="225" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">Final answer:</text>
+  <rect x="195" y="213" width="56" height="20" rx="4" ry="4" fill="rgba(235,110,31,0.20)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="223" y="227" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="ui-monospace, monospace" font-weight="600">391</text>
+  <text x="92" y="253" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">CoT tokens are sampled from the model — there's no template forcing them.</text>
+
+  <!-- arrow to verifier -->
+  <line x1="465" y1="200" x2="510" y2="200" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t6)"/>
+
+  <!-- verifier -->
+  <rect x="515" y="148" width="170" height="100" rx="6" ry="6" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.4"/>
+  <text x="600" y="166" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">verifier</text>
+  <text x="600" y="180" text-anchor="middle" fill="#888"    font-size="9" font-family="sans-serif" font-style="italic">(deterministic, rule-based)</text>
+  <line x1="525" y1="190" x2="675" y2="190" stroke="#EB6E1F" stroke-width="0.6" opacity="0.5"/>
+  <text x="530" y="208" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">check: 17×23 = 391</text>
+  <text x="530" y="228" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace" font-weight="600">reward = +1 ✓</text>
+
+  <!-- gradient feedback arrow -->
+  <path d="M 600 254 Q 600 305 270 305 L 270 285" fill="none" stroke="#EB6E1F" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#arr-orange-t6)"/>
+  <text x="430" y="324" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">→ reinforce CoT trajectories that produce correct answers</text>
+
+  <!-- caption -->
+  <text x="360" y="350" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">No human labellers needed — the verifier is code. This stage turns base models into</text>
+  <text x="360" y="366" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">o1, o3, Claude's reasoning mode, and DeepSeek R1.</text>
+</svg>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="Supervised fine-tuning: the model is trained on curated instruction and response pairs">
+  <title>Stage 3: Supervised fine-tuning (SFT)</title>
+  <desc>Three example instruction–response cards are stacked on the left. Each card has a user prompt at the top and an assistant response below. The first card asks "What is photosynthesis?" with a one-sentence answer. The second card asks for a Python function to reverse a string with the function shown. The third card asks for a one-sentence summary of an article with a placeholder summary. An arrow labelled "train: model produces the response given the prompt" leads to a model box on the right, labelled "base model → instruction-following model". A caption explains that the loss is still next-token prediction, but only computed on the assistant's tokens.</desc>
+
+  <defs>
+    <marker id="arr-gray-t3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Supervised fine-tuning (SFT)</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">train on curated instruction → response pairs to make the model follow instructions</text>
+
+  <!-- card 1 -->
+  <rect x="40" y="70" width="380" height="68" rx="6" ry="6" fill="rgba(74,158,255,0.06)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="52" y="86" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">user</text>
+  <text x="52" y="100" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">What is photosynthesis?</text>
+  <line x1="52" y1="108" x2="408" y2="108" stroke="#888" stroke-width="0.4" opacity="0.5"/>
+  <text x="52" y="120" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">assistant</text>
+  <text x="52" y="133" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Photosynthesis is how plants convert light into chemical energy.</text>
+
+  <!-- card 2 -->
+  <rect x="40" y="148" width="380" height="68" rx="6" ry="6" fill="rgba(74,158,255,0.06)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="52" y="164" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">user</text>
+  <text x="52" y="178" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Write a Python function that reverses a string.</text>
+  <line x1="52" y1="186" x2="408" y2="186" stroke="#888" stroke-width="0.4" opacity="0.5"/>
+  <text x="52" y="198" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">assistant</text>
+  <text x="52" y="211" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">def reverse(s): return s[::-1]</text>
+
+  <!-- card 3 -->
+  <rect x="40" y="226" width="380" height="68" rx="6" ry="6" fill="rgba(74,158,255,0.06)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="52" y="242" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">user</text>
+  <text x="52" y="256" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Summarize this article in one sentence: [...]</text>
+  <line x1="52" y1="264" x2="408" y2="264" stroke="#888" stroke-width="0.4" opacity="0.5"/>
+  <text x="52" y="276" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">assistant</text>
+  <text x="52" y="289" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">The article argues that ...</text>
+
+  <text x="230" y="312" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">curated instruction–response pairs</text>
+
+  <!-- arrow to model -->
+  <line x1="425" y1="180" x2="475" y2="180" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t3)"/>
+  <text x="450" y="170" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">train on</text>
+  <text x="450" y="195" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">assistant tokens</text>
+
+  <!-- model -->
+  <rect x="480" y="120" width="200" height="120" rx="6" ry="6" fill="rgba(155,109,255,0.15)" stroke="#9b6dff" stroke-width="1.4"/>
+  <text x="580" y="155" text-anchor="middle" fill="#9b6dff" font-size="12" font-family="ui-monospace, monospace" font-weight="600">base model</text>
+  <text x="580" y="180" text-anchor="middle" fill="#888"    font-size="14" font-family="ui-monospace, monospace">↓</text>
+  <text x="580" y="208" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="ui-monospace, monospace" font-weight="600">instruction-following</text>
+  <text x="580" y="222" text-anchor="middle" fill="#EB6E1F" font-size="12" font-family="ui-monospace, monospace" font-weight="600">model</text>
+
+  <!-- caption -->
+  <text x="360" y="338" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Same next-token loss as pretraining, but only on the assistant's tokens — that's the supervision.</text>
+  <text x="360" y="354" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Without this step the model would keep "completing" your prompt instead of answering it.</text>
+</svg>

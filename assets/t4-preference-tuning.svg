@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="Preference tuning: humans rank pairs of model responses and the model learns to prefer the winners">
+  <title>Stage 4: Preference tuning (RLHF / DPO / GRPO)</title>
+  <desc>A single shared prompt at the top asks "What's a good first programming language to learn?". Two response cards appear side by side below. Response A on the left is detailed and helpful, with a green-tinted accent and a "preferred" badge. Response B on the right is dismissive and unhelpful, with a faded border. A human icon between them points a thumbs-up at A. Arrows from this preference signal point down to the model with annotations "push P(A) up" and "push P(B) down". A caption explains that RLHF, DPO, and GRPO all use this same preference signal in different ways.</desc>
+
+  <defs>
+    <marker id="arr-gray-t4" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-orange-t4" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Preference tuning (RLHF · DPO · GRPO)</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">humans rank pairs of model responses; model learns which one to favor</text>
+
+  <!-- shared prompt -->
+  <rect x="160" y="68" width="400" height="34" rx="6" ry="6" fill="rgba(74,158,255,0.10)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="170" y="84" fill="#4a9eff" font-size="10" font-family="ui-monospace, monospace" font-weight="600">prompt</text>
+  <text x="170" y="97" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">What's a good first programming language to learn?</text>
+
+  <!-- response A (preferred, orange) -->
+  <rect x="40" y="118" width="290" height="98" rx="6" ry="6" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.6"/>
+  <text x="52" y="134" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">response A</text>
+  <text x="280" y="134" text-anchor="end" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace" font-weight="600">★ preferred</text>
+  <text x="52" y="153" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">Python is a popular first choice — it</text>
+  <text x="52" y="168" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">has clean syntax, a large community,</text>
+  <text x="52" y="183" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">and is used in web, data, and</text>
+  <text x="52" y="198" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">scripting work.</text>
+
+  <!-- response B (rejected, faded) -->
+  <rect x="390" y="118" width="290" height="98" rx="6" ry="6" fill="rgba(155,109,255,0.04)" stroke="#9b6dff" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+  <text x="402" y="134" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace" font-weight="600" opacity="0.75">response B</text>
+  <text x="402" y="153" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace" opacity="0.7">Just pick one and start.</text>
+  <text x="402" y="180" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace" opacity="0.5" font-style="italic">(short, low-effort)</text>
+
+  <!-- human picks A -->
+  <text x="360" y="246" text-anchor="middle" fill="#EB6E1F" font-size="14" font-family="ui-monospace, monospace" font-weight="600">human prefers A over B</text>
+  <text x="360" y="264" text-anchor="middle" fill="#888"    font-size="11" font-family="sans-serif" font-style="italic">(or a reward model trained on human preferences)</text>
+
+  <!-- update arrows -->
+  <line x1="185" y1="218" x2="185" y2="288" stroke="#EB6E1F" stroke-width="1.4" marker-end="url(#arr-orange-t4)"/>
+  <text x="185" y="306" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">push P(A) ↑</text>
+  <line x1="535" y1="218" x2="535" y2="288" stroke="#888" stroke-width="1.4" stroke-dasharray="3,3" marker-end="url(#arr-gray-t4)"/>
+  <text x="535" y="306" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace" font-weight="600">push P(B) ↓</text>
+
+  <!-- caption -->
+  <text x="360" y="334" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">RLHF, DPO, and GRPO all use the same signal — they differ in how they propagate it through the model.</text>
+  <text x="360" y="351" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">This is the stage where helpfulness, honesty, and safety mostly get instilled.</text>
+</svg>
