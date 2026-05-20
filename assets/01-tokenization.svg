@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" role="img" aria-label="Tokenization: raw text becomes a list of integer token IDs">
+  <title>Step 1: Tokenization</title>
+  <desc>The text "tokens go fast" is shown as a pill at the top. An arrow labelled "BPE chunking" leads down to four sub-word token pills in orange: "token", "s", " go", " fast" — illustrating that BPE splits "tokens" into the sub-words "token" and "s" while keeping shorter words and leading spaces as single tokens. A second arrow labelled "vocab lookup" leads down to four integer ID boxes in blue: 3919, 82, 733, 5043 — showing that each token gets mapped to an integer.</desc>
+
+  <defs>
+    <marker id="arr-gray-1" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Tokenization</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">raw text → sub-word tokens → integer IDs</text>
+
+  <!-- Row 1: raw text -->
+  <rect x="190" y="70" width="340" height="34" rx="6" ry="6" fill="none" stroke="#888" stroke-width="1.2"/>
+  <text x="360" y="92" text-anchor="middle" fill="#888" font-size="14" font-family="ui-monospace, monospace">"tokens go fast"</text>
+
+  <!-- arrow + label "BPE chunking" -->
+  <line x1="360" y1="108" x2="360" y2="152" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-1)"/>
+  <text x="375" y="134" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">BPE chunking</text>
+
+  <!-- Row 2: token pills (orange) -->
+  <rect x="155" y="162" width="80" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.12)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="195" y="183" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace">token</text>
+
+  <rect x="245" y="162" width="80" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.12)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="285" y="183" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace">s</text>
+
+  <rect x="335" y="162" width="80" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.12)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="375" y="183" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace">▁go</text>
+
+  <rect x="425" y="162" width="80" height="32" rx="6" ry="6" fill="rgba(235,110,31,0.12)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="465" y="183" text-anchor="middle" fill="#EB6E1F" font-size="13" font-family="ui-monospace, monospace">▁fast</text>
+
+  <!-- arrows from each token pill to its ID box -->
+  <line x1="195" y1="199" x2="195" y2="237" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-1)"/>
+  <line x1="285" y1="199" x2="285" y2="237" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-1)"/>
+  <line x1="375" y1="199" x2="375" y2="237" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-1)"/>
+  <line x1="465" y1="199" x2="465" y2="237" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-1)"/>
+
+  <text x="525" y="222" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">vocab lookup</text>
+
+  <!-- Row 3: ID boxes (blue) -->
+  <rect x="155" y="247" width="80" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.12)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="195" y="268" text-anchor="middle" fill="#4a9eff" font-size="13" font-family="ui-monospace, monospace">3919</text>
+
+  <rect x="245" y="247" width="80" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.12)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="285" y="268" text-anchor="middle" fill="#4a9eff" font-size="13" font-family="ui-monospace, monospace">82</text>
+
+  <rect x="335" y="247" width="80" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.12)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="375" y="268" text-anchor="middle" fill="#4a9eff" font-size="13" font-family="ui-monospace, monospace">733</text>
+
+  <rect x="425" y="247" width="80" height="32" rx="6" ry="6" fill="rgba(74,158,255,0.12)" stroke="#4a9eff" stroke-width="1.2"/>
+  <text x="465" y="268" text-anchor="middle" fill="#4a9eff" font-size="13" font-family="ui-monospace, monospace">5043</text>
+
+  <!-- caption -->
+  <text x="360" y="305" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">▁ marks a leading space. Token IDs are just keys — no meaning attached yet.</text>
+</svg>

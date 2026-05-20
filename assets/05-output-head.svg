@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="Output head: project the final vector into a probability distribution over the vocabulary and sample">
+  <title>Step 5: Output head</title>
+  <desc>The final hidden vector at the last position is shown on the left as a column of coloured cells. An arrow labelled "× W_out (weight-tied to the embedding matrix)" leads from the vector to a vertical bar chart on the right. The bar chart shows the probabilities of the top candidate tokens for what comes next, with the most probable token highlighted in orange and an arrow labelled "sampled →" pointing at it. The remaining candidates have shorter bars and lower probabilities.</desc>
+
+  <defs>
+    <marker id="arr-gray-5" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-orange-5" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Output head</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">project the final vector into a probability over the vocabulary, then sample</text>
+
+  <!-- Left: final vector as a column of cells -->
+  <text x="85" y="85" text-anchor="middle" fill="#9b6dff" font-size="11" font-family="ui-monospace, monospace">final vector</text>
+  <text x="85" y="100" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">(last position)</text>
+
+  <g font-family="ui-monospace, monospace" font-size="9">
+    <rect x="65" y="115" width="40" height="18" fill="rgba(155,109,255,0.85)"/>
+    <rect x="65" y="133" width="40" height="18" fill="rgba(155,109,255,0.35)"/>
+    <rect x="65" y="151" width="40" height="18" fill="rgba(155,109,255,0.60)"/>
+    <rect x="65" y="169" width="40" height="18" fill="rgba(155,109,255,0.20)"/>
+    <rect x="65" y="187" width="40" height="18" fill="rgba(155,109,255,0.75)"/>
+    <rect x="65" y="205" width="40" height="18" fill="rgba(155,109,255,0.45)"/>
+    <rect x="65" y="223" width="40" height="18" fill="rgba(155,109,255,0.55)"/>
+    <rect x="65" y="241" width="40" height="18" fill="rgba(155,109,255,0.30)"/>
+    <rect x="65" y="259" width="40" height="18" fill="rgba(155,109,255,0.70)"/>
+    <rect x="65" y="277" width="40" height="18" fill="rgba(155,109,255,0.40)"/>
+  </g>
+  <text x="85" y="307" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">dim ≈ 2k–16k</text>
+
+  <!-- projection arrow -->
+  <line x1="115" y1="200" x2="220" y2="200" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-5)"/>
+  <text x="167" y="185" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">× W_out</text>
+  <text x="167" y="225" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">often weight-tied to</text>
+  <text x="167" y="238" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">the embedding matrix</text>
+
+  <!-- Right: probability bar chart -->
+  <text x="450" y="85" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">probability distribution over the vocabulary</text>
+
+  <!-- baseline -->
+  <line x1="245" y1="280" x2="700" y2="280" stroke="#888" stroke-width="1"/>
+
+  <!-- bars (8 candidates). highlighted bar is "." -->
+  <!-- bar 1: "." 0.34 (highlighted, sampled) -->
+  <rect x="265" y="143" width="40" height="137" fill="rgba(235,110,31,0.6)" stroke="#EB6E1F" stroke-width="1.2"/>
+  <text x="285" y="135" text-anchor="middle" fill="#EB6E1F" font-size="10" font-family="ui-monospace, monospace">0.34</text>
+  <text x="285" y="295" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">"."</text>
+
+  <!-- bar 2: " and" 0.18 -->
+  <rect x="320" y="208" width="40" height="72" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="340" y="200" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.18</text>
+  <text x="340" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·and"</text>
+
+  <!-- bar 3: "," 0.12 -->
+  <rect x="375" y="232" width="40" height="48" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="395" y="224" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.12</text>
+  <text x="395" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">","</text>
+
+  <!-- bar 4: " but" 0.08 -->
+  <rect x="430" y="248" width="40" height="32" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="450" y="240" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.08</text>
+  <text x="450" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·but"</text>
+
+  <!-- bar 5: " though" 0.06 -->
+  <rect x="485" y="256" width="40" height="24" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="505" y="248" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.06</text>
+  <text x="505" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·though"</text>
+
+  <!-- bar 6: " for" 0.04 -->
+  <rect x="540" y="264" width="40" height="16" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="560" y="256" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.04</text>
+  <text x="560" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·for"</text>
+
+  <!-- bar 7: " when" 0.03 -->
+  <rect x="595" y="268" width="40" height="12" fill="rgba(155,109,255,0.30)" stroke="#9b6dff" stroke-width="1"/>
+  <text x="615" y="260" text-anchor="middle" fill="#9b6dff" font-size="10" font-family="ui-monospace, monospace">0.03</text>
+  <text x="615" y="295" text-anchor="middle" fill="#888" font-size="11" font-family="ui-monospace, monospace">"·when"</text>
+
+  <!-- "..." for remaining vocab -->
+  <text x="670" y="280" fill="#888" font-size="11" font-family="ui-monospace, monospace">...</text>
+  <text x="675" y="295" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">100k more</text>
+
+  <!-- "sampled" arrow at top of highlighted bar -->
+  <line x1="285" y1="115" x2="285" y2="138" stroke="#EB6E1F" stroke-width="1.4" marker-end="url(#arr-orange-5)"/>
+  <text x="285" y="108" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="sans-serif" font-weight="600">sampled</text>
+
+  <!-- caption -->
+  <text x="360" y="340" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Temperature, top-k, and top-p reshape the distribution before sampling — every visible token has nonzero mass.</text>
+</svg>

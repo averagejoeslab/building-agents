@@ -166,15 +166,31 @@ So with that as the foundation — that meaning lives as vectors in a learned hi
 
 **1. Tokenization.** The very first thing the model does is take your raw text and chop it into smaller pieces called tokens. A token is usually a sub-word — a few characters long, smaller than a typical word but larger than a single letter. The chopping is done with an algorithm called byte-pair encoding (BPE) or something close to it, which is essentially "merge the most common adjacent character pairs over and over until you have a vocabulary of the right size." Modern vocabularies typically have between 30k and 200k unique tokens. The output of this step is just a list of token IDs — integers — one per token in your input. There's no meaning attached yet, just keys.
 
+<p align="center">
+  <img src="./assets/01-tokenization.svg" alt="Tokenization: the text 'tokens go fast' becomes four sub-word tokens ('token', 's', '▁go', '▁fast') and then four integer IDs (3919, 82, 733, 5043). The ▁ marker indicates a leading space." width="720">
+</p>
+
 **2. Embedding lookup.** Now we get to the vectors. The model has a giant lookup table called the *embedding matrix*, with one row per token in the vocabulary, and each row is a vector somewhere between 2,048 and 16,384 dimensions long. The model takes each token ID from step 1 and uses it as an index into this table to pull out the corresponding vector. This is where the model starts to actually "know" what each token means, because the embedding vectors are exactly what we just talked about above — they're points in the learned semantic space, and they sit near other tokens that have similar meanings. After this step, your list of token IDs has become a list of vectors.
 
+<p align="center">
+  <img src="./assets/02-embedding-lookup.svg" alt="Embedding lookup: four token IDs on the left point into a tall embedding matrix in the middle, highlighting four rows. Each highlighted row sends a vector strip out to the right, illustrating that the lookup turns IDs into learned vectors." width="720">
+</p>
+
 **3. Positional encoding.** There's still a problem at this point though. Embeddings alone don't tell the model anything about *order*. The sentences "dog bites man" and "man bites dog" tokenize to the same three vectors — just in different orders — and without help the model couldn't tell which one you sent. So before the vectors go any further the model mixes positional information into them. The modern way to do this is **RoPE** (rotary position embedding), which rotates each vector by an amount that depends on its position in the sequence; some models use **ALiBi** as an alternative. Either way, after this step each vector encodes both *what* the token means and *where* in the sequence it sits.
+
+<p align="center">
+  <img src="./assets/03-positional-encoding.svg" alt="Positional encoding: 'dog bites man' on the left and 'man bites dog' on the right are each shown with three tokens at positions 1, 2, and 3, each represented as a small vector arrow rotated by an angle proportional to its position. The token 'dog' appears at position 1 on the left and position 3 on the right, producing arrows at different angles — showing that the same token at different positions becomes a different vector." width="720">
+</p>
 
 **4. Transformer blocks.** Now we're at the workhorse layer of the model, and this is where most of the actual thinking happens. A single transformer block is made up of a few moving parts working together:
 
 - **Self-attention.** Each token gets to "look at" every other token in the sequence and pull in context from them. So the vector for *bank* in "river bank" gets influenced by the surrounding vectors for *river* and ends up shifted toward "geological feature" rather than "financial institution." Every token attends to every other, all in parallel.
 - **A feed-forward network (FFN).** After attention, each token vector goes through a per-token nonlinear transformation. The modern choice for this is SwiGLU. This is where a lot of the model's stored knowledge gets injected and where individual token meanings get further refined.
 - **Residual connections and layer normalization (RMSNorm).** These don't change the meaning of the vectors directly — they're plumbing that keeps the math stable as the network gets deeper.
+
+<p align="center">
+  <img src="./assets/04-transformer-block.svg" alt="Transformer block: three input token vectors at the top enter a self-attention layer where every token attends to every other (drawn as bidirectional arrows between three points). The output is added back to the input via a residual connection and normalized. Each token then passes independently through a feed-forward network (SwiGLU). A second residual + normalization follows, and three refined output vectors emerge at the bottom. The block is stacked 60 to 120 times in a real model." width="720">
+</p>
 
 One pass through this block refines every token vector a little — incorporating context from neighbors, applying learned transformations. Then the output gets fed straight into the next block, and the next, and the next. Frontier models typically stack 60 to 120 of these on top of each other, and each successive layer pushes the vectors closer to a representation that captures what's about to come next.
 
@@ -184,6 +200,10 @@ A couple of architectural variations are worth knowing about because they show u
 - **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). DeepSeek R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
 
 **5. Output head.** After the final transformer block we've got a refined vector for every position in the sequence. The model takes the vector at the last position — the one that represents "what should come next" — and projects it back into the vocabulary space using the *output head*. What comes out the other side is a probability for every single token in the vocabulary, and the next token is sampled from that distribution. The output head is often weight-tied to the embedding matrix from step 2, meaning the same numbers used to look up token vectors at the start are reused to project back out at the end. This both saves parameters and pushes the model toward consistency between its input and output representations.
+
+<p align="center">
+  <img src="./assets/05-output-head.svg" alt="Output head: the final vector at the last position (a column of coloured cells in purple) is multiplied by W_out (weight-tied to the embedding matrix) and projected into a probability distribution over the vocabulary, drawn as a vertical bar chart. The most probable token — a period — is highlighted in orange with a 'sampled' arrow above it; the remaining candidates ('·and', ',' , '·but', '·though', '·for', '·when') trail off in lower probabilities, with about 100k more tokens beyond." width="720">
+</p>
 
 That's the entire forward pass. Text comes in, gets chopped into tokens, looked up as vectors, positionally encoded, refined through dozens of transformer layers, and projected back out as a probability distribution over the next token. Do this once and you've produced one new token. Do it in a loop where each new token gets appended back to the input and you've produced a full response.
 

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="Positional encoding: the same token at different positions becomes a different vector">
+  <title>Step 3: Positional encoding</title>
+  <desc>Two sentences are shown side by side. On the left, "dog bites man" is tokenized into three positions, and each token's combined vector is shown as a small arrow rotated by an angle proportional to its position. On the right, "man bites dog" is shown the same way. The token "dog" appears at position 1 on the left and at position 3 on the right, producing arrows pointing in different directions — illustrating that RoPE makes the same token distinguishable based on where it sits in the sequence.</desc>
+
+  <defs>
+    <marker id="arr-gray-3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-purple-3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#9b6dff"/>
+    </marker>
+    <marker id="arr-orange-3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">Positional encoding</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">RoPE rotates each vector by an angle that depends on its position</text>
+
+  <!-- divider -->
+  <line x1="360" y1="80" x2="360" y2="310" stroke="#888" stroke-width="0.6" stroke-dasharray="4,4"/>
+
+  <!-- LEFT: "dog bites man" -->
+  <text x="180" y="85" text-anchor="middle" fill="#888" font-size="13" font-family="ui-monospace, monospace">"dog bites man"</text>
+
+  <!-- left: pos 1 "dog" -->
+  <text x="80" y="135" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
+  <text x="80" y="150" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 1</text>
+  <line x1="170" y1="140" x2="240" y2="115" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="245" y="118" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₁</text>
+
+  <!-- left: pos 2 "bites" -->
+  <text x="80" y="195" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
+  <text x="80" y="210" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 2</text>
+  <line x1="170" y1="200" x2="250" y2="200" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="255" y="203" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₂</text>
+
+  <!-- left: pos 3 "man" -->
+  <text x="80" y="255" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">man</text>
+  <text x="80" y="270" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 3</text>
+  <line x1="170" y1="260" x2="245" y2="285" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="250" y="288" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₃</text>
+
+  <!-- RIGHT: "man bites dog" -->
+  <text x="540" y="85" text-anchor="middle" fill="#888" font-size="13" font-family="ui-monospace, monospace">"man bites dog"</text>
+
+  <!-- right: pos 1 "man" -->
+  <text x="440" y="135" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">man</text>
+  <text x="440" y="150" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 1</text>
+  <line x1="530" y1="140" x2="600" y2="115" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="605" y="118" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₁</text>
+
+  <!-- right: pos 2 "bites" -->
+  <text x="440" y="195" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">bites</text>
+  <text x="440" y="210" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 2</text>
+  <line x1="530" y1="200" x2="610" y2="200" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="615" y="203" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₂</text>
+
+  <!-- right: pos 3 "dog" -->
+  <text x="440" y="255" fill="#9b6dff" font-size="12" font-family="sans-serif" font-weight="600">dog</text>
+  <text x="440" y="270" fill="#888" font-size="10" font-family="ui-monospace, monospace">pos 3</text>
+  <line x1="530" y1="260" x2="605" y2="285" stroke="#9b6dff" stroke-width="1.8" marker-end="url(#arr-purple-3)"/>
+  <text x="610" y="288" fill="#888" font-size="10" font-family="ui-monospace, monospace">rotated by θ₃</text>
+
+  <!-- callout: same token "dog" at different positions -->
+  <text x="360" y="332" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="sans-serif" font-weight="600">same token "dog" → different rotation → different vector</text>
+
+  <!-- caption -->
+  <text x="360" y="350" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Without this, "dog bites man" and "man bites dog" would look identical to the model.</text>
+</svg>
