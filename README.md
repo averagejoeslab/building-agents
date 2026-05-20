@@ -285,6 +285,10 @@ Walking through each stage:
 
 Once you have a fully trained model, generating text from it works like this. The model does a forward pass and produces a probability distribution over the entire vocabulary. From that distribution a single token is sampled — and the sampling itself is modulated by a few knobs: **temperature** controls how random the pick is, **top-k** restricts the choice to only the k highest-probability tokens, and **top-p / nucleus** restricts it to the smallest set of tokens whose probabilities sum to p. Once a token is picked it gets fed back in as part of the input and the model predicts the next one. This repeats until the model emits an end-of-sequence token or hits the max length.
 
+<p align="center">
+  <img src="./assets/inference.svg" alt="Inference: the top half shows three successive iterations of the autoregressive loop on the input 'The cat sat on the', where each sampled token ('mat', then '.', then </s>) gets appended to the input before the next iteration. The third iteration emits </s>, which terminates the loop. The bottom half compares three sampling knobs side by side: temperature shows the same distribution at T=0.3 (peaky) and T=1.5 (flat); top-k shows eight bars with the top three highlighted as kept and five dimmed as dropped; top-p shows the same bars with a cumulative-sum bracket marking the smallest set that sums to p=0.9." width="720">
+</p>
+
 So that's what you have at the end of model development: a callable model that can complete text. What it cannot do on its own is read files, run commands, remember across sessions, or even decide when it's finished with a task. To get any of that we need to wrap it in a harness, and that's where harness engineering picks up.
 
 ### 2. Harness engineering → an agent
