@@ -1,25 +1,25 @@
 # Purpose of this repo
 
-To document how to build your own agent from scratch, which you can do by building a harness around a model because `Agent = Model + Harness`. Additionally this repo makes clear the differences between: model development, harness engineering, and agentic engineering.
+To provide guidance on how to build your agent from scratch, which you can do by building a harness around a model because `Agent = Model + Harness`. Additionally this repo makes clear the differences between: model development, harness engineering, and agentic engineering.
 
-I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see vendors pitching their harness, which typically includes their control flow, memory layer, and tool execution layer, etc. To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs. If you know how to build a harness you can build agentic systems in any form factor you need.
+I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see various orgs pitching their harness as the best one (a harness consists of a couple of key components which typically include control flow, memory and context management, tool registry/execution, etc.). To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs. If you know how to build a harness you can build agentic systems in any form factor you need. Also all you need is one good coding agent harness and you can use that to create any other bespoke harness you need for whatever purposes.
 
 ## What is an agentic system?
 
-The idea of agentic systems comes from cognitive science — systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
+As I primer I felt it was necessary to define what an agentic system is. The idea of agentic systems comes from cognitive science — systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
 
 ### Two shapes: workflows and agents
 
 In my opinion, agentic systems come in two forms, as defined in Anthropic's [*Building Effective Agents*](https://www.anthropic.com/engineering/building-effective-agents). The distinction is about *what shape the system's control flow takes*.
 
-**Workflows** — LLMs and tools orchestrated through **predefined code paths**. Prescriptive code paths define the sequence of steps that will be taken to accomplish a goal.
+**Workflows** — An agentic system with a *prescriptive code path** defining the control flow is considered a workflow because the code enforces upon the agentic system what steps it can take.
 
 ```mermaid
 flowchart LR
     In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
 ```
 
-**Agents** — **LLMs dynamically direct their own path through the control flow**. The model decides the sequence of steps; no prescriptive code paths are followed and the model exercises its probability distribution to determine the next step.
+**Agents** — An agentic system with a loosely defined control flow has agency to determine the steps it will take on an ad-hoc basis and is considered an agent.
 
 ```mermaid
 flowchart LR
@@ -29,11 +29,15 @@ flowchart LR
     A2 -->|no| Out[Output]
 ```
 
+The key distinction between workflows and agents is the control flow. In the case of an agentic system where a control flow drives the model it is considered a workflow, and in the case where the models drives the control flow it is considered an agent.
+
 ### Common workflow patterns
 
 Below are some common workflow patterns that are used to orchestrate LLM calls.
 
 **Prompt chaining** — LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
+
+A workflow pattern where the model is called multiple times in a fixed order to accomplish a goal.
 
 ```mermaid
 flowchart LR
@@ -41,6 +45,8 @@ flowchart LR
 ```
 
 **Routing** — Classify input → dispatch to one of N handlers. Example: support tickets routed to billing / technical / refunds.
+
+A workflow pattern where the model is used to classify the input and then dispatch to one of N handlers.
 
 ```mermaid
 flowchart LR
@@ -55,6 +61,8 @@ flowchart LR
 
 **Parallelization** — Run N LLM calls in parallel → aggregate. Example: N perspectives on one question.
 
+A workflow pattern where the model is used to run N LLM calls in parallel and then aggregate the results.
+
 ```mermaid
 flowchart LR
     In[Input] --> A[LLM]
@@ -67,6 +75,8 @@ flowchart LR
 ```
 
 **Orchestrator-workers** — One LLM splits work → workers handle sub-tasks. Example: research report with multiple sections.
+
+A workflow pattern where the model is used to split the work into N sub-tasks and then dispatch to N workers to handle the sub-tasks.
 
 ```mermaid
 flowchart LR
@@ -82,6 +92,8 @@ flowchart LR
 
 **Evaluator-optimizer** — Generator → Evaluator → loop until good. Example: draft with a quality-gate loop.
 
+A workflow pattern where the model is used to generate a draft and then evaluate the draft and loop until the draft is good.
+
 ```mermaid
 flowchart LR
     In[Input] --> G[Generator LLM]
@@ -92,9 +104,9 @@ flowchart LR
 
 ### The agent pattern
 
-Workflows are a catalog of orchestration shapes. Agents are **one pattern** — an autonomous loop — and that's the whole list. What varies between agents in practice is the *harness around the model*: the environment, memory and context management, the toolkit, and whether one of the tools happens to be another agent.
+Below is the one and only canonical agent pattern 
 
-**Autonomous agent** — an LLM in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
+**Autonomous agent** — An agentic system where the model is in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
 
 ```mermaid
 flowchart LR
@@ -107,47 +119,24 @@ flowchart LR
 
 ### Composition
 
-By composing the above workflows and agent patterns, you can build multi-agent systems, multi-workflow systems, or systems that mix both.
+Now you may have seen the above an thought how can I fit these lego pieces into something more grand. If so then you're thinking about composition works. In the case of compositions I find it helpful to think of workflows as a catalog of orchestration shapes wherein you can use agents. To compose in this way is to build multi-agent systems/multi-agent orchestration.
 
 > [!NOTE]
-> **Whether to use multi-agent composition at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code subagents). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
+> **Whether to use multi-agent systems at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code has subagents built in as tool within the harness). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
 
 ### The Average Joes Lab stance: purist agents only
 
-We believe in the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents): **a real agent has autonomy over its own control flow** where the model decides what tool to call, what to do with the result, and when the task is done. Building harnesses for purist agents is the focus of this repo.
-
-Workflows are outside the scope of what follows.
-
-```mermaid
-flowchart LR
-    A[Agent<br/>model decides] -->|freeze the path| W[Workflow<br/>code decides]
-    W -.cannot derive.-> A
-```
-
-The primitives are the same — LLM calls, tools, context, memory. An agent's control flow is the model making those choices live; a workflow's control flow is you making them in advance. The building blocks transfer; how you orchestrate them into a fixed sequence is its own discipline.
-
-For most production systems a workflow is more reliable, cheaper, and easier to evaluate — build a workflow if you can. But the interesting engineering problems — designing tools the model will use well, managing an open-ended context, making a non-deterministic loop reliable, evaluating a trajectory you can't enumerate — are agent problems.
-
-### What agents look like
-
-- **Coding agents** — [Claude Code](https://claude.com/claude-code), [Cursor](https://cursor.com), [Devin](https://devin.ai), [Aider](https://aider.chat), [nanoagent](https://github.com/averagejoeslab/nanoagent). The model opens files, edits them, runs tests, iterates.
-- **Research agents** — [OpenAI Deep Research](https://openai.com/index/introducing-deep-research/), Claude's research mode. The model searches, synthesizes, digs deeper.
-- **Task completion agents** — [SWE-agent](https://swe-agent.com), browser-use agents. The model manipulates a filesystem or GUI to complete a task.
-
-In each case, the next action depends on what the previous action produced. The paths aren't known in advance and are determined by the model's probability distribution.
-
-> [!IMPORTANT]
-> Most systems marketed as "agents" in 2026 are workflows. That's often the right answer. This content is about the case when it isn't.
+As far as it relates to my personal stance and what I do with Average Joes Lab, I subscribe to the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents) of breaking it down into workflows and agents but I do not subscribe fully to the idea of multi-agent orchestration in most cases. I personally prefer to keep my agentic systems single threaded *for now*.  As it relates to this repo the focus is building a single threaded agent.
 
 ## Getting Started: The three disciplines
 
-There are three disciplines that lead up to building and using an agent:
+There are three disciplines to know about when it comes to working in agentic systems:
 
 - **Model development.** This discipline is responsible for training the models. A small number of labs with capital, GPUs, and data pipelines have the resources to train these models and the output of their work is a model you call via an API endpoint. Examples of these models are GPT, Claude, Gemini, Llama, etc.
 - **Harness engineering.** This discipline is responsible for wrapping that model in a control flow, memory layer, tool execution layer, sandboxing, guardrails, observability, etc. When you wrap a model in a harness you get an agent because *Agent = Model + Harness.* The output of this discipline is a harness that wraps a model gives rise to an agent. Examples of these harnesses are Claude Code, Cursor, Codex, Mistral's Vibe, etc.
 - **Agentic engineering.** This discipline is responsible for using an agentic system to build software, products, infrastructure, or more agentic systems. The agent becomes the tool. The output of this discipline is products built by agents orchestrated by humans. An example of agentic engineering is how Peter Steinberg used coding agents to build **openclaw**, but agentic engineering doesn't always mean building an AI product, it could also be a non-AI product that was built by an agent that was orchestrated by a human.
 
-Harness engineering is the primary content of this repo in the [modules](./modules/). We won't cover model development other than in theory because building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering picks up after the curriculum with a section on what to do with the agent you've built.
+Given that we will be building an agent from scratch,Harness engineering is the primary content of this repo in the [modules](./modules/). We won't cover model development other than in theory because building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering picks up after the curriculum with a section on what to do with the agent you've built.
 
 ## Building an agent: a journey through the disciplines
 
