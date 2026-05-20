@@ -159,36 +159,7 @@ What makes this useful is that the model is trained such that semantically simil
 Here's a tiny slice of what that looks like in three dimensions — keeping in mind that a real model is doing this in thousands:
 
 <p align="center">
-<svg viewBox="0 0 640 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A 3D slice of an embedding space showing semantic clusters" style="max-width:100%; height:auto;">
-  <defs>
-    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <polygon points="0,0 6,3 0,6" fill="#888"/>
-    </marker>
-  </defs>
-  <line x1="300" y1="280" x2="540" y2="280" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="300" y1="280" x2="300" y2="50"  stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <line x1="300" y1="280" x2="160" y2="350" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
-  <text x="545" y="284" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 1</text>
-  <text x="305" y="48"  fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 2</text>
-  <text x="115" y="362" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 3</text>
-  <circle cx="420" cy="180" r="5" fill="#EB6E1F"/>
-  <text x="430" y="184" fill="#EB6E1F" font-size="12" font-family="sans-serif">cat</text>
-  <circle cx="450" cy="200" r="5" fill="#EB6E1F"/>
-  <text x="460" y="204" fill="#EB6E1F" font-size="12" font-family="sans-serif">dog</text>
-  <circle cx="430" cy="155" r="5" fill="#EB6E1F"/>
-  <text x="440" y="159" fill="#EB6E1F" font-size="12" font-family="sans-serif">kitten</text>
-  <circle cx="200" cy="180" r="5" fill="#4a9eff"/>
-  <text x="150" y="184" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">car</text>
-  <circle cx="175" cy="205" r="5" fill="#4a9eff"/>
-  <text x="125" y="209" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">truck</text>
-  <circle cx="195" cy="155" r="5" fill="#4a9eff"/>
-  <text x="145" y="159" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">bicycle</text>
-  <circle cx="290" cy="110" r="5" fill="#9b6dff"/>
-  <text x="285" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">king</text>
-  <circle cx="335" cy="110" r="5" fill="#9b6dff"/>
-  <text x="345" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif">queen</text>
-  <text x="320" y="368" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">A 3D slice of an embedding space. Similar meanings end up clustered nearby.</text>
-</svg>
+  <img src="./assets/embedding-space.svg" alt="A 3D slice of an embedding space showing semantic clusters: animals (cat, dog, kitten), vehicles (car, truck, bicycle), and royalty (king, queen) clustered in distinct regions of the space." width="640">
 </p>
 
 So with that as the foundation — that meaning lives as vectors in a learned high-dimensional space — let's walk through what actually happens when you send the model some text. I'm going to follow a single forward pass from raw input to a sampled output token, and at each step explain which part of the architecture is doing the work.
