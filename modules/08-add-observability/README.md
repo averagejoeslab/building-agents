@@ -80,45 +80,102 @@ Note: the `llm.call` span captures the **full system prompt and full messages ar
 
 ## JSONL as the wire format
 
-Spans get appended one per line to `~/.traced-agent/traces.jsonl`:
+`~/.traced-agent/traces.jsonl` is one JSON object per line — and **one line per turn**. The whole trace tree (`turn` and every span beneath it) gets nested into a single JSON object before being written. Reading the file directly shows the conversation timeline; no post-processing script needed.
 
-- **Append-only.** Each span is a single line, written atomically. No locking, no race conditions across concurrent tools running in parallel.
-- **Trivial to grep.** `grep '"name":"tool.call"' traces.jsonl` extracts every tool call.
-- **Trivial to load.** `jq`, Python `for line in open(...)`, anything that streams.
-- **Trivial to ship elsewhere.** Pipe into Langfuse / Honeycomb / S3 / Loki — vendors all speak JSONL or trivially-derived formats.
+A turn on disk looks like:
 
-Across many turns and many days the file grows append-only. To rotate: `mv traces.jsonl traces.jsonl.$(date +%s)`.
+```json
+{
+  "trace_id": "342fbbaaf44527c2",
+  "span_id":  "...",
+  "name": "turn",
+  "start_time": "...",
+  "end_time": "...",
+  "duration_ms": 12482.01,
+  "attributes": {
+    "user_input": "what does pyproject.toml import?",
+    "system_prompt": "You are a helpful coding assistant.",
+    "iterations": 2,
+    "final_response": "The `pyproject.toml` file..."
+  },
+  "children": [
+    {"name": "memory.recall", "...": "...", "children": []},
+    {
+      "name": "llm.call",
+      "attributes": {"iteration": 0, "model": "...", "system": "...", "messages": [...], "response_content": [...], "input_tokens": 1059, "output_tokens": 84},
+      "children": [
+        {"name": "tool.call", "attributes": {"tool.name": "read", "tool.input": {...}, "tool.output": "..."}, "children": []}
+      ]
+    },
+    {"name": "llm.call", "...": "...", "children": []},
+    {"name": "guardrail.sentiment", "attributes": {"label": "POSITIVE", "score": 0.99}, "children": []},
+    {"name": "guardrail.hallucination", "attributes": {"grounded": true, "reason": "..."}, "children": []},
+    {"name": "memory.summarize", "attributes": {"summary": "..."}, "children": []}
+  ]
+}
+```
 
-## The `span()` context manager
+The `children` array on each span carries the nested sub-spans, sorted by start time so reading the tree top-to-bottom is the same as reading the turn forward in time.
 
-The whole mechanism is one Python `@contextmanager`. It generates IDs, captures start/end times, accumulates attributes, and writes the JSONL line on exit — including on exception:
+Properties of this format:
+
+- **Self-contained.** Each line is a complete trace. You can `jq '.' < traces.jsonl` and immediately see the full turn.
+- **Append-only at the file level.** One turn = one line, written atomically when the turn span closes. No locking across concurrent tools.
+- **Easy to query.** Standard `jq` walks the `.children[]` arrays. Recursive descent (`..`) drills into every span in a tree.
+- **Easy to ship.** Each line is a complete OpenTelemetry-style span tree; vendor SDKs (Langfuse, Honeycomb, etc.) accept the same shape.
+
+To rotate: `mv traces.jsonl traces.jsonl.$(date +%s)`.
+
+### Trade-off: live streaming vs. self-contained trees
+
+The format above writes one turn-tree at a time when the turn completes. A `tail -f` watcher will see *completed turns appear as units*, not individual spans as they happen. If you want live span-by-span monitoring during long turns, swap the buffer-and-emit logic for "write each span flat as it closes" (M7-style) — the rest of the harness doesn't change. The chosen default favors human readability of the post-hoc file.
+
+## The `span()` context manager + tree assembly
+
+Two helpers do all the work. Individual `with span(...)` blocks accumulate into an in-memory buffer; when the root span (the `turn`) closes, the buffer gets assembled into a parent-child tree and written as one JSON line.
 
 ```python
-import secrets
-import time
-import json
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-
-TRACE_FILE = Path.home() / ".traced-agent" / "traces.jsonl"
+_pending_spans: list[dict] = []
 
 
-def _new_id() -> str:
-    return secrets.token_hex(8)
+def _flush_trace(trace_id: str) -> None:
+    """Build the parent-child tree for `trace_id` and append one JSON line."""
+    spans = [s for s in _pending_spans if s["trace_id"] == trace_id]
+    for s in spans:
+        _pending_spans.remove(s)
+    if not spans:
+        return
 
+    by_id = {s["span_id"]: s for s in spans}
+    for s in spans:
+        s["children"] = []
 
-def _serialize_for_trace(obj):
-    """Trace serializer — keep SDK objects readable as dicts."""
-    if hasattr(obj, "model_dump"):
-        return obj.model_dump()
-    return str(obj)
+    root = None
+    for s in spans:
+        parent_id = s.get("parent_span_id")
+        if parent_id is not None and parent_id in by_id:
+            by_id[parent_id]["children"].append(s)
+        elif parent_id is None:
+            root = s
 
+    def _sort(node):
+        node["children"].sort(key=lambda c: c["start_time"])
+        for c in node["children"]:
+            _sort(c)
 
-def write_span(span: dict) -> None:
-    TRACE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if root is None:
+        return
+    _sort(root)
+
+    def _strip(node):
+        node.pop("parent_span_id", None)  # redundant with tree structure
+        for c in node["children"]:
+            _strip(c)
+
+    _strip(root)
+
     with open(TRACE_FILE, "a") as f:
-        f.write(json.dumps(span, default=_serialize_for_trace) + "\n")
+        f.write(json.dumps(root, default=_serialize_for_trace) + "\n")
 
 
 @contextmanager
@@ -142,16 +199,19 @@ def span(name: str, parent: str | None = None, trace_id: str | None = None, **at
     finally:
         rec["end_time"] = datetime.now(timezone.utc).isoformat()
         rec["duration_ms"] = round((time.perf_counter() - t0) * 1000, 2)
-        write_span(rec)
+        _pending_spans.append(rec)
+        if parent is None:
+            _flush_trace(trace_id)
 ```
 
-Three properties make this clean:
+Four properties make this clean:
 
 1. **Wall-clock + monotonic timing.** `datetime.now(timezone.utc)` produces ISO timestamps for humans; `time.perf_counter()` gives accurate durations regardless of system clock changes.
 2. **Attributes are mutable inside the `with` block.** Open the span, do the work, attach the output once you have it, exit.
 3. **Exceptions don't lose the span.** `try / except / raise` re-raises after attaching `error`; `finally` writes the span regardless of how the block exits.
+4. **The tree builds itself.** When the root span (`parent=None`) closes, `_flush_trace()` runs automatically, assembling everything that was buffered for that trace into nested `children` arrays, dropping the now-redundant `parent_span_id` fields, and appending one JSON line.
 
-This is the OpenTelemetry SDK pattern in ~30 lines of Python. Real OpenTelemetry would give you batched exporters, sampling, and pluggable backends. The baseline above is enough to support everything M8 claims to support.
+This is the OpenTelemetry SDK pattern adapted for direct human readability. Real OpenTelemetry exporters would emit each span as a separate event; this format collapses each trace into one self-describing line. Either shape works — this one is easier to read with `jq`.
 
 ## Wiring spans through the agent
 
@@ -266,70 +326,104 @@ Every action the agent takes is now inside a span. The trace tree at the top of 
 
 ## Auditability: reading traces
 
-After a run, inspect the file:
+After a run, each turn is one line. Read it like a record:
 
 ```bash
-tail -n 20 ~/.traced-agent/traces.jsonl | jq
+jq '.' ~/.traced-agent/traces.jsonl | less
 ```
 
-A healthy turn might look like (compact view):
+Compact timeline of one turn — the tree reads top-to-bottom as the conversation:
 
 ```bash
-$ tail -n 8 ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms]'
-["memory.recall",  4.12]
-["llm.call",       1820.13]
-["tool.call",      4.92]
-["llm.call",       6410.18]
-["guardrail.sentiment",      18.31]
-["guardrail.hallucination",  742.05]
-["memory.summarize",         610.44]
-["turn",                     9645.31]
-```
-
-Find the system prompt that was actually sent on a given iteration:
-
-```bash
-$ jq -c 'select(.name == "llm.call") | .attributes.system' ~/.traced-agent/traces.jsonl | tail -1
-"You are a helpful coding assistant.\n\n## Relevant memory from past conversations\n\n- ..."
-```
-
-Find every tool call this agent has ever made and how long it took:
-
-```bash
-$ jq -c 'select(.name == "tool.call") | [.attributes["tool.name"], .duration_ms]' ~/.traced-agent/traces.jsonl
-```
-
-Aggregate cumulative LLM cost across all turns:
-
-```bash
-$ jq -s 'map(select(.name == "llm.call") | .attributes.input_tokens + .attributes.output_tokens) | add' \
+$ jq '{name, duration_ms, attributes: {user_input: .attributes.user_input, iterations: .attributes.iterations},
+       children: [.children[] | {name, duration_ms, children: [.children[]?.name]}]}' \
      ~/.traced-agent/traces.jsonl
+{
+  "name": "turn",
+  "duration_ms": 12482.01,
+  "attributes": {
+    "user_input": "what does pyproject.toml import?",
+    "iterations": 2
+  },
+  "children": [
+    {"name": "memory.recall",          "duration_ms": 0.02,    "children": []},
+    {"name": "llm.call",               "duration_ms": 2774.32, "children": ["tool.call"]},
+    {"name": "llm.call",               "duration_ms": 5201.68, "children": []},
+    {"name": "guardrail.sentiment",    "duration_ms": 937.53,  "children": []},
+    {"name": "guardrail.hallucination","duration_ms": 1553.44, "children": []},
+    {"name": "memory.summarize",       "duration_ms": 2009.17, "children": []}
+  ]
+}
 ```
 
-Find every hallucination-flagged response:
+Most other questions are short `jq` walks over the tree. The recursive-descent operator (`..`) drills into every nested span at any depth:
+
+Find the system prompt actually sent on the last iteration of the most recent turn:
 
 ```bash
-$ jq -c 'select(.name == "guardrail.hallucination" and .attributes.grounded == false) | .attributes' \
-     ~/.traced-agent/traces.jsonl
+jq -r '[.. | objects | select(.name? == "llm.call") | .attributes.system] | last' \
+   ~/.traced-agent/traces.jsonl
 ```
 
-The trace file is the audit log. Every question about what happened has a `jq` answer.
+Every tool call across every turn, with timing:
+
+```bash
+jq -c '.. | objects | select(.name? == "tool.call") | [.attributes["tool.name"], .duration_ms]' \
+   ~/.traced-agent/traces.jsonl
+```
+
+Cumulative LLM token spend:
+
+```bash
+jq -s '[.[] | .. | objects | select(.name? == "llm.call") | .attributes.input_tokens + .attributes.output_tokens] | add' \
+   ~/.traced-agent/traces.jsonl
+```
+
+Every hallucination flag fired:
+
+```bash
+jq -c '.. | objects | select(.name? == "guardrail.hallucination" and .attributes.grounded == false) | .attributes' \
+   ~/.traced-agent/traces.jsonl
+```
+
+Every turn that hit the iteration cap:
+
+```bash
+jq -c 'select(.attributes.aborted == true) | {trace_id, user_input: .attributes.user_input}' \
+   ~/.traced-agent/traces.jsonl
+```
+
+Each line of the file *is* the trace tree. The file is the audit log.
 
 ## Replay: re-issuing LLM calls from a trace
 
-Because each `llm.call` span captures the full system prompt and full messages array, a turn can be reproduced. The example ships a `replay_trace(trace_id)` function that pulls every `llm.call` span for the given trace and re-issues them:
+Because each `llm.call` span captures the full system prompt and full messages array, a turn can be reproduced. The example ships a `_walk()` helper that traverses the tree depth-first, and a `replay_trace(trace_id)` function that pulls every `llm.call` (at any depth) and re-issues them:
 
 ```python
+def _walk(node, predicate=None):
+    """Yield (depth, span) pairs from a trace tree, depth-first."""
+    def _go(n, d):
+        if predicate is None or predicate(n):
+            yield d, n
+        for c in n.get("children", []):
+            yield from _go(c, d + 1)
+    yield from _go(node, 0)
+
+
 async def replay_trace(trace_id: str) -> None:
     """Re-issue every llm.call in a trace with the prompts originally sent."""
-    spans = [json.loads(line) for line in open(TRACE_FILE)]
-    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
-    llm_spans = sorted(
-        (s for s in turn_spans if s["name"] == "llm.call"),
+    trees = [json.loads(line) for line in open(TRACE_FILE)]
+    root = next((t for t in trees if t["trace_id"] == trace_id), None)
+    if root is None:
+        print(f"No trace found for trace_id {trace_id}")
+        return
+
+    llm_calls = sorted(
+        (s for _, s in _walk(root) if s["name"] == "llm.call"),
         key=lambda s: s["attributes"]["iteration"],
     )
-    print(f"Replaying {len(llm_spans)} LLM call(s) from trace {trace_id}...")
-    for s in llm_spans:
+    print(f"Replaying {len(llm_calls)} LLM call(s) from trace {trace_id}...")
+    for s in llm_calls:
         attrs = s["attributes"]
         response = await client.messages.create(
             model=attrs["model"],
@@ -345,6 +439,8 @@ async def replay_trace(trace_id: str) -> None:
             elif block.type == "tool_use":
                 print(f"[tool_use: {block.name}({block.input})]")
 ```
+
+`_walk()` is a small generator that lets any caller drill into the nested tree without remembering its shape — useful in many other places too (e.g. an eval harness that wants to score trajectory).
 
 Modulo the model's non-determinism (sampling temperature, seed effects), the responses will be very close to the originals. For deterministic replay you'd also pin the model snapshot and disable sampling. The point is that **the trace alone contains everything needed** — no separate snapshot file, no out-of-band state.
 
@@ -460,25 +556,29 @@ The file imports anthropic and python-dotenv.
 ❯ /q
 ```
 
-Inspect the trace tree for that turn:
+Inspect the trace tree for that turn (one line, hierarchical):
 
 ```bash
-$ jq -c 'select(.trace_id == "a1b2c3d4e5f6a7b8") | [.name, .duration_ms]' \
+$ jq 'select(.trace_id == "a1b2c3d4e5f6a7b8") | {name, duration_ms, children: [.children[].name]}' \
      ~/.traced-agent/traces.jsonl
-["turn",                     8240.55]
-["memory.recall",            3.81]
-["llm.call",                 1820.13]
-["tool.call",                4.92]
-["llm.call",                 5904.27]
-["guardrail.sentiment",      19.04]
-["guardrail.hallucination",  673.21]
-["memory.summarize",         484.10]
+{
+  "name": "turn",
+  "duration_ms": 8240.55,
+  "children": [
+    "memory.recall",
+    "llm.call",
+    "llm.call",
+    "guardrail.sentiment",
+    "guardrail.hallucination",
+    "memory.summarize"
+  ]
+}
 ```
 
-Live-watch as the agent runs:
+Tail-watch turn completions (one line appears when a turn ends):
 
 ```bash
-tail -f ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms, .attributes["tool.name"] // .attributes["model"] // .attributes["label"] // .attributes["grounded"]]'
+tail -f ~/.traced-agent/traces.jsonl | jq -c '{name, duration_ms, input: .attributes.user_input, iters: .attributes.iterations}'
 ```
 
 Replay a turn:

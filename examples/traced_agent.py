@@ -44,6 +44,14 @@ input_ = input  # alias to avoid colliding with input dict param name
 
 
 # --- Tracing ---
+#
+# Spans are buffered as they close and assembled into a hierarchical
+# parent-child tree when the root span (the turn) closes. Each line of
+# traces.jsonl is one complete trace tree — readable as a timeline
+# without any post-processing.
+
+_pending_spans: list[dict] = []
+
 
 def _new_id() -> str:
     return secrets.token_hex(8)
@@ -56,15 +64,60 @@ def _serialize_for_trace(obj):
     return str(obj)
 
 
-def write_span(span: dict) -> None:
+def _flush_trace(trace_id: str) -> None:
+    """Build the parent-child tree for `trace_id` and append one JSON line."""
+    # Pull all buffered spans for this trace out of the buffer.
+    spans = [s for s in _pending_spans if s["trace_id"] == trace_id]
+    for s in spans:
+        _pending_spans.remove(s)
+    if not spans:
+        return
+
+    # Index by span_id, attach a children list to each.
+    by_id = {s["span_id"]: s for s in spans}
+    for s in spans:
+        s["children"] = []
+
+    # Wire parent → child links. Root has parent_span_id = None.
+    root = None
+    for s in spans:
+        parent_id = s.get("parent_span_id")
+        if parent_id is not None and parent_id in by_id:
+            by_id[parent_id]["children"].append(s)
+        elif parent_id is None:
+            root = s
+
+    # Sort each node's children by start_time so the tree reads as a timeline.
+    def _sort(node):
+        node["children"].sort(key=lambda c: c["start_time"])
+        for c in node["children"]:
+            _sort(c)
+
+    if root is None:
+        # Defensive: nothing rooted; drop the orphans.
+        return
+    _sort(root)
+
+    # parent_span_id is now redundant with the tree structure — strip it.
+    def _strip(node):
+        node.pop("parent_span_id", None)
+        for c in node["children"]:
+            _strip(c)
+
+    _strip(root)
+
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with open(TRACE_FILE, "a") as f:
-        f.write(json.dumps(span, default=_serialize_for_trace) + "\n")
+        f.write(json.dumps(root, default=_serialize_for_trace) + "\n")
 
 
 @contextmanager
 def span(name: str, parent: str | None = None, trace_id: str | None = None, **attributes):
-    """Open a span, yield it for attribute updates, write JSONL on exit."""
+    """Open a span, yield it for attribute updates, buffer on exit.
+
+    When the root span closes (parent is None), the entire trace tree is
+    assembled and written as one JSON object on one line of traces.jsonl.
+    """
     span_id = _new_id()
     trace_id = trace_id or _new_id()
     t0 = time.perf_counter()
@@ -84,7 +137,9 @@ def span(name: str, parent: str | None = None, trace_id: str | None = None, **at
     finally:
         rec["end_time"] = datetime.now(timezone.utc).isoformat()
         rec["duration_ms"] = round((time.perf_counter() - t0) * 1000, 2)
-        write_span(rec)
+        _pending_spans.append(rec)
+        if parent is None:
+            _flush_trace(trace_id)
 
 
 # --- Sandbox ---
@@ -528,24 +583,34 @@ def collect_tool_evidence(turn_messages: list) -> str:
 
 # --- Replay helper ---
 
+def _walk(node, predicate=None):
+    """Yield (depth, span) pairs from a trace tree, depth-first."""
+    def _go(n, d):
+        if predicate is None or predicate(n):
+            yield d, n
+        for c in n.get("children", []):
+            yield from _go(c, d + 1)
+    yield from _go(node, 0)
+
+
 async def replay_trace(trace_id: str) -> None:
     """Re-issue every llm.call in a trace with the prompts originally sent.
 
     Demonstrates that the trace contains enough state to reproduce a turn
     deterministically (modulo model non-determinism).
     """
-    spans = [json.loads(line) for line in open(TRACE_FILE)]
-    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
-    if not turn_spans:
-        print(f"No spans found for trace_id {trace_id}")
+    trees = [json.loads(line) for line in open(TRACE_FILE)]
+    root = next((t for t in trees if t["trace_id"] == trace_id), None)
+    if root is None:
+        print(f"No trace found for trace_id {trace_id}")
         return
 
-    llm_spans = sorted(
-        (s for s in turn_spans if s["name"] == "llm.call"),
+    llm_calls = sorted(
+        (s for _, s in _walk(root) if s["name"] == "llm.call"),
         key=lambda s: s["attributes"]["iteration"],
     )
-    print(f"Replaying {len(llm_spans)} LLM call(s) from trace {trace_id}...")
-    for s in llm_spans:
+    print(f"Replaying {len(llm_calls)} LLM call(s) from trace {trace_id}...")
+    for s in llm_calls:
         attrs = s["attributes"]
         response = await client.messages.create(
             model=attrs["model"],
@@ -681,14 +746,18 @@ async def main():
 
             turn_rec["attributes"]["iterations"] = iteration + 1
 
+            # Summarize the turn — done inside the turn span so it's part
+            # of the trace tree. add_to_recall does the actual recall write
+            # afterwards, outside the trace.
+            turn_messages = messages[turn_start:]
+            with span("memory.summarize", parent=turn_span_id, trace_id=trace_id) as sum_rec:
+                summary = await summarize_turn(turn_messages)
+                sum_rec["attributes"]["summary"] = summary
+                sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
+
+        # turn span has closed and the full trace tree is now in traces.jsonl.
         history = messages
         save_messages(history)
-
-        turn_messages = messages[turn_start:]
-        with span("memory.summarize", parent=turn_span_id, trace_id=trace_id) as sum_rec:
-            summary = await summarize_turn(turn_messages)
-            sum_rec["attributes"]["summary"] = summary
-            sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
         add_to_recall(summary, recall_entries)
 
 
