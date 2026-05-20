@@ -15,6 +15,7 @@ In my opinion, agentic systems come in two forms, as defined in Anthropic's [*Bu
 **Workflows** — An agentic system with a *prescriptive code path* defining the control flow is considered a workflow because the code enforces upon the agentic system what steps it can take.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
 ```
@@ -22,6 +23,7 @@ flowchart LR
 **Agents** — An agentic system with a loosely defined control flow has agency to determine the steps it will take on an ad-hoc basis and is considered an agent.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> A1[LLM]
     A1 --> A2{Tool?}
@@ -40,6 +42,7 @@ Below are some common workflow patterns that are used to orchestrate LLM calls.
 A workflow pattern where the model is called multiple times in a fixed order to accomplish a goal.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> A[LLM 1] --> B[LLM 2] --> C[LLM 3] --> Out[Output]
 ```
@@ -49,6 +52,7 @@ flowchart LR
 A workflow pattern where the model is used to classify the input and then dispatch to one of N handlers.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> R[Router LLM]
     R --> H1[Handler A]
@@ -64,6 +68,7 @@ flowchart LR
 A workflow pattern where the model is used to run N LLM calls in parallel and then aggregate the results.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> A[LLM]
     In --> B[LLM]
@@ -79,6 +84,7 @@ flowchart LR
 A workflow pattern where the model is used to split the work into N sub-tasks and then dispatch to N workers to handle the sub-tasks.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> O[Orchestrator LLM]
     O --> W1[Worker LLM]
@@ -95,6 +101,7 @@ flowchart LR
 A workflow pattern where the model is used to generate a draft and then evaluate the draft and loop until the draft is good.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> G[Generator LLM]
     G --> E[Evaluator LLM]
@@ -109,6 +116,7 @@ Below is the one and only canonical agent pattern.
 **Autonomous agent** — An agentic system where the model is in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     In[Input] --> LLM[LLM]
     LLM --> Q{Tool call?}

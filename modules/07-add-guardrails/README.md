@@ -357,6 +357,7 @@ Each is one prompt change to the judge. The harness wiring is the same.
 ## Where each guardrail fits
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     User([User])
     User -- input --> Loop

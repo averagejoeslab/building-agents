@@ -168,6 +168,7 @@ for block in response.content:
 ```
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     Start[User input] --> Think[THINK<br/>LLM call]
     Think --> Branch{Tool call?}

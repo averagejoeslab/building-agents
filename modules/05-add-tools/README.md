@@ -152,6 +152,7 @@ Two loops, nested:
 **This is the agent.** The control-flow choice — *do I need another tool, or am I done?* — moved from your code into the model. Your code no longer knows in advance how many tool calls a turn will take. The chatbot's outer loop is still there; what's new is that *the model now drives the inner loop*.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     Start[User input] --> Think[THINK<br/>LLM call]
     Think --> Branch{Tool call?}

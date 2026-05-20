@@ -45,6 +45,7 @@ A Docker container is the right shape for this:
 Each of these is a layer of defense. None alone is sufficient; together they form a hardened boundary.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     Agent[agent.py] -->|"docker exec"| Container[Sandbox container]
     Container -->|"cap-drop ALL<br/>network none<br/>read-only<br/>memory/cpu/pid caps"| Result[stdout / stderr]
@@ -211,6 +212,7 @@ This is a deliberate design choice, not a limitation. A stricter sandbox would p
 ## The harness, with the sandbox
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
 flowchart LR
     User[User] --input--> Loop[TAO loop]
     Loop --> LLM[LLM call]
