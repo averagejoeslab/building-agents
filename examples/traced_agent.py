@@ -13,6 +13,7 @@ from pathlib import Path
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
+from transformers import pipeline
 import tiktoken
 import numpy as np
 
@@ -39,7 +40,7 @@ MESSAGES_FILE = STATE_DIR / "messages.json"
 RECALL_FILE = STATE_DIR / "recall.json"
 TRACE_FILE = STATE_DIR / "traces.jsonl"
 
-input_ = input  # alias to avoid colliding with input dict params
+input_ = input  # alias to avoid colliding with input dict param name
 
 
 # --- Tracing ---
@@ -48,24 +49,31 @@ def _new_id() -> str:
     return secrets.token_hex(8)
 
 
+def _serialize_for_trace(obj):
+    """Trace serializer — keep SDK objects readable as dicts."""
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return str(obj)
+
+
 def write_span(span: dict) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with open(TRACE_FILE, "a") as f:
-        f.write(json.dumps(span, default=str) + "\n")
+        f.write(json.dumps(span, default=_serialize_for_trace) + "\n")
 
 
 @contextmanager
 def span(name: str, parent: str | None = None, trace_id: str | None = None, **attributes):
+    """Open a span, yield it for attribute updates, write JSONL on exit."""
     span_id = _new_id()
     trace_id = trace_id or _new_id()
-    start = datetime.now(timezone.utc)
     t0 = time.perf_counter()
     rec = {
         "trace_id": trace_id,
         "span_id": span_id,
         "parent_span_id": parent,
         "name": name,
-        "start_time": start.isoformat(),
+        "start_time": datetime.now(timezone.utc).isoformat(),
         "attributes": dict(attributes),
     }
     try:
@@ -94,23 +102,33 @@ def start_sandbox(workspace: str) -> None:
             ["docker", "build", "-f", "Dockerfile.sandbox", "-t", SANDBOX_IMAGE, "."],
             check=True,
         )
+
     _sandbox_name = f"traced-agent-{secrets.token_hex(8)}"
     subprocess.run([
-        "docker", "run", "-d", "--rm", "--name", _sandbox_name,
-        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-        "--network", "none", "--read-only",
+        "docker", "run", "-d", "--rm",
+        "--name", _sandbox_name,
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--network", "none",
+        "--read-only",
         "--tmpfs", "/tmp:rw,noexec,nosuid,size=100m",
-        "-v", f"{workspace}:/workspace", "-w", "/workspace",
-        "--memory", "512m", "--cpus", "1.0", "--pids-limit", "100",
+        "-v", f"{workspace}:/workspace",
+        "-w", "/workspace",
+        "--memory", "512m",
+        "--cpus", "1.0",
+        "--pids-limit", "100",
         "--user", "1000:1000",
-        SANDBOX_IMAGE, "sleep", "infinity",
+        SANDBOX_IMAGE,
+        "sleep", "infinity",
     ], check=True, capture_output=True)
 
 
 def stop_sandbox():
     if _sandbox_name:
-        subprocess.run(["docker", "stop", "-t", "1", _sandbox_name],
-                       check=False, capture_output=True, timeout=10)
+        subprocess.run(
+            ["docker", "stop", "-t", "1", _sandbox_name],
+            check=False, capture_output=True, timeout=10,
+        )
 
 
 # --- Tools ---
@@ -265,13 +283,15 @@ async def execute_tool(name: str, input: dict, parent_span: str, trace_id: str) 
     with span("tool.call", parent=parent_span, trace_id=trace_id,
               **{"tool.name": name, "tool.input": input}) as rec:
         if name in DANGEROUS_TOOLS:
-            if not await request_approval(name, input):
+            approved = await request_approval(name, input)
+            rec["attributes"]["approval"] = "approved" if approved else "denied"
+            if not approved:
                 rec["attributes"]["error"] = "user denied approval"
                 return "error: user denied approval"
         try:
             result = await tool["fn"](**input)
             output = result if isinstance(result, str) else str(result)
-            rec["attributes"]["tool.output"] = output[:500]
+            rec["attributes"]["tool.output"] = output
             return output
         except Exception as e:
             rec["attributes"]["error"] = str(e)
@@ -318,13 +338,10 @@ def save_messages(messages: list) -> None:
     MESSAGES_FILE.write_text(json.dumps(messages, default=_serialize, indent=2))
 
 
-# --- Token budget (upfront computation) ---
-
 _tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
 def approx_tokens(value) -> int:
-    """Local BPE token count via tiktoken (~5% of Claude's actual count)."""
     text = value if isinstance(value, str) else json.dumps(value, default=_serialize)
     return len(_tokenizer.encode(text))
 
@@ -356,7 +373,6 @@ def find_turn_boundaries(messages: list) -> list:
 
 
 def assemble(user_input: str, system: str, history: list) -> list:
-    """Compute the budget upfront and fill the buffer newest-first to fit."""
     fixed_tokens = (
         MAX_RESPONSE_TOKENS
         + TOOL_SCHEMA_TOKENS
@@ -382,7 +398,6 @@ def assemble(user_input: str, system: str, history: list) -> list:
 
 
 def enforce_budget(messages: list, turn_start: int, system) -> tuple[list, int]:
-    """Within-turn eviction: drop oldest past-history turns until total fits."""
     fixed = MAX_RESPONSE_TOKENS + TOOL_SCHEMA_TOKENS + approx_tokens(system)
     budget = CONTEXT_BUDGET - fixed
 
@@ -401,7 +416,7 @@ def enforce_budget(messages: list, turn_start: int, system) -> tuple[list, int]:
     return messages, turn_start
 
 
-# --- Recall ---
+# --- Semantic recall ---
 
 print("Loading embedding model...")
 _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -431,9 +446,11 @@ def add_to_recall(text: str, entries: list[dict]) -> None:
     save_recall(entries)
 
 
-def recall(query: str, entries: list[dict], k: int = RECALL_K, threshold: float = RECALL_THRESHOLD) -> list[str]:
+def recall(query: str, entries: list[dict],
+           k: int = RECALL_K, threshold: float = RECALL_THRESHOLD) -> tuple[list[str], list[tuple[float, str]]]:
+    """Return (selected, all_scored) — all_scored is captured by the trace."""
     if not entries:
-        return []
+        return [], []
     q_vec = embed(query)
     scored = []
     for e in entries:
@@ -441,7 +458,8 @@ def recall(query: str, entries: list[dict], k: int = RECALL_K, threshold: float 
         score = float(np.dot(q_vec, e_vec))
         scored.append((score, e["text"]))
     scored.sort(reverse=True)
-    return [text for score, text in scored[:k] if score >= threshold]
+    selected = [text for score, text in scored[:k] if score >= threshold]
+    return selected, scored[:k]
 
 
 async def summarize_turn(turn_messages: list) -> str:
@@ -453,6 +471,95 @@ async def summarize_turn(turn_messages: list) -> str:
                    "content": f"Summarize this exchange:\n\n{json.dumps(turn_messages, default=_serialize)[:8000]}"}],
     )
     return response.content[0].text
+
+
+# --- Output guardrails ---
+
+print("Loading sentiment classifier...")
+_sentiment_pipe = pipeline(
+    "sentiment-analysis",
+    model="distilbert-base-uncased-finetuned-sst-2-english",
+)
+
+
+def check_sentiment(text: str) -> tuple[str, float]:
+    if not text.strip():
+        return ("POSITIVE", 1.0)
+    result = _sentiment_pipe(text[:512])[0]
+    return (result["label"], float(result["score"]))
+
+
+async def hallucination_judge(user_input: str, response_text: str, tool_evidence: str) -> tuple[bool, str]:
+    judge = await client.messages.create(
+        model=SUMMARY_MODEL,
+        max_tokens=150,
+        system=(
+            "You evaluate whether an agent's response is grounded in evidence "
+            "from its tool calls. Reply on the first line with exactly one word: "
+            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+        ),
+        messages=[{
+            "role": "user",
+            "content": (
+                f"User asked: {user_input}\n\n"
+                f"Agent answered: {response_text}\n\n"
+                f"Evidence from tool calls in this turn:\n"
+                f"{tool_evidence or '(no tool calls)'}\n\n"
+                f"Is the answer supported by the evidence?"
+            ),
+        }],
+    )
+    text = judge.content[0].text.strip()
+    verdict_line, _, reason = text.partition("\n")
+    grounded = verdict_line.strip().upper().startswith("GROUNDED")
+    return grounded, reason.strip() or verdict_line
+
+
+def collect_tool_evidence(turn_messages: list) -> str:
+    parts = []
+    for msg in turn_messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    parts.append(str(block.get("content", "")))
+    return "\n---\n".join(parts)
+
+
+# --- Replay helper ---
+
+async def replay_trace(trace_id: str) -> None:
+    """Re-issue every llm.call in a trace with the prompts originally sent.
+
+    Demonstrates that the trace contains enough state to reproduce a turn
+    deterministically (modulo model non-determinism).
+    """
+    spans = [json.loads(line) for line in open(TRACE_FILE)]
+    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
+    if not turn_spans:
+        print(f"No spans found for trace_id {trace_id}")
+        return
+
+    llm_spans = sorted(
+        (s for s in turn_spans if s["name"] == "llm.call"),
+        key=lambda s: s["attributes"]["iteration"],
+    )
+    print(f"Replaying {len(llm_spans)} LLM call(s) from trace {trace_id}...")
+    for s in llm_spans:
+        attrs = s["attributes"]
+        response = await client.messages.create(
+            model=attrs["model"],
+            max_tokens=MAX_RESPONSE_TOKENS,
+            system=attrs["system"],
+            messages=attrs["messages"],
+            tools=TOOL_SCHEMAS,
+        )
+        print(f"\n--- iteration {attrs['iteration']} ---")
+        for block in response.content:
+            if block.type == "text":
+                print(block.text)
+            elif block.type == "tool_use":
+                print(f"[tool_use: {block.name}({block.input})]")
 
 
 # --- Main loop ---
@@ -472,24 +579,40 @@ async def main():
         if user_input.lower() in ("/q", "exit"):
             break
 
-        recalled = recall(user_input, recall_entries)
-        if recalled:
-            memory_block = "\n\n".join(f"- {s}" for s in recalled)
-            system = f"{BASE_SYSTEM}\n\n## Relevant memory from past conversations\n\n{memory_block}"
-        else:
-            system = BASE_SYSTEM
-
-        messages = assemble(user_input, system, history)
-        turn_start = len(messages) - 1
-
-        with span("turn", attributes={"user_input": user_input[:200]}) as turn_rec:
+        # Open the turn span — root of this turn's trace tree.
+        with span("turn", user_input=user_input) as turn_rec:
             trace_id = turn_rec["trace_id"]
             turn_span_id = turn_rec["span_id"]
+            print(f"\n[trace_id: {trace_id}]")
+
+            # Recall (traced)
+            with span("memory.recall", parent=turn_span_id, trace_id=trace_id,
+                      query=user_input) as recall_rec:
+                recalled, scored = recall(user_input, recall_entries)
+                recall_rec["attributes"]["recalled"] = recalled
+                recall_rec["attributes"]["candidates_scored"] = scored
+
+            if recalled:
+                memory_block = "\n\n".join(f"- {s}" for s in recalled)
+                system = f"{BASE_SYSTEM}\n\n## Relevant memory from past conversations\n\n{memory_block}"
+            else:
+                system = BASE_SYSTEM
+
+            turn_rec["attributes"]["system_prompt"] = system
+
+            messages = assemble(user_input, system, history)
+            turn_start = len(messages) - 1
+            final_text = ""
+            iteration = 0
 
             for iteration in range(MAX_ITERATIONS):
                 messages, turn_start = enforce_budget(messages, turn_start, system)
+
                 with span("llm.call", parent=turn_span_id, trace_id=trace_id,
-                          iteration=iteration) as llm_rec:
+                          iteration=iteration,
+                          model=MODEL,
+                          system=system,
+                          messages=messages) as llm_rec:
                     async with client.messages.stream(
                         model=MODEL,
                         max_tokens=MAX_RESPONSE_TOKENS,
@@ -501,17 +624,40 @@ async def main():
                             print(text, end="", flush=True)
                         print()
                         response = await stream.get_final_message()
+                    response_content = clean_assistant_content(response.content)
                     llm_rec["attributes"].update({
-                        "model": MODEL,
+                        "response_content": response_content,
                         "input_tokens": response.usage.input_tokens,
                         "output_tokens": response.usage.output_tokens,
                     })
                     llm_span_id = llm_rec["span_id"]
 
-                messages.append({"role": "assistant", "content": clean_assistant_content(response.content)})
+                messages.append({"role": "assistant", "content": response_content})
 
                 tool_calls = [b for b in response.content if b.type == "tool_use"]
                 if not tool_calls:
+                    # Capture the final text and run output guardrails.
+                    final_text = "".join(b.text for b in response.content if b.type == "text")
+                    turn_rec["attributes"]["final_response"] = final_text
+
+                    # Sentiment guardrail (traced)
+                    with span("guardrail.sentiment", parent=turn_span_id, trace_id=trace_id,
+                              text=final_text) as sent_rec:
+                        label, score = check_sentiment(final_text)
+                        sent_rec["attributes"].update({"label": label, "score": score})
+                        if label == "NEGATIVE" and score > 0.85:
+                            print(f"\n⚠ guardrail: response shows negative sentiment ({score:.2f})")
+
+                    # Hallucination guardrail (traced)
+                    if final_text.strip():
+                        tool_evidence = collect_tool_evidence(messages[turn_start:])
+                        with span("guardrail.hallucination", parent=turn_span_id, trace_id=trace_id,
+                                  user_input=user_input, response=final_text,
+                                  evidence=tool_evidence) as hall_rec:
+                            grounded, reason = await hallucination_judge(user_input, final_text, tool_evidence)
+                            hall_rec["attributes"].update({"grounded": grounded, "reason": reason})
+                            if not grounded:
+                                print(f"\n⚠ guardrail: response may not be grounded — {reason}")
                     break
 
                 if has_dangerous(tool_calls):
@@ -530,7 +676,7 @@ async def main():
                                 for c, o in zip(tool_calls, outputs)],
                 })
             else:
-                print(f"\n⚠ Reached {MAX_ITERATIONS} iterations without completion.")
+                print(f"\n⚠ Reached {MAX_ITERATIONS} iterations without completion. Aborting turn.")
                 turn_rec["attributes"]["aborted"] = True
 
             turn_rec["attributes"]["iterations"] = iteration + 1
@@ -539,7 +685,10 @@ async def main():
         save_messages(history)
 
         turn_messages = messages[turn_start:]
-        summary = await summarize_turn(turn_messages)
+        with span("memory.summarize", parent=turn_span_id, trace_id=trace_id) as sum_rec:
+            summary = await summarize_turn(turn_messages)
+            sum_rec["attributes"]["summary"] = summary
+            sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
         add_to_recall(summary, recall_entries)
 
 

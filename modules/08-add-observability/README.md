@@ -1,106 +1,97 @@
 # Add observability
 
-> **Harness component: structured tracing.** What the harness reports about its own activity — every LLM call, every tool call, every turn — so you can debug, replay, and improve it.
+> **Harness component: structured tracing.** A complete, structured record of every action the harness took on every turn. What the model saw, what it produced, which tools fired with what arguments, what they returned, which guardrails ran, which memories were pulled. The harness watching itself.
 
-Module 7 made the agent safer. It also made it more opaque. Approval gates fire and the prompts scroll off the terminal. Sentiment classifiers flag and the warning disappears. Retries happen silently inside the SDK. The hallucination judge runs once and forgets.
+Module 7 made the agent safer. It also made it more opaque. Approvals scroll off the terminal. Sentiment flags disappear. Retries happen silently inside the SDK. The hallucination judge runs once and forgets. When something goes wrong, *"what just happened?"* has no answer.
 
-When the agent does the wrong thing, *"what just happened?"* is the first question. Module 5's `print()` statements aren't enough — they're ephemeral and unstructured. The harness needs to watch itself and write down what it sees.
+Module 8 fixes that by tracing the agent's entire activity to a structured log. By the end you have [`examples/traced_agent.py`](../../examples/traced_agent.py) — `safe_agent.py` plus a span-based observability layer, comprehensive enough to support **four distinct downstream uses**:
 
-By the end you have [`examples/traced_agent.py`](../../examples/traced_agent.py).
+| Purpose | What it needs |
+|---|---|
+| **Auditability** | Post-hoc readability — what did the agent do, when, why, with what arguments. |
+| **Replay** | Enough captured state to re-issue every LLM call and reproduce a turn. |
+| **Checkpointing** | Enough captured state to resume from any point mid-turn. |
+| **Evaluation** | Structured trajectories that an offline judge (M9) can score. |
 
-## What observability gives you
+These four shape every decision about *what* to capture and *how*. A trace that supports all four is a trace that captures the full agent activity, not just summaries.
 
-A trace is a structured record of one unit of agent work. Three things become possible once traces exist:
+## The four purposes, concretely
 
-- **Debugging.** When yesterday's run produced a wrong answer, you can replay exactly what the model saw, what tools it called, what they returned. No "let me see if I can reproduce" — the answer is in the log.
-- **Operating.** Token usage per turn, latency per tool, error rates over time — the metrics you need to know whether the agent is healthy in production all fall out of a good trace stream.
-- **Evaluation.** The next module (M9) judges agent behaviour. Its inputs are traces. Without observability there's no eval signal beyond the final answer.
+**Auditability.** A human (or compliance system) needs to read what the agent did. "On Tuesday at 2:14 PM the agent received this prompt; it consulted these stored memories; it called `read` on `pyproject.toml`; it returned this answer; the hallucination judge flagged it as ungrounded." Every step accounted for.
 
-The hard part isn't writing log lines. It's making them *structured* enough that you can grep, query, and feed them to downstream systems without parsing free-form text.
+**Replay.** Given a trace_id, the harness should be able to re-issue every LLM call with the exact prompts originally sent. Useful for debugging non-deterministic failures ("what if the model had been asked again?"), for evaluating a prompt change ("re-run yesterday's turn with the new system prompt and see if it goes differently"), and for forensics.
+
+**Checkpointing.** A long-running agent can crash, get interrupted, or hit the iteration cap mid-task. The trace plus the persisted state files (`messages.json`, `recall.json`) should be enough to resume — pick up at iteration N, feed in the same context, continue.
+
+**Feeding evaluation.** Module 9 will judge agent behaviour automatically. Its inputs are traces: the trajectory of tool calls, the final response, the cost, the guardrail verdicts. Without tracing, M9 would have nothing to score except the final stdout.
 
 ## The span model
 
-The standard mental model is borrowed directly from OpenTelemetry: a **span** is one unit of work with a name, a start and end time, a set of attributes, and an optional parent. Spans form a tree: a top-level operation contains the calls it dispatched, each of which contains the calls *they* dispatched.
+The unit of trace is a **span**: one operation with a name, a start/end time, attributes, and an optional parent. Spans form a tree. The pattern is borrowed from OpenTelemetry, adapted to the TAO loop.
 
-For an agent, the tree maps naturally to the TAO loop:
-
-```
-turn (one user input → final response)
-├── llm.call (iteration 0)
-│   ├── tool.call (read)
-│   ├── tool.call (grep)
-│   └── tool.call (bash)
-├── llm.call (iteration 1)
-│   └── tool.call (edit)
-└── llm.call (iteration 2)   # no tool calls, loop exits
-```
-
-The `turn` span wraps an entire user-agent exchange. Inside it, each iteration of the TAO loop opens an `llm.call` span. Inside each `llm.call`, every tool dispatch opens a `tool.call` span. Spans nest by `parent_span_id`. A whole turn shares one `trace_id`.
-
-Three identifiers tie the tree together:
-
-- **`trace_id`** — unique per top-level operation (the turn). Every span in the tree shares this.
-- **`span_id`** — unique per span. Generated when the span opens.
-- **`parent_span_id`** — the `span_id` of the enclosing span. `null` for the root.
-
-Given these three, you can reassemble the tree by simple joins, ask things like "show me every tool call for this turn" or "what was the cumulative duration of all llm.call spans," and feed any downstream tool (Langfuse, Honeycomb, custom dashboards) that understands OpenTelemetry's data model.
-
-## JSONL as the wire format
-
-Spans get written one per line to a single JSON-lines file:
+For one user turn, the tree looks like this:
 
 ```
-~/.traced-agent/traces.jsonl
+turn  (trace_id = T1)
+├── memory.recall                   (query: "what does foo.py import?")
+├── llm.call            (iter 0)
+│   ├── tool.call       (read foo.py)
+│   └── tool.call       (grep imports)
+├── llm.call            (iter 1)
+│   └── tool.call       (read bar.py)
+├── llm.call            (iter 2)    ← no tool calls; final response
+├── guardrail.sentiment             (POSITIVE 0.99)
+├── guardrail.hallucination         (GROUNDED)
+└── memory.summarize                (summary text)
 ```
 
-JSONL is the right shape for this:
-
-- **Append-only.** Each new span is a single line, written atomically. No locking, no journaling, no race conditions across concurrent tools running in parallel.
-- **Trivial to grep.** `grep '"name":"tool.call"' traces.jsonl` extracts every tool call ever.
-- **Trivial to load.** `jq`, Python `for line in open(...)`, anything that streams. Loaders in every language are 5 lines.
-- **Trivial to ship elsewhere.** Pipe it into Langfuse / Honeycomb / S3 / Loki. Vendors all speak JSONL or trivially-derived formats.
-
-A typical span on disk looks like:
+Every span in this tree shares one `trace_id`. Each has a unique `span_id`. Each (except the root) points at its parent via `parent_span_id`. The shape is:
 
 ```json
 {
   "trace_id": "a1b2c3d4e5f6a7b8",
-  "span_id": "1234567890abcdef",
+  "span_id":  "1234567890abcdef",
   "parent_span_id": "fedcba0987654321",
   "name": "tool.call",
   "start_time": "2026-05-19T14:32:11.043281+00:00",
-  "end_time": "2026-05-19T14:32:11.087449+00:00",
+  "end_time":   "2026-05-19T14:32:11.087449+00:00",
   "duration_ms": 44.17,
   "attributes": {
     "tool.name": "read",
     "tool.input": {"path": "pyproject.toml"},
-    "tool.output": "   1| [project]\n   2| name = \"examples\"\n   3| ..."
+    "tool.output": "   1| [project]\n   2| name = \"examples\"\n..."
   }
 }
 ```
 
-Every span has the same shape. The `attributes` dict carries whatever you want about the specific operation.
+Eight span types make up the full trace tree for one turn:
 
-## What to capture
+| Span | Captures | Why it exists |
+|---|---|---|
+| `turn` | user_input, system_prompt, recalled, final_response, iterations, aborted | Root. Audit-trail entry point. |
+| `memory.recall` | query, candidates_scored, recalled | Which memories were pulled and why. |
+| `llm.call` | model, iteration, system, messages, response_content, input_tokens, output_tokens | The prompt sent and the response received. **Load-bearing for replay.** |
+| `tool.call` | tool.name, tool.input, tool.output, approval | Every action taken. |
+| `guardrail.sentiment` | text, label, score | Classifier verdict. |
+| `guardrail.hallucination` | user_input, response, evidence, grounded, reason | Judge verdict. |
+| `memory.summarize` | summary, turn_messages_count | What got written back to recall. |
 
-The shape is the easy part. The judgement is *what attributes go on each span*. Module 8 captures the following:
+Note: the `llm.call` span captures the **full system prompt and full messages array**, not just token counts. That's what makes replay possible.
 
-| Span | Attributes |
-|---|---|
-| `turn` | `user_input` (first 200 chars), `iterations`, `aborted` (if bound hit) |
-| `llm.call` | `model`, `iteration`, `input_tokens`, `output_tokens`, `error` (if any) |
-| `tool.call` | `tool.name`, `tool.input`, `tool.output` (first 500 chars), `error` (if any) |
+## JSONL as the wire format
 
-A few choices worth knowing:
+Spans get appended one per line to `~/.traced-agent/traces.jsonl`:
 
-- **Truncate large fields.** Tool outputs are uncapped in memory but capped on disk. Saving the full output of every `bash` and `grep` call would balloon the trace file in minutes. 500 chars is enough to see what happened; for forensics, replay the agent against the same prompt.
-- **Capture both input and output of tools.** "What did the model ask for" and "what came back" are both load-bearing for debugging.
-- **Capture token counts on the LLM call.** Most observability questions in production are about cost, and cost is tokens.
-- **Capture errors anywhere they happen.** The span context manager does this automatically.
+- **Append-only.** Each span is a single line, written atomically. No locking, no race conditions across concurrent tools running in parallel.
+- **Trivial to grep.** `grep '"name":"tool.call"' traces.jsonl` extracts every tool call.
+- **Trivial to load.** `jq`, Python `for line in open(...)`, anything that streams.
+- **Trivial to ship elsewhere.** Pipe into Langfuse / Honeycomb / S3 / Loki — vendors all speak JSONL or trivially-derived formats.
+
+Across many turns and many days the file grows append-only. To rotate: `mv traces.jsonl traces.jsonl.$(date +%s)`.
 
 ## The `span()` context manager
 
-The mechanism is one Python `@contextmanager`. It captures start/end times, generates IDs, accumulates attributes, and writes the span on exit:
+The whole mechanism is one Python `@contextmanager`. It generates IDs, captures start/end times, accumulates attributes, and writes the JSONL line on exit — including on exception:
 
 ```python
 import secrets
@@ -117,24 +108,30 @@ def _new_id() -> str:
     return secrets.token_hex(8)
 
 
+def _serialize_for_trace(obj):
+    """Trace serializer — keep SDK objects readable as dicts."""
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return str(obj)
+
+
 def write_span(span: dict) -> None:
     TRACE_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(TRACE_FILE, "a") as f:
-        f.write(json.dumps(span, default=str) + "\n")
+        f.write(json.dumps(span, default=_serialize_for_trace) + "\n")
 
 
 @contextmanager
 def span(name: str, parent: str | None = None, trace_id: str | None = None, **attributes):
     span_id = _new_id()
     trace_id = trace_id or _new_id()
-    start = datetime.now(timezone.utc)
     t0 = time.perf_counter()
     rec = {
         "trace_id": trace_id,
         "span_id": span_id,
         "parent_span_id": parent,
         "name": name,
-        "start_time": start.isoformat(),
+        "start_time": datetime.now(timezone.utc).isoformat(),
         "attributes": dict(attributes),
     }
     try:
@@ -148,59 +145,69 @@ def span(name: str, parent: str | None = None, trace_id: str | None = None, **at
         write_span(rec)
 ```
 
-The pattern in use:
-
-```python
-with span("tool.call", parent=parent_span_id, trace_id=trace_id,
-          **{"tool.name": "read", "tool.input": {"path": "foo.py"}}) as rec:
-    result = await read(path="foo.py")
-    rec["attributes"]["tool.output"] = result[:500]
-```
-
 Three properties make this clean:
 
-1. **Wall-clock + monotonic timing.** `datetime.now()` gives ISO timestamps for humans; `time.perf_counter()` gives accurate durations regardless of system clock changes.
-2. **Attributes are mutable inside the `with` block.** You don't have to know everything upfront. Open the span, do the work, attach `tool.output` once you have it, exit.
-3. **Exceptions don't lose the span.** The `try / except / raise` re-raises after attaching an `error` attribute. `finally` writes the span regardless of how the block exits.
+1. **Wall-clock + monotonic timing.** `datetime.now(timezone.utc)` produces ISO timestamps for humans; `time.perf_counter()` gives accurate durations regardless of system clock changes.
+2. **Attributes are mutable inside the `with` block.** Open the span, do the work, attach the output once you have it, exit.
+3. **Exceptions don't lose the span.** `try / except / raise` re-raises after attaching `error`; `finally` writes the span regardless of how the block exits.
 
-This is the OpenTelemetry SDK pattern in 25 lines of Python. Real OpenTelemetry would give you batched exporters, sampling, and pluggable backends. The baseline above is enough to ship and reach 99% of debugging needs.
+This is the OpenTelemetry SDK pattern in ~30 lines of Python. Real OpenTelemetry would give you batched exporters, sampling, and pluggable backends. The baseline above is enough to support everything M8 claims to support.
 
-## Wiring spans through the TAO loop
+## Wiring spans through the agent
 
-Three nested `with` blocks, one per span level. Inside `main()`:
+Open the `turn` span first; everything else nests under it.
 
 ```python
-with span("turn", attributes={"user_input": user_input[:200]}) as turn_rec:
-    trace_id = turn_rec["trace_id"]
-    turn_span_id = turn_rec["span_id"]
+async def main():
+    ...
+    while True:
+        user_input = input_("❯ ")
+        if user_input.lower() in ("/q", "exit"):
+            break
 
-    for iteration in range(MAX_ITERATIONS):
-        messages, turn_start = enforce_budget(messages, turn_start, system)
-
-        with span("llm.call", parent=turn_span_id, trace_id=trace_id,
-                  iteration=iteration) as llm_rec:
-            async with client.messages.stream(
-                model=MODEL,
-                max_tokens=MAX_RESPONSE_TOKENS,
-                system=system,
-                messages=messages,
-                tools=TOOL_SCHEMAS,
-            ) as stream:
-                async for text in stream.text_stream:
-                    print(text, end="", flush=True)
-                print()
-                response = await stream.get_final_message()
-            llm_rec["attributes"].update({
-                "model": MODEL,
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            })
-            llm_span_id = llm_rec["span_id"]
-
-        # ... tool dispatch, which opens its own tool.call spans ...
+        with span("turn", user_input=user_input) as turn_rec:
+            trace_id = turn_rec["trace_id"]
+            turn_span_id = turn_rec["span_id"]
+            print(f"\n[trace_id: {trace_id}]")
+            ...
 ```
 
-And `execute_tool` opens the deepest span:
+Inside the turn, open a `memory.recall` span before consulting recall:
+
+```python
+            with span("memory.recall", parent=turn_span_id, trace_id=trace_id,
+                      query=user_input) as recall_rec:
+                recalled, scored = recall(user_input, recall_entries)
+                recall_rec["attributes"]["recalled"] = recalled
+                recall_rec["attributes"]["candidates_scored"] = scored
+```
+
+(Note: `recall()` now returns *both* the selected entries and the full scored candidate list. The candidates are captured by the trace — auditability for *what was considered* and not just *what was kept*.)
+
+For each iteration, open an `llm.call` span and pass the full system + messages into its attributes:
+
+```python
+            for iteration in range(MAX_ITERATIONS):
+                messages, turn_start = enforce_budget(messages, turn_start, system)
+
+                with span("llm.call", parent=turn_span_id, trace_id=trace_id,
+                          iteration=iteration,
+                          model=MODEL,
+                          system=system,
+                          messages=messages) as llm_rec:
+                    async with client.messages.stream(...) as stream:
+                        ...
+                        response = await stream.get_final_message()
+                    response_content = clean_assistant_content(response.content)
+                    llm_rec["attributes"].update({
+                        "response_content": response_content,
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                    })
+                    llm_span_id = llm_rec["span_id"]
+```
+
+`execute_tool` opens a `tool.call` span and now captures the full input, full output, and the approval decision if applicable:
 
 ```python
 async def execute_tool(name: str, input: dict, parent_span: str, trace_id: str) -> str:
@@ -211,111 +218,229 @@ async def execute_tool(name: str, input: dict, parent_span: str, trace_id: str) 
     with span("tool.call", parent=parent_span, trace_id=trace_id,
               **{"tool.name": name, "tool.input": input}) as rec:
         if name in DANGEROUS_TOOLS:
-            if not await request_approval(name, input):
+            approved = await request_approval(name, input)
+            rec["attributes"]["approval"] = "approved" if approved else "denied"
+            if not approved:
                 rec["attributes"]["error"] = "user denied approval"
                 return "error: user denied approval"
         try:
             result = await tool["fn"](**input)
             output = result if isinstance(result, str) else str(result)
-            rec["attributes"]["tool.output"] = output[:500]
+            rec["attributes"]["tool.output"] = output
             return output
         except Exception as e:
             rec["attributes"]["error"] = str(e)
             return f"error: {e}"
 ```
 
-The only signature change from Module 7 is that `execute_tool` now takes `parent_span` (the enclosing `llm.call`'s span ID) and `trace_id`. The call sites pass them down. Every tool dispatch is now a child of the LLM call that produced it, which is a child of the turn that started it.
-
-## Reading traces
-
-Once traces exist, the patterns you can see are striking. Three examples.
-
-### A healthy trace
-
-```bash
-$ tail -n 12 ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms, .attributes]'
-["turn", 8240.55, {"user_input": "what does stateless_chatbot.py import?", "iterations": 2}]
-["llm.call", 1820.13, {"iteration": 0, "input_tokens": 3142, "output_tokens": 87, "model": "claude-sonnet-4-5"}]
-["tool.call", 4.92, {"tool.name": "read", "tool.input": {"path": "stateless_chatbot.py"}, "tool.output": "..."}]
-["llm.call", 6410.18, {"iteration": 1, "input_tokens": 4521, "output_tokens": 174, "model": "claude-sonnet-4-5"}]
-```
-
-Two iterations. One tool call (a `read`). 8.2s end-to-end. Token usage growing across iterations (the conversation got longer). Normal.
-
-### A stuck-loop trace
-
-```bash
-$ grep '"name":"tool.call"' traces.jsonl | jq -c '.attributes["tool.name"]' | sort | uniq -c
-     22 "bash"
-      1 "read"
-```
-
-22 `bash` calls in one turn. Healthy turns have 2–5 tool calls total. Drop into the file and see what the model was doing:
-
-```bash
-$ jq -c 'select(.name == "tool.call" and .attributes["tool.name"] == "bash") | .attributes["tool.input"]' traces.jsonl
-{"cmd": "ls"}
-{"cmd": "ls /tmp"}
-{"cmd": "ls /var"}
-{"cmd": "ls /etc"}
-...
-```
-
-Twenty-two `ls` calls. The model was looking for a file that didn't exist and refused to give up. This is the kind of pattern you'd never spot from the terminal scrollback — it just looks like "the agent took a while." The trace makes it diagnosable.
-
-### A "model couldn't find the tool" trace
-
-```bash
-$ jq -c '[.name, .attributes]' traces.jsonl
-["turn", {"user_input": "fetch the latest data from the api"}]
-["llm.call", {"iteration": 0, "input_tokens": 2841, "output_tokens": 73}]
-["llm.call", {"iteration": 1, "input_tokens": 2956, "output_tokens": 85}]
-["llm.call", {"iteration": 2, "input_tokens": 3071, "output_tokens": 67}]
-```
-
-Three `llm.call` spans, zero `tool.call` spans. The model talked to itself three times and never dispatched a tool. Looking at the actual text content of the assistant responses (not on the trace by default, but easy to add): the model is asking the user to clarify which API. The trace tells you immediately that the issue isn't the tools — it's that the model's response didn't include a tool_use block at all.
-
-## A note on the M7 guardrails
-
-The classifier and judge calls from Module 7 are tracing-shaped too. With one extra `with span(...)` block, every sentiment check and hallucination judgement becomes a recorded span:
+Output guardrails (sentiment + hallucination) each get their own span:
 
 ```python
-with span("guardrail.sentiment", parent=turn_span_id, trace_id=trace_id) as rec:
-    label, score = check_sentiment(final_text)
-    rec["attributes"].update({"label": label, "score": score})
+                    with span("guardrail.sentiment", parent=turn_span_id, trace_id=trace_id,
+                              text=final_text) as sent_rec:
+                        label, score = check_sentiment(final_text)
+                        sent_rec["attributes"].update({"label": label, "score": score})
+                        if label == "NEGATIVE" and score > 0.85:
+                            print(f"\n⚠ guardrail: response shows negative sentiment ({score:.2f})")
+
+                    if final_text.strip():
+                        tool_evidence = collect_tool_evidence(messages[turn_start:])
+                        with span("guardrail.hallucination", parent=turn_span_id, trace_id=trace_id,
+                                  user_input=user_input, response=final_text,
+                                  evidence=tool_evidence) as hall_rec:
+                            grounded, reason = await hallucination_judge(user_input, final_text, tool_evidence)
+                            hall_rec["attributes"].update({"grounded": grounded, "reason": reason})
 ```
 
-Then when a hallucination flag fires, you can trace back through the JSONL and see exactly which response triggered it and what the judge said. We don't wire this in by default — the point of M8 is the `span()` pattern itself. Adding more span types is a one-liner once the pattern exists.
+And after the turn, the recall-summary write gets a span too:
+
+```python
+        with span("memory.summarize", parent=turn_span_id, trace_id=trace_id) as sum_rec:
+            summary = await summarize_turn(turn_messages)
+            sum_rec["attributes"]["summary"] = summary
+            sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
+        add_to_recall(summary, recall_entries)
+```
+
+Every action the agent takes is now inside a span. The trace tree at the top of this module is the actual structure of the JSONL file.
+
+## Auditability: reading traces
+
+After a run, inspect the file:
+
+```bash
+tail -n 20 ~/.traced-agent/traces.jsonl | jq
+```
+
+A healthy turn might look like (compact view):
+
+```bash
+$ tail -n 8 ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms]'
+["memory.recall",  4.12]
+["llm.call",       1820.13]
+["tool.call",      4.92]
+["llm.call",       6410.18]
+["guardrail.sentiment",      18.31]
+["guardrail.hallucination",  742.05]
+["memory.summarize",         610.44]
+["turn",                     9645.31]
+```
+
+Find the system prompt that was actually sent on a given iteration:
+
+```bash
+$ jq -c 'select(.name == "llm.call") | .attributes.system' ~/.traced-agent/traces.jsonl | tail -1
+"You are a helpful coding assistant.\n\n## Relevant memory from past conversations\n\n- ..."
+```
+
+Find every tool call this agent has ever made and how long it took:
+
+```bash
+$ jq -c 'select(.name == "tool.call") | [.attributes["tool.name"], .duration_ms]' ~/.traced-agent/traces.jsonl
+```
+
+Aggregate cumulative LLM cost across all turns:
+
+```bash
+$ jq -s 'map(select(.name == "llm.call") | .attributes.input_tokens + .attributes.output_tokens) | add' \
+     ~/.traced-agent/traces.jsonl
+```
+
+Find every hallucination-flagged response:
+
+```bash
+$ jq -c 'select(.name == "guardrail.hallucination" and .attributes.grounded == false) | .attributes' \
+     ~/.traced-agent/traces.jsonl
+```
+
+The trace file is the audit log. Every question about what happened has a `jq` answer.
+
+## Replay: re-issuing LLM calls from a trace
+
+Because each `llm.call` span captures the full system prompt and full messages array, a turn can be reproduced. The example ships a `replay_trace(trace_id)` function that pulls every `llm.call` span for the given trace and re-issues them:
+
+```python
+async def replay_trace(trace_id: str) -> None:
+    """Re-issue every llm.call in a trace with the prompts originally sent."""
+    spans = [json.loads(line) for line in open(TRACE_FILE)]
+    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
+    llm_spans = sorted(
+        (s for s in turn_spans if s["name"] == "llm.call"),
+        key=lambda s: s["attributes"]["iteration"],
+    )
+    print(f"Replaying {len(llm_spans)} LLM call(s) from trace {trace_id}...")
+    for s in llm_spans:
+        attrs = s["attributes"]
+        response = await client.messages.create(
+            model=attrs["model"],
+            max_tokens=MAX_RESPONSE_TOKENS,
+            system=attrs["system"],
+            messages=attrs["messages"],
+            tools=TOOL_SCHEMAS,
+        )
+        print(f"\n--- iteration {attrs['iteration']} ---")
+        for block in response.content:
+            if block.type == "text":
+                print(block.text)
+            elif block.type == "tool_use":
+                print(f"[tool_use: {block.name}({block.input})]")
+```
+
+Modulo the model's non-determinism (sampling temperature, seed effects), the responses will be very close to the originals. For deterministic replay you'd also pin the model snapshot and disable sampling. The point is that **the trace alone contains everything needed** — no separate snapshot file, no out-of-band state.
+
+You can use this:
+
+- To debug *"why did the agent do X on iteration 2?"* — re-issue just that iteration and inspect.
+- To A/B test prompt changes — replay yesterday's turn with a new system prompt and compare.
+- To recover from a crash — the trace shows what was happening when things died.
+
+## Checkpointing: resuming from any iteration
+
+A long-running agent can crash, be interrupted, or hit the iteration cap before completing. The trace + the persisted state files (`messages.json` + `recall.json` from M4) together contain enough to resume.
+
+The pattern (sketched, not in the example):
+
+```python
+async def resume_from(trace_id: str, from_iteration: int) -> None:
+    """Replay the agent up to iteration N, then continue the live loop."""
+    # Load the persisted state files (M4 already does this).
+    history = load_messages()
+    recall_entries = load_recall()
+
+    # Walk forward through the trace, replaying each iteration up to from_iteration.
+    spans = [json.loads(line) for line in open(TRACE_FILE)]
+    turn_spans = [s for s in spans if s["trace_id"] == trace_id]
+    llm_spans = sorted(
+        (s for s in turn_spans if s["name"] == "llm.call"),
+        key=lambda s: s["attributes"]["iteration"],
+    )
+
+    # Pull the system prompt and messages from the iteration we want to resume at.
+    target = next(s for s in llm_spans if s["attributes"]["iteration"] == from_iteration)
+    messages = target["attributes"]["messages"]
+    system = target["attributes"]["system"]
+
+    # Continue the TAO loop from here, in a new turn span if you want fresh tracing.
+    ...
+```
+
+Because every `llm.call` span captures the exact `messages` and `system` that were sent at that iteration, you can pick any iteration N as the new starting point. The conversation state and the recall state are independently persisted (M4); the trace tells you what the in-flight loop was doing.
+
+This is the discipline behind real agent fault-tolerance: durable state files + structured traces = recoverable agents.
+
+## Feeding evaluation (preview of M9)
+
+The next module judges agent behaviour automatically against a suite of cases. The signals that make a good eval are exactly what the trace already captures:
+
+- **Trajectory.** How many tool calls? Which ones? In what order? Available from `tool.call` span chain.
+- **Cost.** Sum `input_tokens + output_tokens` across `llm.call` spans.
+- **Latency.** Span `duration_ms`.
+- **Final answer.** `turn.final_response`.
+- **Guardrail outcomes.** `guardrail.*` span verdicts.
+- **Memory behaviour.** Did recall pull anything? What got summarized back?
+
+An eval doesn't need to re-run the agent if it can score the trace. M9 will use this directly.
+
+## A note on retention and PII
+
+The example captures **everything** by default — full prompts, full responses, full tool outputs. For most local development that's exactly what you want; you're the only one reading the file and you control the data going through.
+
+In production you may need to be more selective:
+
+- **Truncate.** Replace `output` with `output[:500]` for large blobs.
+- **Redact.** Run a PII / credential classifier (M7 style) over tool outputs before they hit the span.
+- **Sample.** Trace 1% of turns at full fidelity, 99% with token counts only.
+- **Ship to a managed platform.** Use an OpenTelemetry SDK or a vendor SDK (Langfuse, Honeycomb) that handles retention policy server-side.
+
+All of these are changes to `write_span()` and the attributes passed into `span()`. The harness wiring stays the same.
 
 ## The tooling landscape
 
-The file-based JSONL approach is the floor, not the ceiling. Real production agents ship traces to dedicated observability platforms. A few worth knowing:
+The file-based JSONL approach is the floor, not the ceiling. Real production agents ship traces to dedicated observability platforms. Worth knowing:
 
 | Platform | Where it sits |
 |---|---|
-| **OpenTelemetry** | Open standard for traces, metrics, logs. Underneath most vendor offerings. Your JSONL spans translate directly. |
+| **OpenTelemetry** | Open standard for traces, metrics, logs. Underneath most vendor offerings. The JSONL spans above translate directly to OTel SpanData. |
 | **Langfuse** | LLM-native, open source. Built for prompt/trace inspection. Self-hostable. |
-| **Arize Phoenix** | LLM-native, open source. Good for offline trace analysis and eval workflows. |
-| **Honeycomb** | General observability. Strong query model, fast over large traces. |
-| **Helicone** | Lightweight LLM proxy that captures requests and responses. |
-| **LangSmith** | Tightly coupled to LangChain. Good if you use it; less useful otherwise. |
+| **Arize Phoenix** | LLM-native, open source. Strong offline analysis and eval workflows. |
+| **Honeycomb** | General observability. Fast queries over large traces. |
+| **Helicone** | Lightweight LLM proxy capturing requests and responses. |
+| **LangSmith** | Tight LangChain integration. |
 | **Logfire** | Pydantic's observability product. Python-native, OpenTelemetry-compatible. |
 
-The migration path is consistent: keep `span()` as the API, swap the `write_span()` implementation. Instead of writing to disk, push to the platform's SDK. The rest of the harness doesn't change.
-
-For most agents, the discipline is what matters more than the vendor. Get the spans right, get them written, get them structured. Where they live afterward is a deployment choice.
+Migration path: keep `span()` as your API, swap `write_span()` for the platform's SDK. Everything else stays.
 
 ## What the traced agent does, end to end
 
-Three changes from Module 7:
+Compared to `safe_agent.py` (M7), three things changed:
 
-1. The `span()` context manager and `write_span()` helper at the top of the file.
-2. Three nested `with` blocks in `main()` opening `turn`, `llm.call`, and `tool.call` spans.
-3. `execute_tool` gains two parameters (`parent_span`, `trace_id`) and opens its own span.
+1. **Imports + tracing module** at the top: `_new_id`, `write_span`, `span()` context manager.
+2. **`execute_tool`** gains `parent_span` and `trace_id` parameters and captures full input, full output, and approval decisions in its `tool.call` span.
+3. **`main()`** opens spans at every level: `turn` → `memory.recall` → `llm.call` (per iteration) → `tool.call` (per dispatch) → `guardrail.sentiment` → `guardrail.hallucination` → `memory.summarize`.
 
-Everything else from Module 7 is preserved: the sandbox, the heuristic guardrails, the classifier and judge gates (when present), the persistence, the budget, the recall. Tracing wraps the existing components — it doesn't replace any of them.
+`recall()` was refactored to return both the selected entries and the full scored candidate list — the trace captures the candidates so you can see *why* certain memories were picked. Everything else — the M4 memory machinery, the M5 toolkit, the M6 sandbox, the M7 guardrails — is preserved unchanged.
 
-State directory: `~/.traced-agent/` — adds `traces.jsonl` to the `messages.json` and `recall.json` from before.
+State directory: `~/.traced-agent/` — `messages.json`, `recall.json`, and the new `traces.jsonl`.
 
 ## Run it
 
@@ -326,52 +451,54 @@ cd examples
 uv run traced_agent.py
 ```
 
-Have a normal conversation:
+Have a normal conversation. Each turn prints its trace_id:
 
 ```
 ❯ what does stateless_chatbot.py import?
-...
+[trace_id: a1b2c3d4e5f6a7b8]
+The file imports anthropic and python-dotenv.
 ❯ /q
 ```
 
-Then inspect:
+Inspect the trace tree for that turn:
 
 ```bash
-tail -n 20 ~/.traced-agent/traces.jsonl | jq
+$ jq -c 'select(.trace_id == "a1b2c3d4e5f6a7b8") | [.name, .duration_ms]' \
+     ~/.traced-agent/traces.jsonl
+["turn",                     8240.55]
+["memory.recall",            3.81]
+["llm.call",                 1820.13]
+["tool.call",                4.92]
+["llm.call",                 5904.27]
+["guardrail.sentiment",      19.04]
+["guardrail.hallucination",  673.21]
+["memory.summarize",         484.10]
 ```
 
-Each line is one span. You'll see one `turn`, one or more `llm.call`s, zero or more `tool.call`s underneath each.
-
-Watch live as the agent runs:
+Live-watch as the agent runs:
 
 ```bash
-# In another terminal:
-tail -f ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms, .attributes["tool.name"] // .attributes["model"]]'
+tail -f ~/.traced-agent/traces.jsonl | jq -c '[.name, .duration_ms, .attributes["tool.name"] // .attributes["model"] // .attributes["label"] // .attributes["grounded"]]'
 ```
 
-Useful aggregations:
+Replay a turn:
 
-```bash
-# Total LLM cost (tokens) across all traces:
-jq -s 'map(select(.name == "llm.call") | .attributes.input_tokens + .attributes.output_tokens) | add' ~/.traced-agent/traces.jsonl
-
-# Average tool duration by name:
-jq -s 'group_by(.attributes["tool.name"]) | map({tool: .[0].attributes["tool.name"], avg_ms: (map(.duration_ms) | add / length)})' \
-   ~/.traced-agent/traces.jsonl
-
-# Find any error spans:
-jq -c 'select(.attributes.error)' ~/.traced-agent/traces.jsonl
+```python
+# In a Python REPL or another script:
+import asyncio
+from traced_agent import replay_trace
+asyncio.run(replay_trace("a1b2c3d4e5f6a7b8"))
 ```
 
-The traces accumulate across runs. After a week of use you'll have a deep enough sample to spot patterns: tools that fail often, prompts that produce long turns, models that drift.
+The harness re-issues every LLM call with the same prompts, and you see how the model responds the second time around.
 
 ## What's missing
 
-- **Traces tell you what happened. They don't tell you whether it was *good*.** A turn with 30 tool calls and a wrong answer looks the same in the JSONL as a turn with 30 tool calls and the right answer.
-- **Manual inspection doesn't scale.** Watching `tail -f` is great for one agent on one developer machine. For a production agent or a curriculum like this with many checkpoints, you need automation.
-- **No way to compare runs.** "Did adding the sentiment guardrail change anything?" You can't answer that question by reading traces.
+- **The trace tells you what happened. It doesn't tell you whether it was *good*.** A turn with 30 tool calls and a wrong answer looks structurally identical to a turn with 30 tool calls and the right answer.
+- **No way to score traces in batch.** You can read them; you can replay them; you can't easily ask "across the last 100 runs, did the agent get better at answering questions correctly?"
+- **No regression detection.** Did adding the sentiment guardrail change agent behaviour for the worse? Hard to tell without scoring.
 
-The harness needs a way to *judge* its own behaviour, repeatably and quantitatively. That's evaluation — the next module.
+The harness needs a *judge for its traces* — a way to run a suite of test cases, score every turn, and compare runs against each other. That's evaluation.
 
 ---
 
