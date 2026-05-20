@@ -10,6 +10,7 @@ from pathlib import Path
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
+from transformers import pipeline
 import tiktoken
 import numpy as np
 
@@ -421,6 +422,67 @@ async def summarize_turn(turn_messages: list) -> str:
     return response.content[0].text
 
 
+# --- Output guardrails ---
+
+# Classifier guardrail: BERT sentiment analysis on the final response.
+# Loaded once at import; ~268MB on first run, cached locally afterward.
+print("Loading sentiment classifier...")
+_sentiment_pipe = pipeline(
+    "sentiment-analysis",
+    model="distilbert-base-uncased-finetuned-sst-2-english",
+)
+
+
+def check_sentiment(text: str) -> tuple[str, float]:
+    """Two-class BERT sentiment: POSITIVE / NEGATIVE with confidence."""
+    if not text.strip():
+        return ("POSITIVE", 1.0)
+    result = _sentiment_pipe(text[:512])[0]  # truncate to BERT max-len
+    return (result["label"], float(result["score"]))
+
+
+async def hallucination_judge(user_input: str, response_text: str, tool_evidence: str) -> tuple[bool, str]:
+    """LLM-as-judge guardrail: is the response grounded in tool evidence?
+
+    Returns (grounded, reason). True = supported by evidence.
+    """
+    judge = await client.messages.create(
+        model=SUMMARY_MODEL,  # claude-haiku-4-5
+        max_tokens=150,
+        system=(
+            "You evaluate whether an agent's response is grounded in evidence "
+            "from its tool calls. Reply on the first line with exactly one word: "
+            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+        ),
+        messages=[{
+            "role": "user",
+            "content": (
+                f"User asked: {user_input}\n\n"
+                f"Agent answered: {response_text}\n\n"
+                f"Evidence from tool calls in this turn:\n"
+                f"{tool_evidence or '(no tool calls)'}\n\n"
+                f"Is the answer supported by the evidence?"
+            ),
+        }],
+    )
+    text = judge.content[0].text.strip()
+    verdict_line, _, reason = text.partition("\n")
+    grounded = verdict_line.strip().upper().startswith("GROUNDED")
+    return grounded, reason.strip() or verdict_line
+
+
+def collect_tool_evidence(turn_messages: list) -> str:
+    """Concatenate tool_result blocks from the turn into one evidence string."""
+    parts = []
+    for msg in turn_messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    parts.append(str(block.get("content", ""))[:500])
+    return "\n---\n".join(parts)
+
+
 # --- Main loop ---
 
 BASE_SYSTEM = "You are a helpful coding assistant."
@@ -466,6 +528,20 @@ async def main():
 
             tool_calls = [b for b in response.content if b.type == "tool_use"]
             if not tool_calls:
+                # Model produced a final response: run output guardrails.
+                final_text = "".join(b.text for b in response.content if b.type == "text")
+
+                # Classifier guardrail: sentiment on the final response.
+                label, score = check_sentiment(final_text)
+                if label == "NEGATIVE" and score > 0.85:
+                    print(f"\n⚠ guardrail: response shows negative sentiment ({score:.2f})")
+
+                # LLM-as-judge guardrail: hallucination check against tool evidence.
+                if final_text.strip():
+                    tool_evidence = collect_tool_evidence(messages[turn_start:])
+                    grounded, reason = await hallucination_judge(user_input, final_text, tool_evidence)
+                    if not grounded:
+                        print(f"\n⚠ guardrail: response may not be grounded — {reason}")
                 break
 
             if has_dangerous(tool_calls):

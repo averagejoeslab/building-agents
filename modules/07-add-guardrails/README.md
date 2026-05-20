@@ -2,42 +2,65 @@
 
 > **Harness component: safety constraints.** What the harness allows, what it asks the human about, what it refuses, and how long it's willing to run. The harness's policy layer.
 
-Module 6 contained *where* the agent can do damage. Guardrails constrain *whether* it gets to act at all — and what happens when the world misbehaves around it. Three complementary controls, none of them about the sandbox:
+Module 6 contained *where* the agent can do damage. Guardrails constrain *whether* it gets to act, and *what* it can produce. Sandboxing was a single mechanism (Docker). Guardrails are a discipline: a stack of independent controls layered around the TAO loop, each protecting against a different class of failure.
 
-1. **Approval gates** — pause before any destructive action and let the human say yes or no.
-2. **Loop bounds** — cap how long a single user turn is allowed to run.
-3. **Retry / backoff** — survive transient API errors without crashing.
+By the end you have [`examples/safe_agent.py`](../../examples/safe_agent.py), which ships three different guardrail mechanisms wired into the agent. The point isn't the specific examples we ship — it's the pattern. Once you understand the categories and where they hook in, you can build your own guardrails for whatever you care about.
 
-By the end you have [`examples/safe_agent.py`](../../examples/safe_agent.py).
+## What guardrails are for
 
-## Where each control sits
+The model is non-deterministic, has a dangerous tool surface, can be prompt-injected via tool outputs, and might just produce a bad answer. A guardrail is **any check the harness runs around the LLM call or tool dispatch to enforce policy you've decided matters**.
 
-```mermaid
-flowchart LR
-    User[User] --input--> Loop[TAO loop<br/><i>bounded</i>]
-    Loop --> LLM[LLM call<br/><i>retry/backoff</i>]
-    LLM --> Loop
-    Loop --> Gate{Dangerous<br/>tool?}
-    Gate -- yes --> Approve[Approval<br/>gate]
-    Approve --> Tool[Execute]
-    Gate -- no --> Tool
-    Tool --> Loop
-    Loop --output--> User
-```
+What that policy covers is up to you. Real production agents protect against:
 
-The three controls live in three different places:
+- **Unsafe actions** — destructive tool calls, writes to paths outside the workspace, network operations the agent shouldn't take.
+- **Runaway resource usage** — infinite tool-call loops, runaway token budgets, cost overruns.
+- **Transient failures** — rate limits, network blips, timeouts.
+- **Unsafe content** — toxicity, NSFW, violence, hate speech in user input or model output.
+- **Hallucination** — the model claiming things that aren't supported by what tools actually returned.
+- **Off-policy responses** — the model wandering off-topic, breaking constraints stated in the system prompt, giving advice the agent shouldn't give.
+- **Prompt injection** — instructions embedded in tool outputs that try to redirect the agent.
 
-- The **LLM call** itself gets retry/backoff (handled by the SDK).
-- The **TAO loop** gets an iteration cap.
-- The **tool dispatch** gets an approval gate for dangerous tools.
+No single mechanism catches all of these. Different categories of failure need different categories of control.
 
-Each is independent; together they form the policy layer around the work the model wants to do.
+## Three categories of guardrails
 
-## Approval gates
+There are three broad mechanisms for enforcing policy at runtime. Each has different latency, cost, and coverage characteristics.
 
-The simplest control: before running a tool that mutates state, ask the human.
+### 1. Heuristic guardrails
 
-### Which tools are dangerous?
+Rule-based: sets, regexes, counters, hard-coded thresholds. They run in microseconds, cost nothing, are deterministic, and catch the obvious cases. They can't reason about anything they weren't explicitly programmed to check.
+
+### 2. Classifier guardrails
+
+A small fine-tuned model with a fixed output head (typically 2–10 classes). Given some text, it produces a label plus a confidence score in ~10–50ms locally. Catches patterns it was trained on. Doesn't understand context outside those patterns. Industry-standard models for safety, sentiment, prompt-injection, NSFW, and so on are available off-the-shelf from HuggingFace and from frontier providers.
+
+### 3. LLM-as-judge guardrails
+
+A second LLM call (usually a small fast model: Haiku, Flash, 4o-mini) that reads relevant context and a rubric, then returns a verdict in natural language. ~300–800ms per call. Costs fractions of a cent. Handles novel situations, ambiguous cases, and rubrics expressed in plain English.
+
+### How they compare
+
+| Layer | Mechanism | Latency | Cost / call | What it catches |
+|---|---|---|---|---|
+| **Heuristic** | rule / set / counter | <1ms | $0 | The obvious — known dangerous tools, fixed limits |
+| **Classifier** | fine-tuned NN | ~10–50ms | ~$0 (local) | Trained-on patterns — sentiment, toxicity, prompt injection |
+| **LLM-as-judge** | second LLM call + rubric | ~300–800ms | $0.0001–0.001 | Contextual cases — hallucination, instruction-following, intent matching |
+
+These compose. Heuristics are the floor. Classifiers add a learned layer. Judges sit on top for high-stakes calls. A production-grade harness stacks all three.
+
+This module ships one worked example for each category. The examples are deliberately representative, not exhaustive — the point is the pattern.
+
+---
+
+## Example 1: heuristic guardrails
+
+Heuristics protect against **clear, hardcoded policy violations** where the harness can decide yes/no without reasoning. We ship three:
+
+- **Human-in-the-loop approval gates** for dangerous tool calls.
+- **Loop bounds** on the inner TAO loop.
+- **Retry and backoff** for transient API errors.
+
+### Approval gates (HITL)
 
 Of the six tools, three change state in ways the user cares about:
 
@@ -45,11 +68,7 @@ Of the six tools, three change state in ways the user cares about:
 DANGEROUS_TOOLS = {"write", "edit", "bash"}
 ```
 
-`read`, `grep`, and `glob` are observation only — no approval needed, run them as fast as you can. `write`, `edit`, and `bash` actually change something — files, the filesystem, the world outside the agent. These get gated.
-
-This is a deliberately small set. You could add more (e.g. a future `git_commit` tool, anything that hits an API), but the principle stays: gate the tools whose effects you can't undo.
-
-### The interactive y/N prompt
+`read`, `grep`, and `glob` are observation only. `write`, `edit`, and `bash` mutate state. Before any of those run, ask the human:
 
 ```python
 async def request_approval(name: str, input: dict) -> bool:
@@ -62,11 +81,7 @@ async def request_approval(name: str, input: dict) -> bool:
 input_ = input
 ```
 
-The model proposed a tool call. Print the tool name and the arguments. Ask the user. Anything other than `y`/`yes` is a no.
-
-The `input_ = input` alias is a small Python gotcha: the next function (`execute_tool`) takes an argument called `input` because that's what the Anthropic API calls the tool's input dict. Shadowing the builtin `input()` inside that scope would break the prompt; so we keep a top-level alias `input_` to use for stdin reading.
-
-### Wiring the gate into `execute_tool`
+Wiring into `execute_tool`:
 
 ```python
 async def execute_tool(name: str, input: dict) -> str:
@@ -83,22 +98,15 @@ async def execute_tool(name: str, input: dict) -> str:
         return f"error: {e}"
 ```
 
-Two new lines compared to Module 5/6: if the tool is in `DANGEROUS_TOOLS`, prompt for approval first. If the user says no, return the string `"error: user denied approval"` instead of running the tool. The model sees that as a tool error and can adjust — explain itself, propose a different command, or just ask the user what they meant.
+Two new lines vs Module 5/6: if dangerous, prompt; if denied, return the rejection *as a tool result*. The model sees `"error: user denied approval"` like any other tool error and adapts. Returning the rejection through the normal tool result channel keeps the agent alive and the user in charge.
 
-Returning the rejection *as a tool result* (rather than raising or aborting) is what keeps the agent loop alive. The model gets feedback, the conversation continues, the user stays in charge.
-
-### Approval-aware dispatch
-
-There's a subtle interaction with Module 5's parallel dispatch:
+One subtlety: if a batch of tool calls contains *any* dangerous call, fall back to serial dispatch so the user isn't fielding concurrent approval prompts:
 
 ```python
 def has_dangerous(tool_calls) -> bool:
     return any(c.name in DANGEROUS_TOOLS for c in tool_calls)
-```
 
-If the model emits five `read` calls and two `bash` calls in one turn, Module 5 would `asyncio.gather` all seven. With approvals, that means the user gets two interleaved y/N prompts in the middle of five concurrent `read` results streaming back — chaotic. So if *any* tool call in the batch is dangerous, fall back to serial execution:
-
-```python
+# In the TAO loop:
 if has_dangerous(tool_calls):
     outputs = []
     for c in tool_calls:
@@ -107,80 +115,38 @@ else:
     outputs = await asyncio.gather(*(execute_tool(c.name, c.input) for c in tool_calls))
 ```
 
-Pure-read batches still run in parallel (fast). Anything with a dangerous call runs serially (so approvals are sequential and the user can reason about what they're approving). Cost is a few extra seconds per turn; benefit is the user always sees one prompt at a time.
+The `DANGEROUS_TOOLS` set is the heuristic. The approval prompt is the gate. Both fixed at compile time.
 
-### The tradeoff: always-ask vs. never-ask vs. remembered
+### Loop bounds
 
-The interactive y/N is the safest default but also the most annoying. Real harnesses pick from a small menu:
+A pathological turn might never produce a final answer — the model loops on an error it can't fix, gets stuck in a "let me read one more file" spiral, or hits an actual harness bug and emits tool calls forever. Each iteration costs an LLM call.
 
-| Policy | When to use |
-|---|---|
-| **Always ask** | First-time use; high-stakes codebases; running unfamiliar agents. The default here. |
-| **Never ask** | CI / automated runs where the agent is sandboxed enough that any action is acceptable, or where a separate review step gates the output. |
-| **Remembered per session** | A "yes to this exact tool with this exact input, for this conversation" answer that caches approvals. Saves prompts on repeated calls but loses the per-call audit. |
-| **Pattern-based allowlist** | "Yes to `bash` running anything matching `pytest *`; ask for everything else." More config than this module wants but useful in production. |
-
-The module ships with always-ask. Switching policies is a one-function change in `request_approval`.
-
-## Loop bounds
-
-The other open-ended risk: a pathological turn that never produces a final answer. The model could:
-
-- Loop on a tool error it can't fix (`bash`: command not found → tries again → fails → tries again).
-- Get stuck in a "let me read one more file" spiral.
-- Hit an actual logic bug in the harness and keep emitting tool calls forever.
-
-Each iteration costs an LLM call (tokens, money, time). Without a bound, a stuck turn can eat your budget before you notice.
-
-### The cap
+A simple bound:
 
 ```python
 MAX_ITERATIONS = 30
 ```
 
-30 is generous — most real tasks finish in 3–10 iterations. The cap is there to stop the worst case, not to constrain normal work.
-
-### The for-else pattern
-
-Module 5's TAO loop was `while True:` with a `break` when the model stopped requesting tools. Module 7 swaps the unbounded while for a bounded for:
+Replace Module 5/6's `while True:` with a bounded `for ... else:`:
 
 ```python
 for iteration in range(MAX_ITERATIONS):
     messages, turn_start = enforce_budget(messages, turn_start, system)
     async with client.messages.stream(...) as stream:
         ...
-    messages.append({"role": "assistant", "content": ...})
-
     tool_calls = [b for b in response.content if b.type == "tool_use"]
     if not tool_calls:
         break
-
-    # dispatch and append tool_result ...
+    # dispatch tools, append tool_result ...
 else:
     print(f"\n⚠ Reached {MAX_ITERATIONS} iterations without completion. Aborting turn.")
 ```
 
-The Python `for ... else:` clause fires only when the loop exhausts without hitting `break`. If the model finishes naturally (`if not tool_calls: break`), the `else:` doesn't run. If we run out of iterations, the `else:` fires and prints a warning before the turn ends.
+Python's `for ... else:` clause fires only when the loop exhausts without `break`. Natural completion (`if not tool_calls: break`) skips the else. Iteration cap hits, the else prints a warning, the turn ends cleanly. State is still saved. Next user input starts fresh.
 
-The agent stops cleanly. The user sees what happened. The conversation state is still saved. The next user input starts a fresh turn.
+### Retry and backoff
 
-### What to feed back to the model
-
-This module aborts the turn silently to the model — the loop just stops and the user sees the warning. A more sophisticated harness could push a synthetic tool_result back to the model on the last iteration, saying *"iteration cap reached; summarize what you've done and stop calling tools."* That gives the model one final shot to produce a clean answer. The trade-off: more code, occasional ugly output. Not in this module's baseline.
-
-## Retry and backoff
-
-Anthropic's API is reliable but not infallible. Real failure modes:
-
-- **429 / 529** — rate limited. Surge in usage, retry after a short wait.
-- **503** — temporary service unavailability.
-- **Connection reset / timeout** — network blips, especially on long-running calls.
-
-In Module 5/6, any of these crashes the agent mid-turn. The conversation state up to that point is lost (or worse, half-saved).
-
-### Let the SDK handle it
-
-The Anthropic Python SDK has retry and timeout built in. Configure them at client construction:
+Anthropic's API can return 429s, 529s, 503s, or timeouts. In Module 5/6, any of these crashes the agent mid-turn. The fix is exponential backoff at the SDK layer:
 
 ```python
 client = AsyncAnthropic(
@@ -190,233 +156,323 @@ client = AsyncAnthropic(
 )
 ```
 
-- `max_retries=4` — retry transient errors up to 4 times before giving up.
-- `timeout=60.0` — per-request timeout. If the API doesn't respond in 60 seconds, the request fails (and the retry logic catches it).
+Backoff schedule (default): 0.5s, 1s, 2s, 4s. The SDK handles every retry. The harness never sees a transient error.
 
-The SDK uses exponential backoff between retries: 0.5s, 1s, 2s, 4s. By the time the agent gives up, the network has had ~7.5 seconds to recover. Empirically that's enough for almost every transient blip.
+Tool errors are different: the harness *doesn't* retry them. When `bash` returns `"error: command not found"`, the right response is for the **model** to read the error and adjust. Tool errors flow back to the model as `tool_result` strings; the model handles them.
 
-### Why the harness doesn't retry tool errors
+### What heuristics catch and miss
 
-Tool errors are a different shape. When `bash` returns `"error: command not found"`, the right response isn't to retry the same command — it's to let the model see the error, think, and try something different. The model already does this naturally: it reads the `tool_result` string, decides to use a different tool or adjust the command, and continues.
+| Catches | Misses |
+|---|---|
+| Known-dangerous tool names | A `bash` command that's actually safe vs. one that's destructive |
+| A fixed iteration count | Productive turns that need 50 iterations because the task is complex |
+| Transient network errors | Bad model outputs that look fine but contain wrong information |
 
-So the rule is:
+Heuristics are the floor. They handle the deterministic cases at zero cost. They can't reason about content. That's where the other two categories come in.
 
-- **API errors → SDK retries with backoff.** The harness doesn't see them.
-- **Tool errors → returned as `tool_result` strings.** The model handles them.
-- **Hard failures (auth, quota exhausted, 4 retries used up) → exception propagates, agent crashes.** This is the right behaviour — you want to know.
+---
 
-## Beyond heuristics: classifiers and LLM-as-judge as guardrails
+## Example 2: classifier guardrails
 
-The three controls above are all rule-based:
+Classifiers protect against **content that fits a learned pattern**. We don't write rules for what "negative sentiment" looks like — we use a model that was trained on millions of labeled examples. Industry-standard classifiers are available off-the-shelf for sentiment, toxicity, prompt injection, NSFW, hate speech, and other safety categories.
 
-- A static `DANGEROUS_TOOLS` set.
-- A fixed `MAX_ITERATIONS` cap.
-- A fixed retry count.
+We ship one as an example: **sentiment analysis** on the model's final response, ensuring a coding assistant doesn't return a hostile or negative-toned answer.
 
-These are cheap, predictable, easy to reason about, and they catch the obvious cases. They're also blunt: every `bash` call triggers the same approval prompt — `pwd` and `rm -rf /` are treated identically. Every turn gets the same 30-iteration budget regardless of task complexity. Every transient API error gets the same exponential backoff.
+### A two-class BERT classifier
 
-For higher-stakes deployments, two complementary categories of *learned* control sit alongside the heuristics:
-
-1. **Classifiers** — small, trained models with a fixed output layer. Given some input, they produce a discrete label (often just two: pass / fail) plus a confidence score. Fast, cheap, deterministic-ish, run inline on every call.
-2. **LLM-as-judge** — a second model call (usually a cheaper or smaller LLM) that reads some input and a rubric, then returns a verdict in natural language. Slower and pricier than a classifier, but handles ambiguity and context that no fixed-label model can.
-
-Both have the same conceptual shape: **inspect some part of the messages array — or the model's output, or a tool's input/output — and decide whether to allow, modify, or block what's happening**. The heuristics in this module do that with `if`-statements; classifiers and judges do it with a forward pass through a neural network. Different mechanism, same job.
-
-### What you're actually classifying over: the messages array
-
-Every harness's working state is the `messages` list. When you want a guardrail to make a decision at any point in the loop, you're asking the same fundamental question: *given the current state of `messages` (plus any tool inputs or outputs in flight), is this allowed?*
-
-- The **user's incoming message** is a single new entry being appended to `messages`. Classify it before it gets there.
-- The **model's planned tool call** sits inside the latest assistant message in `messages`. Inspect that block before dispatching.
-- A **tool's output** is about to be appended as a `tool_result` block. Inspect it before the model sees it.
-- The **final assistant response** is the latest entry in `messages` after the loop exits. Judge it before returning to the user.
-
-The fact that everything in the harness flows through one ordered list of messages is what makes guardrails composable. You don't need a different mechanism at each step — you need a classifier or a judge that reads the relevant slice of `messages` and outputs a verdict.
-
-### Concrete example: an instruction-following classifier
-
-Imagine a small transformer fine-tuned with a two-class output head: `following` vs `not_following`. Input: a sliced view of `messages` — the system prompt plus the last assistant turn. Output: a softmax over two logits.
+We pull `distilbert-base-uncased-finetuned-sst-2-english` from HuggingFace. It's a distilled BERT (~67M parameters, ~6× smaller than full BERT-base) fine-tuned on the Stanford Sentiment Treebank v2. Two output classes: POSITIVE and NEGATIVE. The output layer is a 2-unit linear projection over the pooled `[CLS]` token, run through softmax to produce a probability distribution.
 
 ```python
-# Schematic, not in this module's example code:
-def instruction_following_classifier(system: str, latest_assistant_text: str) -> tuple[str, float]:
-    """
-    Forward pass through a fine-tuned classifier.
-    Returns ("following", 0.94) or ("not_following", 0.71).
-    """
-    logits = model.forward(format_input(system, latest_assistant_text))
-    probs = softmax(logits)
-    label = "following" if probs[0] > probs[1] else "not_following"
-    return label, float(max(probs))
+from transformers import pipeline
+
+print("Loading sentiment classifier...")
+_sentiment_pipe = pipeline(
+    "sentiment-analysis",
+    model="distilbert-base-uncased-finetuned-sst-2-english",
+)
+
+
+def check_sentiment(text: str) -> tuple[str, float]:
+    """Two-class BERT sentiment: POSITIVE / NEGATIVE with confidence."""
+    if not text.strip():
+        return ("POSITIVE", 1.0)
+    result = _sentiment_pipe(text[:512])[0]  # truncate to BERT max-len
+    return (result["label"], float(result["score"]))
 ```
 
-What this catches that heuristics can't:
+Returns something like `("POSITIVE", 0.9943)` or `("NEGATIVE", 0.8721)`. The HuggingFace `pipeline` wrapper handles tokenization, the forward pass, and the softmax for you.
 
-- The model goes off-topic mid-turn (the system says "answer in JSON only" and the model starts narrating).
-- The model breaks a constraint that's stated in plain English in the system prompt (no static rule could encode the constraint cheaply).
-- The model claims to have done something it didn't.
+A few details that matter:
 
-What you do with the verdict:
+- **Truncate to 512 tokens.** BERT's positional embeddings are capped at 512 input tokens. We slice the input to fit.
+- **Local inference.** The model runs on the CPU (or GPU if available) on your machine. No API call.
+- **Deterministic given the same input.** Unlike LLM-as-judge, you'll get the same label and score every time for the same text. Easy to test, easy to reason about.
 
-- **If `following` with high confidence**: continue normally.
-- **If `not_following` with high confidence**: refuse the response, ask the model to retry with a corrective message, or fall back to a stricter policy.
-- **If low-confidence (either class)**: escalate to the human approval gate, or run the heavier LLM-as-judge.
+### Wiring it as a guardrail
 
-The classifier runs in ~10–50ms locally, costs essentially nothing per call, and is deterministic given the same input. The trade-off: it can only catch patterns it was trained on. A novel failure mode bypasses it.
-
-### Concrete example: LLM-as-judge for output quality
-
-Same idea, different mechanism. Instead of a fixed classifier, call a small LLM with a rubric and the relevant slice of `messages`:
+We run the classifier on the model's final response — the text returned to the user when the inner loop exits because the model stopped calling tools.
 
 ```python
-# Schematic:
-async def judge_output(user_input: str, assistant_response: str, rubric: str) -> bool:
-    response = await client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=50,
-        system="You evaluate agent outputs against a rubric. Return exactly PASS or FAIL.",
+# After the inner loop, when the model produced a final response:
+final_text = "".join(b.text for b in response.content if b.type == "text")
+
+label, score = check_sentiment(final_text)
+if label == "NEGATIVE" and score > 0.85:
+    print(f"\n⚠ guardrail: response shows negative sentiment ({score:.2f})")
+```
+
+In this example, we just *flag* — print a warning. A stricter policy would:
+
+- **Block.** Replace the response with a refusal before returning to the user.
+- **Retry.** Append a system message (*"your last response had a negative tone; please rephrase"*) and re-enter the TAO loop.
+- **Escalate.** Tag the conversation for human review.
+
+Choosing the action is policy, not architecture. The classifier provides the signal; the harness decides what to do with it.
+
+### What's actually happening under the hood
+
+The classifier reads the text, tokenizes it into ~512 sub-word tokens, runs them through 6 transformer layers, takes the pooled hidden state of the `[CLS]` token, projects it to 2 logits, and softmaxes. The label is whichever of the two logits is larger; the score is the softmaxed probability of the chosen class.
+
+This is the *same* architectural shape as the model the agent is built around (Module 2): tokenizer → embedding → transformer blocks → output head. The difference is the size (~67M vs. tens of billions of parameters), the training data (sentiment-labeled sentences vs. trillions of tokens of web text), and the output head (2 classes vs. ~128k vocabulary).
+
+A classifier guardrail is a *small specialized brain* that lives alongside the *general-purpose brain* doing the agent's work.
+
+### Other off-the-shelf classifier guardrails
+
+The same pattern applies to other safety dimensions. Industry-standard classifiers you can swap in:
+
+| Concern | Common pretrained model |
+|---|---|
+| Sentiment (2-class) | `distilbert-base-uncased-finetuned-sst-2-english` |
+| Toxicity | `unitary/toxic-bert`, `s-nlp/roberta_toxicity_classifier` |
+| Prompt injection | `protectai/deberta-v3-base-prompt-injection`, **Meta's Prompt Guard** |
+| NSFW (text) | `KoalaAI/Text-Moderation` |
+| Multi-category safety | **Meta Llama Guard 3** (8B), **Google ShieldGemma** (2B/9B/27B) |
+
+All of these load the same way: `pipeline("text-classification", model="...")`. Swap the model name; the guardrail wiring stays the same.
+
+### What frontier providers already give you
+
+You don't always need to bring your own classifier. Frontier model providers ship moderation either inside the model or as adjacent endpoints:
+
+| Provider | Built-in or adjacent moderation |
+|---|---|
+| **Anthropic** | Constitutional AI inside the model (refusals for violence, illegal content, CSAM, etc.) |
+| **OpenAI** | `omni-moderation-latest` endpoint — multi-category classifier, free to call |
+| **Google** | Gemini built-in safety filters (harassment, hate speech, sexually explicit, dangerous content) with configurable thresholds |
+| **Meta** | **Llama Guard 3** / **Prompt Guard** — open-weight safety classifiers |
+
+If your guardrail need is content safety (violence, toxicity, NSFW, jailbreaks), reach for a provider endpoint or a Llama Guard-style open model before writing your own classifier. The provider has trained on more data than you have. The classifiers *you* build are for things providers don't cover — instruction-following for your specific system prompt, domain-specific policy, task-completion checks against your custom rubric.
+
+---
+
+## Example 3: LLM-as-judge guardrails
+
+LLM judges protect against **ambiguous cases that need contextual reasoning**. No fixed-label classifier can tell you whether the agent's response contained claims it didn't actually have evidence for. That's a judgement call, and you need a model that can read context and weigh it.
+
+We ship one as an example: **hallucination protection** — checking whether the agent's final answer is supported by the tool outputs from the turn.
+
+### The judge
+
+```python
+async def hallucination_judge(user_input: str, response_text: str, tool_evidence: str) -> tuple[bool, str]:
+    """Returns (grounded, reason).
+
+    grounded == True  → response is supported by tool evidence.
+    grounded == False → response contains claims not supported by evidence.
+    """
+    judge = await client.messages.create(
+        model=SUMMARY_MODEL,  # claude-haiku-4-5
+        max_tokens=150,
+        system=(
+            "You evaluate whether an agent's response is grounded in evidence "
+            "from its tool calls. Reply on the first line with exactly one word: "
+            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+        ),
         messages=[{
             "role": "user",
             "content": (
                 f"User asked: {user_input}\n\n"
-                f"Agent answered: {assistant_response}\n\n"
-                f"Rubric: {rubric}\n\n"
-                "PASS or FAIL?"
+                f"Agent answered: {response_text}\n\n"
+                f"Evidence from tool calls in this turn:\n"
+                f"{tool_evidence or '(no tool calls)'}\n\n"
+                f"Is the answer supported by the evidence?"
             ),
         }],
     )
-    return response.content[0].text.strip().upper().startswith("PASS")
+    text = judge.content[0].text.strip()
+    verdict_line, _, reason = text.partition("\n")
+    grounded = verdict_line.strip().upper().startswith("GROUNDED")
+    return grounded, reason.strip() or verdict_line
 ```
 
-Common rubrics:
+The judge sees:
 
-- *"Did the agent actually answer the user's question, or did it just describe what it would do?"*
-- *"Did the agent accurately describe the tool calls it made?"* (compare assistant text against the `tool_use` blocks earlier in `messages`).
-- *"Does the response contain hallucinated facts not supported by what tools returned?"*
+- What the user asked.
+- What the agent's final text response was.
+- All the tool outputs from the current turn (concatenated).
 
-Judge returns PASS or FAIL. Harness acts on the verdict:
+It returns a verdict + a one-line reason. The harness collects tool evidence from the turn's messages, calls the judge, and acts on the verdict:
 
-- **PASS**: return the response to the user.
-- **FAIL**: append a corrective user message (*"the judge says your last response failed because X; please try again"*) and re-enter the TAO loop, or escalate to human review.
+```python
+# Collect tool evidence from this turn's messages
+tool_evidence_parts = []
+for msg in messages[turn_start:]:
+    content = msg.get("content")
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "tool_result":
+                tool_evidence_parts.append(str(block.get("content", ""))[:500])
+tool_evidence = "\n---\n".join(tool_evidence_parts)
 
-LLM-as-judge handles cases a classifier can't — novel rubrics, contextual judgements, multi-step reasoning about whether tool calls match intent. The cost: ~300–800ms latency and a fraction of a cent per call when using a small model like Haiku or Flash.
+# Judge the final response
+if final_text:
+    grounded, reason = await hallucination_judge(user_input, final_text, tool_evidence)
+    if not grounded:
+        print(f"\n⚠ guardrail: response may not be grounded — {reason}")
+```
 
-### What frontier providers already give you for free
+Like the sentiment classifier, we just *flag* in this example. Real policies would retry (append a corrective message and re-enter the loop), block (replace the response with a refusal), or escalate (tag for human review).
 
-Before you build any of this yourself, know that most frontier model providers already ship content-moderation guardrails *inside* the model or as adjacent endpoints:
+### Why a judge instead of a classifier here?
 
-| Provider | Built-in / adjacent moderation |
-|---|---|
-| **Anthropic** | Constitutional AI baked into the model (refusals for violence, illegal content, CSAM, etc.). Optional pre/post moderation in API gateway products. |
-| **OpenAI** | `omni-moderation-latest` / `text-moderation-latest` endpoints classifying violence, hate, self-harm, sexual content, harassment. Free to call. |
-| **Google** | Gemini's safety filters (harassment, hate speech, sexually explicit, dangerous content) with configurable thresholds. |
-| **Meta** | **Llama Guard 3** / **Prompt Guard** — open-weight classifiers for safety, jailbreak detection, and prompt-injection detection. |
+Hallucination is not a fixed-label problem. You can't pre-train a model on "hallucinated vs. grounded" because what counts as grounded depends on what *this particular* tool call returned for *this particular* question. The judge needs to read the user's question, read the response, read the evidence, and reason about whether the response is consistent with the evidence.
 
-If your guardrail need is *"don't let the agent produce or accept violent / toxic / NSFW / hateful content"*, **don't write your own classifier**. Plug into the provider's moderation surface or run a fine-tuned safety classifier (Llama Guard is a strong default). The provider has spent more on the training data than you can.
+That kind of contextual reasoning is what LLMs do well. The trade-off: ~500ms of added latency and a fraction of a cent per turn. Worth it when the failure (an agent confidently asserting incorrect facts) is high-cost.
 
-The classifiers and judges *you* build are for the things providers don't ship out of the box:
+### Other rubrics that fit this pattern
 
-- **Instruction-following** for your specific system prompt (no generic provider rule covers your custom policy).
-- **Domain-specific safety** (e.g. for a financial agent: did the model give financial advice it isn't allowed to?).
-- **Output quality** against your specific rubric (did the agent finish the task? did it cite sources correctly?).
-- **Tool-call sanity** (does this `bash` command match what the user asked? — provider safety filters don't know your tool surface).
+Hallucination is one rubric. The same `hallucination_judge` shape works for:
 
-The mental model: providers handle the **content safety** dimension (broad, generic, applies to every agent). You handle the **task and policy** dimension (specific to your harness, your tools, your users).
+- **Instruction-following.** *"Did the agent comply with the system prompt's stated constraints?"*
+- **Tool-call intent.** *"Does this tool call match what the user asked for?"*
+- **Output quality.** *"Did the agent actually answer the question, or did it just describe what it would do?"*
+- **Completeness.** *"Did the agent finish the task, or did it stop early?"*
+- **Honesty.** *"Did the agent accurately describe what it did, or did it overstate its work?"*
 
-### Stacking heuristics, classifiers, and judges
+Each is one prompt change to the judge. The harness wiring is the same.
 
-The three layers compose — they don't replace each other:
+---
 
-| Layer | What it does | Latency | Cost per call | Failure mode |
-|---|---|---|---|---|
-| **Heuristic** (set / regex / cap) | Catches the obvious. Always runs. | <1ms | $0 | Blunt — can't tell `pwd` from `rm -rf /`. |
-| **Classifier** (BERT-style local / Llama Guard) | Catches trained-on patterns. Cheap enough to run on every message. | ~10–50ms | ~$0 | Can't generalize to novel patterns. |
-| **LLM-as-judge** (Haiku / Flash / 4o-mini) | Handles ambiguity and context. Reads a rubric. | ~300–800ms | ~$0.0001–0.001 | Slower; non-deterministic; needs a rubric you trust. |
-| **LLM-as-judge** (Sonnet / Opus / GPT-4) | Subtle cases, multi-step reasoning. | ~1–3s | ~$0.001–0.01 | Expensive; reserve for high-stakes. |
+## Where each guardrail fits
 
-A production agent stacks them top-to-bottom:
+```mermaid
+flowchart LR
+    User([User])
+    User -- input --> Loop
 
-1. Heuristics on every call — they cost nothing and catch the obvious.
-2. Provider moderation on every user input — free or near-free, catches content-policy violations.
-3. Domain-specific classifier on the messages array — instruction-following, policy compliance, task completion.
-4. LLM-as-judge only on high-stakes outputs — final answers, dangerous tool calls, anything irreversible.
+    Loop["TAO loop<br/>━━━━━━━━━━<br/>MAX_ITERATIONS = 30<br/>(heuristic)"]
+    Loop --> LLM
 
-Each layer reads the same `messages` array (or the relevant slice of it) and produces a verdict. The harness aggregates verdicts and decides whether to allow, modify, retry, or escalate.
+    LLM["LLM call<br/>━━━━━━━━━━<br/>max_retries=4<br/>timeout=60s<br/>(heuristic)"]
+    LLM --> Branch{Tool call?}
 
-### Where the hooks land in this module's code
+    Branch -- yes --> Approve["Approval gate<br/>━━━━━━━━━━<br/>DANGEROUS_TOOLS<br/>HITL prompt<br/>(heuristic)"]
+    Approve --> Exec[Execute tool]
+    Exec --> Loop
 
-This module ships only the heuristics. They're the load-bearing baseline. But the hook points for classifier and judge layers are exactly the functions we just wrote:
+    Branch -- no --> Sentiment["Sentiment check<br/>━━━━━━━━━━<br/>DistilBERT<br/>(classifier)"]
+    Sentiment --> Hall["Hallucination check<br/>━━━━━━━━━━<br/>Haiku judge<br/>(LLM-as-judge)"]
+    Hall --> User
+```
 
-- **`request_approval()`** could call an instruction-following classifier or an LLM judge *before* prompting the user. If the classifier is highly confident the tool call is benign and aligns with the user's intent, skip the prompt. If the classifier flags it, escalate the human prompt (or refuse outright).
-- **`execute_tool()`** could pre-classify the tool input (catch `rm -rf /` even though `bash` is the same DANGEROUS_TOOLS entry as `pwd`) and post-scrub the tool output (strip credentials, redact PII, flag embedded prompt injection).
-- **The TAO loop's user-input read** could feed every incoming message through a moderation classifier (yours or the provider's) before reaching the model at all.
-- **The TAO loop's final assistant response** could be judged before being returned to the user — a "did this actually finish the task?" check.
+Three heuristic gates inside the loop (loop bound, retry/backoff, approval gate). Two output gates after the loop exits (sentiment classifier, hallucination judge). Each is independent. Each could be swapped, added to, or removed without touching the others.
 
-Each hook is one function wrapped in another — the same composition pattern that built every harness component so far. Heuristics in this module; classifiers and judges layered on top in a real production deployment.
+That's the design lesson: **guardrails are independent functions wrapped around the harness components from earlier modules**. The model interface (M2), the loop (M3), the memory (M4), the tools (M5), the sandbox (M6) all stay unchanged. Guardrails sit *around* them.
 
-## What the safe agent does, end to end
+## Stacking the three layers
 
-Compared to Module 6, three things changed in `main()`:
+In production, you stack them top-to-bottom by cost:
 
-1. Client built with retries + timeout (top of the file, not in `main`).
-2. The inner loop runs `for iteration in range(MAX_ITERATIONS):` instead of `while True:`, with an `else:` clause warning when the cap is hit.
-3. Tool dispatch branches: serial if any call is dangerous, parallel otherwise.
+| Order | Layer | When it runs |
+|---|---|---|
+| 1 | Heuristics | Always. Cost is zero. |
+| 2 | Provider safety (Anthropic CAI, OpenAI moderation, Gemini filters, Llama Guard) | Always for content-policy. Free or near-free. |
+| 3 | Domain-specific classifier (yours or open-weight from HuggingFace) | On every relevant message slice. Local, ~10–50ms. |
+| 4 | LLM-as-judge | Reserved for high-stakes outputs — final answers, dangerous tool calls. ~$0.0001–0.001 per call. |
 
-Everything else from Module 6 is preserved unchanged: the sandboxed `bash`, the host-side `read`/`write`/`edit`/`grep`/`glob`, the persistence, budget eviction, semantic recall. Guardrails sit *around* the existing machinery — they don't replace any of it.
+Each layer reads some slice of the conversation (the `messages` array, the latest tool output, the assistant's final response) and produces a verdict. The harness aggregates verdicts and decides: allow, modify, retry, escalate, refuse.
+
+None alone is sufficient. Heuristics miss the contextual stuff. Classifiers miss novel patterns. Judges are too slow and expensive to run on every call. The combination is what makes the agent safe enough to ship.
+
+## Build your own
+
+The three examples in this module — DistilBERT sentiment, Haiku hallucination judge, the heuristic stack — are *examples*. They show the pattern. Your harness might need different guardrails:
+
+- A regex that blocks any tool call writing to `~/.ssh/`.
+- A classifier checking for prompt injection in the content of `read` (catches a malicious file trying to redirect the agent).
+- A judge that confirms each tool call matches the current task plan.
+- A retrieval check that verifies cited sources actually appear in the documents the agent fetched.
+
+The patterns are the same:
+
+- **Heuristic** when the rule is fixed.
+- **Classifier** when there's a learned pattern and an open-weight model that already knows it.
+- **LLM-as-judge** when the verdict needs context.
+
+Pick the right layer for the right check.
 
 ## Run it
 
-The end state lives at [`examples/safe_agent.py`](../../examples/safe_agent.py).
-
-Requires Docker to be running (carries forward the Module 6 sandbox).
+The end state lives at [`examples/safe_agent.py`](../../examples/safe_agent.py). Requires Docker.
 
 ```bash
 cd examples
 uv run safe_agent.py
 ```
 
+First run downloads the DistilBERT sentiment model (~268MB) and the sentence-transformers embedding model (~80MB). Both cache locally.
+
 Try a write call:
 
 ```
 ❯ create a file called notes.txt with the text "hello"
 
-⏺ I'll create that file for you.
-
 ⚠ Tool 'write' wants to run with: {'path': 'notes.txt', 'content': 'hello'}
-approve? [y/N]
-```
-
-Type `y` and it runs. Type `n` (or just Enter) and the model sees `"error: user denied approval"` as the tool result, typically responds with an acknowledgement, and waits for your next input.
-
-Try a bash call:
-
-```
-❯ run pwd
-
-⚠ Tool 'bash' wants to run with: {'cmd': 'pwd'}
 approve? [y/N] y
-/workspace
 ```
 
-`pwd` runs in the sandbox container (Module 6), then prints `/workspace` — the bind-mount root, not your host path.
+Try a question that should produce a clean response:
 
-Try something that would loop:
+```
+❯ what does stateless_chatbot.py import?
+```
 
-Force the model into a stuck pattern with something like *"keep listing files until you find one named `does-not-exist-anywhere.zzz`"*. The agent will try, fail, try, fail. At iteration 30 the loop bound kicks in:
+The agent will `read` the file, produce a response, then both output-guardrails run silently in the background. Healthy run: nothing prints (sentiment is POSITIVE, hallucination judge says GROUNDED).
+
+Try something that might trigger hallucination:
+
+```
+❯ how many lines are in a file called does-not-exist.py?
+```
+
+If the agent guesses instead of admitting the file doesn't exist, the hallucination judge fires:
+
+```
+⚠ guardrail: response may not be grounded — Agent stated a specific line count without evidence
+```
+
+Force a loop bound:
+
+```
+❯ keep listing files in this directory until you find one named does-not-exist-anywhere.zzz
+```
+
+At iteration 30, the bound triggers:
 
 ```
 ⚠ Reached 30 iterations without completion. Aborting turn.
 ```
 
-State directory: `~/.safe-agent/` — same `messages.json` and `recall.json` shape as Module 6.
+State directory: `~/.safe-agent/` — same `messages.json` and `recall.json` as Module 6, plus the guardrail warnings printed to the terminal.
 
 ## What's missing
 
-- **No visibility into what happened.** Approvals, retries, loop-bound trips — they all print to the terminal and disappear with the scrollback. If the agent did the wrong thing yesterday, there's no record of which tools ran, which were denied, which got retried.
-- **No structured record of LLM calls.** Tokens consumed, latency, the actual content of each prompt and response — all ephemeral.
-- **No way to feed any of this into evals.** You can't ask "did the agent take more tool calls than necessary?" if you didn't log the tool calls.
+- **Guardrail warnings disappear with the scrollback.** If yesterday's run had a hallucination flag, there's no record of which response triggered it or what the judge's reasoning was.
+- **No structured trace of LLM calls or tool calls.** Tokens, latency, the actual content of each prompt and response — all ephemeral.
+- **Nothing to feed into evals.** You can't ask "did adding the sentiment guardrail reduce negative responses?" if you didn't log them.
 
-The harness needs to start watching itself. That's observability — the next module.
+The harness needs to watch itself, structurally. That's observability.
 
 ---
 
