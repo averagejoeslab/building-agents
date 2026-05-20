@@ -122,9 +122,9 @@ flowchart LR
 Now you may have seen the above and thought how can I fit these lego pieces into something more grand. If so then you're thinking about how composition works. In the case of compositions I find it helpful to think of workflows as a catalog of orchestration shapes wherein you can use agents. To compose in this way is to build multi-agent systems/multi-agent orchestration.
 
 > [!NOTE]
-> **Whether to use multi-agent systems at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code has subagents built in as tool within the harness). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
+> **Whether to use multi-agent systems at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code has subagents built in as a tool within the harness). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
 
-### The Average Joes Lab stance: purist agents only
+### The Average Joes Lab stance
 
 As far as it relates to my personal stance and what I do with Average Joes Lab, I subscribe to the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents) of breaking it down into workflows and agents but I do not subscribe fully to the idea of multi-agent orchestration in most cases. I personally prefer to keep my agentic systems single threaded *for now*. As it relates to this repo the focus is building a single threaded agent.
 
@@ -146,17 +146,75 @@ So with all three disciplines on the table, let's actually walk through them and
 
 I won't be teaching model development here because, as I mentioned earlier, this is the discipline that a handful of well-resourced labs handle, and most of us don't have the GPUs, the training corpora, or the budget to do it ourselves. But I do want to give you enough orientation that you know what's actually inside the model your harness will be calling. So before we get to the harness work let's spend a moment on what a modern LLM is made of, how it gets trained, and how it produces output at inference time. If you already know all this you can skim or skip ahead.
 
-#### What a modern LLM is made of
+#### A journey through the forward pass
 
-At its core a modern LLM is a probabilistic next-token predictor — it sees some text and produces a probability distribution over what word should come next. That's the whole game. Everything we're going to do in the harness sits on top of that one capability. But to actually get that one capability, the model is built out of a small set of primitives stacked together:
+At its core a modern LLM is a probabilistic next-token predictor — it sees some text and produces a probability distribution over what word should come next. That's the whole game. Everything we're going to do in the harness sits on top of that one capability. But to actually understand how the model produces that probability distribution, the cleanest path is to follow a single forward pass from raw input all the way to a sampled token, and explain what each part of the architecture is doing along the way.
 
-- **Tokenizer.** This is what chops raw text into sub-word tokens via byte-pair encoding (BPE) or something similar. Modern vocabularies typically have between 30k and 200k entries.
-- **Token embeddings.** Each token ID gets mapped to a learned vector — often somewhere between 2,048 and 16,384 dimensions in modern models. This is where the model starts to develop a sense of what each token actually means.
-- **Positional information.** Added on top of the embeddings so the model knows what order the tokens came in (RoPE in modern designs, sometimes ALiBi).
-- **Transformer block.** This is the workhorse layer where most of the actual thinking happens — it's made up of self-attention (every token attends to every other), a feed-forward network (per-token nonlinear, usually SwiGLU these days), residual connections, and layer normalization (RMSNorm). Frontier models typically stack 60 to 120 of these on top of each other.
-  - **Attention variants.** Plain multi-head attention (MHA) is legacy at this point. **GQA** (grouped-query attention) is the field standard in 2026. **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by ~10× and is the frontier choice for very long contexts.
-  - **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
-- **Output head.** This projects the final hidden state into a distribution over the entire vocabulary so the next token can be sampled. It's often weight-tied to the input embedding matrix.
+Before I do that walk-through though, there's one foundational idea worth establishing up front because everything else in the model rests on it: **meaning can be represented as a vector in a high-dimensional space.** That sounds abstract, so let me unpack it.
+
+Imagine a coordinate system. In 2D you've got an x-axis and a y-axis and any point on the plane is just a pair of numbers. In 3D you add a z-axis and now any point is a triple. A modern LLM uses *thousands* of these axes — somewhere between 2,048 and 16,384 in frontier models — and every word, every concept, every shade of meaning the model has learned ends up represented as a point in that high-dimensional space. The technical name for that point is a *vector*.
+
+What makes this useful is that the model is trained such that semantically similar things end up near each other in the space. Words like *cat*, *dog*, and *kitten* land in one neighborhood. Words like *car*, *truck*, and *bicycle* land in another. And — this is the famous example — you can actually do arithmetic on these vectors. The vector for *king* minus the vector for *man* plus the vector for *woman* lands very close to the vector for *queen*. The "gender" relationship and the "royalty" relationship are both *directions* in the vector space, and the model has learned them through training.
+
+Here's a tiny slice of what that looks like in three dimensions — keeping in mind that a real model is doing this in thousands:
+
+<p align="center">
+<svg viewBox="0 0 640 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A 3D slice of an embedding space showing semantic clusters" style="max-width:100%; height:auto;">
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+  </defs>
+  <line x1="300" y1="280" x2="540" y2="280" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="300" y1="280" x2="300" y2="50"  stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="300" y1="280" x2="160" y2="350" stroke="#888" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="545" y="284" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 1</text>
+  <text x="305" y="48"  fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 2</text>
+  <text x="115" y="362" fill="#888" font-size="11" font-family="ui-monospace, monospace">dim 3</text>
+  <circle cx="420" cy="180" r="5" fill="#EB6E1F"/>
+  <text x="430" y="184" fill="#EB6E1F" font-size="12" font-family="sans-serif">cat</text>
+  <circle cx="450" cy="200" r="5" fill="#EB6E1F"/>
+  <text x="460" y="204" fill="#EB6E1F" font-size="12" font-family="sans-serif">dog</text>
+  <circle cx="430" cy="155" r="5" fill="#EB6E1F"/>
+  <text x="440" y="159" fill="#EB6E1F" font-size="12" font-family="sans-serif">kitten</text>
+  <circle cx="200" cy="180" r="5" fill="#4a9eff"/>
+  <text x="150" y="184" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">car</text>
+  <circle cx="175" cy="205" r="5" fill="#4a9eff"/>
+  <text x="125" y="209" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">truck</text>
+  <circle cx="195" cy="155" r="5" fill="#4a9eff"/>
+  <text x="145" y="159" fill="#4a9eff" font-size="12" font-family="sans-serif" text-anchor="end">bicycle</text>
+  <circle cx="290" cy="110" r="5" fill="#9b6dff"/>
+  <text x="285" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif" text-anchor="end">king</text>
+  <circle cx="335" cy="110" r="5" fill="#9b6dff"/>
+  <text x="345" y="100" fill="#9b6dff" font-size="12" font-family="sans-serif">queen</text>
+  <text x="320" y="368" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">A 3D slice of an embedding space. Similar meanings end up clustered nearby.</text>
+</svg>
+</p>
+
+So with that as the foundation — that meaning lives as vectors in a learned high-dimensional space — let's walk through what actually happens when you send the model some text. I'm going to follow a single forward pass from raw input to a sampled output token, and at each step explain which part of the architecture is doing the work.
+
+**1. Tokenization.** The very first thing the model does is take your raw text and chop it into smaller pieces called tokens. A token is usually a sub-word — a few characters long, smaller than a typical word but larger than a single letter. The chopping is done with an algorithm called byte-pair encoding (BPE) or something close to it, which is essentially "merge the most common adjacent character pairs over and over until you have a vocabulary of the right size." Modern vocabularies typically have between 30k and 200k unique tokens. The output of this step is just a list of token IDs — integers — one per token in your input. There's no meaning attached yet, just keys.
+
+**2. Embedding lookup.** Now we get to the vectors. The model has a giant lookup table called the *embedding matrix*, with one row per token in the vocabulary, and each row is a vector somewhere between 2,048 and 16,384 dimensions long. The model takes each token ID from step 1 and uses it as an index into this table to pull out the corresponding vector. This is where the model starts to actually "know" what each token means, because the embedding vectors are exactly what we just talked about above — they're points in the learned semantic space, and they sit near other tokens that have similar meanings. After this step, your list of token IDs has become a list of vectors.
+
+**3. Positional encoding.** There's still a problem at this point though. Embeddings alone don't tell the model anything about *order*. The sentences "dog bites man" and "man bites dog" tokenize to the same three vectors — just in different orders — and without help the model couldn't tell which one you sent. So before the vectors go any further the model mixes positional information into them. The modern way to do this is **RoPE** (rotary position embedding), which rotates each vector by an amount that depends on its position in the sequence; some models use **ALiBi** as an alternative. Either way, after this step each vector encodes both *what* the token means and *where* in the sequence it sits.
+
+**4. Transformer blocks.** Now we're at the workhorse layer of the model, and this is where most of the actual thinking happens. A single transformer block is made up of a few moving parts working together:
+
+- **Self-attention.** Each token gets to "look at" every other token in the sequence and pull in context from them. So the vector for *bank* in "river bank" gets influenced by the surrounding vectors for *river* and ends up shifted toward "geological feature" rather than "financial institution." Every token attends to every other, all in parallel.
+- **A feed-forward network (FFN).** After attention, each token vector goes through a per-token nonlinear transformation. The modern choice for this is SwiGLU. This is where a lot of the model's stored knowledge gets injected and where individual token meanings get further refined.
+- **Residual connections and layer normalization (RMSNorm).** These don't change the meaning of the vectors directly — they're plumbing that keeps the math stable as the network gets deeper.
+
+One pass through this block refines every token vector a little — incorporating context from neighbors, applying learned transformations. Then the output gets fed straight into the next block, and the next, and the next. Frontier models typically stack 60 to 120 of these on top of each other, and each successive layer pushes the vectors closer to a representation that captures what's about to come next.
+
+A couple of architectural variations are worth knowing about because they show up in current frontier models:
+
+- **Attention variants.** Plain multi-head attention (MHA) is legacy at this point. **GQA** (grouped-query attention) is the field standard in 2026. **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by about 10× and is the frontier choice for very long contexts.
+- **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). DeepSeek R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
+
+**5. Output head.** After the final transformer block we've got a refined vector for every position in the sequence. The model takes the vector at the last position — the one that represents "what should come next" — and projects it back into the vocabulary space using the *output head*. What comes out the other side is a probability for every single token in the vocabulary, and the next token is sampled from that distribution. The output head is often weight-tied to the embedding matrix from step 2, meaning the same numbers used to look up token vectors at the start are reused to project back out at the end. This both saves parameters and pushes the model toward consistency between its input and output representations.
+
+That's the entire forward pass. Text comes in, gets chopped into tokens, looked up as vectors, positionally encoded, refined through dozens of transformer layers, and projected back out as a probability distribution over the next token. Do this once and you've produced one new token. Do it in a loop where each new token gets appended back to the input and you've produced a full response.
 
 #### Training
 
