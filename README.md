@@ -39,7 +39,7 @@ Below are some common workflow patterns that are used to orchestrate LLM calls.
 
 **Prompt chaining** — LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
 
-Say you wanted to write a blog post end to end and you already knew the shape of the work up front. You might call the model once to turn a topic into an outline, then again on that outline to write the first draft, then a third time to polish the draft for tone and grammar. Each call's output becomes the next call's input, and the order is fixed because you decided it in advance. The model isn't choosing what comes next — your code is, by chaining the calls together.
+Say you want to produce a polished essay. Instead of asking the model to do everything in one shot, you have it draft an outline first, then hand that outline to a second call that fills in the prose, and pass the result to a third call that does a final polish pass. Each call has one clear job, and the next one always starts from the previous one's output.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -49,7 +49,7 @@ flowchart LR
 
 **Routing** — Classify input → dispatch to one of N handlers. Example: support tickets routed to billing / technical / refunds.
 
-Say you're running a customer support inbox and every incoming ticket needs to land in the right team's queue. You'd call the model once with the ticket text and ask it to classify the issue into one of N categories — billing, technical, refunds, account access, whatever your support org cares about — and then your code routes that ticket to the appropriate handler based on the classification. The model is doing the one thing it's well-suited for here (categorizing the request); your code is doing the dispatch.
+Imagine a customer support inbox. The first model call reads the incoming ticket and decides what kind of issue it is — billing question, technical bug, or refund request. Based on that classification, the ticket gets routed to a different downstream handler tuned for that specific kind of problem, instead of one giant prompt trying to handle every case at once.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -65,7 +65,7 @@ flowchart LR
 
 **Parallelization** — Run N LLM calls in parallel → aggregate. Example: N perspectives on one question.
 
-Say you wanted to get several independent angles on the same question — for example, asking the model to evaluate a startup pitch from a marketing perspective, a financial perspective, and a technical perspective. You'd fire off the model N times in parallel, each with a slightly different framing prompt, and then aggregate the results into a final answer (taking a majority vote, summarizing the points of agreement, or picking the strongest reasoning). The N calls never see each other; they all happen simultaneously, and the aggregation step is what stitches them back together at the end.
+Say you want a balanced answer to a contested question. Instead of asking one model and hoping for the best, you fire off the same prompt to several model calls in parallel — each picking up a different angle or perspective — and then aggregate the responses into a single answer that incorporates all of them. Fan out, then fan in.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -81,7 +81,7 @@ flowchart LR
 
 **Orchestrator-workers** — One LLM splits work → workers handle sub-tasks. Example: research report with multiple sections.
 
-Say you're writing a long research report with multiple sections — an executive summary, market analysis, competitive landscape, technical deep dive, recommendations. You'd call the model once as an orchestrator: read the topic, decide what sections the report should have, and dispatch one worker LLM per section to actually write that section. Then a synthesis step stitches the sections together into one coherent document. The orchestrator is the planner; the workers are the writers. This is close to parallelization, but the orchestrator gets to *choose* what the sub-tasks are based on the input rather than them being fixed by your code.
+Think of writing a market research report. One model call (the orchestrator) reads the brief and splits the work into sections — competitive landscape, customer interviews, financial outlook. Each section then gets handed off to its own worker call that writes that section in depth. A final synthesis step stitches the worker outputs back together into one cohesive report.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -98,7 +98,7 @@ flowchart LR
 
 **Evaluator-optimizer** — Generator → Evaluator → loop until good. Example: draft with a quality-gate loop.
 
-Say you want the model to produce something that meets a specific bar — accurate, well-formatted, in a particular tone — and you don't trust a single shot to land it. You'd run a Generator LLM to produce a first draft, then an Evaluator LLM to score that draft against your criteria. If it passes the bar you ship the draft; if it doesn't, the Evaluator's critique gets fed back into the Generator as part of the next prompt and you loop until the criteria are met. You decide the loop bound and the criteria; the model handles both halves of the iteration.
+Say you're writing marketing copy and you have specific quality criteria in mind. One model call generates a draft. A second call (the evaluator) reads the draft against your rubric and either approves it or sends back critique. If it needs work, the generator gets another shot at it. The loop runs until the evaluator says the draft is good enough.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
