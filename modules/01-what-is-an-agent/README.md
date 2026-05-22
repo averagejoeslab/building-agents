@@ -15,7 +15,13 @@ In my opinion the bare minimum required to actually call something an agent is t
 
 The reasoning engine, which is the **model**. At the most basic level this is just an HTTP POST to the model provider's API where you send a prompt and get back a response made up of content blocks (usually text, sometimes structured tool requests). One prompt in, one response out. That's the whole mechanic at this layer, and it's exactly what Module 2 will go into depth on.
 
+In Python the cleanest way to actually make that HTTP call is through Anthropic's official SDK. The SDK handles auth, request serialization, retries, streaming, and gives you a typed response shape back so you don't have to assemble or parse the JSON yourself. Add it to your project with `uv add anthropic` and then a call looks like this:
+
 ```python
+from anthropic import Anthropic
+
+client = Anthropic()  # reads ANTHROPIC_API_KEY from your environment
+
 response = client.messages.create(
     model="claude-sonnet-4-5",
     max_tokens=1024,
