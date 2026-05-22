@@ -200,6 +200,14 @@ User: "Find and summarize the TODOs in this codebase"
 
 The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
 
+## What you'll need
+
+A few things to have installed before you can run any of the example checkpoints from here on:
+
+- [Python 3.13 or newer](https://www.python.org/downloads/)
+- [uv](https://docs.astral.sh/uv/) for dependency management
+- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
+
 ## Run it
 
 ```bash
@@ -208,14 +216,6 @@ uv run test.py
 ```
 
 It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this you've seen the goal in miniature.
-
-## What you'll need
-
-A few things to have installed before you can run any of the example checkpoints from here on:
-
-- [Python 3.13 or newer](https://www.python.org/downloads/)
-- [uv](https://docs.astral.sh/uv/) for dependency management
-- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
 
 ## Where we go from here
 
