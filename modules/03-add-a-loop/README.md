@@ -87,10 +87,10 @@ uv run stateless_chatbot.py
 ```
 
 ```
-❯ My name is Sam.
-Nice to meet you, Sam.
+❯ My name is Chase.
+Nice to meet you, Chase.
 ❯ What's my name?
-Your name is Sam.
+Your name is Chase.
 ❯ /q
 ```
 
