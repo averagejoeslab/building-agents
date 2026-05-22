@@ -262,6 +262,7 @@ Getting from a raw architecture to a released frontier model takes a specific se
 - **Preference tuning (RLHF / DPO / GRPO)** — train on human-rated comparisons between responses; helpfulness, honesty, and safety get instilled here.
 - **Constitutional AI / RLAIF** — replace human labellers with an AI judge that scores responses against a written set of principles.
 - **Reasoning RL (GRPO + verifiable rewards)** — rule-based rewards on math and code that teach the model explicit chain-of-thought.
+- **System prompt learning** *(emerging, harness-owned)* — instead of updating weights, the model edits its own system prompt to accumulate explicit problem-solving strategies; happens at inference time, no GPUs needed, and unlike every other stage on this list, it's a paradigm we as harness builders can actually impact.
 
 Now let's walk through each of these in a bit more detail.
 
@@ -299,6 +300,14 @@ Now let's walk through each of these in a bit more detail.
 
 <p align="center">
   <img src="./assets/t6-reasoning-rl.svg" alt="Reasoning RL: a prompt asks 'What is 17 × 23?' and the model produces a chain-of-thought response (Step 1: 17 × 20 = 340, Step 2: 17 × 3 = 51, Step 3: 340 + 51 = 391) with a boxed final answer 391. A rule-based verifier on the right computes 17 × 23 = 391, confirms the answer, and emits reward +1. A feedback arrow loops back to reinforce CoT trajectories that produce correct answers." width="720">
+</p>
+
+7. **System prompt learning *(emerging, harness-owned)*.** This one was named by Andrej Karpathy in a 2025 tweet, and in my opinion it's the most interesting paradigm on this list for anyone building their own harness — because it's the one we can actually influence ourselves. The idea is that not every kind of learning has to involve changing weights. A lot of human learning is more like *"I figured out how to solve this kind of problem before, let me write down the strategy so I have it next time."* That's an external note you wrote to yourself, not a rewiring of your brain. System prompt learning is the LLM analog of that: instead of updating weights, the model edits its own system prompt to accumulate explicit problem-solving strategies that it can refer back to on every future turn. Karpathy's exhibit A is Claude's system prompt itself, which contains hand-written instructions like *"to count letters, do it step by step"* — a workaround for the *"how many r's in strawberry"* failure. That instruction is doing exactly the job system prompt learning would do, except a human at Anthropic wrote it by hand instead of the model writing it for itself.
+
+The reason this paradigm gets called out specifically in this repo is that **every other stage on this list is something a well-resourced lab does, but the system prompt is something we own.** When you build your own harness the system prompt is yours — what goes into it on every call, and how it evolves over time. A harness that captures successful problem-solving strategies from past turns and accumulates them into the system prompt for future turns is doing system prompt learning, regardless of whether the underlying model was trained for it. That's the one training-adjacent paradigm we can ship in our own code without ever touching a GPU, which is why I'm including it here even though strictly speaking it's not part of the labs' standard training pipeline.
+
+<p align="center">
+  <img src="./assets/t7-system-prompt-learning.svg" alt="System prompt learning: a system prompt document on the left contains a growing strategy book with bullets like 'count letters one at a time', 'show work for math problems', and 'verify sources before quoting'. A newly appended strategy reads 'when stuck, re-read the prompt' in orange. An arrow leads to a model box in the middle which applies the strategies to a new task, producing a solution with a newly distilled strategy on the right. A dashed orange loop arrow runs from the solution back to the system prompt with the label 'append strategy → reuse next time'. A caption notes that this paradigm runs at inference time, requires no GPUs, and is the one stage the harness owns." width="720">
 </p>
 
 #### Inference
