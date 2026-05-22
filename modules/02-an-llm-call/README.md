@@ -2,11 +2,13 @@
 
 > **Harness component: the model interface.** The way I think about it, the harness has exactly one hard external dependency — the call out to the model itself. This module is where we build that call. Everything else in the curriculum gets added around it.
 
-In this module we're going to make exactly one LLM call — one prompt in, one response out. No loop yet, no tools, no state carried between calls. Just the absolute simplest thing that gets us talking to the model.
+In this module we're going to walk through three things: **how to actually make an LLM call** in the first place, **the difference between the sync and async (streaming) versions** of that call and when each one matters, and **what's still missing** at the end of it before we can call any of this an agent.
 
-## The Messages API
+## How to call an LLM
 
-The model itself sits behind a regular HTTP API — one POST per call, one JSON response back. The [Anthropic Messages API](https://docs.anthropic.com/en/api/messages) specifies the full contract, but for now we only need to care about four fields:
+### The Messages API
+
+The model sits behind a regular HTTP API — one POST per call, one JSON response back. The [Anthropic Messages API](https://docs.anthropic.com/en/api/messages) specifies the full contract, but for now we only need to care about four fields:
 
 | Field | Purpose |
 |---|---|
@@ -17,7 +19,7 @@ The model itself sits behind a regular HTTP API — one POST per call, one JSON 
 
 The response that comes back contains a `content` array of blocks. For a plain text response there's just one block in there with `type: "text"`.
 
-## Setup
+### Setup
 
 If you don't already have a project set up, here's the minimum you need to get going:
 
@@ -28,7 +30,7 @@ uv add anthropic python-dotenv
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 ```
 
-## The sync version
+### The basic call
 
 Create `llm_call_sync.py`. The whole thing is about a dozen lines:
 
@@ -57,11 +59,11 @@ Run it:
 uv run llm_call_sync.py
 ```
 
-You'll see the full three-sentence response print all at once after a short pause — the program just waits for the entire reply to come back before it does anything with it. Same prompt as the streaming version we'll write below, same final output. The only difference is *when* the text actually appears in your terminal.
+You'll see the full three-sentence response print all at once after a short pause — the program just waits for the entire reply to come back before it does anything with it.
 
-## What just happened
+### What actually happened under the hood
 
-Walking through what `client.messages.create(...)` did under the hood:
+Walking through what `client.messages.create(...)` did when you ran the script:
 
 1. The SDK sent an HTTP POST to `https://api.anthropic.com/v1/messages`.
 2. The request body contained `model`, `max_tokens`, `system`, and `messages`.
@@ -70,15 +72,15 @@ Walking through what `client.messages.create(...)` did under the hood:
 
 That's the whole mechanic at this layer. The model saw the user message, generated a response, sent it back to your code.
 
-## Why streaming matters
+## Sync vs async (streaming)
 
-The version above waits for the full response to come back before printing anything. For a short answer that's fine — the wait is barely noticeable. But for a longer response — a paragraph, a code block, a multi-step explanation — the user is going to stare at a blank screen for several seconds while the model is busy generating the entire message.
+The version above is "sync" — it makes one request and blocks until the whole response is back. That's perfectly fine when the response is short. But for a longer response — a paragraph, a code block, a multi-step explanation — the user is going to stare at a blank screen for several seconds while the model is busy generating the entire message before any of it shows up.
 
-**Streaming** is the alternative. Instead of waiting for the whole thing, the API sends each chunk back as the model generates it. The total latency actually stays exactly the same, but *time to first token* drops to near-instant. For anything interactive that's the difference between an app that feels frozen and one that feels alive.
+**Streaming** is the alternative shape. Instead of waiting for the whole response to finish, the API sends each chunk back as the model generates it. The total latency actually stays exactly the same, but *time to first token* drops to near-instant. For anything interactive that's the difference between an app that feels frozen and one that feels alive.
 
 The Anthropic API supports streaming over the same Messages endpoint, and most SDKs expose it as an async iterable — your program loops over the text chunks as they arrive, yielding control back to the runtime in between chunks. Every modern language has the same shape for this; the example below happens to be in Python using `async`/`await`.
 
-## The async streaming version
+### The async streaming version
 
 Now we'll create `llm_call_async.py`:
 
@@ -117,11 +119,11 @@ uv run llm_call_async.py
 
 The response now materializes a few words at a time rather than appearing all at once.
 
-## When you need each
+### When you need each
 
-Both shapes are useful, just for different reasons. In my opinion the table below is the cleanest way to think about it:
+Both shapes are useful, just for different reasons. In my opinion the table below is the cleanest way to think about which one to reach for:
 
-| Use case | `messages.create` | `messages.stream` |
+| Use case | `messages.create` (sync) | `messages.stream` (async streaming) |
 |---|---|---|
 | One-off scripts where you just need the answer | ✓ | overkill |
 | Interactive UIs displaying responses | full-response wait per call | tokens land live |
@@ -135,7 +137,7 @@ Both versions are committed at [`examples/llm_call_sync.py`](../../examples/llm_
 
 ## What's missing
 
-By the end of this module you can call the model and you can stream the response back — but the agent we eventually want to build is still a long way off. Two specific things are still missing at this point:
+By the end of this module you can call the model both ways — sync and async streaming — and you can pick the right one for the job. But the agent we eventually want to build is still a long way off. Two specific things are still missing at this point:
 
 - **No tools.** The model can only produce text right now; it can't actually do anything in the world.
 - **No state.** Each call is independent. Nothing the model said before carries forward into the next call.
