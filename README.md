@@ -37,9 +37,11 @@ The key distinction between workflows and agents is the control flow. In the cas
 
 Below are some common workflow patterns that are used to orchestrate LLM calls.
 
-**Prompt chaining** — LLM → LLM → LLM, fixed order. Example: outline → draft → polish.
+**Prompt chaining:**
 
-Say you want to produce a polished essay. Instead of asking the model to do everything in one shot, you have it draft an outline first, then hand that outline to a second call that fills in the prose, and pass the result to a third call that does a final polish pass. Each call has one clear job, and the next one always starts from the previous one's output.
+Definition — An agentic workflow pattern where the model is called multiple times in a fixed sequence, and each call's output feeds the next call's input.
+
+Example: Producing a polished essay by drafting an outline with the first call, expanding the outline into prose with the second call, and doing a final polish pass with the third call.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -47,9 +49,11 @@ flowchart LR
     In[Input] --> A[LLM 1] --> B[LLM 2] --> C[LLM 3] --> Out[Output]
 ```
 
-**Routing** — Classify input → dispatch to one of N handlers. Example: support tickets routed to billing / technical / refunds.
+**Routing:**
 
-Imagine a customer support inbox. The first model call reads the incoming ticket and decides what kind of issue it is — billing question, technical bug, or refund request. Based on that classification, the ticket gets routed to a different downstream handler tuned for that specific kind of problem, instead of one giant prompt trying to handle every case at once.
+Definition — An agentic workflow pattern where a first model call classifies the input into one of N categories, and the input is then dispatched to a category-specific downstream handler.
+
+Example: A customer support inbox where each incoming ticket is classified as billing, technical, or refund, and routed to a different handler tuned for that kind of issue — instead of one giant prompt trying to handle every case at once.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -63,9 +67,11 @@ flowchart LR
     H3 --> Out
 ```
 
-**Parallelization** — Run N LLM calls in parallel → aggregate. Example: N perspectives on one question.
+**Parallelization:**
 
-Say you want a balanced answer to a contested question. Instead of asking one model and hoping for the best, you fire off the same prompt to several model calls in parallel — each picking up a different angle or perspective — and then aggregate the responses into a single answer that incorporates all of them. Fan out, then fan in.
+Definition — An agentic workflow pattern where the same task is sent to N model calls running in parallel, and the responses are aggregated into a single output. Fan out, then fan in.
+
+Example: Generating a balanced answer to a contested question by asking the model from several different angles in parallel and then synthesizing the responses into one answer that incorporates all of them.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -79,9 +85,11 @@ flowchart LR
     Agg --> Out[Output]
 ```
 
-**Orchestrator-workers** — One LLM splits work → workers handle sub-tasks. Example: research report with multiple sections.
+**Orchestrator-workers:**
 
-Think of writing a market research report. One model call (the orchestrator) reads the brief and splits the work into sections — competitive landscape, customer interviews, financial outlook. Each section then gets handed off to its own worker call that writes that section in depth. A final synthesis step stitches the worker outputs back together into one cohesive report.
+Definition — An agentic workflow pattern where one model call (the orchestrator) decomposes a task into sub-tasks, each sub-task gets handed off to its own worker call, and a final step synthesizes the worker outputs into one cohesive result.
+
+Example: Writing a market research report where the orchestrator splits the brief into sections — competitive landscape, customer interviews, financial outlook — each section is written by its own worker call, and a synthesizer stitches them back into one report.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -96,9 +104,11 @@ flowchart LR
     S --> Out[Output]
 ```
 
-**Evaluator-optimizer** — Generator → Evaluator → loop until good. Example: draft with a quality-gate loop.
+**Evaluator-optimizer:**
 
-Say you're writing marketing copy and you have specific quality criteria in mind. One model call generates a draft. A second call (the evaluator) reads the draft against your rubric and either approves it or sends back critique. If it needs work, the generator gets another shot at it. The loop runs until the evaluator says the draft is good enough.
+Definition — An agentic workflow pattern where a generator model produces a draft, an evaluator model scores the draft against a rubric, and the loop continues until the evaluator approves.
+
+Example: Writing marketing copy where the generator drafts the copy, the evaluator critiques it against your quality criteria, and the generator revises until the evaluator says it's good enough.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
