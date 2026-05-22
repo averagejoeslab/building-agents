@@ -71,25 +71,33 @@ while True:
 
 The harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
 
+For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
+
 ```python
-def read(path: str) -> str:
+import subprocess
+
+
+def bash(cmd: str) -> str:
     try:
-        with open(path, "r") as f:
-            return f.read()
-    except Exception as e:
-        return f"error: {e}"
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return "error: command timed out after 30s"
+    out = result.stdout + result.stderr
+    return out.strip() or f"(exit {result.returncode})"
 
 
 tools = [
     {
-        "name": "read",
-        "description": "Read the contents of a file",
+        "name": "bash",
+        "description": "Run a shell command",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string"},
+                "cmd": {"type": "string"},
             },
-            "required": ["path"],
+            "required": ["cmd"],
         },
     }
 ]
@@ -97,10 +105,11 @@ tools = [
 
 ## The toy
 
-Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in fewer than 50 lines of code. The runnable version of this lives at [`examples/test.py`](../../examples/test.py):
+Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in fewer than 60 lines of code. The runnable version of this lives at [`examples/test.py`](../../examples/test.py):
 
 ```python
 import os
+import subprocess
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -108,22 +117,25 @@ load_dotenv()
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
-def read(path: str) -> str:
+def bash(cmd: str) -> str:
     try:
-        with open(path, "r") as f:
-            return f.read()
-    except Exception as e:
-        return f"error: {e}"
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return "error: command timed out after 30s"
+    out = result.stdout + result.stderr
+    return out.strip() or f"(exit {result.returncode})"
 
 
 tools = [
     {
-        "name": "read",
-        "description": "Read the contents of a file",
+        "name": "bash",
+        "description": "Run a shell command",
         "input_schema": {
             "type": "object",
-            "properties": {"path": {"type": "string"}},
-            "required": ["path"],
+            "properties": {"cmd": {"type": "string"}},
+            "required": ["cmd"],
         },
     }
 ]
@@ -135,7 +147,7 @@ while True:
     response = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=1024,
-        system="You are a helpful coding assistant. Use the read tool when you need to examine file contents.",
+        system="You are a helpful coding assistant. Use the bash tool to inspect the codebase when you need to.",
         messages=messages,
         tools=tools,
     )
@@ -150,7 +162,7 @@ while True:
         results.append({
             "type": "tool_result",
             "tool_use_id": c.id,
-            "content": read(**c.input),
+            "content": bash(**c.input),
         })
     messages.append({"role": "user", "content": results})
 
@@ -189,14 +201,6 @@ User: "Find and summarize the TODOs in this codebase"
 ```
 
 The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
-
-## What you'll need
-
-A few things to have installed before you can run any of the example checkpoints from here on:
-
-- [Python 3.13 or newer](https://www.python.org/downloads/)
-- [uv](https://docs.astral.sh/uv/) for dependency management
-- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
 
 ## Run it
 
