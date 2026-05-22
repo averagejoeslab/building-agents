@@ -142,7 +142,9 @@ By the end of this module you can call the model both ways — sync and async st
 - **No tools.** The model can only produce text right now; it can't actually do anything in the world.
 - **No state.** Each call is independent. Nothing the model said before carries forward into the next call.
 
-The next module fixes the second one by wrapping the call in a loop.
+## Where we go next
+
+**Module 3** is where we tackle the "no state" problem. We wrap the LLM call in a loop and tie that loop to an environment — for this curriculum we pick the terminal because it has the least ceremony, but the loop itself is environment-agnostic and the same shape would just as well bind to a web socket, a Slack channel, or even a humanoid robot. By the end of Module 3 we'll have a chatbot that holds a real conversation within a single session, and we'll have set up the basic shape that every subsequent module builds on.
 
 ---
 

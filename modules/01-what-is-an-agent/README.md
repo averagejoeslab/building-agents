@@ -207,7 +207,7 @@ cd examples
 uv run test.py
 ```
 
-It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this you've seen the goal in miniature. Starting in Module 2 we actually go back to the foundation — just a single LLM call, no tools and no loop — and build the harness back up one component at a time over the rest of the curriculum, ending up at something much more substantial than this little toy.
+It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this you've seen the goal in miniature.
 
 ## What you'll need
 
@@ -216,6 +216,12 @@ A few things to have installed before you can run any of the example checkpoints
 - [Python 3.13 or newer](https://www.python.org/downloads/)
 - [uv](https://docs.astral.sh/uv/) for dependency management
 - An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
+
+## Where we go from here
+
+The toy you just ran is the whole agent pattern in about 50 lines. Starting in Module 2 we actually go back to the foundation — just a single LLM call, no tools and no loop — and build the harness back up one component at a time over the rest of the curriculum, ending up with something much more substantial than this little toy.
+
+Specifically, **Module 2** picks up at the bottom of the stack and walks through three things: how to actually make an LLM call (the four fields the API needs from you), the difference between the sync and async streaming versions of that call, and when you want each one.
 
 ---
 
