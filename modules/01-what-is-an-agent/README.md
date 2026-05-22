@@ -147,7 +147,7 @@ while True:
     response = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=1024,
-        system="You are a helpful coding assistant. Use the bash tool to inspect the codebase when you need to.",
+        system="You are a helpful coding assistant. Use the bash tool CAREFULLY to do work ONLY as needed",
         messages=messages,
         tools=tools,
     )
