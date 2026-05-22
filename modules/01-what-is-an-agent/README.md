@@ -160,23 +160,41 @@ flowchart LR
     Branch -->|no| End[Response to user]
 ```
 
-And here's a concrete trace of what that loop actually looks like when the model is solving a real task:
+And here's the actual output you get back when you run the toy — the model answered both parts of the prompt, showing the file contents *and* surfacing the tool call it made along the way:
 
-```
-User: "Find and summarize the TODOs in this codebase"
+````
+cloudchase@m1Pro examples % uv run test.py
+## Contents of pyproject.toml:
 
-[THINK]    I'll search for TODO comments
-[ACT]      grep("TODO", ".")
-[OBSERVE]  src/auth.ts:42:  // TODO: session expiration
-           src/auth.ts:87:  // TODO: rate limiting
-           src/db.ts:14:    // TODO: connection pooling
-           [...44 more matches]
-[THINK]    Most are in src/auth.ts — I'll read that file for context
-[ACT]      read("src/auth.ts")
-[OBSERVE]  [full file contents]
-[THINK]    I have enough to summarize
-[STOP]     "You have 47 TODOs across 12 files, concentrated in auth..."
+The file contains a Python project configuration with:
+- **Project name**: "examples"
+- **Version**: 0.1.0
+- **Description**: Runnable checkpoints for the agenteng curriculum with shared venv, .env, and dependencies
+- **Python requirement**: >=3.13
+- **Dependencies**:
+  - anthropic (>=0.97.0)
+  - python-dotenv (>=1.2.2)
+  - sentence-transformers (>=3.0.0)
+  - transformers (>=4.40.0)
+  - numpy (>=2.0.0)
+  - pyyaml (>=6.0)
+  - tiktoken (>=0.8.0)
+
+## Tool Call Details:
+
+I made **1 tool call** using the `bash` function:
+
+```xml
+<invoke name="bash">
+<parameter name="cmd">cat pyproject.toml</parameter>
+</invoke>
 ```
+
+**What this looked like:**
+- **Function name**: `bash` — allows me to run shell commands
+- **Parameter name**: `cmd` — the command to execute
+- **Parameter value**: `cat pyproject.toml` — a shell command that displays the contents of the file
+````
 
 The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
 
