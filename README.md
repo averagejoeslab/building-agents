@@ -39,9 +39,9 @@ Below are some common workflow patterns that are used to orchestrate LLM calls.
 
 **Prompt chaining:**
 
-Definition — An agentic workflow pattern where the model is called multiple times in a fixed sequence, and each call's output feeds the next call's input.
+Definition — In my opinion this is the simplest of the workflow patterns. The model gets called in a fixed phased sequence, and the only context each call has is what the previous call produced. The code, not the model, decides how many calls happen and in what order.
 
-Example: A phased technical document workflow where the first call produces a structured outline of sections, the second call expands each section into detailed prose, and the third call edits the result for clarity and consistency. The input to each call is the output of the previous one.
+Example: Think of a phased technical document workflow where the first call produces a structured outline of the sections, that outline then gets handed off to a second call which expands each section into detailed prose, and the result of that finally goes to a third call that edits everything for clarity and consistency. The input to each call is whatever the previous call output.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -51,9 +51,9 @@ flowchart LR
 
 **Routing:**
 
-Definition — An agentic workflow pattern where a first model call classifies the input into one of N categories, and the input is then dispatched to a category-specific downstream handler.
+Definition — A workflow pattern where the first model call's job is to look at the input and classify it into one of N categories, and then based on that classification the input gets dispatched to a category-specific downstream handler. The model isn't picking the handler dynamically — it's just doing the classification, and the code is doing the routing.
 
-Example: A customer support inbox where each incoming ticket is classified as billing, technical, or refund, and routed to a different handler tuned for that kind of issue — instead of one giant prompt trying to handle every case at once.
+Example: Think of a customer support inbox where every incoming ticket gets read by the first model call, classified as billing, technical, or refund, and then routed off to a different downstream handler tuned for that specific kind of issue. That way each category gets its own specialized handler instead of one giant prompt trying to handle every case at once.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -69,9 +69,9 @@ flowchart LR
 
 **Parallelization:**
 
-Definition — An agentic workflow pattern where the same task is sent to N model calls running in parallel, and the responses are aggregated into a single output. Fan out, then fan in.
+Definition — A workflow pattern where the same task gets sent off to N model calls running in parallel and the responses get aggregated back into a single output. The way I think about it: fan out, then fan in. The model isn't deciding anything about the orchestration — the code spawns the parallel calls and stitches the responses.
 
-Example: Generating a balanced answer to a contested question by asking the model from several different angles in parallel and then synthesizing the responses into one answer that incorporates all of them.
+Example: Say you want a balanced answer to a contested question. Instead of asking one model and hoping for the best, you fire off the same prompt to several model calls in parallel, each picking up a different angle or perspective, and then aggregate the responses into a single answer that incorporates all of them.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -87,9 +87,9 @@ flowchart LR
 
 **Orchestrator-workers:**
 
-Definition — An agentic workflow pattern where one model call (the orchestrator) decomposes a task into sub-tasks, each sub-task gets handed off to its own worker call, and a final step synthesizes the worker outputs into one cohesive result.
+Definition — A workflow pattern where one model call (the orchestrator) reads the task and decides how to split it into sub-tasks, each sub-task gets handed off to its own worker call, and a final synthesis step stitches the worker outputs back into one cohesive result. The orchestrator is doing some thinking about how to decompose the work, but the overall control flow is still in code — not driven dynamically by the model.
 
-Example: Writing a market research report where the orchestrator splits the brief into sections — competitive landscape, customer interviews, financial outlook — each section is written by its own worker call, and a synthesizer stitches them back into one report.
+Example: Think of writing a market research report where the orchestrator reads the brief and splits it into sections like competitive landscape, customer interviews, and financial outlook, each section then gets written by its own worker call in depth, and a synthesizer at the end stitches them back into one report.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -106,9 +106,9 @@ flowchart LR
 
 **Evaluator-optimizer:**
 
-Definition — An agentic workflow pattern where a generator model produces a draft, an evaluator model scores the draft against a rubric, and the loop continues until the evaluator approves.
+Definition — A workflow pattern where one model call (the generator) produces a draft, a second model call (the evaluator) scores the draft against a rubric, and the loop continues until the evaluator approves. The model is involved in both the generation and the quality check, but the loop itself — the "keep going until good" logic — is enforced by code, not the model.
 
-Example: Writing marketing copy where the generator drafts the copy, the evaluator critiques it against your quality criteria, and the generator revises until the evaluator says it's good enough.
+Example: Say you're writing marketing copy and you have specific quality criteria in mind. The generator drafts the copy, the evaluator reads it against your criteria and either approves or sends back critique, and the generator keeps revising until the evaluator finally says it's good enough.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -125,9 +125,9 @@ Below is the one and only canonical agent pattern.
 
 **Autonomous agent:**
 
-Definition — An agentic system where the model is placed in a loop with tools and decides on its own what to do next based on what it observes from the previous step. There's no prescriptive code path — the control flow is whatever the model picks.
+Definition — An agentic system where the model is placed in a loop with tools, and on each turn the model decides on its own what to do next based on what it observes from the previous step. There's no prescriptive code path here — the control flow is whatever the model picks, and that's exactly what makes it an agent rather than a workflow.
 
-Example: A coding agent given a task like *"find and fix the bug in `auth.py`"*. The agent decides for itself to grep for related code, read the file, run the test suite to reproduce the failure, edit based on what it sees, run the tests again, and stop only when they pass. None of those steps are planned in advance — the model picks each action based on the output of the last one.
+Example: Think of a coding agent given a task like *"find and fix the bug in `auth.py`"*. The agent decides on its own to grep for related code, read the file, run the test suite to reproduce the failure, edit based on what it sees, run the tests again, and stop only once they pass. None of those steps are planned in advance — the model picks each next action based on the output of the last one.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
