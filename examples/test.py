@@ -1,21 +1,17 @@
-import os
 import subprocess
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
-client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+client = Anthropic()
 
 
 def bash(cmd: str) -> str:
     try:
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=30,
-        )
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         return "error: command timed out after 30s"
-    out = result.stdout + result.stderr
-    return out.strip() or f"(exit {result.returncode})"
+    return (result.stdout + result.stderr).strip() or f"(exit {result.returncode})"
 
 
 tools = [
@@ -47,13 +43,10 @@ while True:
     if not tool_calls:
         break
 
-    results = []
-    for c in tool_calls:
-        results.append({
-            "type": "tool_result",
-            "tool_use_id": c.id,
-            "content": bash(**c.input),
-        })
+    results = [
+        {"type": "tool_result", "tool_use_id": c.id, "content": bash(**c.input)}
+        for c in tool_calls
+    ]
     messages.append({"role": "user", "content": results})
 
 for block in response.content:
