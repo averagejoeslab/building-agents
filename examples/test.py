@@ -31,7 +31,7 @@ tools = [
 ]
 
 
-messages = [{"role": "user", "content": "What's in pyproject.toml?"}]
+messages = [{"role": "user", "content": "Show me the contents of pyproject.toml and tell me what tool calls you made and how did they look"}]
 
 while True:
     response = client.messages.create(

@@ -141,7 +141,7 @@ tools = [
 ]
 
 
-messages = [{"role": "user", "content": "What's in pyproject.toml?"}]
+messages = [{"role": "user", "content": "Show me the contents of pyproject.toml and tell me what tool calls you made and how did they look"}]
 
 while True:
     response = client.messages.create(
@@ -209,7 +209,7 @@ cd examples
 uv run test.py
 ```
 
-It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this you've seen the goal in miniature.
+It prints the model's reasoning along the way, shows the contents of `pyproject.toml`, and tells you which tool calls it made to get there. Once you can run this you've seen the goal in miniature.
 
 ## Where we go from here
 
