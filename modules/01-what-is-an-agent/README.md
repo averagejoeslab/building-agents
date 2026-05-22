@@ -16,13 +16,6 @@ In my opinion the bare minimum required to actually call something an agent is t
 The reasoning engine, which is the **model**. At the most basic level this is just an HTTP POST to the model provider's API where you send a prompt and get back a response made up of content blocks (usually text, sometimes structured tool requests). One prompt in, one response out. That's the whole mechanic at this layer, and it's exactly what Module 2 will go into depth on.
 
 ```python
-import os
-from anthropic import Anthropic
-from dotenv import load_dotenv
-
-load_dotenv()
-client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
 response = client.messages.create(
     model="claude-sonnet-4-5",
     max_tokens=1024,
