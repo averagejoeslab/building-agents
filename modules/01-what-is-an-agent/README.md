@@ -9,7 +9,7 @@ In my opinion the simplest way to think about an agent is as a system that can t
 
 ## The three components
 
-In my opinion the bare minimum required to actually call something an agent is three moving parts. Real production agents have way more going on in the harness — memory, sandboxing, guardrails, observability, performance work, and more — and that's exactly what we're going to build out over the rest of the curriculum. But at the irreducible core you only need these three: an LLM call, a loop, and tools. One of them (the LLM call) is the model itself; the other two are the most fundamental primitives of the harness. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
+In my opinion the bare minimum required to actually call something an agent is three moving parts. Real production agents have way more going on in the harness — memory, sandboxing, guardrails, observability, performance work, and more — and that's exactly what we're going to build out over the rest of the curriculum. But at the irreducible core you only need these three: an LLM call, tools, and a loop. One of them (the LLM call) is the model itself; the other two are the most fundamental primitives of the harness. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
 
 ### 1. An LLM call
 
@@ -28,9 +28,37 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-### 2. A loop (Think → Act → Observe)
+### 2. Tools
 
-The harness's body. A single LLM call on its own isn't really an agent — it's just a question and an answer. To turn that into an agent we wrap the call in a loop where each iteration goes through three distinct phases:
+The harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
+
+For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
+
+```python
+def bash(cmd: str) -> str:
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return "error: command timed out after 30s"
+    return (result.stdout + result.stderr).strip() or f"(exit {result.returncode})"
+
+
+tools = [
+    {
+        "name": "bash",
+        "description": "Run a shell command",
+        "input_schema": {
+            "type": "object",
+            "properties": {"cmd": {"type": "string"}},
+            "required": ["cmd"],
+        },
+    }
+]
+```
+
+### 3. A loop (Think → Act → Observe)
+
+The harness's body. Even with an LLM call and a tool defined, what we still don't have is anything that ties them together over multiple turns — and a single LLM call on its own isn't really an agent, it's just a question and an answer. To turn that into an agent we wrap the call in a loop where each iteration goes through three distinct phases:
 
 - **THINK** — the LLM runs, emitting reasoning text and (optionally) tool requests.
 - **ACT** — your code looks at the tool requests and actually executes the tools the model asked for.
@@ -58,34 +86,6 @@ while True:
 
     # OBSERVE: append results as the next user message
     messages.append({"role": "user", "content": results})
-```
-
-### 3. Tools
-
-The harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
-
-For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
-
-```python
-def bash(cmd: str) -> str:
-    try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-    except subprocess.TimeoutExpired:
-        return "error: command timed out after 30s"
-    return (result.stdout + result.stderr).strip() or f"(exit {result.returncode})"
-
-
-tools = [
-    {
-        "name": "bash",
-        "description": "Run a shell command",
-        "input_schema": {
-            "type": "object",
-            "properties": {"cmd": {"type": "string"}},
-            "required": ["cmd"],
-        },
-    }
-]
 ```
 
 ## The toy
