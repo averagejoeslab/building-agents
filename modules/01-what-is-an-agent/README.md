@@ -18,7 +18,7 @@ The reasoning engine, which is the **model**. At the most basic level this is ju
 ```python
 from anthropic import Anthropic
 
-client = Anthropic()  # reads ANTHROPIC_API_KEY from your environment
+client = Anthropic()
 
 response = client.messages.create(
     model="claude-sonnet-4-5",
