@@ -27,6 +27,7 @@ But here's the thing — the loop itself is environment-agnostic. The exact same
 - A **Gameboy emulator**, with input from button presses and output as screen state. Give that kind of agent a "press button" tool later and it eventually lives and plays inside the console.
 - A **Minecraft server**, with input from chat or game events and output as block actions.
 - A **spreadsheet cell**, with input from the formula's arguments and output as the cell's value.
+- A **humanoid robot**, with input from on-board cameras, microphones, and joint sensors, and output as motor torques sent to the limbs. The loop in this case literally walks around in the physical world — and in my opinion that's the most exciting environment you can put one in.
 
 When you decide to wrap an LLM call in a loop, you're also deciding *where* that loop lives. The terminal is just our pick because it has the least ceremony for a curriculum. The pattern transfers to any environment that can hand you input bytes and accept output bytes back — once the loop is wired up, the rest of the curriculum is the same.
 
