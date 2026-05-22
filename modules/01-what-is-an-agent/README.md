@@ -1,26 +1,28 @@
 # What is an agent?
 
-An agent is a system that can think, act, and observe without human intervention.
+In my opinion the simplest way to think about an agent is as a system that can think, act, and observe on its own — without a human having to step in between any of those steps. It's a model wrapped in just enough code to keep going until the task is actually finished.
 
 > **Agent = Model + Harness.**
-> The model is the intelligence substrate (Claude, GPT, etc.) — typically consumed via API. The harness is everything else: the code, configuration, and execution logic around the model that gives it state, tools, execution, feedback, and constraints.
+> The model is the intelligence substrate — Claude, GPT, Gemini, or whatever you're calling via an API. The harness is everything else: the code, configuration, and execution logic that wraps the model and gives it state, tools, an execution environment, feedback, and constraints.
 >
 > A raw model is not an agent. The harness is what turns it into one. This curriculum teaches **harness engineering** — how to build that surrounding runtime from first principles.
 
 > [!NOTE]
-> For the broader conceptual picture — what an *agentic system* is, workflows vs. agents, the multi-agent composition debate, the purist stance this curriculum takes — see the [top-level README](../../README.md#what-is-an-agentic-system). This module is the mechanical view: what an agent looks like in code.
+> For the broader conceptual picture — what an *agentic system* actually is, the workflow-vs-agent distinction, the multi-agent composition debate, and where Average Joes Lab lands on all of it — see the [top-level README](../../README.md#what-is-an-agentic-system). This module is the mechanical view: what an agent actually looks like in code.
 
 ## The three components
 
-An agent has three moving parts. One is the model; two are the irreducible primitives of the harness:
+In my opinion an agent only really has three moving parts. One of them is the model itself, and the other two are the irreducible primitives of the harness:
 
-1. **An LLM call** — the reasoning engine (the **model**)
-2. **A loop** (Think, Act, Observe) — the harness's body, turning single calls into sustained work
-3. **Tools** — the harness's interface to the environment
+1. **An LLM call** — the reasoning engine, which is the **model**.
+2. **A loop** (Think → Act → Observe) — the harness's body, turning a single call into sustained work over many turns.
+3. **Tools** — the harness's interface to the outside world.
+
+Let's walk through each of them.
 
 ## Show an LLM call
 
-An LLM call is an HTTP POST to the model provider's API. The response comes back as a list of content blocks — text, and optionally tool requests.
+The simplest of the three is just calling the model. An LLM call is essentially an HTTP POST to the model provider's API, and the response comes back as a list of content blocks — usually text, sometimes tool requests, but always structured.
 
 ```python
 response = client.messages.create(
@@ -31,17 +33,17 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-One prompt in, one response out.
+One prompt in, one response out. That's the whole mechanic at this layer.
 
 ## Show a TAO loop
 
-Each iteration has three phases: **Think, Act, Observe**.
+On its own a single LLM call isn't an agent — it's just a question and an answer. To turn that into an agent we wrap the call in a loop where each iteration goes through three distinct phases:
 
-1. **THINK** — the LLM runs; it emits reasoning text and (optionally) tool requests
-2. **ACT** — your code executes the tools the model requested
-3. **OBSERVE** — the results are appended to the conversation
+1. **THINK** — the LLM runs, emitting reasoning text and (optionally) tool requests.
+2. **ACT** — your code looks at the tool requests and actually executes the tools the model asked for.
+3. **OBSERVE** — the results of those tool calls get appended back into the conversation as new context for the model.
 
-The cycle repeats: Think → Act → Observe → Think → ... until the model produces no more tool requests. That's the end of the turn.
+The cycle repeats — Think → Act → Observe → Think → ... — until the model decides it's done by simply not asking for any more tools. That's what marks the end of a turn.
 
 ```python
 while True:
@@ -67,16 +69,16 @@ while True:
 ```
 
 > [!NOTE]
-> This loop is commonly known as the **ReAct loop** — after the 2022 paper [*ReAct: Synergizing Reasoning and Acting in Language Models*](https://arxiv.org/abs/2210.03629) by Yao et al. The ReAct acronym drops observation; TAO keeps it visible. (The paper itself includes observation — it's the acronym that's lossy.)
+> This loop is commonly known in the literature as the **ReAct loop** — after the 2022 paper [*ReAct: Synergizing Reasoning and Acting in Language Models*](https://arxiv.org/abs/2210.03629) by Yao et al. I personally prefer the TAO framing because the ReAct acronym drops the "observation" phase even though the paper itself includes it. TAO keeps all three phases explicit, and to me that maps better onto what the harness is actually doing.
 
 ## Show a tool
 
-A tool has two parts:
+A tool has two parts that together make it usable by the model:
 
-- An **implementation** — a function, in whatever language the agent is written in. It does the work.
-- A **schema** — a structured description of the inputs the function expects. The model reads the schema to figure out what to pass.
+- An **implementation** — the actual function written in whatever language your agent is in. This is the code that does the work.
+- A **schema** — a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass.
 
-The LLM industry standardized on [JSON Schema](https://json-schema.org/) for the schema side, so that part looks the same in Python, TypeScript, Go, or Rust. Only the implementation changes. Here both sides are Python:
+The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Here both sides happen to be in Python:
 
 ```python
 def read(path: str) -> str:
@@ -101,11 +103,11 @@ tools = [
 ]
 ```
 
-The tool returns a string. If something goes wrong, it returns the error as a string so the model can self-correct instead of crashing the program.
+Notice that the tool always returns a string. And if something goes wrong it still returns a string — just one that starts with `error:` — so the model can read the error message and self-correct on the next turn instead of the whole program crashing.
 
 ## Putting it together
 
-All three components assembled into a minimal agent:
+Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in fewer than 50 lines of code:
 
 ```python
 import os
@@ -178,7 +180,7 @@ flowchart LR
     Branch -->|no| End[Response to user]
 ```
 
-A concrete trace:
+And here's a concrete trace of what that loop actually looks like when the model is solving a real task:
 
 ```
 User: "Find and summarize the TODOs in this codebase"
@@ -196,9 +198,11 @@ User: "Find and summarize the TODOs in this codebase"
 [STOP]     "You have 47 TODOs across 12 files, concentrated in auth..."
 ```
 
-The model chose every action, read every result, and decided when to stop.
+The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
 
 ## What you'll need
+
+A few things to have installed before you can run any of the example checkpoints from here on:
 
 - [Python 3.13 or newer](https://www.python.org/downloads/)
 - [uv](https://docs.astral.sh/uv/) for dependency management
