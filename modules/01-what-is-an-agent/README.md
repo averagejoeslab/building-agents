@@ -107,7 +107,7 @@ Notice that the tool always returns a string. And if something goes wrong it sti
 
 ## Putting it together
 
-Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in fewer than 50 lines of code:
+Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in fewer than 50 lines of code. The runnable version of this lives at [`examples/test.py`](../../examples/test.py):
 
 ```python
 import os
@@ -199,6 +199,15 @@ User: "Find and summarize the TODOs in this codebase"
 ```
 
 The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
+
+## Run it
+
+```bash
+cd examples
+uv run test.py
+```
+
+It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this, you've already got the minimal agent working — the rest of the curriculum is about everything that has to wrap around it to make it production-worthy.
 
 ## What you'll need
 

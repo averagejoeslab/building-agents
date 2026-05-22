@@ -349,7 +349,7 @@ Below is the actual curriculum. The model I picked for this repo is Claude — p
 
 | # | Module | Harness component | Checkpoint |
 |---|---|---|---|
-| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | *(no code)* |
+| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | [`test.py`](./examples/test.py) |
 | 2 | [An LLM call](./modules/02-an-llm-call/) | **Model interface** | [`llm_call_sync.py`](./examples/llm_call_sync.py), [`llm_call_async.py`](./examples/llm_call_async.py) |
 | 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
 | 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |

@@ -23,10 +23,13 @@ Run from `examples/` — the `.env` and `.venv` are resolved relative to this di
 
 ## Checkpoints
 
-Each script is a strict superset of the previous one's capabilities.
+[`test.py`](./test.py) is the Module 1 toy — the minimal "model + one tool + a loop" agent shown in the prose. It exists to make the very first concept concrete and isn't part of the strict-superset chain below (the chain starts at `llm_call_sync.py`, which deliberately drops the tool to focus on the model interface, and builds back up from there).
+
+Each script in the table below is a strict superset of the previous one's capabilities.
 
 | # | Script | Module | Harness component added |
 |---|---|---|---|
+| 0 | [`test.py`](./test.py) | [1](../modules/01-what-is-an-agent/) | *(toy)* minimal model + one tool + a TAO loop in ~50 lines |
 | 1 | [`llm_call_sync.py`](./llm_call_sync.py) / [`llm_call_async.py`](./llm_call_async.py) | [2](../modules/02-an-llm-call/) | **Model interface** — sync `messages.create` and async streaming |
 | 2 | [`stateless_chatbot.py`](./stateless_chatbot.py) | [3](../modules/03-add-a-loop/) | **Control flow** — a loop bound to the terminal |
 | 3 | [`stateful_chatbot.py`](./stateful_chatbot.py) | [4](../modules/04-add-memory/) | **Memory + context management** — persistence, token budget eviction, semantic recall |
