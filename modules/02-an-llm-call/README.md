@@ -141,10 +141,11 @@ By the end of this module you can call the model both ways — sync and async st
 
 - **No tools.** The model can only produce text right now; it can't actually do anything in the world.
 - **No state.** Each call is independent. Nothing the model said before carries forward into the next call.
+- **No environment.** You might have noticed that both the toy back in Module 1 and the snippets here hardcode the user message as a string in the `messages` list. Neither one is actually wired up to anything that can feed new input in or stream output out as the program runs — there's no terminal prompt, no chat window, no API endpoint behind it. The agent doesn't yet live anywhere.
 
 ## Where we go next
 
-**Module 3** is where we tackle the "no state" problem. We wrap the LLM call in a loop and tie that loop to an environment — for this curriculum we pick the terminal because it has the least ceremony, but the loop itself is environment-agnostic and the same shape would just as well bind to a web socket, a Slack channel, or even a humanoid robot. By the end of Module 3 we'll have a chatbot that holds a real conversation within a single session, and we'll have set up the basic shape that every subsequent module builds on.
+**Module 3** is where we tackle the "no state" and "no environment" problems together. We wrap the LLM call in a loop and tie that loop to an environment — for this curriculum we pick the terminal because it has the least ceremony, but the loop itself is environment-agnostic and the same shape would just as well bind to a web socket, a Slack channel, or even a humanoid robot. By the end of Module 3 we'll have a chatbot that holds a real conversation within a single session, and we'll have set up the basic shape that every subsequent module builds on.
 
 ---
 
