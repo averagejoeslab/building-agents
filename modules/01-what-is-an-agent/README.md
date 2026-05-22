@@ -207,7 +207,7 @@ cd examples
 uv run test.py
 ```
 
-It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this, you've already got the minimal agent working — the rest of the curriculum is about everything that has to wrap around it to make it production-worthy.
+It prints the model's reasoning along the way and finishes with a summary of `pyproject.toml`. Once you can run this you've seen the goal in miniature. Starting in Module 2 we actually go back to the foundation — just a single LLM call, no tools and no loop — and build the harness back up one component at a time over the rest of the curriculum, ending up at something much more substantial than this little toy.
 
 ## What you'll need
 
