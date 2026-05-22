@@ -407,6 +407,12 @@ A few things you'll need to have installed and configured before you can run any
 
 Once those three are in place you should be able to walk through the modules in order and run each checkpoint as you go.
 
+## Start building a harness
+
+You've got the framing, you've got the setup — time to actually build one. Module 1 is the conceptual on-ramp; from there each module adds one component of the harness, with a runnable checkpoint at every step.
+
+**→ [Module 1: What is an agent?](./modules/01-what-is-an-agent/)**
+
 ## License
 
 Released under MIT — use it however you find useful. If you end up building something interesting with it I'd love to hear about it.
