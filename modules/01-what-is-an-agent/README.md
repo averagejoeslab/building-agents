@@ -9,18 +9,91 @@ In my opinion the simplest way to think about an agent is as a system that can t
 
 ## The three components
 
-In my opinion an agent only really has three moving parts. One of them is the model itself, and the other two are the irreducible primitives of the harness:
+In my opinion an agent only really has three moving parts. One of them is the model itself, and the other two are the irreducible primitives of the harness — an LLM call, a loop, and tools. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
 
-1. **An LLM call** — the reasoning engine, which is the **model**. At the most basic level this is just an HTTP POST to the model provider's API where you send a prompt and get back a response made up of content blocks (usually text, sometimes structured tool requests). One prompt in, one response out. That's the whole mechanic at this layer, and it's exactly what Module 2 will go into depth on.
+### 1. An LLM call
 
-2. **A loop** (Think → Act → Observe) — the harness's body. A single LLM call on its own isn't really an agent — it's just a question and an answer. To turn that into an agent we wrap the call in a loop where each iteration goes through three distinct phases:
-   - **THINK** — the LLM runs, emitting reasoning text and (optionally) tool requests.
-   - **ACT** — your code looks at the tool requests and actually executes the tools the model asked for.
-   - **OBSERVE** — the results of those tool calls get appended back into the conversation as new context for the model on the next iteration.
+The reasoning engine, which is the **model**. At the most basic level this is just an HTTP POST to the model provider's API where you send a prompt and get back a response made up of content blocks (usually text, sometimes structured tool requests). One prompt in, one response out. That's the whole mechanic at this layer, and it's exactly what Module 2 will go into depth on.
 
-   The cycle then repeats — Think → Act → Observe → Think → ... — until the model decides it's done by simply not asking for any more tools. That's what marks the end of a turn. This loop is commonly known in the literature as the **ReAct loop** after the 2022 paper [*ReAct: Synergizing Reasoning and Acting in Language Models*](https://arxiv.org/abs/2210.03629) by Yao et al. I personally prefer the TAO framing because the ReAct acronym drops the "observation" phase even though the paper itself includes it.
+```python
+import os
+from anthropic import Anthropic
+from dotenv import load_dotenv
 
-3. **Tools** — the harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
+load_dotenv()
+client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "What is 2 + 2?"}],
+)
+print(response.content[0].text)
+```
+
+### 2. A loop (Think → Act → Observe)
+
+The harness's body. A single LLM call on its own isn't really an agent — it's just a question and an answer. To turn that into an agent we wrap the call in a loop where each iteration goes through three distinct phases:
+
+- **THINK** — the LLM runs, emitting reasoning text and (optionally) tool requests.
+- **ACT** — your code looks at the tool requests and actually executes the tools the model asked for.
+- **OBSERVE** — the results of those tool calls get appended back into the conversation as new context for the model on the next iteration.
+
+The cycle then repeats — Think → Act → Observe → Think → ... — until the model decides it's done by simply not asking for any more tools. That's what marks the end of a turn. This loop is commonly known in the literature as the **ReAct loop** after the 2022 paper [*ReAct: Synergizing Reasoning and Acting in Language Models*](https://arxiv.org/abs/2210.03629) by Yao et al. I personally prefer the TAO framing because the ReAct acronym drops the "observation" phase even though the paper itself includes it.
+
+```python
+# Assume client, tools, and an initial `messages` list are set up
+# above this loop (the toy below puts the whole thing together).
+
+while True:
+    # THINK: call the model
+    response = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=1024,
+        messages=messages,
+        tools=tools,
+    )
+    messages.append({"role": "assistant", "content": response.content})
+
+    # If the model didn't ask for any tools, the turn is done.
+    tool_calls = [b for b in response.content if b.type == "tool_use"]
+    if not tool_calls:
+        break
+
+    # ACT: run each requested tool
+    results = [execute(call) for call in tool_calls]
+
+    # OBSERVE: append results as the next user message
+    messages.append({"role": "user", "content": results})
+```
+
+### 3. Tools
+
+The harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
+
+```python
+def read(path: str) -> str:
+    try:
+        with open(path, "r") as f:
+            return f.read()
+    except Exception as e:
+        return f"error: {e}"
+
+
+tools = [
+    {
+        "name": "read",
+        "description": "Read the contents of a file",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+        },
+    }
+]
+```
 
 ## The toy
 
