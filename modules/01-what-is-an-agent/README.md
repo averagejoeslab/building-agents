@@ -9,7 +9,7 @@ In my opinion the simplest way to think about an agent is as a system that can t
 
 ## The three components
 
-In my opinion an agent only really has three moving parts. One of them is the model itself, and the other two are the irreducible primitives of the harness — an LLM call, a loop, and tools. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
+In my opinion the bare minimum required to actually call something an agent is three moving parts. Real production agents have way more going on in the harness — memory, sandboxing, guardrails, observability, performance work, and more — and that's exactly what we're going to build out over the rest of the curriculum. But at the irreducible core you only need these three: an LLM call, a loop, and tools. One of them (the LLM call) is the model itself; the other two are the most fundamental primitives of the harness. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
 
 ### 1. An LLM call
 
