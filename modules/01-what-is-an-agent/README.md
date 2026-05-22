@@ -7,9 +7,6 @@ In my opinion the simplest way to think about an agent is as a system that can t
 >
 > A raw model is not an agent. The harness is what turns it into one. This curriculum teaches **harness engineering** — how to build that surrounding runtime from first principles.
 
-> [!NOTE]
-> For the broader conceptual picture — what an *agentic system* actually is, the workflow-vs-agent distinction, the multi-agent composition debate, and where Average Joes Lab lands on all of it — see the [top-level README](../../README.md#what-is-an-agentic-system). This module is the mechanical view: what an agent actually looks like in code.
-
 ## The three components
 
 In my opinion an agent only really has three moving parts. One of them is the model itself, and the other two are the irreducible primitives of the harness:
