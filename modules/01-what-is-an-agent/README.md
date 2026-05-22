@@ -39,9 +39,6 @@ The harness's body. A single LLM call on its own isn't really an agent — it's 
 The cycle then repeats — Think → Act → Observe → Think → ... — until the model decides it's done by simply not asking for any more tools. That's what marks the end of a turn. This loop is commonly known in the literature as the **ReAct loop** after the 2022 paper [*ReAct: Synergizing Reasoning and Acting in Language Models*](https://arxiv.org/abs/2210.03629) by Yao et al. I personally prefer the TAO framing because the ReAct acronym drops the "observation" phase even though the paper itself includes it.
 
 ```python
-# Assume client, tools, and an initial `messages` list are set up
-# above this loop (the toy below puts the whole thing together).
-
 while True:
     # THINK: call the model
     response = client.messages.create(
@@ -52,7 +49,6 @@ while True:
     )
     messages.append({"role": "assistant", "content": response.content})
 
-    # If the model didn't ask for any tools, the turn is done.
     tool_calls = [b for b in response.content if b.type == "tool_use"]
     if not tool_calls:
         break
@@ -71,18 +67,12 @@ The harness's interface to the outside world. A tool has two parts that together
 For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
 
 ```python
-import subprocess
-
-
 def bash(cmd: str) -> str:
     try:
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=30,
-        )
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         return "error: command timed out after 30s"
-    out = result.stdout + result.stderr
-    return out.strip() or f"(exit {result.returncode})"
+    return (result.stdout + result.stderr).strip() or f"(exit {result.returncode})"
 
 
 tools = [
@@ -91,9 +81,7 @@ tools = [
         "description": "Run a shell command",
         "input_schema": {
             "type": "object",
-            "properties": {
-                "cmd": {"type": "string"},
-            },
+            "properties": {"cmd": {"type": "string"}},
             "required": ["cmd"],
         },
     }
