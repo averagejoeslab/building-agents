@@ -41,7 +41,7 @@ Below are some common workflow patterns that are used to orchestrate LLM calls.
 
 Definition — An agentic workflow pattern where the model is called multiple times in a fixed sequence, and each call's output feeds the next call's input.
 
-Example: Producing a polished essay by drafting an outline with the first call, expanding the outline into prose with the second call, and doing a final polish pass with the third call.
+Example: A phased technical document workflow where the first call produces a structured outline of sections, the second call expands each section into detailed prose, and the third call edits the result for clarity and consistency. The input to each call is the output of the previous one.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
