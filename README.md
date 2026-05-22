@@ -123,7 +123,11 @@ flowchart LR
 
 Below is the one and only canonical agent pattern.
 
-**Autonomous agent** — An agentic system where the model is in a loop with tools, choosing what to do next based on what it observes. This is the pattern this repo builds.
+**Autonomous agent:**
+
+Definition — An agentic system where the model is placed in a loop with tools and decides on its own what to do next based on what it observes from the previous step. There's no prescriptive code path — the control flow is whatever the model picks.
+
+Example: A coding agent given a task like *"find and fix the bug in `auth.py`"*. The agent decides for itself to grep for related code, read the file, run the test suite to reproduce the failure, edit based on what it sees, run the tests again, and stop only when they pass. None of those steps are planned in advance — the model picks each action based on the output of the last one.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
@@ -134,6 +138,8 @@ flowchart LR
     Act --> LLM
     Q -->|no| Out[Output]
 ```
+
+This is the pattern this repo builds.
 
 ### Composition
 
