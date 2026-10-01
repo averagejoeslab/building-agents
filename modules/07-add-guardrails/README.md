@@ -156,7 +156,7 @@ client = AsyncAnthropic(
 )
 ```
 
-Backoff schedule (default): 0.5s, 1s, 2s, 4s. The SDK handles every retry. The harness never sees a transient error.
+The SDK retries 408, 409, 429, and 5xx responses plus connection errors, backing off exponentially: roughly 0.5s, 1s, 2s, 4s, with a little random jitter, and a server-sent `retry-after` header takes precedence. The harness only sees a transient error if all four retries fail, or if the error arrives *mid-stream* (after the response has started). The SDK doesn't retry those.
 
 Tool errors are different: the harness *doesn't* retry them. When `bash` returns `"error: command not found"`, the right response is for the **model** to read the error and adjust. Tool errors flow back to the model as `tool_result` strings; the model handles them.
 
@@ -196,7 +196,7 @@ def check_sentiment(text: str) -> tuple[str, float]:
     """Two-class BERT sentiment: POSITIVE / NEGATIVE with confidence."""
     if not text.strip():
         return ("POSITIVE", 1.0)
-    result = _sentiment_pipe(text[:512])[0]  # truncate to BERT max-len
+    result = _sentiment_pipe(text, truncation=True)[0]  # truncate to BERT max-len (512 tokens)
     return (result["label"], float(result["score"]))
 ```
 
@@ -204,7 +204,7 @@ Returns something like `("POSITIVE", 0.9943)` or `("NEGATIVE", 0.8721)`. The Hug
 
 A few details that matter:
 
-- **Truncate to 512 tokens.** BERT's positional embeddings are capped at 512 input tokens. We slice the input to fit.
+- **Truncate to 512 tokens.** BERT's positional embeddings are capped at 512 input tokens. `truncation=True` tells the tokenizer to cut the input at that limit. (Slicing the string with `text[:512]` would cut at 512 *characters*, roughly a hundred words, and score far less of the response than the model can read.)
 - **Local inference.** The model runs on the CPU (or GPU if available) on your machine. No API call.
 - **Deterministic given the same input.** Unlike LLM-as-judge, you'll get the same label and score every time for the same text. Easy to test, easy to reason about.
 
@@ -231,7 +231,7 @@ Choosing the action is policy, not architecture. The classifier provides the sig
 
 ### What's actually happening under the hood
 
-The classifier reads the text, tokenizes it into ~512 sub-word tokens, runs them through 6 transformer layers, takes the pooled hidden state of the `[CLS]` token, projects it to 2 logits, and softmaxes. The label is whichever of the two logits is larger; the score is the softmaxed probability of the chosen class.
+The classifier reads the text, tokenizes it into at most 512 sub-word tokens, runs them through 6 transformer layers, takes the pooled hidden state of the `[CLS]` token, projects it to 2 logits, and softmaxes. The label is whichever of the two logits is larger; the score is the softmaxed probability of the chosen class.
 
 This is the *same* architectural shape as the model the agent is built around (Module 2): tokenizer → embedding → transformer blocks → output head. The difference is the size (~67M vs. tens of billions of parameters), the training data (sentiment-labeled sentences vs. trillions of tokens of web text), and the output head (2 classes vs. ~128k vocabulary).
 
@@ -286,8 +286,11 @@ async def hallucination_judge(user_input: str, response_text: str, tool_evidence
         max_tokens=150,
         system=(
             "You evaluate whether an agent's response is grounded in evidence "
-            "from its tool calls. Reply on the first line with exactly one word: "
-            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+            "from its tool calls. Any claim about the user's files, code, or "
+            "command results must be supported by the evidence. General knowledge "
+            "and conversational replies that make no such claims count as grounded. "
+            "Reply on the first line with exactly one word: GROUNDED or HALLUCINATED. "
+            "Reply on the second line with a brief reason."
         ),
         messages=[{
             "role": "user",
@@ -312,7 +315,9 @@ The judge sees:
 - What the agent's final text response was.
 - All the tool outputs from the current turn (concatenated).
 
-It returns a verdict + a one-line reason. The harness collects tool evidence from the turn's messages, calls the judge, and acts on the verdict:
+It returns a verdict + a one-line reason.
+
+The rubric's middle sentence matters. Without it, any answer that didn't call a tool ("what's a Python decorator?", "thanks!") gets compared against `(no tool calls)` and flagged as a hallucination. The claims that need evidence are claims about *this workspace*: what a file contains, what a command printed, what the agent did. Writing the rubric so it targets exactly those is most of the work of building a judge. The harness collects tool evidence from the turn's messages, calls the judge, and acts on the verdict:
 
 ```python
 # Collect tool evidence from this turn's messages
@@ -322,11 +327,11 @@ for msg in messages[turn_start:]:
     if isinstance(content, list):
         for block in content:
             if isinstance(block, dict) and block.get("type") == "tool_result":
-                tool_evidence_parts.append(str(block.get("content", ""))[:500])
+                tool_evidence_parts.append(str(block.get("content", "")))
 tool_evidence = "\n---\n".join(tool_evidence_parts)
 
 # Judge the final response
-if final_text:
+if final_text.strip():
     grounded, reason = await hallucination_judge(user_input, final_text, tool_evidence)
     if not grounded:
         print(f"\n⚠ guardrail: response may not be grounded — {reason}")
@@ -459,7 +464,7 @@ Force a loop bound:
 ❯ keep listing files in this directory until you find one named does-not-exist-anywhere.zzz
 ```
 
-At iteration 30, the bound triggers:
+If the model keeps searching rather than giving up on its own, the bound triggers at iteration 30:
 
 ```
 ⚠ Reached 30 iterations without completion. Aborting turn.

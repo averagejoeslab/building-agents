@@ -116,9 +116,8 @@ async def edit(path: str, old: str, new: str, all: bool = False) -> str:
 async def grep(pattern: str, path: str) -> str:
     regex = re.compile(pattern)
     hits = []
-    for root, _, files in os.walk(path):
-        if ".git" in root or "__pycache__" in root or ".venv" in root:
-            continue
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".venv")]  # prune noise dirs
         for fname in files:
             fpath = os.path.join(root, fname)
             try:
@@ -437,7 +436,7 @@ def check_sentiment(text: str) -> tuple[str, float]:
     """Two-class BERT sentiment: POSITIVE / NEGATIVE with confidence."""
     if not text.strip():
         return ("POSITIVE", 1.0)
-    result = _sentiment_pipe(text[:512])[0]  # truncate to BERT max-len
+    result = _sentiment_pipe(text, truncation=True)[0]  # truncate to BERT max-len (512 tokens)
     return (result["label"], float(result["score"]))
 
 
@@ -451,8 +450,11 @@ async def hallucination_judge(user_input: str, response_text: str, tool_evidence
         max_tokens=150,
         system=(
             "You evaluate whether an agent's response is grounded in evidence "
-            "from its tool calls. Reply on the first line with exactly one word: "
-            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+            "from its tool calls. Any claim about the user's files, code, or "
+            "command results must be supported by the evidence. General knowledge "
+            "and conversational replies that make no such claims count as grounded. "
+            "Reply on the first line with exactly one word: GROUNDED or HALLUCINATED. "
+            "Reply on the second line with a brief reason."
         ),
         messages=[{
             "role": "user",
@@ -479,7 +481,7 @@ def collect_tool_evidence(turn_messages: list) -> str:
         if isinstance(content, list):
             for block in content:
                 if isinstance(block, dict) and block.get("type") == "tool_result":
-                    parts.append(str(block.get("content", ""))[:500])
+                    parts.append(str(block.get("content", "")))
     return "\n---\n".join(parts)
 
 
@@ -559,7 +561,7 @@ async def main():
         else:
             print(f"\n⚠ Reached {MAX_ITERATIONS} iterations without completion. Aborting turn.")
 
-        history = messages
+        history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
         save_messages(history)
 
         turn_messages = messages[turn_start:]

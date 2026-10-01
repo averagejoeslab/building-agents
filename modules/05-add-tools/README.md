@@ -300,9 +300,8 @@ async def edit(path: str, old: str, new: str, all: bool = False) -> str:
 async def grep(pattern: str, path: str) -> str:
     regex = re.compile(pattern)
     hits = []
-    for root, _, files in os.walk(path):
-        if ".git" in root or "__pycache__" in root or ".venv" in root:
-            continue
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".venv")]  # prune noise dirs
         for fname in files:
             fpath = os.path.join(root, fname)
             try:
@@ -331,9 +330,9 @@ async def bash(cmd: str) -> str:
     return out.strip() or f"(exit {result.returncode})"
 ```
 
-The functions are `async` because the next section runs them concurrently. A few details worth noticing:
+The functions are `async` so the executor can `await` them and the next section can hand them to `asyncio.gather`. A few details worth noticing:
 
-- **`grep` skips noise directories** (`.git`, `__pycache__`, `.venv`) and caps results at 100 lines. Without these limits a single `grep` can blow the context window.
+- **`grep` skips noise directories** (`.git`, `__pycache__`, `.venv`) and caps results at 100 lines. Without these limits a single `grep` can blow the context window. Assigning to `dirs[:]` prunes those directories from the walk by exact name, so `os.walk` never descends into them (a substring check on the path would also skip legitimate directories like `.github`).
 - **`bash` has a 30-second timeout** and merges stdout/stderr — the model can read either kind of output uniformly.
 - **`edit` and `write` return short confirmations.** `"ok"` and `"wrote 1234 chars to foo.py"` give the model just enough to know the action succeeded.
 
@@ -375,7 +374,10 @@ messages.append({
 })
 ```
 
-For a single tool call this is no different from running serially; for many, the turn finishes in roughly the time of the slowest tool instead of the sum of all of them.
+For a single tool call this is no different from running serially; for many, the goal is for the turn to finish in roughly the time of the slowest tool instead of the sum of all of them.
+
+> [!NOTE]
+> **That's the shape, but not yet the speed-up.** `gather` can only interleave coroutines that actually `await` something. These tool bodies are `async def`, but everything inside them (`open`, `os.walk`, `subprocess.run`) is blocking, so each one holds the event loop until it finishes and the batch still runs one after another. The structure is right, and every later module keeps it. Making the dispatch genuinely concurrent is one of the fixes in [Module 10](../10-add-performance/).
 
 ## Run it
 

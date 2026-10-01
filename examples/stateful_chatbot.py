@@ -199,7 +199,7 @@ async def main():
         messages.append({"role": "assistant", "content": response.content[0].text})
 
         # Append the new turn (user + assistant) to persistent history.
-        history = messages
+        history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
         save_messages(history)
 
         turn_messages = messages[turn_start:]

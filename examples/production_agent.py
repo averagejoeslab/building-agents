@@ -208,9 +208,8 @@ def edit(path: str, old: str, new: str, all: bool = False) -> str:
 def grep(pattern: str, path: str) -> str:
     regex = re.compile(pattern)
     hits = []
-    for root, _, files in os.walk(path):
-        if ".git" in root or "__pycache__" in root or ".venv" in root:
-            continue
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".venv")]  # prune noise dirs
         for fname in files:
             fpath = os.path.join(root, fname)
             try:
@@ -417,7 +416,8 @@ def load_messages() -> list:
         return []
     try:
         return json.loads(MESSAGES_FILE.read_text())
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"warning: {MESSAGES_FILE} is corrupt ({e}); starting fresh")
         return []
 
 
@@ -579,7 +579,7 @@ _sentiment_pipe = pipeline(
 def check_sentiment(text: str) -> tuple[str, float]:
     if not text.strip():
         return ("POSITIVE", 1.0)
-    result = _sentiment_pipe(text[:512])[0]
+    result = _sentiment_pipe(text, truncation=True)[0]  # truncate to BERT max-len (512 tokens)
     return (result["label"], float(result["score"]))
 
 
@@ -589,8 +589,11 @@ async def hallucination_judge(user_input: str, response_text: str, tool_evidence
         max_tokens=150,
         system=(
             "You evaluate whether an agent's response is grounded in evidence "
-            "from its tool calls. Reply on the first line with exactly one word: "
-            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+            "from its tool calls. Any claim about the user's files, code, or "
+            "command results must be supported by the evidence. General knowledge "
+            "and conversational replies that make no such claims count as grounded. "
+            "Reply on the first line with exactly one word: GROUNDED or HALLUCINATED. "
+            "Reply on the second line with a brief reason."
         ),
         messages=[{
             "role": "user",
@@ -699,6 +702,23 @@ def assemble(user_input: str, history: list, recalled: list[str]) -> dict:
     return {"system": system_blocks, "tools": TOOL_SCHEMAS, "messages": messages}
 
 
+def with_cache_breakpoint(messages: list) -> list:
+    """Return a copy of `messages` with a cache breakpoint on the final block.
+
+    Everything up to that block (tools, system, and the conversation so far)
+    becomes a cacheable prefix, so the next TAO iteration or user turn reads
+    it from cache instead of paying full input price. The stored messages are
+    left untouched — a fresh breakpoint is stamped on each request, keeping the
+    total at three (tools, system, conversation), under the API's limit of four.
+    """
+    last = messages[-1]
+    content = last["content"]
+    if isinstance(content, str):
+        content = [{"type": "text", "text": content}]
+    content = [*content[:-1], {**content[-1], "cache_control": {"type": "ephemeral"}}]
+    return [*messages[:-1], {**last, "content": content}]
+
+
 # --- Main loop ---
 
 async def main():
@@ -712,6 +732,8 @@ async def main():
         user_input = input_("❯ ")
         if user_input.lower() in ("/q", "exit"):
             break
+
+        _tool_cache.clear()  # tool outputs are cached within a turn only; files may change between turns
 
         with span("turn", user_input=user_input) as turn_rec:
             trace_id = turn_rec["trace_id"]
@@ -733,17 +755,18 @@ async def main():
 
             for iteration in range(MAX_ITERATIONS):
                 messages, turn_start = enforce_budget(messages, turn_start, ctx["system"])
+                request_messages = with_cache_breakpoint(messages)
 
                 with span("llm.call", parent=turn_span_id, trace_id=trace_id,
                           iteration=iteration,
                           model=MODEL,
                           system=ctx["system"],
-                          messages=messages) as llm_rec:
+                          messages=request_messages) as llm_rec:
                     async with client.messages.stream(
                         model=MODEL,
                         max_tokens=MAX_RESPONSE_TOKENS,
                         system=ctx["system"],
-                        messages=messages,
+                        messages=request_messages,
                         tools=ctx["tools"],
                     ) as stream:
                         async for text in stream.text_stream:
@@ -755,6 +778,8 @@ async def main():
                         "response_content": response_content,
                         "input_tokens": response.usage.input_tokens,
                         "output_tokens": response.usage.output_tokens,
+                        "cache_creation_input_tokens": response.usage.cache_creation_input_tokens,
+                        "cache_read_input_tokens": response.usage.cache_read_input_tokens,
                     })
                     llm_span_id = llm_rec["span_id"]
 
@@ -810,7 +835,7 @@ async def main():
                 sum_rec["attributes"]["summary"] = summary
                 sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
 
-        history = messages
+        history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
         save_messages(history)
         add_to_recall(summary, recall_entries)
 

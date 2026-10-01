@@ -61,9 +61,8 @@ async def edit(path: str, old: str, new: str, all: bool = False) -> str:
 async def grep(pattern: str, path: str) -> str:
     regex = re.compile(pattern)
     hits = []
-    for root, _, files in os.walk(path):
-        if ".git" in root or "__pycache__" in root or ".venv" in root:
-            continue
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".venv")]  # prune noise dirs
         for fname in files:
             fpath = os.path.join(root, fname)
             try:
@@ -425,7 +424,7 @@ async def main():
                             for c, o in zip(tool_calls, outputs)],
             })
 
-        history = messages
+        history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
         save_messages(history)
 
         turn_messages = messages[turn_start:]

@@ -8,13 +8,14 @@ By the end you have [`examples/sandbox_agent.py`](../../examples/sandbox_agent.p
 
 ## The threat model
 
-Module 5's `bash` tool was four lines:
+Module 5's `bash` tool hands the command straight to your host shell:
 
 ```python
 async def bash(cmd: str) -> str:
-    result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, timeout=30,
-    )
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return "error: command timed out after 30s"
     out = result.stdout + result.stderr
     return out.strip() or f"(exit {result.returncode})"
 ```
@@ -74,7 +75,7 @@ Line-by-line:
 
 - **`FROM debian:bookworm-slim`** — small base image, ~75MB. Enough for the model to run real shell commands, not enough to be a general-purpose attack surface.
 - **`apt-get install ...`** — only the tools the model actually needs in a shell: `bash`, basic GNU utilities, `grep`, `ripgrep`. No compilers, no curl, no python, no anything else. The fewer binaries, the smaller the attack surface.
-- **`rm -rf /var/lib/apt/lists/*`** — discard the package index so `apt` can't install more software inside the container.
+- **`rm -rf /var/lib/apt/lists/*`** — discard the downloaded package index to keep the image small. (What actually stops the agent from installing software later is the rest of the setup: a non-root user, a read-only root filesystem, and no network.)
 - **`useradd -m -u 1000 agent`** + **`USER agent`** — run as a non-root user with a known UID. Matters because the bind-mounted workspace files end up owned by this UID; matching the host user keeps file ownership sane.
 - **`WORKDIR /workspace`** — where the bind-mount lands. The model's `cd ..` can escape this directory but only inside the read-only container filesystem; it can't escape to the host.
 
@@ -136,13 +137,13 @@ Three things happen:
 | `--network none` | No network interface. The container can't reach DNS, can't curl anything, can't exfiltrate. |
 | `--read-only` | Root filesystem is read-only. The model can't install software, can't write a script and run it, can't poison the image. |
 | `--tmpfs /tmp:rw,noexec,nosuid,size=100m` | A small writable tmpfs at `/tmp` for legitimate temp files. `noexec` blocks running anything dropped here; `nosuid` blocks setuid; capped at 100MB. |
-| `-v {workspace}:/workspace` | Bind-mount the current host directory at `/workspace` so the model can read and edit *the code under review* — and only that. |
+| `-v {workspace}:/workspace` | Bind-mount the current host directory at `/workspace` so the model can read and edit *the code under review* — and only that. The mount is read-write: changes made here are real changes to your files. |
 | `-w /workspace` | Start each shell in the workspace. |
 | `--memory 512m --cpus 1.0 --pids-limit 100` | Cap memory, CPU, and process count. A fork bomb hits 100 PIDs and gets blocked. |
 | `--user 1000:1000` | Run as a non-root UID. Files written to the bind-mount are owned by the same UID as the host user (assuming they're 1000). |
 | `SANDBOX_IMAGE sleep infinity` | Command to run inside the container: just sit there idle. We'll attach via `docker exec` to run each shell command. |
 
-The container is now alive, idle, with `bash` and basic GNU utilities, no network, no escape.
+The container is now alive, idle, with `bash` and basic GNU utilities, no network, and no view of the host beyond the workspace.
 
 ### Stop it on exit
 
@@ -209,6 +210,13 @@ The trust boundary is:
 
 This is a deliberate design choice, not a limitation. A stricter sandbox would put every tool inside the container; a looser one would skip Docker entirely. The middle ground is the practical one: contain the arbitrary-execution surface, keep file operations visible.
 
+Be clear-eyed about what the middle ground does and doesn't buy you:
+
+- **The host tools have no path restrictions.** The model can still `read` `~/.ssh/id_rsa` or `write` to `~/.bashrc`. The sandbox contains `bash`, not the file tools.
+- **The workspace is shared.** Because it's mounted read-write, a sandboxed `bash` can still delete or rewrite your project files, or plant something your host runs later (a git hook, a `Makefile` target).
+
+What the sandbox removes is everything *else* a shell could reach: the rest of your filesystem, the network, your installed software. Module 7's approval gates cover the remaining cases. A stricter harness would also confine the file tools to the workspace directory.
+
 ## The harness, with the sandbox
 
 ```mermaid
@@ -239,13 +247,15 @@ uv run sandbox_agent.py
 
 First run builds the `building-agents-sandbox` image (~75MB) and starts a container. Subsequent runs reuse the image and start a fresh container.
 
-Try a real coding task:
+Try a task that needs a shell:
 
 ```
-❯ run the test suite in this project
+❯ count the lines in every .py file here and tell me which is longest
 ```
 
-The model will reach for `bash` to run `pytest` or `uv run pytest`. The command executes inside the container; output comes back as a tool result; the model interprets the output. Same behaviour as before, with the difference that a `bash` command can't damage your machine.
+The model will reach for `bash` to run something like `wc -l *.py`. The command executes inside the container; output comes back as a tool result; the model interprets the output. Same behaviour as before, with the difference that a `bash` command can only touch the workspace, not the rest of your machine.
+
+The image is deliberately bare: it has no Python, compilers, or package managers. Ask the agent to run a test suite and it will get `command not found` back as a tool result. To run your project's tests, add that toolchain to `Dockerfile.sandbox`. Every binary you add is one more thing the agent can use, which is exactly the trade-off the minimal image is making.
 
 Try something dangerous on purpose:
 

@@ -29,7 +29,7 @@ Four pieces:
 | **Result** | One run of one suite, timestamped | `evals/results/<ts>.json` |
 | **Diff** | Compares two result files, flags regressions | `evals/diff.py` |
 
-The runner spawns the target agent as a subprocess per case so each run starts with fresh state. Then it pipes the case's input + `/q` to stdin, captures stdout/stderr, and applies the case's checks. Each case runs N times (default 3) and produces a pass rate.
+The runner spawns the target agent as a subprocess per run, under a throwaway home directory, so each run starts with fresh state. Then it pipes the case's input + `/q` to stdin, captures stdout/stderr, and applies the case's checks. Each case runs N times (default 3) and produces a pass rate.
 
 ## The YAML case format
 
@@ -83,18 +83,25 @@ The flow per case:
 ```python
 async def run_case(case, agent_path):
     user_input = case["input"] + "\n/q\n"
-    proc = await asyncio.create_subprocess_exec(
-        "uv", "run", str(agent_abs),
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=REPO_ROOT / "examples",
-    )
-    stdout, stderr = await proc.communicate(user_input.encode())
+    with tempfile.TemporaryDirectory() as fresh_home:
+        env = {**os.environ, "HOME": fresh_home, ...}  # plus cache dirs, below
+        proc = await asyncio.create_subprocess_exec(
+            "uv", "run", str(agent_abs),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=REPO_ROOT / "examples",
+            env=env,
+        )
+        stdout, stderr = await proc.communicate(user_input.encode())
     return {"stdout": ..., "stderr": ..., "exit_code": proc.returncode}
 ```
 
-The subprocess choice is deliberate. Each case starts the agent from scratch — fresh `messages.json`, fresh `recall.json`, fresh sandbox container. No state leaks between cases. The trade-off is startup cost (~1–2s per run for the embedding model + sentiment classifier to load). For a small suite that's fine; for a larger one, parallelize with `asyncio.gather` over cases.
+The subprocess choice is deliberate, and so is the temporary `HOME`. A new process alone isn't a fresh start: every agent from Module 4 on reloads its state from `~/.<name>/` at startup. Without the swap, run 2 would see run 1's conversation in `messages.json` and its summaries in `recall.json`, and could answer from memory instead of doing the work. Pointing `HOME` at an empty temp directory gives each run an empty state directory (and, for the sandboxed agents, a fresh container). The real `run.py` also points `HF_HOME`, `UV_CACHE_DIR`, and `DOCKER_CONFIG` back at your real home, so runs don't re-download the models or lose Docker's configuration.
+
+The trade-off is startup cost: several seconds per run for Python to start and load the embedding model (and, from Module 7 on, the sentiment classifier). For a small suite that's fine; for a larger one, parallelize with `asyncio.gather` over cases.
+
+One limitation to know about: stdin is scripted. From Module 7 on, approval prompts read from the same stdin, so the `/q` line gets consumed as the answer to the first approval prompt, which denies it. The agent then hits end-of-input at its next prompt and exits with an error. Cases that need `write`, `edit`, or `bash` won't complete against the gated agents unless you script the approvals into the input.
 
 Each case runs N times in sequence:
 
@@ -261,8 +268,8 @@ Running 3 cases × 3 runs against examples/production_agent.py...
   ✓ read-pyproject-version: 100%
   ≈ handle-missing-file: 67%
 
-Results: evals/results/20260520T013014Z.json
-Overall pass rate: 89%
+Results: /path/to/building-agents/evals/results/20260520T013014Z.json
+Overall pass rate: 88.9%
 ```
 
 `✓` for 100%, `≈` for 60–99%, `✗` for under 60%. The 67% on `handle-missing-file` is the judge being unstable on the hallucination rubric — typical, addressable by sharpening the rubric or raising N.

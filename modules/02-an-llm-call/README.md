@@ -137,7 +137,7 @@ Both versions are committed at [`examples/llm_call_sync.py`](../../examples/llm_
 
 ## What's missing
 
-By the end of this module you can call the model both ways — sync and async streaming — and you can pick the right one for the job. But the agent we eventually want to build is still a long way off. Two specific things are still missing at this point:
+By the end of this module you can call the model both ways — sync and async streaming — and you can pick the right one for the job. But the agent we eventually want to build is still a long way off. Three specific things are still missing at this point:
 
 - **No tools.** The model can only produce text right now; it can't actually do anything in the world.
 - **No state.** Each call is independent. Nothing the model said before carries forward into the next call.

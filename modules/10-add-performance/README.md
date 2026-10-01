@@ -4,7 +4,7 @@
 
 Module 8 made the agent observable. Module 9 made it measurable. The agent works. The traces are clean. The eval suite is green.
 
-But it's still expensive. Every turn re-sends the same ~3000 tokens of system prompt + tool schemas as fresh input. Every turn re-reads files the previous iteration already pulled. Every blocking I/O call inside a tool body stops the event loop dead, so even when ten tool calls go out via `asyncio.gather` they execute serially. And the main loop assembles its context inline at the top of every turn — system prompt construction, recall lookup, tool schema reference, budget pack — duplicated logic, hard to swap.
+But it's still expensive. Every model call re-sends the tool schemas, the system prompt, and the entire conversation so far as fresh input, and inside a TAO loop that happens once per iteration. Every turn re-reads files the previous iteration already pulled. Every blocking I/O call inside a tool body stops the event loop dead, so even when ten tool calls go out via `asyncio.gather` they execute serially. And the main loop assembles its context inline at the top of every turn — system prompt construction, recall lookup, tool schema reference, budget pack — duplicated logic, hard to swap.
 
 Module 10 fixes those four. By the end you have [`examples/production_agent.py`](../../examples/production_agent.py): the same harness from M8 (sandbox + guardrails + hierarchical traces + replay) with four production optimizations bolted on. Nothing the previous modules built is lost; everything gets faster, cheaper, and easier to operate.
 
@@ -13,17 +13,17 @@ Module 10 fixes those four. By the end you have [`examples/production_agent.py`]
 | # | Optimization | What it reduces |
 |---|---|---|
 | 1 | **Prompt caching** | Input token cost across a long session |
-| 2 | **Tool output caching** | Wall-clock latency + token cost on repeat reads |
+| 2 | **Tool output caching** | Wall-clock latency on repeat reads |
 | 3 | **Threading for blocking work** | Wall-clock latency on parallel tool dispatch |
 | 4 | **Structured prompts + `assemble()`** | Coupling between the loop and context construction |
 
 ## 1. Prompt caching
 
-Anthropic's API supports **prompt caching** — mark a prefix of the request with `cache_control: {type: "ephemeral"}` and the server caches it for ~5 minutes. Subsequent requests that share the same prefix pay a tiny cache-read fee instead of the full input-token rate. For a long coding session sending the same ~3KB system prompt + ~1KB tool schemas every turn, this is a 5–10× input cost reduction.
+Anthropic's API supports **prompt caching** — mark a prefix of the request with `cache_control: {type: "ephemeral"}` and the server caches it for ~5 minutes. Subsequent requests that share the same prefix pay a cache-read rate of about a tenth of the normal input price instead of the full rate (writing the cache costs 1.25× once). Anything you re-send on every call is a candidate, and in an agent the biggest thing you re-send is the conversation itself.
 
 The cache works on **prefix match**. Everything up to and including the marked block is what gets cached. Place the breakpoint after the static parts; everything before the breakpoint must be byte-identical across calls or the cache misses.
 
-Two breakpoints in this harness:
+The request is rendered in a fixed order, tools → system → messages, and a breakpoint caches everything before it. This harness uses three breakpoints (the API allows up to four per request):
 
 **On the last tool schema** — tool schemas are static across the whole program, so they're the perfect cache prefix:
 
@@ -64,12 +64,34 @@ def assemble(user_input, history, recalled):
 
 The recalled-memory block has no `cache_control` because it changes turn-to-turn. The base prompt does, because it doesn't.
 
+**On the end of the conversation** — this is the one that pays. The tool schemas plus the base prompt come to roughly a thousand tokens, right around Sonnet 4.5's minimum cacheable prefix of 1,024 tokens. Below that minimum, a breakpoint silently does nothing. The conversation is what grows: every TAO iteration re-sends every earlier message plus the new tool results. A breakpoint on the final block of each request makes the whole conversation so far a cached prefix that the next iteration reads back cheaply:
+
+```python
+def with_cache_breakpoint(messages: list) -> list:
+    last = messages[-1]
+    content = last["content"]
+    if isinstance(content, str):
+        content = [{"type": "text", "text": content}]
+    content = [*content[:-1], {**content[-1], "cache_control": {"type": "ephemeral"}}]
+    return [*messages[:-1], {**last, "content": content}]
+
+
+# In the TAO loop, before each call:
+request_messages = with_cache_breakpoint(messages)
+async with client.messages.stream(..., messages=request_messages, ...) as stream:
+    ...
+```
+
+It returns a copy instead of editing `messages` in place. If the marker were saved into the conversation, every iteration would add another one and the request would soon exceed the four-breakpoint limit. One marker per request, always on the newest block, and the previous request's prefix is still a prefix of this one, so it gets read from cache.
+
+Note how recall interacts with this. The recalled-memory block sits in the system prompt, *ahead* of the messages. Within a turn it's constant, so every TAO iteration after the first hits the cache. Across turns, a different set of recalled memories changes the bytes before the conversation, so the conversation prefix misses (the tools + base-prompt prefix still hits). That's a real cost of putting recall in the system prompt, and the kind of trade-off you can only see once you think about the cache as a prefix.
+
 > [!NOTE]
 > **The cache has a ~5-minute TTL.** If the agent goes idle longer than that, the next turn pays full input cost again. For interactive sessions this is fine; for batch workloads, pacing matters. A handful of turns inside 5 minutes pays once; the same turns spread across an hour pay every time.
 
 ## 2. Tool output caching
 
-Two `read` calls on `pyproject.toml` in the same turn shouldn't pay twice — same input, same output. A small content-addressed cache around idempotent tools handles it.
+Two `read` calls on `pyproject.toml` in the same turn shouldn't do the work twice — same input, same output. A small content-addressed cache around idempotent tools handles it.
 
 ```python
 IDEMPOTENT_TOOLS = {"read", "glob", "grep"}
@@ -117,6 +139,10 @@ Two policies worth being explicit about:
 **Only idempotent tools cache.** `read`, `glob`, `grep` are pure observations of the filesystem — same input, same output (within a turn). `write`, `edit`, `bash` change state and aren't safe to cache.
 
 **Dangerous tools invalidate the entire cache.** If `bash rm foo.py` ran, the cached `read foo.py` is now wrong. Rather than tracking fine-grained dependencies (which file did `bash` touch?), the cache wipes on any state-changing tool. Conservative, but correct.
+
+**The cache lives for one turn.** `main()` calls `_tool_cache.clear()` at the start of every user turn. Between turns *you* might have edited a file in your editor, and the agent has no way of knowing. Scoping the cache to a turn keeps it to the window where nothing but the agent is changing the workspace.
+
+Note what this cache does *not* save: tokens. A cached result still goes back to the model as a `tool_result` and is billed as input like any other. What it saves is the work of producing the result: the disk read, the directory walk, the regex scan.
 
 The `cache_hit: true` attribute lands in the span so the trace records *why* a tool call took 0ms.
 
@@ -205,12 +231,12 @@ The structured system prompt is also where this lands cleanly. The base prompt i
 - **M5 toolkit:** 6 tools through a registry, central executor, parallel dispatch via gather.
 - **M6 sandbox:** `bash` routed through `docker exec` with the same hardening flags.
 - **M7 guardrails:** HITL approval, `MAX_ITERATIONS = 30`, retry/backoff at the SDK, DistilBERT sentiment + Haiku hallucination judge on the final response.
-- **M8 observability:** Hierarchical trace tree (one JSON line per turn), all 8 span types, full system + messages captured on `llm.call` for replay, `replay_trace(trace_id)` re-issues a turn.
+- **M8 observability:** Hierarchical trace tree (one JSON line per turn), all 7 span types, full system + messages captured on `llm.call` for replay, `replay_trace(trace_id)` re-issues a turn.
 
 The differences from M8 are the four optimizations above and nothing else. Diff `traced_agent.py` against `production_agent.py` and every change should map to one of:
 
-1. `cache_control` stamps on tool schemas + system block.
-2. `IDEMPOTENT_TOOLS`, `_tool_cache`, `_cache_key`, cache lookup/store/invalidate inside `execute_tool`.
+1. `cache_control` stamps on tool schemas + system block, and `with_cache_breakpoint()` on each request's messages (plus cache token counts on `llm.call` spans).
+2. `IDEMPOTENT_TOOLS`, `_tool_cache`, `_cache_key`, cache lookup/store/invalidate inside `execute_tool`, and the per-turn `_tool_cache.clear()`.
 3. Tool bodies converted from `async def` to `def`; `inspect.iscoroutinefunction` + `asyncio.to_thread` dispatch.
 4. `BASE_SYSTEM_PROMPT` as a multi-section string; `assemble()` returning the request dict.
 
@@ -234,7 +260,14 @@ Try a session where the cache should pay off:
 ❯ /q
 ```
 
-After the first turn, subsequent turns send the same system prefix + tool schemas. The cache hits register inside Anthropic; you can verify by inspecting `response.usage.cache_read_input_tokens` if you instrument for it.
+After the first call, later calls share a prefix with the one before them. Every `llm.call` span records `cache_creation_input_tokens` and `cache_read_input_tokens` from the response's usage, so you can see the cache working (or silently not working) per iteration:
+
+```bash
+jq -c '.. | objects | select(.name? == "llm.call") | [.attributes.iteration, .attributes.input_tokens, .attributes.cache_creation_input_tokens, .attributes.cache_read_input_tokens]' \
+   ~/.production-agent/traces.jsonl
+```
+
+If `cache_read_input_tokens` stays at 0 across a multi-step turn, something in the prefix is changing between calls.
 
 Inspect tool-cache hits in the trace:
 
@@ -261,7 +294,7 @@ uv run --project examples evals/run.py examples/production_agent.py
 
 `production_agent.py` is a *production-shaped* harness — one user, one terminal, one process, one machine. To run it as an actual production service you still need:
 
-- **Deployment shape.** A long-running process, signal handling beyond `atexit`, graceful shutdown that flushes pending spans, restart-on-crash. Today the agent dies on Ctrl-C and any in-flight `_pending_spans` not yet flushed are lost.
+- **Deployment shape.** A long-running process, signal handling beyond `atexit`, graceful shutdown that flushes pending spans, restart-on-crash. Today Ctrl-C ends the process: the open spans still close on the way out, so that turn's trace is written, but a hard kill mid-turn (SIGKILL, an OOM kill) loses whatever was buffered in `_pending_spans`.
 - **Multi-user concurrency.** Right now state lives in `~/.production-agent/`. Two users sharing a process would collide. A real deployment scopes state by user (or session), keeps per-session message buffers and recall stores, and isolates sandbox containers per user.
 - **PII / secret redaction in traces.** The trace captures full prompts, full tool outputs, full responses. For local dev that's right. For a hosted service, run a classifier (M7-style) over tool outputs before they hit the span, or sample at 1% full-fidelity and store the rest as token-count summaries.
 - **Vendor observability.** Replace the JSONL `write` with an OpenTelemetry exporter or a vendor SDK (Langfuse, Honeycomb, Logfire). `span()` stays the same; only `_flush_trace` changes.

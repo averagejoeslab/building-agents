@@ -59,7 +59,7 @@ Stateful scripts persist to `~/.<name>/` directories:
 
 - `~/.stateful-chatbot/` — `messages.json`, `recall.json`
 - `~/.agent/` — same shape as stateful-chatbot
-- `~/.sandbox-agent/` — same plus the sandbox container survives between runs
-- `~/.safe-agent/` — adds approval/loop-bound state
+- `~/.sandbox-agent/` — same shape (the sandbox container itself is removed when the agent exits)
+- `~/.safe-agent/` — same shape (guardrails add no state files; their warnings print to the terminal)
 - `~/.traced-agent/` — adds `traces.jsonl`
 - `~/.production-agent/` — same shape as traced

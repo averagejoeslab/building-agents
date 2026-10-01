@@ -10,6 +10,7 @@ import sys
 import asyncio
 import json
 import yaml
+import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 from anthropic import AsyncAnthropic
@@ -30,17 +31,33 @@ N_RUNS = 3   # per case; raise for stronger signal
 
 
 async def run_case(case: dict, agent_path: str) -> dict:
-    """Run the agent once with the case's input. Return stdout/stderr."""
+    """Run the agent once with the case's input. Return stdout/stderr.
+
+    The agents keep their state under ~/.<name>/, so each run gets a throwaway
+    HOME: no saved messages or recall leak between cases or between runs.
+    """
     user_input = case["input"] + "\n/q\n"
     agent_abs = (REPO_ROOT / agent_path).resolve() if not Path(agent_path).is_absolute() else Path(agent_path).resolve()
-    proc = await asyncio.create_subprocess_exec(
-        "uv", "run", str(agent_abs),
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=REPO_ROOT / "examples",
-    )
-    stdout, stderr = await proc.communicate(user_input.encode())
+    real_home = Path.home()
+    with tempfile.TemporaryDirectory() as fresh_home:
+        env = {
+            **os.environ,
+            "HOME": fresh_home,
+            # Keep the heavy caches pointed at the real home so every run doesn't
+            # re-download the models / packages or lose the Docker CLI config.
+            "HF_HOME": os.environ.get("HF_HOME", str(real_home / ".cache" / "huggingface")),
+            "UV_CACHE_DIR": os.environ.get("UV_CACHE_DIR", str(real_home / ".cache" / "uv")),
+            "DOCKER_CONFIG": os.environ.get("DOCKER_CONFIG", str(real_home / ".docker")),
+        }
+        proc = await asyncio.create_subprocess_exec(
+            "uv", "run", str(agent_abs),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=REPO_ROOT / "examples",
+            env=env,
+        )
+        stdout, stderr = await proc.communicate(user_input.encode())
     return {
         "stdout": stdout.decode(errors="replace"),
         "stderr": stderr.decode(errors="replace"),

@@ -51,10 +51,10 @@ A case passes if every check in its `checks` list passes.
 - `run.py` — the runner (subprocess + score + per-case stochastic averaging + result file)
 - `diff.py` — regression diff between two result files
 - `cases/*.yaml` — test cases
-- `results/*.json` — timestamped run outputs (gitignored except for samples)
+- `results/*.json` — timestamped run outputs (gitignored)
 
 ## Trade-offs
 
-The runner spawns the agent as a subprocess so cases run against fresh state. That adds ~1-2s of startup per run. For larger eval suites, parallelize with `asyncio.gather` over cases — sequential is fine for the sample set here.
+The runner spawns the agent as a subprocess with a throwaway `HOME`, so every run starts with empty state (no `messages.json` or `recall.json` carried over between cases or runs). That adds several seconds of startup per run while the agent loads its models. For larger eval suites, parallelize with `asyncio.gather` over cases — sequential is fine for the sample set here.
 
 The LLM judge uses Claude Haiku 4.5 (fast and cheap). For cases where judge consistency matters, pin a specific model snapshot.

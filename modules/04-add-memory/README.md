@@ -166,6 +166,7 @@ Wire it into the loop (still async — we'll keep the same pattern across the cu
 
 ```python
 messages = assemble(user_input, system, history)
+turn_start = len(messages) - 1  # index of this turn's user message
 
 async with client.messages.stream(model=MODEL, system=system, messages=messages, ...) as stream:
     async for text in stream.text_stream:
@@ -174,8 +175,11 @@ async with client.messages.stream(model=MODEL, system=system, messages=messages,
     response = await stream.get_final_message()
 
 messages.append({"role": "assistant", "content": response.content[0].text})
-history = messages  # the assembled buffer becomes the next iteration's input
+history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
+save_messages(history)
 ```
+
+Notice the split between the two lists. `messages` is the trimmed buffer: what *this one call* can afford to send. `history` is everything, and only ever grows. Trimming decides what the model sees; it never deletes anything from disk. If you saved the trimmed buffer instead, every turn that fell out of the budget would be gone from `messages.json` for good.
 
 > [!NOTE]
 > The next module adds tools, which means messages can carry `tool_use` and `tool_result` blocks. Splitting a `tool_use`/`tool_result` pair across an eviction boundary makes the API reject the request — so `find_turn_boundaries` extends to skip user messages that are *replies* to tool calls. We'll do that in the next module.
@@ -229,8 +233,8 @@ Embeddings are normalized to unit length, so dot product equals cosine similarit
 Storing raw turn messages would be wasteful — long, full of detail, hard to scan. Summarize each turn down to one paragraph using a cheap model:
 
 ```python
-def summarize_turn(turn_messages: list) -> str:
-    response = client.messages.create(
+async def summarize_turn(turn_messages: list) -> str:
+    response = await client.messages.create(
         model="claude-haiku-4-5",
         max_tokens=200,
         system=("You write one-paragraph summaries of conversations. "
@@ -264,11 +268,11 @@ After the turn finishes, summarize and add to recall:
 
 ```python
 turn_messages = messages[turn_start:]
-summary = summarize_turn(turn_messages)
+summary = await summarize_turn(turn_messages)
 add_to_recall(summary, recall_entries)
 ```
 
-Now the chatbot has long-term memory: even after old turns are trimmed from the live context, their summaries can be pulled back when the user asks something related.
+Now the chatbot has long-term memory: even after old turns are trimmed from the live context (they're still on disk in `messages.json`, just not sent), their summaries can be pulled back into the prompt when the user asks something related.
 
 ## Putting it together
 

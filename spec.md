@@ -1,5 +1,7 @@
 # building-agents rebuild spec
 
+> **Status: completed, kept as a historical record.** This is the planning document for the harness-engineering reframe. File references describe the repo as it was then: the deck has since moved to a single Slidev [`presentation/slides.md`](./presentation/slides.md), so the `src/slides/*.tsx`, `Deck.tsx`, and component paths below no longer exist.
+
 A planning document for the reframe of this repo around **harness engineering** as the consolidating 2026 terminology for what the curriculum actually teaches.
 
 ---

@@ -35,6 +35,9 @@ The harness's interface to the outside world. A tool has two parts that together
 For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
 
 ```python
+import subprocess
+
+
 def bash(cmd: str) -> str:
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
@@ -82,7 +85,10 @@ while True:
         break
 
     # ACT: run each requested tool
-    results = [execute(call) for call in tool_calls]
+    results = [
+        {"type": "tool_result", "tool_use_id": c.id, "content": bash(**c.input)}
+        for c in tool_calls
+    ]
 
     # OBSERVE: append results as the next user message
     messages.append({"role": "user", "content": results})
@@ -196,7 +202,7 @@ I made **1 tool call** using the `bash` function:
 - **Parameter value**: `cat pyproject.toml` — a shell command that displays the contents of the file
 ````
 
-The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
+The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the rest of the curriculum.
 
 ## Run it
 
@@ -205,7 +211,7 @@ cd examples
 uv run test.py
 ```
 
-It prints the model's reasoning along the way, shows the contents of `pyproject.toml`, and tells you which tool calls it made to get there. Once you can run this you've seen the goal in miniature.
+It prints the model's final answer: the contents of `pyproject.toml` and a description of the tool calls it made to get there. Once you can run this you've seen the goal in miniature.
 
 ## Where we go from here
 

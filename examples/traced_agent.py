@@ -220,9 +220,8 @@ async def edit(path: str, old: str, new: str, all: bool = False) -> str:
 async def grep(pattern: str, path: str) -> str:
     regex = re.compile(pattern)
     hits = []
-    for root, _, files in os.walk(path):
-        if ".git" in root or "__pycache__" in root or ".venv" in root:
-            continue
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".venv")]  # prune noise dirs
         for fname in files:
             fpath = os.path.join(root, fname)
             try:
@@ -384,7 +383,8 @@ def load_messages() -> list:
         return []
     try:
         return json.loads(MESSAGES_FILE.read_text())
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"warning: {MESSAGES_FILE} is corrupt ({e}); starting fresh")
         return []
 
 
@@ -540,7 +540,7 @@ _sentiment_pipe = pipeline(
 def check_sentiment(text: str) -> tuple[str, float]:
     if not text.strip():
         return ("POSITIVE", 1.0)
-    result = _sentiment_pipe(text[:512])[0]
+    result = _sentiment_pipe(text, truncation=True)[0]  # truncate to BERT max-len (512 tokens)
     return (result["label"], float(result["score"]))
 
 
@@ -550,8 +550,11 @@ async def hallucination_judge(user_input: str, response_text: str, tool_evidence
         max_tokens=150,
         system=(
             "You evaluate whether an agent's response is grounded in evidence "
-            "from its tool calls. Reply on the first line with exactly one word: "
-            "GROUNDED or HALLUCINATED. Reply on the second line with a brief reason."
+            "from its tool calls. Any claim about the user's files, code, or "
+            "command results must be supported by the evidence. General knowledge "
+            "and conversational replies that make no such claims count as grounded. "
+            "Reply on the first line with exactly one word: GROUNDED or HALLUCINATED. "
+            "Reply on the second line with a brief reason."
         ),
         messages=[{
             "role": "user",
@@ -677,7 +680,7 @@ async def main():
                           iteration=iteration,
                           model=MODEL,
                           system=system,
-                          messages=messages) as llm_rec:
+                          messages=list(messages)) as llm_rec:  # snapshot: `messages` keeps growing
                     async with client.messages.stream(
                         model=MODEL,
                         max_tokens=MAX_RESPONSE_TOKENS,
@@ -756,9 +759,10 @@ async def main():
                 sum_rec["attributes"]["turn_messages_count"] = len(turn_messages)
 
         # turn span has closed and the full trace tree is now in traces.jsonl.
-        history = messages
+        history += messages[turn_start:]  # persist the full turn; the trimmed buffer was only for this call
         save_messages(history)
         add_to_recall(summary, recall_entries)
 
 
-asyncio.run(main())
+if __name__ == "__main__":  # so `from traced_agent import replay_trace` doesn't start the agent
+    asyncio.run(main())

@@ -72,7 +72,7 @@ Every span in this tree shares one `trace_id`. Each has a unique `span_id`. Each
 }
 ```
 
-Eight span types make up the full trace tree for one turn:
+Seven span types make up the full trace tree for one turn:
 
 | Span | Captures | Why it exists |
 |---|---|---|
@@ -252,7 +252,7 @@ Inside the turn, open a `memory.recall` span before consulting recall:
 
 (Note: `recall()` now returns *both* the selected entries and the full scored candidate list. The candidates are captured by the trace — auditability for *what was considered* and not just *what was kept*.)
 
-For each iteration, open an `llm.call` span and pass the full system + messages into its attributes:
+For each iteration, open an `llm.call` span and pass the full system + messages into its attributes. Watch the `list(messages)`: it's small, but replay depends on it.
 
 ```python
             for iteration in range(MAX_ITERATIONS):
@@ -262,7 +262,7 @@ For each iteration, open an `llm.call` span and pass the full system + messages 
                           iteration=iteration,
                           model=MODEL,
                           system=system,
-                          messages=messages) as llm_rec:
+                          messages=list(messages)) as llm_rec:  # snapshot: `messages` keeps growing
                     async with client.messages.stream(...) as stream:
                         ...
                         response = await stream.get_final_message()
@@ -274,6 +274,8 @@ For each iteration, open an `llm.call` span and pass the full system + messages 
                     })
                     llm_span_id = llm_rec["span_id"]
 ```
+
+Why the copy? `span()` stores attributes by reference, and the tree isn't serialized until the turn closes. `messages` is one list that the TAO loop keeps appending to: the assistant reply, then the tool results, then the next reply. Without a snapshot, every `llm.call` span in the turn would point at the *same* list and get written out in its final state. Iteration 0's "prompt" would include answers the model hadn't produced yet, and replaying it would send a conversation that already ends with the final answer. `list(messages)` freezes what was actually sent on that call. (A shallow copy is enough because the loop only ever appends; the message dicts themselves are never edited.)
 
 `execute_tool` opens a `tool.call` span and now captures the full input, full output, and the approval decision if applicable:
 
@@ -366,10 +368,10 @@ $ jq '{name, duration_ms, attributes: {user_input: .attributes.user_input, itera
 
 Most other questions are short `jq` walks over the tree. The recursive-descent operator (`..`) drills into every nested span at any depth:
 
-Find the system prompt actually sent on the last iteration of the most recent turn:
+Find the system prompt actually sent on the last iteration of the most recent turn (`-s` slurps every line into one array so `last` sees all turns):
 
 ```bash
-jq -r '[.. | objects | select(.name? == "llm.call") | .attributes.system] | last' \
+jq -rs '[.[] | .. | objects | select(.name? == "llm.call") | .attributes.system] | last' \
    ~/.traced-agent/traces.jsonl
 ```
 
@@ -464,7 +466,7 @@ Checkpointing is worth a short detour because it's where state and trace come cl
 
 **Session-level resume is the state files' job, not the trace's.** Quit the agent between turns, relaunch it, and the conversation comes back because `messages.json` and `recall.json` (M4) are on disk. The trace doesn't participate in this. You could delete `traces.jsonl` entirely and the next session would still pick up correctly. This is the resume case 99% of agents care about, and the state files already handle it.
 
-**Mid-turn resume — picking up *inside* a TAO loop that crashed at iteration 3 of 5 — is a niche use case.** It is the one place the trace *would* be load-bearing, because the in-flight loop state (which iteration, what messages had been assembled, what tool was running) isn't in the state files. But the current example's buffer-and-emit format flushes the whole trace tree only when the root `turn` span closes. If the process dies mid-turn, that turn's spans are lost from the buffer.
+**Mid-turn resume — picking up *inside* a TAO loop that crashed at iteration 3 of 5 — is a niche use case.** It is the one place the trace *would* be load-bearing, because the in-flight loop state (which iteration, what messages had been assembled, what tool was running) isn't in the state files. But the current example's buffer-and-emit format flushes the whole trace tree only when the root `turn` span closes. A Python exception or Ctrl-C still unwinds through the `finally` blocks and writes the tree on the way out; but if the process is killed outright mid-turn (SIGKILL, an OOM kill, power loss), that turn's buffered spans are lost.
 
 If you actually need mid-turn recovery in production, the fix is one of:
 
@@ -498,7 +500,7 @@ In production you may need to be more selective:
 - **Sample.** Trace 1% of turns at full fidelity, 99% with token counts only.
 - **Ship to a managed platform.** Use an OpenTelemetry SDK or a vendor SDK (Langfuse, Honeycomb) that handles retention policy server-side.
 
-All of these are changes to `write_span()` and the attributes passed into `span()`. The harness wiring stays the same.
+All of these are changes to `_flush_trace()` and the attributes passed into `span()`. The harness wiring stays the same.
 
 ## The tooling landscape
 
@@ -514,17 +516,17 @@ The file-based JSONL approach is the floor, not the ceiling. Real production age
 | **LangSmith** | Tight LangChain integration. |
 | **Logfire** | Pydantic's observability product. Python-native, OpenTelemetry-compatible. |
 
-Migration path: keep `span()` as your API, swap `write_span()` for the platform's SDK. Everything else stays.
+Migration path: keep `span()` as your API, swap the file write in `_flush_trace()` for the platform's SDK. Everything else stays.
 
 ## What the traced agent does, end to end
 
 Compared to `safe_agent.py` (M7), three things changed:
 
-1. **Imports + tracing module** at the top: `_new_id`, `write_span`, `span()` context manager.
+1. **Imports + tracing module** at the top: `_new_id`, `_flush_trace`, `span()` context manager.
 2. **`execute_tool`** gains `parent_span` and `trace_id` parameters and captures full input, full output, and approval decisions in its `tool.call` span.
 3. **`main()`** opens spans at every level: `turn` → `memory.recall` → `llm.call` (per iteration) → `tool.call` (per dispatch) → `guardrail.sentiment` → `guardrail.hallucination` → `memory.summarize`.
 
-`recall()` was refactored to return both the selected entries and the full scored candidate list — the trace captures the candidates so you can see *why* certain memories were picked. Everything else — the M4 memory machinery, the M5 toolkit, the M6 sandbox, the M7 guardrails — is preserved unchanged.
+`recall()` was refactored to return both the selected entries and the full scored candidate list — the trace captures the candidates so you can see *why* certain memories were picked. The replay helpers (`_walk()`, `replay_trace()`) were added too, along with an `if __name__ == "__main__":` guard around `asyncio.run(main())` so the module can be imported for replay without starting the agent. Everything else — the M4 memory machinery, the M5 toolkit, the M6 sandbox, the M7 guardrails — is preserved unchanged.
 
 State directory: `~/.traced-agent/` — `messages.json`, `recall.json`, and the new `traces.jsonl`.
 

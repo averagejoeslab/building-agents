@@ -217,7 +217,7 @@ class: ''
 <div style="text-align: center; color: rgba(235,110,31,0.55); font-size: 0.55rem; line-height: 1;">↓</div>
 
 <div style="background: rgba(235,110,31,0.22); border: 2px solid #EB6E1F; border-radius: 5px; padding: 0.3rem 0.55rem;">
-<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">Transformer block × 30–100</div>
+<div style="font-size: 0.74rem; font-weight: 700; line-height: 1.15;">Transformer block × 60–120</div>
 <div style="font-size: 0.6rem; opacity: 0.9; margin-top: 0.08rem;">the "thinking" — every word looks at every other, refining meaning over and over</div>
 </div>
 
@@ -400,7 +400,7 @@ class: ''
 <div class="eyebrow">A · outward</div>
 <div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.1;">Develop other products</div>
 <div style="color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.5;">Point the agent at the next codebase. Ship features, build infrastructure, author tooling.</div>
-<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">Example: Peter Steinberg built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">Example: Peter Steinberger built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
 </div>
 
 <div class="hero-card" style="padding: 1.75rem;">
@@ -760,7 +760,7 @@ class: ''
 </div>
 
 <div style="margin-top: 1.5rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 1rem; line-height: 1.55;">Every LLM call and tool call becomes a <strong style="color: #EB6E1F;">structured span</strong>. JSONL — one span per line.</div>
+<div style="color: white; font-size: 1rem; line-height: 1.55;">Every LLM call and tool call becomes a <strong style="color: #EB6E1F;">structured span</strong>. JSONL — one trace tree per line, one line per turn.</div>
 </div>
 
 <div style="margin-top: 1.25rem;">
@@ -866,19 +866,19 @@ class: ''
 <div class="hero-card" style="padding: 1.5rem;">
 <div class="eyebrow">01 · amortize input cost</div>
 <div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Prompt caching</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Mark system + tool schemas <code>cache_control</code>. Amortize input cost across many turns.</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Breakpoints on tool schemas, system prompt, and the growing conversation. Re-sent context is read from cache.</div>
 </div>
 
 <div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">02 · don't pay twice</div>
+<div class="eyebrow">02 · don't do it twice</div>
 <div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Tool output caching</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Two reads of the same file in one turn shouldn't pay twice. Content-addressed cache around <code>read</code> / <code>grep</code> / <code>glob</code>.</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Two reads of the same file in one turn shouldn't hit the disk twice. Content-addressed cache around <code>read</code> / <code>grep</code> / <code>glob</code>.</div>
 </div>
 
 <div class="hero-card" style="padding: 1.5rem;">
 <div class="eyebrow">03 · off the event loop</div>
 <div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Threading</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">CPU work (big regex trees, embedding inference) runs on a thread so concurrent tools aren't serialized behind it.</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Blocking I/O (file reads, directory walks, subprocesses) runs on a worker thread, so concurrent tools aren't serialized behind it.</div>
 </div>
 
 <div class="hero-card" style="padding: 1.5rem;">
