@@ -1,6 +1,6 @@
 # presentation
 
-Slidev deck walking the building-agents curriculum end to end — from the top-level README's framing through Module 10.
+Slidev deck walking the building-agents curriculum end to end — from the harness-engineering framing through Module 10, where the harness you have built is quark.
 
 ## Run
 

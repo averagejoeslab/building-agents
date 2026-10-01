@@ -11,3 +11,6 @@ __pycache__/
 *.pyc
 .venv/
 evals/results/
+
+# quark long-term memory (written by the agent at runtime)
+.quark/

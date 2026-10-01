@@ -5,11 +5,11 @@ In my opinion the simplest way to think about an agent is as a system that can t
 > **Agent = Model + Harness.**
 > The model is the intelligence substrate — Claude, GPT, Gemini, or whatever you're calling via an API. The harness is everything else: the code, configuration, and execution logic that wraps the model and gives it state, tools, an execution environment, feedback, and constraints.
 >
-> A raw model is not an agent. The harness is what turns it into one. This curriculum teaches **harness engineering** — how to build that surrounding runtime from first principles.
+> A raw model is not an agent. The harness is what turns it into one. This curriculum teaches **harness engineering** — how to build that surrounding runtime from first principles — by building [quark](../../examples/quark.py), a complete harness, one component at a time.
 
 ## The three components
 
-In my opinion the bare minimum required to actually call something an agent is three moving parts. Real production agents have way more going on in the harness — memory, sandboxing, guardrails, observability, performance work, and more — and that's exactly what we're going to build out over the rest of the curriculum. But at the irreducible core you only need these three: an LLM call, tools, and a loop. One of them (the LLM call) is the model itself; the other two are the most fundamental primitives of the harness. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
+In my opinion the bare minimum required to actually call something an agent is three moving parts. Real agents have way more going on in the harness — a system prompt, memory, interrupts, caching, and more — and that's exactly what we're going to build out over the rest of the curriculum. But at the irreducible core you only need these three: an LLM call, tools, and a loop. One of them (the LLM call) is the model itself; the other two are the most fundamental primitives of the harness. Let me walk through each one with a self-contained snippet showing what it actually looks like in code.
 
 ### 1. An LLM call
 
@@ -32,7 +32,7 @@ print(response.content[0].text)
 
 The harness's interface to the outside world. A tool has two parts that together make it usable by the model: an **implementation** (the actual function written in your agent's language, which does the actual work) and a **schema** (a structured description of the inputs the function expects, which the model reads at runtime to figure out what arguments to pass). The LLM industry has standardized on [JSON Schema](https://json-schema.org/) for the schema side of things, so the schema part looks the same regardless of whether your agent is written in Python, TypeScript, Go, or Rust — only the implementation changes between languages. Tools always return strings to the model, and if something goes wrong they return an error message *as* a string so the model can self-correct on the next turn instead of the whole program crashing.
 
-For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal, which makes it the minimum primitive that proves the tool concept end-to-end. It also makes it a terrible thing to hand a model in production without serious guardrails. Starting in Module 5 we'll introduce safer purpose-built tools like `read`, `write`, `edit`, `grep`, and `glob`, but for showing what a tool actually *is* mechanically, one bash tool is the simplest thing that gets us all the way there.
+For the toy in this module we'll use a single `bash` tool — the model can ask to run any shell command, and we run it. That's intentionally the broadest possible tool: technically `bash` can do anything you can type into a terminal. It's also the one tool quark ends up with. quark treats bash as its *body*: the single means through which it acts on the world and observes it, the way you use one body both to chop wood and to talk. Rather than adding more tools, quark teaches the model, in its system prompt, how to use that one body well. We'll come back to that idea in [Module 4](../04-add-a-body/). The flip side: a model with bash can do anything you can, so run these examples somewhere you can afford to lose.
 
 ```python
 def bash(cmd: str) -> str:
@@ -90,14 +90,12 @@ while True:
 
 ## The toy
 
-Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in around 50 lines of code. The runnable version of this lives at [`examples/test.py`](../../examples/test.py):
+Now we can put the three components together into a minimal working agent. This is a toy more than something you'd ever actually ship, but it shows the whole loop in around 50 lines of code. The runnable version of this lives at [`examples/01_toy.py`](../../examples/01_toy.py):
 
 ```python
 import subprocess
 from anthropic import Anthropic
-from dotenv import load_dotenv
 
-load_dotenv()
 client = Anthropic()
 
 
@@ -160,58 +158,25 @@ flowchart LR
     Branch -->|no| End[Response to user]
 ```
 
-And here's the actual output you get back when you run the toy — the model answered both parts of the prompt, showing the file contents *and* surfacing the tool call it made along the way:
+When you run it, the model calls `bash` with something like `cat pyproject.toml`, reads the result that comes back, and answers both halves of the prompt: what's in the file, and what tool call it made to find out.
 
-````
-cloudchase@m1Pro examples % uv run test.py
-## Contents of pyproject.toml:
-
-The file contains a Python project configuration with:
-- **Project name**: "examples"
-- **Version**: 0.1.0
-- **Description**: Runnable checkpoints for the agenteng curriculum with shared venv, .env, and dependencies
-- **Python requirement**: >=3.13
-- **Dependencies**:
-  - anthropic (>=0.97.0)
-  - python-dotenv (>=1.2.2)
-  - sentence-transformers (>=3.0.0)
-  - transformers (>=4.40.0)
-  - numpy (>=2.0.0)
-  - pyyaml (>=6.0)
-  - tiktoken (>=0.8.0)
-
-## Tool Call Details:
-
-I made **1 tool call** using the `bash` function:
-
-```xml
-<invoke name="bash">
-<parameter name="cmd">cat pyproject.toml</parameter>
-</invoke>
-```
-
-**What this looked like:**
-- **Function name**: `bash` — allows me to run shell commands
-- **Parameter name**: `cmd` — the command to execute
-- **Parameter value**: `cat pyproject.toml` — a shell command that displays the contents of the file
-````
-
-The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the next ten modules.
+The model chose every action it took, read every result it got back, and decided on its own when to stop. In my opinion that's the cleanest way to see the workflow-vs-agent distinction in action — and it's exactly the pattern this repo is going to build up over the rest of the curriculum.
 
 ## Run it
 
 ```bash
+export ANTHROPIC_API_KEY=sk-ant-...
 cd examples
-uv run test.py
+uv run 01_toy.py
 ```
 
-It prints the model's reasoning along the way, shows the contents of `pyproject.toml`, and tells you which tool calls it made to get there. Once you can run this you've seen the goal in miniature.
+It prints the model's final answer: the contents of `pyproject.toml` and a description of the tool call it made to get there. Once you can run this you've seen the goal in miniature.
 
 ## Where we go from here
 
-The toy you just ran is the whole agent pattern in about 50 lines. Starting in Module 2 we actually go back to the foundation — just a single LLM call, no tools and no loop — and build the harness back up one component at a time over the rest of the curriculum, ending up with something much more substantial than this little toy.
+The toy you just ran is the whole agent pattern in about 50 lines. But it's missing almost everything that makes an agent pleasant and safe to work with: it can't stream, it can't hold a conversation, it doesn't know where it is, it forgets everything when it exits, it dies when its context fills up, and once it starts you can't stop it.
 
-Specifically, **Module 2** picks up at the bottom of the stack and walks through three things: how to actually make an LLM call (the four fields the API needs from you), the difference between the sync and async streaming versions of that call, and when you want each one.
+Starting in Module 2 we go back to the foundation — a single streamed LLM call — and build the harness back up one component at a time until it *is* quark. From here on the code is written the way quark is written: dense, with every line earning its place. Each module adds a handful of lines and explains every one of them, and you can diff any checkpoint against the previous one to see exactly what that component costs.
 
 ---
 

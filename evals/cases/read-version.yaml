@@ -1,7 +1,0 @@
-id: read-pyproject-version
-description: Agent reads pyproject.toml and reports the Python version requirement.
-input: "What's the Python version requirement in pyproject.toml?"
-checks:
-  - type: contains
-    value: "3.13"
-tags: [read, file-tools]

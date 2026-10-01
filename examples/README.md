@@ -1,65 +1,47 @@
 # examples
 
-Runnable harness checkpoints for the [building-agents curriculum](../README.md). Each script is one stage in the construction of a coding-agent harness — the cumulative end state of one module. Read the module first, then run the script to see that stage's harness in action. The filename describes what the system has *become* at that point.
+Runnable checkpoints for the [building-agents curriculum](../README.md): the [quark](./quark.py) harness, built one component at a time. Read a module first, then run its checkpoint.
 
-Each is one self-contained file with no imports between scripts. Code is duplicated across files on purpose: a reader can open any script and understand the entire harness at that level without jumping around.
+Each file is self-contained — no imports between scripts — so you can open any one and see the entire harness at that stage. Each checkpoint is the previous one plus exactly one harness component; diff any two neighbors to see what that component costs:
+
+```bash
+diff 06_working_memory.py 07_long_term_memory.py
+```
 
 ## Setup (once)
 
 ```bash
-cp .env.example .env          # paste your Anthropic API key
-uv sync                        # install deps into ./.venv
+uv sync                               # installs the one dependency: anthropic
+export ANTHROPIC_API_KEY=sk-ant-...   # read from the environment; there is no .env file
 ```
 
-The `uv sync` pulls in `sentence-transformers` (used by `stateful_chatbot.py` and later) which downloads ~2GB of PyTorch. The first run of any memory-using script also downloads the embedding model itself (~80MB).
-
-## Run a script
-
-```bash
-uv run llm_call_async.py      # or any other script
-```
-
-Run from `examples/` — the `.env` and `.venv` are resolved relative to this directory.
+macOS or Linux (or WSL) — from Module 4 on, the checkpoints use POSIX `select`, and from Module 8 on, `termios` for terminal control.
 
 ## Checkpoints
 
-[`test.py`](./test.py) is the Module 1 toy — the minimal "model + one tool + a loop" agent shown in the prose. It exists to make the very first concept concrete and isn't part of the strict-superset chain below (the chain starts at `llm_call_sync.py`, which deliberately drops the tool to focus on the model interface, and builds back up from there).
-
-Each script in the table below is a strict superset of the previous one's capabilities.
-
-| # | Script | Module | Harness component added |
+| Script | Module | Harness component added | Lines |
 |---|---|---|---|
-| 0 | [`test.py`](./test.py) | [1](../modules/01-what-is-an-agent/) | *(toy)* minimal model + one tool + a TAO loop in ~50 lines |
-| 1 | [`llm_call_sync.py`](./llm_call_sync.py) / [`llm_call_async.py`](./llm_call_async.py) | [2](../modules/02-an-llm-call/) | **Model interface** — sync `messages.create` and async streaming |
-| 2 | [`stateless_chatbot.py`](./stateless_chatbot.py) | [3](../modules/03-add-a-loop/) | **Control flow** — a loop bound to the terminal |
-| 3 | [`stateful_chatbot.py`](./stateful_chatbot.py) | [4](../modules/04-add-memory/) | **Memory + context management** — persistence, token budget eviction, semantic recall |
-| 4 | [`agent.py`](./agent.py) | [5](../modules/05-add-tools/) | **Tool / action layer** — tools, TAO loop, async parallel dispatch |
-| 5 | [`sandbox_agent.py`](./sandbox_agent.py) | [6](../modules/06-add-sandboxing/) | **Execution environment** — Docker-isolated `bash` |
-| 6 | [`safe_agent.py`](./safe_agent.py) | [7](../modules/07-add-guardrails/) | **Safety constraints** — approval gates, loop bounds, retry/backoff |
-| 7 | [`traced_agent.py`](./traced_agent.py) | [8](../modules/08-add-observability/) | **Structured tracing** — JSONL spans for every LLM and tool call |
-| 8 | [`production_agent.py`](./production_agent.py) | [10](../modules/10-add-performance/) | **Production hardening** — prompt caching, tool caching, threading, structured prompts, `assemble()` |
+| [`01_toy.py`](./01_toy.py) | [1](../modules/01-what-is-an-agent/) | *(toy)* model + one tool + a loop, in plain Python | 52 |
+| [`02_stream.py`](./02_stream.py) | [2](../modules/02-an-llm-call/) | **Model interface** — one streamed call, read event by event | 12 |
+| [`03_loop.py`](./03_loop.py) | [3](../modules/03-add-a-loop/) | **Control flow** — the loop, bound to the terminal; one-shot or chat | 15 |
+| [`04_body.py`](./04_body.py) | [4](../modules/04-add-a-body/) | **Body** — the bash tool, a drained subprocess, the cutoff guard | 34 |
+| [`05_self_model.py`](./05_self_model.py) | [5](../modules/05-add-a-self-model/) | **Self model** — the structured system prompt | 35 |
+| [`06_working_memory.py`](./06_working_memory.py) | [6](../modules/06-add-working-memory/) | **Working memory** — reactive compaction on context overflow | 49 |
+| [`07_long_term_memory.py`](./07_long_term_memory.py) | [7](../modules/07-add-long-term-memory/) | **Long-term memory** — a memory file, taught by the prompt (no code) | 49 |
+| [`08_interrupts.py`](./08_interrupts.py) | [8](../modules/08-add-interrupts/) | **Interrupts** — ESC stops speech or kills a command; history stays valid | 80 |
+| [`09_self_knowledge.py`](./09_self_knowledge.py) | [9](../modules/09-add-self-knowledge/) | **Self-knowledge** — the harness's own source in the prompt | 81 |
+| [`quark.py`](./quark.py) | [10](../modules/10-add-caching/) | **Caching** — a byte-stable, cache-marked system prompt. This is quark. | 81 |
 
-(Module 9 — Evaluation — ships at [`evals/`](../evals/) at the repo root, since it tests the scripts here rather than being one.)
+## Running
 
-## Picking which one to run
+```bash
+uv run 03_loop.py                          # chat mode: prompts you until /q
+uv run quark.py "what's in this directory?"   # one-shot: works on the task, then exits
+```
 
-- **Reading the curriculum?** Run each script as you finish its module.
-- **Want a chat companion that remembers across sessions?** `stateful_chatbot.py`.
-- **Want a coding agent?** `agent.py` minimum; `safe_agent.py` if you want sandboxing + approval gates.
-- **Debugging a behavior issue?** `traced_agent.py`. Every action ends up in `~/.traced-agent/traces.jsonl`.
-- **Want the full production-shaped artifact?** `production_agent.py`.
+> [!WARNING]
+> From `04_body.py` on, the agent runs whatever bash the model writes — immediately, with your privileges, no confirmation. Run it in a container or a directory you can afford to lose. From `08_interrupts.py` on, ESC stops it mid-act.
 
-## Dockerfile
+## State
 
-`Dockerfile.sandbox` lives here. The `sandbox_agent.py`, `safe_agent.py`, `traced_agent.py`, and `production_agent.py` scripts all build and use it on first run. Requires Docker to be running.
-
-## State files
-
-Stateful scripts persist to `~/.<name>/` directories:
-
-- `~/.stateful-chatbot/` — `messages.json`, `recall.json`
-- `~/.agent/` — same shape as stateful-chatbot
-- `~/.sandbox-agent/` — same plus the sandbox container survives between runs
-- `~/.safe-agent/` — adds approval/loop-bound state
-- `~/.traced-agent/` — adds `traces.jsonl`
-- `~/.production-agent/` — same shape as traced
+From Module 7 on, the agent keeps long-term memory in `.quark/memory/memory.md`, relative to the directory you run it from. It's a plain markdown file — read it, edit it, delete it. `.quark/` is gitignored.

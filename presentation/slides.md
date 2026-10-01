@@ -55,7 +55,7 @@ mdc: true
 <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.3); border-top: 3px solid #EB6E1F; border-radius: 12px; padding: 1.75rem;">
 <div style="color: #EB6E1F; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem;">03 · This talk</div>
 <div style="color: white; font-size: 1.65rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.1; font-family: ui-monospace, monospace;">Agent = Model + Harness</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.9rem; line-height: 1.55;">The 3 disciplines and the 10-module curriculum that builds a production-shaped harness from a single LLM call.</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.9rem; line-height: 1.55;">The 3 disciplines, and a 10-module curriculum that builds quark — a complete agent harness — from a single LLM call.</div>
 </div>
 
 </div>
@@ -325,59 +325,59 @@ class: ''
 The harness is every piece of code, configuration, and execution logic that isn't the model itself.
 </div>
 
-<div class="eyebrow" style="text-align: center; font-size: 0.62rem; margin: 0.3rem 0 0.55rem;">The 9 primary components</div>
+<div class="eyebrow" style="text-align: center; font-size: 0.62rem; margin: 0.3rem 0 0.55rem;">The harness we build: quark's 9 components</div>
 
 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem;">
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
 <div style="color: white; font-size: 0.82rem; font-weight: 700;">Model interface</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">How the harness calls the LLM — which model, sync or streaming, response parsing.</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">A streamed call, read event by event — so the harness can act between events.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
 <div style="color: white; font-size: 0.82rem; font-weight: 700;">Control flow</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The loop that drives the model continuously — the TAO loop is the workhorse.</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">One <code>while True</code> loop, bound to an environment (the terminal).</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Memory + context</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">What persists across sessions; what fits into each call's token budget.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Body · tools</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">One bash tool. Its reach is the whole system; know-how lives in the prompt.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Tools · action layer</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The model's hands — functions it can invoke to affect the world.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Self model</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The system prompt: self, world, other selves, and how to use the body.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Execution environment</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Where dangerous tool calls actually run — sandbox, container, isolated VM.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Working memory</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">When the context window overflows: drop the oldest turns, summarize the rest.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Safety · guardrails</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">What the model is allowed to do — approval gates, loop bounds, retry policy.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Long-term memory</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">A markdown file the model writes and greps with its own body.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Observability</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Structured traces of every LLM call, tool call, and state transition.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Interrupts</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">ESC stops speech or kills a command — and the conversation stays valid.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Evaluation</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">A test harness for the harness — task suites, success criteria, regression detection.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Self-knowledge</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">The harness embeds its own source code in the prompt.</div>
 </div>
 
 <div class="hero-card" style="padding: 0.55rem 0.75rem; border-top-width: 2px;">
-<div style="color: white; font-size: 0.82rem; font-weight: 700;">Optimization</div>
-<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">Prompt caching, tool caching, threading — make the harness affordable and fast.</div>
+<div style="color: white; font-size: 0.82rem; font-weight: 700;">Caching</div>
+<div style="color: rgba(255,255,255,0.65); font-size: 0.65rem; margin-top: 0.15rem; line-height: 1.3;">A byte-stable system prompt, cached — the big prefix is paid for once.</div>
 </div>
 
 </div>
 
 <div style="margin-top: 0.85rem; text-align: center; color: white; font-size: 0.82rem; font-weight: 600;">
-10 modules build these end-to-end. <span style="color: #EB6E1F;">This is the talk's focus.</span>
+10 modules build them one at a time — ending at quark, byte for byte. <span style="color: #EB6E1F;">This is the talk's focus.</span>
 </div>
 
 </div>
@@ -400,7 +400,7 @@ class: ''
 <div class="eyebrow">A · outward</div>
 <div style="color: white; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.1;">Develop other products</div>
 <div style="color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.5;">Point the agent at the next codebase. Ship features, build infrastructure, author tooling.</div>
-<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">Example: Peter Steinberg built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
+<div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; margin-top: 0.85rem;">Example: Peter Steinberger built openclaw by directing existing coding agents, then embedded a harness inside it.</div>
 </div>
 
 <div class="hero-card" style="padding: 1.75rem;">
@@ -428,11 +428,11 @@ class: ''
 <div>
 <div class="accent-bar"></div>
 <div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 1 · What is an agent?</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept only · modules/01-what-is-an-agent/</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">concept · modules/01-what-is-an-agent/ → 01_toy.py</div>
 </div>
 
 <div style="margin-top: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-<div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">The TAO loop — input to output</div>
+<div style="color: #EB6E1F; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.35rem;">observe → think → act</div>
 
 ```mermaid {scale: 0.7}
 flowchart LR
@@ -445,23 +445,8 @@ flowchart LR
 
 </div>
 
-<div style="margin-top: 0.6rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
-<div style="padding: 0.4rem 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-radius: 5px;">
-<div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">01 · reasoning</div>
-<div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>LLM call</strong> — the model</div>
-</div>
-<div style="padding: 0.4rem 0.7rem; background: rgba(235,110,31,0.15); border: 1px solid #EB6E1F; border-radius: 5px;">
-<div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">02 · the body</div>
-<div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>Loop</strong> — the harness's control flow</div>
-</div>
-<div style="padding: 0.4rem 0.7rem; background: rgba(235,110,31,0.15); border: 1px solid #EB6E1F; border-radius: 5px;">
-<div style="color: #EB6E1F; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">03 · world interface</div>
-<div style="color: white; font-size: 0.78rem; margin-top: 0.1rem;"><strong>Tools</strong> — the harness's hands</div>
-</div>
-</div>
-
-<div style="margin-top: 0.55rem; text-align: center; color: rgba(255,255,255,0.85); font-size: 0.88rem;">
-Three primitives. The harness is <strong style="color: #EB6E1F;">two of them</strong>.
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">Three primitives: an <strong>LLM call</strong> (the model), a <strong>tool</strong> and a <strong>loop</strong> (the harness). The toy uses one tool — bash — which quark keeps as its whole <strong style="color: #EB6E1F;">body</strong>.</div>
 </div>
 
 </div>
@@ -475,32 +460,23 @@ class: ''
 <div>
 <div class="accent-bar"></div>
 <div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 2 · An LLM call</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: model interface · modules/02-an-llm-call/ → llm_call_sync.py, llm_call_async.py</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: model interface · → 02_stream.py</div>
 </div>
 
-<div style="margin-top: 1.5rem;">
+<div style="margin-top: 1.2rem;">
 
-```python {all|1-2|4-9|11}
-from anthropic import Anthropic
-client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-response = client.messages.create(
-    model="claude-sonnet-4-5",
-    max_tokens=1024,
-    system="You are a helpful assistant.",
-    messages=[{"role": "user", "content": "..."}],
-)
-print(response.content[0].text)
+```python {all|1|2-4|5}
+with client.messages.stream(model=MODEL, max_tokens=4096, messages=working_memory) as stream:
+    for ev in stream:
+        if ev.type == "content_block_delta" and hasattr(ev.delta, "text"):
+            sys.stdout.write(ev.delta.text); sys.stdout.flush()
+    saying = stream.current_message_snapshot
 ```
 
 </div>
 
-<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 0.98rem; line-height: 1.55;">One HTTP POST. One JSON response. <code>content</code> is a list of blocks (text + optional tool requests).</div>
-</div>
-
-<div style="margin-top: 0.85rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border-left: 3px solid rgba(235,110,31,0.4); border-radius: 0 8px 8px 0;">
-<div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; line-height: 1.55;">Streaming version uses <code>messages.stream</code> + <code>await stream.get_final_message()</code> — text lands token-by-token, structured response captured at the end. <strong style="color: #EB6E1F;">Every example downstream uses async streaming.</strong></div>
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">Stream every call and read it <strong>event by event</strong>: the event loop is where the harness gets control — later, to check for ESC. <code>current_message_snapshot</code> is exactly what arrived, even if we stop early.</div>
 </div>
 
 </div>
@@ -514,61 +490,26 @@ class: ''
 <div>
 <div class="accent-bar"></div>
 <div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 3 · Add a loop</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: control flow · modules/03-add-a-loop/ → stateless_chatbot.py</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: control flow · → 03_loop.py</div>
 </div>
 
-<div style="margin-top: 1.25rem;">
+<div style="margin-top: 1.2rem;">
 
-```python {all|3-4|6|8-17}
-async def main():
-    messages = []
-    while True:
-        user_input = input("❯ ")
-        if user_input.lower() in ("/q", "exit"): break
-        messages.append({"role": "user", "content": user_input})
-        async with client.messages.stream(
-            model="claude-sonnet-4-5",
-            max_tokens=1024,
-            system="You are a helpful assistant.",
-            messages=messages,
-        ) as stream:
-            async for text in stream.text_stream:
-                print(text, end="", flush=True)
-            response = await stream.get_final_message()
-        messages.append({"role": "assistant", "content": response.content[0].text})
+```python {all|1|3-4|5-8}
+while True:
+    with client.messages.stream(...) as stream: ...       # Module 2
+    print()
+    working_memory.append({"role": "assistant", "content": saying.content})
+    if not chat: break                                              # one-shot: done
+    u = next(filter(str.strip, iter(lambda: input("\n> "), None)))   # re-prompt on blank input
+    if u == "/q": break
+    working_memory.append({"role": "user", "content": u})
 ```
 
 </div>
 
-<div style="margin-top: 1rem; padding: 0.85rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 0.95rem; line-height: 1.5;">The Messages API is stateless. The program holds the state. <strong style="color: #EB6E1F;">Terminal is just our pick — the loop is environment-agnostic.</strong></div>
-</div>
-
-<div style="margin-top: 0.85rem; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem;">
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">Terminal</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">stdin / stdout</div>
-</div>
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">WebSocket</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">browser SSE</div>
-</div>
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">Slack</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">slash command</div>
-</div>
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">Gameboy</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">emulator I/O</div>
-</div>
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">Minecraft</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">block actions</div>
-</div>
-<div style="text-align: center; padding: 0.4rem 0.25rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(235,110,31,0.25); border-top: 2px solid #EB6E1F; border-radius: 5px;">
-<div style="color: white; font-weight: 700; font-size: 0.72rem;">Spreadsheet</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.58rem; margin-top: 0.15rem;">cell formula</div>
-</div>
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">The API is stateless; <code>working_memory</code> is the agent's mind. The terminal is just quark's environment — <strong style="color: #EB6E1F;">the same loop binds to a web socket, a chat app, or a robot.</strong></div>
 </div>
 
 </div>
@@ -581,39 +522,34 @@ class: ''
 
 <div>
 <div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 4 · Add memory</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: memory + context management · modules/04-add-memory/ → stateful_chatbot.py</div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 4 · Add a body</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: tools · → 04_body.py</div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 1.5rem;">
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
 
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">01 · survive a restart</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Persistence</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Save <code>messages.json</code> to disk. Load at startup.</div>
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">01 · one tool</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">bash is the body</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Its reach is the whole system. Know-how lives in the prompt, not in more tools.</div>
 </div>
 
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">02 · fit the window</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Token budget</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Compute upfront. Walk past turns newest-first until full.</div>
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">02 · one loop</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">No inner loop</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">If the reply has tool calls, act and go round again. No calls → the turn is over → ask the human.</div>
 </div>
 
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">03 · don't lose context</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.55rem;">Semantic recall</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Summarize each turn, embed, retrieve by similarity.</div>
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">03 · invariants</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Never wedge, never misfire</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Drain the pipe as it fills (no 64KB deadlock). Bounded final drain. Never run a command cut off by <code>max_tokens</code>.</div>
 </div>
 
 </div>
 
-<div style="margin-top: 1.5rem; padding: 1.25rem 1.5rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(235,110,31,0.3); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 0.9rem; color: rgba(255,255,255,0.95); line-height: 1.6;">
-past_turn_budget = CONTEXT_BUDGET - MAX_RESPONSE_TOKENS<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- tokens(system) - tokens(tools) - tokens(user_input)
-</div>
-
-<div style="margin-top: 1rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem;">
-<code>tiktoken cl100k_base</code> · <code>sentence-transformers all-MiniLM-L6-v2</code> · normalized vectors → dot product = cosine
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">Every <code>tool_use</code> gets its <code>tool_result</code> — even the ones that never ran: <code>[your doing … never reached the world]</code>.</div>
 </div>
 
 </div>
@@ -626,46 +562,158 @@ class: ''
 
 <div>
 <div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 5 · Add tools <span style="color: #EB6E1F;">·</span> the agent moment</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: tool / action layer · modules/05-add-tools/ → agent.py</div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 5 · Add a self model</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: system prompt · → 05_self_model.py</div>
 </div>
 
-<div class="hero-card" style="padding: 0.75rem 1.25rem; margin-top: 1rem;">
-<div class="eyebrow">The TAO loop</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
 
-```mermaid {scale: 0.38}
-flowchart LR
-    Start[User input] --> Think[THINK<br/>LLM call]
-    Think --> Branch{Tool call?}
-    Branch -->|yes| Act[ACT<br/>execute tool]
-    Act --> Observe[OBSERVE<br/>result → context]
-    Observe --> Think
-    Branch -->|no| End[Response]
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">self model</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">What it is</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Identity, mind (the context window), body (bash), loop (observe → think → act).</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">world model</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Where and when</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Environment, working directory, time — things only the harness can tell it.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">other selves</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Who it's with</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Humans reach it with text; it reaches them by speaking through its body.</div>
+</div>
+
+</div>
+
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;"><strong>Body Operations</strong> teaches what a toolkit would hard-code: one focused act per response, an escalation gradient (pipes → <code>python -c</code> → scripts → installs), and a grounding gradient (mind → world → ask).</div>
+</div>
+
+</div>
+
+---
+class: ''
+---
+
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 6 · Add working memory</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: context management · → 06_working_memory.py</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">01 · overflow</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Wait for the 400</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Reactive: no tokenizer, no budget. <code>prompt is too long</code> → <code>drop += 1</code>.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">02 · slice</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Cut at turn boundaries</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Drop the oldest <code>drop</code> turns. Slicing at a user-text message never orphans a tool result.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">03 · summarize</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Replace the mind</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">The model writes a gist; <code>working_memory = [summary]</code>. Retry until it's non-empty.</div>
+</div>
+
+</div>
+
+</div>
+
+---
+class: ''
+---
+
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 7 · Add long-term memory</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: persistence · → 07_long_term_memory.py</div>
+</div>
+
+<div style="margin-top: 1.2rem; padding: 1.1rem 1.5rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(235,110,31,0.3); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 0.82rem; color: rgba(255,255,255,0.95); line-height: 1.6;">
+## 2026-10-01 14:02:11<br/>
+- Chase prefers short answers<br/>
+- project tests run with: uv run pytest -q
+</div>
+
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;"><strong style="color: #EB6E1F;">Zero lines of code.</strong> A format contract, a write recipe, and read "moves" in the prompt — the model keeps <code>.quark/memory/memory.md</code> with its own body. This is system prompt learning: the model is frozen; the harness gets smarter.</div>
+</div>
+
+</div>
+
+---
+class: ''
+---
+
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 8 · Add interrupts</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: human control · → 08_interrupts.py</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">notice</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">An observer thread</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">cbreak mode, raw byte reads. A lone <code>\x1b</code> sets <code>interrupt</code>; arrow-key sequences are ignored.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">stop</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">At every yield point</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Break the stream (closes the connection). <code>killpg</code> the command's whole process group.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">close out</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Keep history valid</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Pair every tool call, keep what was said, then <code>[other self interrupted what you were …]</code>.</div>
+</div>
+
+</div>
+
+</div>
+
+---
+class: ''
+---
+
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 9 · Add self-knowledge</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: self-knowledge · → 09_self_knowledge.py</div>
+</div>
+
+<div style="margin-top: 1.2rem;">
+
+```python
+def mechanics(): return "\n".join('def system(): return "<system prompt redacted …>"'
+                             if l.startswith("def system():") else l
+                             for l in open(__file__).read().split("\n"))
 ```
 
 </div>
 
-<div style="margin-top: 0.75rem; padding: 0.65rem 1.25rem; background: rgba(235,110,31,0.12); border: 1px solid #EB6E1F; border-radius: 8px; text-align: center;">
-<div style="color: white; font-size: 0.95rem; font-weight: 700;">The model — not your code — decides what comes next.</div>
-<div style="color: rgba(255,255,255,0.85); font-size: 0.82rem; margin-top: 0.25rem;">The stateful chatbot becomes a stateful agent.</div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
-
-<div class="hero-card" style="padding: 0.9rem 1.25rem;">
-<div class="eyebrow">Toolkit · 6 tools</div>
-<div style="color: white; font-size: 0.9rem; font-family: ui-monospace, monospace; line-height: 1.55; margin-top: 0.3rem;">read · grep · glob<br/>write · edit · bash</div>
-</div>
-
-<div class="hero-card" style="padding: 0.9rem 1.25rem;">
-<div class="eyebrow">How they scale</div>
-<div style="color: white; font-size: 0.82rem; line-height: 1.45; margin-top: 0.3rem;">
-<strong>Registry</strong> collapses repeat plumbing.<br/>
-<strong>Central executor</strong> catches all errors.<br/>
-<strong style="color: #EB6E1F;">asyncio.gather</strong> dispatches in parallel.
-</div>
-</div>
-
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">The harness embeds its own source in the prompt. The model can explain its own behavior — and it can never be out of date. Same vocabulary in prompt and code: <em>mind</em>, <em>body</em>, <em>doing</em>.</div>
 </div>
 
 </div>
@@ -678,219 +726,28 @@ class: ''
 
 <div>
 <div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 6 · Add sandboxing</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: execution environment · modules/06-add-sandboxing/ → sandbox_agent.py + Dockerfile.sandbox</div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 10 · Add caching</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: performance · → quark.py</div>
 </div>
 
-<div style="margin-top: 1.5rem; padding: 1.1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 1rem; line-height: 1.55;">The agent has a <code>bash</code> tool that runs <strong style="color: #EB6E1F;">directly on the host</strong>. The model can write your filesystem, install packages, exfiltrate data — by mistake or by prompt injection.</div>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">01 · mark it</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">cache_control</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">System prompt becomes one block marked <code>ephemeral</code>: tools + system cached, read back at ~0.1×.</div>
 </div>
 
-<div class="hero-card" style="padding: 1.5rem 1.75rem; margin-top: 1.25rem; flex: 1; display: flex; flex-direction: column; justify-content: center;">
-<div class="eyebrow" style="text-align: center;">The fix · contain bash in Docker</div>
-
-```mermaid {scale: 0.6}
-flowchart LR
-    Agent[agent.py] --> Bash[bash tool]
-    Bash --> Docker[Docker container<br/>--cap-drop ALL<br/>--network none<br/>--read-only]
-    Docker --> Result[stdout / stderr]
-    Result --> Agent
-```
-
-</div>
-
-<div style="margin-top: 0.85rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem;">
-Only <code>bash</code> is sandboxed. <code>read</code> / <code>write</code> / <code>edit</code> still touch the host — file editing has to be visible.
-</div>
-
-</div>
-
----
-class: ''
----
-
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
-
-<div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 7 · Add guardrails</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: safety constraints · modules/07-add-guardrails/ → safe_agent.py</div>
-</div>
-
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; flex: 1; margin-top: 1.75rem;">
-
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">01 · before the action</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Approval gates</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">Before running a dangerous tool (<code>write</code> / <code>edit</code> / <code>bash</code>), prompt the human y/N.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">02 · cap the runtime</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Loop bounds</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;"><code>MAX_ITERATIONS</code> cap on the inner TAO loop. Stop before the agent burns budget.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.75rem;">
-<div class="eyebrow">03 · survive transients</div>
-<div style="color: white; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem;">Retry / backoff</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.55;">Exponential backoff on transient API errors. Tool errors handled by the model.</div>
-</div>
-
-</div>
-
-<div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 1rem; line-height: 1.5;">
-Sandbox constrains <strong style="color: #EB6E1F;">where</strong> the agent can act. Guardrails constrain <strong style="color: #EB6E1F;">whether</strong> it gets to act at all.
-</div>
-</div>
-
-</div>
-
----
-class: ''
----
-
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
-
-<div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 8 · Add observability</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: structured tracing · modules/08-add-observability/ → traced_agent.py</div>
-</div>
-
-<div style="margin-top: 1.5rem; padding: 1rem 1.5rem; background: rgba(255,255,255,0.04); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
-<div style="color: white; font-size: 1rem; line-height: 1.55;">Every LLM call and tool call becomes a <strong style="color: #EB6E1F;">structured span</strong>. JSONL — one span per line.</div>
-</div>
-
-<div style="margin-top: 1.25rem;">
-
-```json {all|1-4|5-12|13-16}
-{
-  "name": "turn", "trace_id": "a1b2…", "duration_ms": 8240,
-  "attributes": {"user_input": "what does foo.py import?", "iterations": 2},
-  "children": [
-    {"name": "memory.recall",    "duration_ms": 0.02},
-    {"name": "llm.call", "attributes": {"iteration": 0, "input_tokens": 1059},
-     "children": [
-       {"name": "tool.call", "attributes": {"tool.name": "read"}}
-     ]
-    },
-    {"name": "llm.call", "attributes": {"iteration": 1, "input_tokens": 1183}},
-    {"name": "guardrail.sentiment",     "attributes": {"label": "POSITIVE"}},
-    {"name": "guardrail.hallucination", "attributes": {"grounded": true}},
-    {"name": "memory.summarize"}
-  ]
-}
-```
-
-</div>
-
-<div style="margin-top: 1.25rem; text-align: center; color: rgba(255,255,255,0.75); font-size: 0.95rem;">
-Search · replay · feed to evals.
-</div>
-
-<div style="margin-top: 0.4rem; text-align: center; color: rgba(255,255,255,0.55); font-size: 0.85rem; font-family: ui-monospace, monospace;">
-tail -f ~/.traced-agent/traces.jsonl | jq
-</div>
-
-</div>
-
----
-class: ''
----
-
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
-
-<div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 9 · Add evaluation</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: test infrastructure · modules/09-add-evaluation/ → evals/</div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.75rem; margin-top: 1.5rem; flex: 1; min-height: 0;">
-
-<div class="hero-card" style="padding: 1.25rem 1.5rem;">
-<div class="eyebrow">A YAML case</div>
-
-```yaml
-id: find-imports
-input: |
-  list functions in foo.py
-  that import requests
-checks:
-  - type: contains
-    value: "fetch_user"
-  - type: llm_judge
-    rubric: |
-      answer lists exactly the
-      functions, no extras
-```
-
-</div>
-
-<div class="hero-card" style="padding: 1.25rem 1.5rem;">
-<div class="eyebrow">The runner</div>
-<div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.92rem; margin-top: 0.5rem;">
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Subprocess per case (fresh state)</span></div>
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>N runs per case (default 3)</span></div>
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Stochastic pass rate</span></div>
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>LLM-as-judge with Haiku</span></div>
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span>Result file per timestamp</span></div>
-<div style="display: flex; gap: 0.6rem;"><span style="color: #EB6E1F; font-weight: 700;">→</span><span><code>diff.py</code> flags &gt;10% regression</span></div>
-</div>
-</div>
-
-</div>
-
-<div style="margin-top: 1rem; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem; font-family: ui-monospace, monospace;">
-uv run --project examples evals/run.py examples/production_agent.py
-</div>
-
-</div>
-
----
-class: ''
----
-
-<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
-
-<div>
-<div class="accent-bar"></div>
-<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 10 · Add performance</div>
-<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: production hardening · modules/10-add-performance/ → production_agent.py</div>
-</div>
-
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-top: 1.5rem; flex: 1;">
-
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">01 · amortize input cost</div>
-<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Prompt caching</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Mark system + tool schemas <code>cache_control</code>. Amortize input cost across many turns.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">02 · don't pay twice</div>
-<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Tool output caching</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">Two reads of the same file in one turn shouldn't pay twice. Content-addressed cache around <code>read</code> / <code>grep</code> / <code>glob</code>.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">03 · off the event loop</div>
-<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Threading</div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">CPU work (big regex trees, embedding inference) runs on a thread so concurrent tools aren't serialized behind it.</div>
-</div>
-
-<div class="hero-card" style="padding: 1.5rem;">
-<div class="eyebrow">04 · one named call site</div>
-<div style="color: white; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">Structured prompts · <code>assemble()</code></div>
-<div style="color: rgba(255,255,255,0.75); font-size: 0.92rem; line-height: 1.5;">One function brings together system, recalled memory, tool schemas, trimmed messages. One named call site.</div>
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">02 · keep it stable</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Date, not time</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">A timestamp would change every second and silently miss. The model gets the date — and <code>date</code> via its body.</div>
 </div>
 
 </div>
 
 <div style="margin-top: 1.25rem; padding: 1rem 1.5rem; background: rgba(235,110,31,0.1); border: 1px solid rgba(235,110,31,0.4); border-radius: 8px; text-align: center;">
-<div style="color: white; font-size: 1rem;">The curriculum's destination: <strong style="color: #EB6E1F; font-family: ui-monospace, monospace;">examples/production_agent.py</strong></div>
+<div style="color: white; font-size: 1rem;">The curriculum's destination: <strong style="color: #EB6E1F; font-family: ui-monospace, monospace;">examples/quark.py</strong> — 81 lines, byte for byte.</div>
 </div>
 
 </div>

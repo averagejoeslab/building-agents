@@ -1,14 +1,8 @@
 [project]
 name = "examples"
 version = "0.1.0"
-description = "Runnable checkpoints for the agenteng curriculum. Shares one venv, one .env, and one dependency set across all scripts."
+description = "Runnable checkpoints for the building-agents curriculum: the quark harness, built one component at a time."
 requires-python = ">=3.13"
 dependencies = [
     "anthropic>=0.97.0",
-    "python-dotenv>=1.2.2",
-    "sentence-transformers>=3.0.0",
-    "transformers>=4.40.0",
-    "numpy>=2.0.0",
-    "pyyaml>=6.0",
-    "tiktoken>=0.8.0",
 ]
