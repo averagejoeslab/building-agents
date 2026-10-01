@@ -77,8 +77,9 @@ That's the whole harness. Look at it again — [`examples/quark.py`](../../examp
 
 ## Where to go next
 
-- **Harden it.** quark trusts its model completely. A production harness would run the body in a sandbox (one tool means one thing to contain), ask before destructive commands, trace every call, and run an eval suite against every change. You now know exactly where each of those plugs into the loop.
+- **Sandbox it.** quark trusts its model completely and runs every command as you. [Module 11](../11-add-a-sandbox/) moves its body into a locked-down container — and because quark has one body, that one change contains everything it can do.
+- **Harden it further.** Ask before destructive commands, trace every call, and run an eval suite against every change. You now know exactly where each of those plugs into the loop.
 - **Move it.** Bind the same loop to a different environment — a web socket, a chat app, a game. Only the input and output lines change.
 - **Use it.** Point it at a codebase and build something. That's [agentic engineering](../../README.md#after-the-harness-agentic-engineering), the discipline that starts where this one ends.
 
-Back to the [root README](../../README.md).
+**Next:** [Module 11: Add a sandbox](../11-add-a-sandbox/) — or back to the [root README](../../README.md).

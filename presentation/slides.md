@@ -751,3 +751,43 @@ class: ''
 </div>
 
 </div>
+
+---
+class: ''
+---
+
+<div style="position: absolute; inset: 0; padding: 2.5rem 3.5rem; display: flex; flex-direction: column; text-align: left;">
+
+<div>
+<div class="accent-bar"></div>
+<div style="color: white; font-size: 2.5rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;">Module 11 · Add a sandbox</div>
+<div style="color: rgba(255,255,255,0.55); font-size: 0.85rem; margin-top: 0.5rem; font-family: ui-monospace, monospace;">harness component: execution environment · beyond quark · → 11_sandbox.py + Dockerfile.sandbox</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 1.4rem;">
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">01 · contain</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">One body, one box</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;"><code>docker exec</code> instead of a host shell. No network, read-only system, caps dropped, one shared directory.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">02 · interrupt</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Kill where it lives</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">Killing the host-side client leaves the command running. Record the group ID, <code style="white-space: nowrap;">kill -9 -- -pgid</code> inside.</div>
+</div>
+
+<div class="hero-card" style="padding: 1.25rem;">
+<div class="eyebrow">03 · align</div>
+<div style="color: white; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Tell the truth</div>
+<div style="color: rgba(255,255,255,0.75); font-size: 0.88rem; line-height: 1.5;">New body, new self model: <code>/workspace</code>, no network, nothing to install — "say so" instead of failing.</div>
+</div>
+
+</div>
+
+<div style="margin-top: 1.1rem; padding: 0.9rem 1.5rem; background: rgba(235,110,31,0.08); border-left: 3px solid #EB6E1F; border-radius: 0 8px 8px 0;">
+<div style="color: white; font-size: 0.98rem; line-height: 1.5;">A toolkit leaks around a sandbox. <strong style="color: #EB6E1F;">One body means sandboxing one tool contains everything the agent can do.</strong></div>
+</div>
+
+</div>

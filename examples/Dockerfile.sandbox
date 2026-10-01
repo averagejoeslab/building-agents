@@ -1,0 +1,12 @@
+# The sandbox quark's body runs in (Module 11). Deliberately small: a shell,
+# the everyday text tools, and python3 for the "inline interpreter" step of the
+# escalation gradient. Nothing can be installed at runtime — the container runs
+# with no network and a read-only root filesystem — so anything the agent
+# should be able to use has to be added here.
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash coreutils findutils grep sed gawk procps ripgrep git python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace

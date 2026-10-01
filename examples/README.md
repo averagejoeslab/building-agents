@@ -15,7 +15,7 @@ uv sync                               # installs the one dependency: anthropic
 export ANTHROPIC_API_KEY=sk-ant-...   # read from the environment; there is no .env file
 ```
 
-macOS or Linux (or WSL) — from Module 4 on, the checkpoints use POSIX `select`, and from Module 8 on, `termios` for terminal control.
+macOS or Linux (or WSL) — from Module 4 on, the checkpoints use POSIX `select`, and from Module 8 on, `termios` for terminal control. `11_sandbox.py` also needs [Docker](https://docs.docker.com/get-docker/) running; it builds the `quark-sandbox` image on first run.
 
 ## Checkpoints
 
@@ -31,6 +31,7 @@ macOS or Linux (or WSL) — from Module 4 on, the checkpoints use POSIX `select`
 | [`08_interrupts.py`](./08_interrupts.py) | [8](../modules/08-add-interrupts/) | **Interrupts** — ESC stops speech or kills a command; history stays valid | 80 |
 | [`09_self_knowledge.py`](./09_self_knowledge.py) | [9](../modules/09-add-self-knowledge/) | **Self-knowledge** — the harness's own source in the prompt | 81 |
 | [`quark.py`](./quark.py) | [10](../modules/10-add-caching/) | **Caching** — a byte-stable, cache-marked system prompt. This is quark. | 81 |
+| [`11_sandbox.py`](./11_sandbox.py) | [11](../modules/11-add-a-sandbox/) | **Execution environment** — quark's body inside a locked-down Docker container ([`Dockerfile.sandbox`](./Dockerfile.sandbox)). Needs Docker. | 85 |
 
 ## Running
 
@@ -40,7 +41,7 @@ uv run quark.py "what's in this directory?"   # one-shot: works on the task, the
 ```
 
 > [!WARNING]
-> From `04_body.py` on, the agent runs whatever bash the model writes — immediately, with your privileges, no confirmation. Run it in a container or a directory you can afford to lose. From `08_interrupts.py` on, ESC stops it mid-act.
+> From `04_body.py` on, the agent runs whatever bash the model writes — immediately, with your privileges, no confirmation. Run it in a container or a directory you can afford to lose. From `08_interrupts.py` on, ESC stops it mid-act. `11_sandbox.py` runs the body in a Docker container that can only touch the directory you launch it from.
 
 ## State
 

@@ -10,7 +10,7 @@ Most harnesses ship a toolkit — `read`, `write`, `edit`, `grep`, `glob`, `bash
 
 - **bash already reaches everything.** Anything doable from a command line — any program, any language, any tool you install — is within reach. A `read` tool is `cat`; a `grep` tool is `grep`.
 - **Know-how lives in the prompt, not in code.** The rule from the [README](../../README.md): *the model handles what it can; code handles what it must.* How to use bash well — compose pipes, escalate to `python -c`, keep outputs small — is something the model can be *taught* (Module 5). It doesn't need a function per skill.
-- **One body means one thing to control.** Interrupts (Module 8) only have to know how to stop one kind of action. And if you sandbox the body, you've sandboxed everything the agent can do.
+- **One body means one thing to control.** Interrupts (Module 8) only have to know how to stop one kind of action. And if you sandbox the body, you've sandboxed everything the agent can do — which is exactly what [Module 11](../11-add-a-sandbox/) does.
 
 The cost is precision: a dedicated `edit` tool can enforce "replace exactly this string." With bash, the model writes the `sed` or heredoc itself. For an experienced model, that trade is worth it.
 

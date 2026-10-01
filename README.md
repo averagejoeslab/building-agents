@@ -38,6 +38,7 @@ Its anatomy is the harness, component by component:
 | **Interrupts (human control)** | ESC stops the model mid-sentence or kills a running command, and the conversation stays valid | [8](./modules/08-add-interrupts/) |
 | **Self-knowledge** | The harness embeds its own source code in the prompt, so the model knows how it works | [9](./modules/09-add-self-knowledge/) |
 | **Prompt caching (performance)** | The system prompt is kept byte-stable and cached, so the big prefix is paid for once | [10](./modules/10-add-caching/) |
+| **Execution environment** *(beyond quark)* | The body runs in a locked-down container: no network, read-only system, one shared directory | [11](./modules/11-add-a-sandbox/) |
 
 Four rules shaped every line of it, and they're the rules this curriculum teaches:
 
@@ -62,8 +63,9 @@ Each module adds one harness component and ends in a runnable checkpoint in [`ex
 | 8 | [Add interrupts](./modules/08-add-interrupts/) | Human control | [`08_interrupts.py`](./examples/08_interrupts.py) | 80 |
 | 9 | [Add self-knowledge](./modules/09-add-self-knowledge/) | Self-knowledge | [`09_self_knowledge.py`](./examples/09_self_knowledge.py) | 81 |
 | 10 | [Add caching](./modules/10-add-caching/) | Performance | [`quark.py`](./examples/quark.py) | 81 |
+| 11 | [Add a sandbox](./modules/11-add-a-sandbox/) | Execution environment | [`11_sandbox.py`](./examples/11_sandbox.py) | 85 |
 
-Read the module, then run the checkpoint. Diff any checkpoint against the one before it and you'll see exactly the lines that module added — nothing else changes.
+Read the module, then run the checkpoint. Diff any checkpoint against the one before it and you'll see exactly the lines that module added — nothing else changes. Module 10 completes quark; Module 11 goes one step past it and moves quark's body into a sandbox (it needs Docker).
 
 The model is Claude (`claude-sonnet-4-5`), because Anthropic is where the harness vocabulary consolidated and the Claude API is what I work with day to day. The harness itself is model-agnostic: point the client at another provider's Anthropic-compatible endpoint and almost nothing in these modules changes.
 
@@ -86,14 +88,14 @@ The checkpoints read the key from the environment and nothing else — there's n
 
 ## A note on safety
 
-From Module 4 on, the agent executes whatever bash the model produces — **immediately, with your user privileges, no confirmation step**. That is the design: bash is the agent's body. Treat it accordingly: run it in a container or in a directory you can afford to lose, don't point it at production credentials, and once you reach Module 8, keep ESC handy.
+From Module 4 on, the agent executes whatever bash the model produces — **immediately, with your user privileges, no confirmation step**. That is the design: bash is the agent's body. Treat it accordingly: run it in a container or in a directory you can afford to lose, don't point it at production credentials, and once you reach Module 8, keep ESC handy. [Module 11](./modules/11-add-a-sandbox/) shows how to put the body in a sandbox properly.
 
 ## What this curriculum leaves out
 
-quark is a complete harness for one person in one terminal. Production harnesses add more layers on top of the same shape, and once you've built quark you'll know where each one plugs in:
+quark is a complete harness for one person in one terminal, and Module 11 sandboxes its body. Production harnesses add more layers on top of the same shape, and once you've built quark you'll know where each one plugs in:
 
-- **Sandboxing** — run the body in a container or VM. Because quark's body is a single bash tool, sandboxing that one tool contains everything the agent can do.
 - **Approval gates** — ask before running a command. The natural place is right before `subprocess.Popen` in the tool loop.
+- **Stronger isolation** — Module 11 uses Docker, which shares your machine's kernel. For untrusted workloads, the same harness can target gVisor, a microVM, or a disposable VM; only the line that starts the sandbox changes.
 - **Observability** — structured traces of every model call and command, written beside the loop.
 - **Evaluation** — a suite of tasks run against the harness, scored, and compared across changes.
 
