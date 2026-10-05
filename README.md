@@ -43,14 +43,27 @@ The lessons go the other way and build it back up, one primitive at a time, in a
 
 The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
 
-| # | Lesson | You build |
-|---|---|---|
-| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply |
-| 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool |
-| 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again |
-| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers |
+| # | Lesson | You build | Video |
+|---|---|---|---|
+| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | 🎥 coming soon |
+| 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | 🎥 coming soon |
+| 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | 🎥 coming soon |
+| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | 🎥 coming soon |
 
 Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
+
+## Production (coming soon)
+
+A harness that works isn't yet a harness you'd run unattended. Production adds hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on one of the five you already know, and these lessons will show where:
+
+| Topic | What it adds | Built on | Status |
+|---|---|---|---|
+| Observability | traces, logs and costs for every step, so you can see what the agent did and why | control flow | coming soon |
+| Guardrails | approvals, interrupts, step and spending limits, policies on what may run | control flow | coming soon |
+| Sandboxing | tools that run somewhere they can't do lasting damage | output | coming soon |
+| Resilience | retries, backups and recovering from a failure partway through a task | model interface, output | coming soon |
+| Performance | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | coming soon |
+| Evaluation | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | coming soon |
 
 ## Setup
 
