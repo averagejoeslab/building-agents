@@ -19,7 +19,7 @@ from anthropic import Anthropic
 
 client = Anthropic()
 reply = client.messages.create(
-    model="claude-sonnet-4-5",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     messages=[{"role": "user", "content": "What's in this directory?"}],
 )
@@ -46,17 +46,22 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjjLu1KTynDxpWda5Tiw",
+  "id": "msg_011CfjjRqV826eeqibZMLVHB",
   "container": null,
   "content": [
     {
+      "signature": "CAQSxwUKEAgSGAI4AUIIdGhpbmtpbmcSDF0NourNS+7x6dB0gBoMNqBtr/ZssKlFVG1JIjBH...",
+      "thinking": "",
+      "type": "thinking"
+    },
+    {
       "citations": null,
-      "text": "I don't have access to view your current directory or file system. I'm an AI assistant without the ability to execute commands or access your local environment directly.\n\nTo see what's in your current directory, you can use:\n\n**On Linux/Mac:**\n```bash\nls\n```\nor for more details:\n```bash\nls -la\n```\n\n**On Windows (Command Prompt):**\n```cmd\ndir\n```\n\n**On Windows (PowerShell):**\n```powershell\nGet-ChildItem\n```\nor simply:\n```powershell\nls\n```\n\nIf you run one of these commands and share the output with me, I'd be happy to help you understand what files and folders are present!",
+      "text": "I can't see your directory because I don't have access to your file system in this conversation. Here are some ways to find out what's in it:\n\n**Command line**\n- macOS/Linux: `ls` (or `ls -la` to include hidden files and details)\n- Windows Command Prompt: `dir`\n- Windows PowerShell: `Get-ChildItem` (or `ls`)\n- Tree view: `tree` (works on most systems, though you may need to install it)\n\n**Graphical**\n- Open the folder in Finder (macOS), File Explorer (Windows), or your Linux file manager.\n\nIf you run one of these and paste the output here, I can help you interpret it, find a specific file, clean things up, or write a script to work with the contents.",
       "type": "text"
     }
   ],
   "diagnostics": null,
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "claude-sonnet-5-5",
   "role": "assistant",
   "stop_details": null,
   "stop_reason": "end_turn",
@@ -69,21 +74,23 @@ Here's one run:
     },
     "cache_creation_input_tokens": 0,
     "cache_read_input_tokens": 0,
-    "inference_geo": "not_available",
-    "input_tokens": 13,
-    "output_tokens": 161,
-    "output_tokens_details": null,
+    "inference_geo": "global",
+    "input_tokens": 15,
+    "output_tokens": 273,
+    "output_tokens_details": {
+      "thinking_tokens": 40
+    },
     "server_tool_use": null,
     "service_tier": "standard"
   }
 }
 ```
 
-Yours will be worded differently; the model's output varies from run to run. Three fields matter:
+Yours will be worded differently; the model's output varies from run to run. (The long `signature` is shortened here.) Three fields matter:
 
-- **`content`** is the tokens out: the model's reply.
+- **`content`** is the tokens out, as a list of blocks. This model thinks before it answers, so the first block is its `thinking` (kept private here; the API returns only a signature for it) and the second is the `text` of its reply.
 - **`stop_reason`** is why it stopped. `end_turn` means it finished; `max_tokens` would mean it hit the cap.
-- **`usage`** counts both sides: `input_tokens` is TokensIn, `output_tokens` is TokensOut.
+- **`usage`** counts both sides: `input_tokens` is TokensIn, `output_tokens` is TokensOut, thinking included.
 
 Read the `text`. The model knows the right next step is `ls`. It just can't take it.
 

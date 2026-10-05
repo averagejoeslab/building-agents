@@ -41,7 +41,7 @@ Here's [`agent.py`](./agent.py). The model interface in the middle is the one fr
 import subprocess, sys
 from anthropic import Anthropic
 
-client, MODEL, body = Anthropic(), "claude-sonnet-4-5", [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+client, MODEL, body = Anthropic(), "claude-sonnet-5-5", [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 working_memory = [{"role": "user", "content": next(u for u in iter(lambda: " ".join(sys.argv[1:]).strip() or input("> "), None) if u.strip())}]
 
 with client.messages.stream(model=MODEL, max_tokens=4096, tools=body, messages=working_memory) as stream:
@@ -74,7 +74,7 @@ quark reads the task from the command line if you gave one. Otherwise it prompts
 ### The tool
 
 ```python
-client, MODEL, body = Anthropic(), "claude-sonnet-4-5", [{"name": "bash", ...}]
+client, MODEL, body = Anthropic(), "claude-sonnet-5-5", [{"name": "bash", ...}]
 ```
 
 A tool definition is a name, a description the model reads to decide when to use it, and a JSON schema for its arguments. quark calls the list `body`, because it's how quark acts on the world, and gives it exactly one tool: `bash`. Anything you can do from a command line, quark can do: read files, write files, run programs, install more tools. One general tool instead of twenty specific ones. The cost is that nothing narrows what the model can do, which is why the setup warns you to run this somewhere you can afford to lose.
