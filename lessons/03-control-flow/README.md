@@ -4,6 +4,16 @@
 
 Control flow is how information flows between the other four primitives. They all sit inside it: it decides what runs, in what order, and whether to go again.
 
+Here's the path one pass takes, with the pieces from Lessons 1 and 2:
+
+```
+person or world ─► input ─► request ─► model interface ─► response ─► output ─► person or world
+                     ▲                                                   │
+                     └───────────────────── result ──────────────────────┘
+```
+
+Input gathers what goes into the request. The model interface sends it and gets the response back. Output handles the response: it shows it to a person, or runs a tool. A tool's result is input again. Control flow decides what happens at the end of the path: the result goes back around, a person gets a turn, or everything stops.
+
 How you arrange them decides what you've built. The same four pieces give you:
 
 - **Run once.** Input, call, output, stop. That's Lesson 2.
@@ -53,7 +63,7 @@ while True:
 
 **`while True:`** means go again. Each pass is one call to the model.
 
-**`messages.append(...)`** is how a result reaches the next call. Sending it back means putting it in the next request, and quark does that the simplest way: it appends the response and the results to `messages`, so each request carries everything so far. That growing list is the simplest form of context, working memory. Deciding what really goes in it is Lesson 4.
+**`messages.append(...)`** is the arrow back around: it's how a result reaches the next call. Sending it back means putting it in the next request, and quark does that the simplest way: it appends the response and the results to `messages`, so each request carries everything so far. That growing list is the simplest form of context, working memory. Deciding what really goes in it is Lesson 4.
 
 **`if results: ... continue`** is the agent loop. If the model asked for anything, the results go back and the loop calls again.
 

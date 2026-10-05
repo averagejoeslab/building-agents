@@ -10,6 +10,14 @@ They're built independently, but they're two ends of one exchange, so they're ta
 
 You don't strictly need tools to have an agent. A model that can only talk still takes things in and responds. But without tools, the only thing it can change is what a person reads.
 
+Here's where they sit around Lesson 1's call:
+
+```
+person or world ─► input ─► request ─► model interface ─► response ─► output ─► person or world
+```
+
+In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes them real.
+
 ## The worked example
 
 Here's Lesson 1's call with quark's input and output around it. It's the whole of [`quark.py`](./quark.py):
@@ -179,6 +187,6 @@ The task came in through the pipe, and the model used `read_file` instead of `ba
 
 Notice what isn't on those lists. Calling the model is the model interface. Sending the result back and going again is control flow. Deciding what else the model sees is context. Input and output only bring things in and carry things out.
 
-**What's missing:** the model asked for `ls`, `ls` ran, and the model never saw what it found. Something has to send the result back and decide to go again. That's control flow.
+**What's missing:** the model asked for `ls`, `ls` ran, and the model never saw what it found. The path ends at output. Something has to send the result back to the start and decide to go again. That's control flow.
 
 **→ [Lesson 3: Control flow](../03-control-flow/)**

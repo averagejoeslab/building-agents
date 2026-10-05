@@ -185,6 +185,13 @@ It looks like the first response (its `signature` is shortened too), with one di
 
 Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
-**What's missing:** the question is hardcoded, and the reply is just data dumped to the screen. The model said what to do, and nothing could do it. That's input and output.
+**What's missing:** both ends of the path are stubs.
+
+```
+"What's in this directory?" ─► request ─► model interface ─► response ─► print(...)
+      input (a stub)                                                     output (a stub)
+```
+
+The input is a hardcoded string no one typed, and the output dumps the whole response without handling any of it. The model said what to do, and nothing could do it. Making both ends real is input and output.
 
 **→ [Lesson 2: Input and output](../02-input-and-output/)**
