@@ -2,13 +2,9 @@
 
 > 🎥 **Video:** coming soon
 
-The model is a function: **TokensOut = Model(TokensIn)**. The model interface is the part of the harness that calls it. It's the only primitive that touches the model. The other four exist to prepare a call or to handle its reply, so this one comes first.
+The model is a function: **TokensOut = Model(TokensIn)**. The model interface is how the harness calls it. It sends tokens to the model as a request, and the model returns tokens as a response, just like any other API endpoint.
 
-Whatever the provider, a model interface does three things:
-
-1. **Package** the tokens in, in the shape the model expects.
-2. **Send** them, and wait for tokens to come out.
-3. **Keep** what comes back. That's more than text: the reply also says *why* the model stopped and how many tokens went in and out.
+It's the only primitive that touches the model. Deciding what goes into the request and what to do with the response is the work of the other four, so this one comes first.
 
 ## The worked example
 
@@ -26,13 +22,13 @@ reply = client.messages.create(
 print(reply.model_dump_json(indent=2))
 ```
 
-**`client = Anthropic()`** is how quark reaches the model: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
+**`client = Anthropic()`** is where the request goes: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`messages=[...]`** is the package: the tokens in, as a list of messages, each with a `role` and `content`.
+**`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`.
 
-**`client.messages.create(...)`** sends it and waits. `model` picks which model, and `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
+**`client.messages.create(...)`** sends the request and waits for the response. `model` picks which model, and `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
-**`reply`** is what's kept: everything that came back, as data. The `print` shows all of it, so you can see what the model interface hands to the rest of the harness.
+**`reply`** is the response: the tokens out, plus details about how they were produced. The `print` shows all of it.
 
 ## Run it
 
@@ -96,7 +92,7 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 
 ## What to take away
 
-**The rule:** the model interface packages tokens in, sends them, and keeps what comes back.
+**The rule:** the model interface sends tokens to the model as a request and gets tokens back as a response.
 
 **What else would have worked:**
 - **Streaming instead of waiting.** The reply arrives piece by piece as it's produced, so a person can watch it and a long reply can't time out. More code to read it.
