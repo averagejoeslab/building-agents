@@ -291,7 +291,7 @@ dependencies = ["anthropic"]
 
 The task came in through the pipe, and the model used `read_file` instead of `bash`. The blank first line is where its text would have streamed; it didn't say anything before asking. As with `quark.py`, the answer is in `results`, and the model never sees it.
 
-Notice what isn't on those lists. Calling the model is the model interface. Sending the result back and going again is control flow. Deciding what else the model sees is context. Input and output only bring things in and carry things out.
+Notice what isn't on those lists. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. How what input gathers is presented in the request is context. Input only gathers what goes in, from a person or the world, and output only handles the response, showing it to a person or running a tool.
 
 **What's missing:** the model asked for `wc -l`, it ran, and the model never saw what it found. The path ends at output. Something has to send the result back to the start and decide to go again. That's control flow.
 
