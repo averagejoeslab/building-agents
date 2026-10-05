@@ -14,14 +14,26 @@ person or world ─► input ─► request ─► model interface ─► respon
 
 Input gathers what goes into the request. The model interface sends it and gets the response back. Output handles the response: it shows it to a person, or runs a tool. A tool's result is input again. Control flow decides what happens at the end of the path: the result goes back around, a person gets a turn, or everything stops.
 
-How you arrange them decides what you've built. The same four pieces give you:
+How you arrange them decides what you've built. The simplest arrangements:
 
 - **Run once.** Input, call, output, stop. That's Lesson 2.
 - **A chat loop.** Call, show the response, hand back to the person, repeat. A chatbot.
-- **An agent loop.** Call, and while the model asks for tools, run them, send the results back, and call again. Hand back when it stops asking.
-- **A workflow.** Your code decides the steps: call the model to plan, then to write, then to check.
 
-There's no correct one. They differ in who decides what happens next: in an agent loop, the model does; in a workflow, your code does.
+Past those, Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) names the arrangements that come up most. It splits them by who decides what happens next. In a **workflow**, your code decides: the calls follow paths you wrote in advance. In an **agent**, the model decides.
+
+Workflows:
+- **Prompt chaining.** A fixed sequence of calls, each working on the last one's output, with checks in code between them if you want.
+- **Routing.** One call sorts the input, and your code sends it down the path built for that kind.
+- **Parallelization.** Calls run at the same time, either splitting a task into independent parts or asking the same thing several times and combining the answers.
+- **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
+- **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
+
+Agents:
+- **An agent loop.** Call, and while the model asks for tools, run them, send the results back, and call again. Hand back when it stops asking.
+
+There's no correct one. A workflow is predictable and easy to test, but only handles what you planned for. An agent handles what you didn't plan for, and costs you predictability.
+
+Two things in the article aren't control flow in this course. Its building block, the *augmented LLM*, is a model with retrieval, tools and memory: retrieval and memory are context, and tools are output. And routing sends a task down a different path, which can include a cheaper model; that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down.
 
 Whatever the shape, control flow does two things. It **sequences** the other primitives, passing what one produced to the next. And it **terminates**: it decides when to stop, or when to hand back to a person. A loop with no clear way to end is a bill with no clear way to end.
 
@@ -102,7 +114,7 @@ That's two calls. The first asked for a command. Its result went back, and the s
 **The rule:** control flow sequences the other four primitives and decides when to stop. Arranged differently, the same four pieces are a single call, a chatbot, an agent, or a workflow.
 
 **What else control flow can be:** quark runs one agent loop with no limit, one command after another, but this primitive holds more in other harnesses.
-- **Its shape.** A single call, a chat loop, an agent loop, a workflow, a planner that hands steps to an executor, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
+- **Its shape.** A single call, a chat loop, any of the workflows above, an agent loop, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
 - **When it stops.** When the model stops asking, after a number of steps, at a spending limit, when the model declines, when a person says stop.
 - **Who it hands back to.** A person, another program, or no one: it runs until the task is done.
 - **In what order things run.** Tool requests one after another, or at the same time.
@@ -173,7 +185,71 @@ $ git --version
 [stopped: hit the 1-step limit]
 ```
 
-Notice what isn't on that list. Calling the model is the model interface. Bringing things in and carrying them out is input and output. What goes into each request, including that growing `messages` list, is context. Control flow only decides what runs, in what order, and when to stop.
+Both of those are agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
+
+```python
+import sys
+from anthropic import Anthropic
+
+client = Anthropic()
+
+def ask(prompt):
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, messages=[{"role": "user", "content": prompt}])
+    return next(b.text for b in reply.content if b.type == "text")
+
+task = " ".join(sys.argv[1:]) or input("> ")
+draft = ask(f"Do this task. Reply with only the result.\n\n{task}")
+for round in range(1, 4):
+    print(f"--- draft {round} ---\n{draft}\n")
+    verdict = ask(f"Task:\n{task}\n\nDraft:\n{draft}\n\nCheck the draft against every requirement in the task. If it meets all of them, reply with only PASS. Otherwise list what to fix.")
+    if verdict.strip() == "PASS":
+        print("[evaluator: pass]")
+        break
+    print(f"--- evaluator ---\n{verdict}\n")
+    draft = ask(f"Task:\n{task}\n\nDraft:\n{draft}\n\nFeedback:\n{verdict}\n\nRewrite the draft to fix everything in the feedback. Reply with only the new draft.")
+else:
+    print("[stopped: 3 rounds without a pass]")
+```
+
+- **Who decides.** Your code. There are no tools and no loop the model steers: the order is always draft, judge, rewrite, judge.
+- **When it stops.** When the judging call replies `PASS`, or after three rounds.
+- **The prompts.** Each call gets one prompt built from the task and the last draft. That's the simplest possible context; the point here is the order of the calls.
+
+Run it:
+
+```bash
+uv run lessons/03-control-flow/workflow.py "write one sentence about agent harnesses in which every word has exactly five letters, at least eight words long"
+```
+
+Here's one run:
+
+```
+--- draft 1 ---
+Agent rigs wrap model calls while tools guide small tasks.
+
+--- evaluator ---
+**Fails.** Two words are not five letters long:
+
+- "rigs" has 4 letters.
+- "wrap" has 4 letters.
+
+The other words (Agent, model, calls, while, tools, guide, small, tasks) are all five letters, and the sentence is long enough (10 words).
+
+**Fix:** Replace "rigs" and "wrap" with five-letter words. For example:
+
+"Agent frame holds model parts while tools guide small tasks."
+
+Every word in this version has exactly five letters (Agent, frame, holds, model, parts, while, tools, guide, small, tasks), and it has 10 words.
+
+--- draft 2 ---
+Agent frame holds model parts while tools guide small tasks.
+
+[evaluator: pass]
+```
+
+The first draft missed, the judging call said exactly why, and the rewrite passed. Every step was one your code laid out in advance.
+
+Notice what isn't on that list. Getting the request to the model and the response back is the model interface. Gathering what goes in is input, and handling the response is output. What each request holds, including that growing `messages` list and the prompts in `workflow.py`, is context. Control flow only decides what runs, in what order, and when to stop.
 
 **What's missing:** this is an agent, but it knows nothing. Not where it is, not what day it is, not who it is, not what you told it yesterday. And `messages` grows every pass; in a long session it will outgrow what the model can read. Something has to decide what the model sees. That's context.
 
