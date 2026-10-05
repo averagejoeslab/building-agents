@@ -4,7 +4,7 @@
 
 The model is a function: **TokensOut = Model(TokensIn)**. The model interface is how the harness calls it. It sends tokens to the model as a request, and the model returns tokens as a response, just like any other API endpoint.
 
-It's the only primitive that touches the model. Deciding what goes into the request and what to do with the response is the work of the other four, so this one comes first.
+It's the thinnest of the five primitives, and that's because of where it sits. The other four live on the harness's side: they decide when to call, what goes into the request, and what to do with the response. The model interface is the boundary between the harness and the model. In **Agent = Harness(Model)**, it's the parentheses. Nothing reaches the model without it, so it comes first.
 
 ## The worked example
 
@@ -94,11 +94,16 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 
 **The rule:** the model interface sends tokens to the model as a request and gets tokens back as a response.
 
-**What else would have worked:**
-- **Streaming instead of waiting.** The reply arrives piece by piece as it's produced, so a person can watch it and a long reply can't time out. More code to read it.
-- **Raw HTTP.** One POST with a JSON body. No dependency, but you parse the reply and the stream yourself.
-- **A multi-provider library.** Swap models by changing a string, with a layer between you and each provider's features.
-- **A local model.** No API key and no per-token bill, in exchange for your own hardware and usually a smaller model.
+**What else a model interface can be:** the mechanism is always a request out and a response back, but it holds more in other harnesses than it does here.
+- **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
+- **How it travels.** An official SDK, raw HTTP, or a layer that speaks several providers' formats so the rest of the harness doesn't have to.
+- **Which model answers.** One model, or a backup that takes over when the first is unavailable.
+- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out.
+- **How many go at once.** One request, or a batch of them.
+- **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
+- **The request's settings.** How many tokens out, how much the model thinks first.
+
+Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
 **What's missing:** the question is hardcoded, and the reply is just data dumped to the screen. The model said what to do, and nothing could do it. That's input and output.
 
