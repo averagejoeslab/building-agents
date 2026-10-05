@@ -106,7 +106,7 @@ client = Anthropic()
 
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=4096,
+    max_tokens=16384,
     messages=[{"role": "user",
                "content": "What's in this directory?"}],
 )
@@ -134,7 +134,7 @@ Talks to the hosted API through the SDK.
 ```python
 client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=4096,
+    max_tokens=16384,
     messages=[...],
 )
 ```
@@ -263,7 +263,7 @@ Nothing is printed. Printing is **output**, not model interface.
 # Settings as arguments
 
 ```python
-def call(messages, max_tokens=4096,
+def call(messages, max_tokens=16384,
          effort="high", thinking="summarized"):
 ```
 

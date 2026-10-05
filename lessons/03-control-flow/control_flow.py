@@ -9,7 +9,7 @@ task = " ".join(sys.argv[1:]) or input("> ")
 messages = [{"role": "user", "content": task}]
 
 for step in range(1, MAX_STEPS + 1):
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
     messages.append({"role": "assistant", "content": reply.content})
     if reply.stop_reason == "refusal":
         print("[stopped: the model declined]")

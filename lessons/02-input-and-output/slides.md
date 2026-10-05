@@ -218,7 +218,7 @@ Errors and output arrive **in order**, as one stream.
 
 ---
 
-# Why `max_tokens` is 4096 from here on
+# Why `max_tokens` is 16384 from here on
 
 Room for thinking.
 

@@ -9,7 +9,7 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": task}]
 
 while True:
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
 
     results = []
     for block in reply.content:

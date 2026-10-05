@@ -57,7 +57,7 @@ while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, system=system(), tools=tools, messages=working_memory)
+        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, system=system(), tools=tools, messages=working_memory)
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -203,7 +203,7 @@ add(working_memory, {"role": "user", "content": task})
 
 while True:
     working_memory = fit(working_memory)
-    reply = client.messages.create(model=MODEL, max_tokens=4096, system=system(), tools=tools, messages=working_memory)
+    reply = client.messages.create(model=MODEL, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
     results = []
     for block in reply.content:
         if block.type == "text": print(block.text)

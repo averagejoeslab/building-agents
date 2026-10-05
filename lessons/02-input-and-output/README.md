@@ -31,7 +31,7 @@ tools = [{"name": "bash", "description": "Run shell command — the whole system
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=4096,
+    max_tokens=16384,
     tools=tools,
     messages=[{"role": "user", "content": task}],
 )
@@ -108,7 +108,7 @@ client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=4096,
+    max_tokens=16384,
     tools=tools,
     messages=[{"role": "user", "content": "What's in this directory?"}],
 )
@@ -123,7 +123,7 @@ for block in reply.content:
 
 **`tools`** is the same tool as in `input.py`, and it's what output can do. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, the model can ask for, which is why the setup warns you to run it somewhere you can afford to lose.
 
-**`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere. `max_tokens` is 4096 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
+**`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere. `max_tokens` is 16384 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
 
 **`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. The command and what it printed go to the person, so they can see what ran.
 
@@ -169,7 +169,7 @@ tools = [{"name": "bash", "description": "Run shell command — the whole system
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=4096,
+    max_tokens=16384,
     tools=tools,
     messages=[{"role": "user", "content": task}],
 )
@@ -284,7 +284,7 @@ async def execute(block, cut_off):
 
 async def main():
     chat, task = await receive()
-    reply = await client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=[{"role": "user", "content": task}])
+    reply = await client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=[{"role": "user", "content": task}])
     if words := "\n".join(b.text for b in reply.content if b.type == "text"):
         await send(chat, words)
     calls = [b for b in reply.content if b.type == "tool_use"]

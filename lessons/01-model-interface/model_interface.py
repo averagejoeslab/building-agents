@@ -3,7 +3,7 @@ import anthropic
 client = anthropic.Anthropic(timeout=120, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 
-def call(messages, max_tokens=4096, effort="high", thinking="summarized"):
+def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
     for model in MODELS:
         try:
             with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:

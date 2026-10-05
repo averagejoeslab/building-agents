@@ -27,7 +27,7 @@ Whatever the shape, control flow does two things. It **sequences** the other pri
 
 ## The worked example
 
-Here's Lesson 2's input, model interface and output inside quark's loop. `max_tokens` is 4096, the same as Lesson 2. It's the whole of [`quark.py`](./quark.py):
+Here's Lesson 2's input, model interface and output inside quark's loop. `max_tokens` is 16384, the same as Lesson 2. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
@@ -41,7 +41,7 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": task}]
 
 while True:
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
 
     results = []
     for block in reply.content:
@@ -121,7 +121,7 @@ task = " ".join(sys.argv[1:]) or input("> ")
 messages = [{"role": "user", "content": task}]
 
 for step in range(1, MAX_STEPS + 1):
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
     messages.append({"role": "assistant", "content": reply.content})
     if reply.stop_reason == "refusal":
         print("[stopped: the model declined]")
