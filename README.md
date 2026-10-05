@@ -39,7 +39,7 @@ Input and output are built independently, but they're two ends of the same excha
 
 You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
-The lessons go the other way and build it back up, one primitive at a time. The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent in 81 lines of Python. It's one way to build each primitive, not the only way. Each lesson explains the primitive, shows quark's version, has you build it, then recaps with what else would have worked.
+The lessons go the other way and build it back up, one primitive at a time. The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent in 81 lines of Python. It's one way to build each primitive, not the only way. Each lesson stands on its own: it tells you what the primitive is, why a harness needs it and how it works, shows quark's version as code, has you run that code, then recaps with what else would have worked.
 
 | # | Lesson | You build |
 |---|---|---|
