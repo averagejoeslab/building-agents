@@ -42,17 +42,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjjRqV826eeqibZMLVHB",
+  "id": "msg_011CfjmAKeZuLp8WwNgyX8Pu",
   "container": null,
   "content": [
     {
-      "signature": "CAQSxwUKEAgSGAI4AUIIdGhpbmtpbmcSDF0NourNS+7x6dB0gBoMNqBtr/ZssKlFVG1JIjBH...",
+      "signature": "CAQSxwUKEAgSGAI4AUIIdGhpbmtpbmcSDJ+fuyh6BI9Ywj+ISRoMzZ0T0X8MKNOBqOotIjCO...",
       "thinking": "",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory because I don't have access to your file system in this conversation. Here are some ways to find out what's in it:\n\n**Command line**\n- macOS/Linux: `ls` (or `ls -la` to include hidden files and details)\n- Windows Command Prompt: `dir`\n- Windows PowerShell: `Get-ChildItem` (or `ls`)\n- Tree view: `tree` (works on most systems, though you may need to install it)\n\n**Graphical**\n- Open the folder in Finder (macOS), File Explorer (Windows), or your Linux file manager.\n\nIf you run one of these and paste the output here, I can help you interpret it, find a specific file, clean things up, or write a script to work with the contents.",
+      "text": "I can't see your directory. I don't have file system access here, and no files or attachments have come through in this conversation.\n\nYou can list the contents yourself with:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n- **Tree view:** `tree` (on most systems)\n\nIf you paste the output here, I can help you work out what the files are, how the project is organized, or what to do next. If you meant to upload a file or screenshot, it may not have attached, so try again.",
       "type": "text"
     }
   ],
@@ -72,7 +72,7 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 273,
+    "output_tokens": 246,
     "output_tokens_details": {
       "thinking_tokens": 40
     },
@@ -135,7 +135,46 @@ Run it the same way:
 uv run lessons/01-model-interface/model_interface.py
 ```
 
-The response looks like the one above. The difference is everything that happens when something goes wrong. Batching and a layer for several providers aren't shown: a batch's responses come back later rather than in the same call, and a multi-provider layer needs a second provider to translate for.
+Here's one run:
+
+```json
+{
+  "id": "msg_011CfjmAgAcb7e9zoenfjoki",
+  "container": null,
+  "content": [
+    {
+      "citations": null,
+      "text": "I can't see your directory. I don't have file system access in this conversation, and no files or attachments have been shared with me.\n\nTo find out what's in a directory, you can run one of these yourself:\n\n**macOS/Linux:**\n```bash\nls          # basic listing\nls -la      # detailed, including hidden files\ntree        # tree view (if installed)\n```\n\n**Windows (Command Prompt):**\n```cmd\ndir\n```\n\n**Windows (PowerShell):**\n```powershell\nGet-ChildItem\n```\n\nIf you paste the output here, I can help you interpret it, find something specific, or figure out what to do next. And if you're using a tool or IDE that's supposed to give me file access, it may not be connected properly, so let me know what setup you're using and I can help troubleshoot.",
+      "type": "text"
+    }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 15,
+    "output_tokens": 251,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
+```
+
+It looks like the first response, with one difference: no `thinking` block, and `thinking_tokens` is 0. At `effort="medium"` the model decided this question didn't need it. The rest of what this version adds only shows when something goes wrong: a dropped connection, a rate limit, a model that's down. Batching and a layer for several providers aren't shown: a batch's responses come back later rather than in the same call, and a multi-provider layer needs a second provider to translate for.
 
 Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
