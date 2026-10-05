@@ -26,7 +26,7 @@ Five mechanistic primitives. Control flow is one of them, and the other four sit
 ```
 control flow          how information flows between the other four: run once, a chat loop, an agent loop, a workflow
 ├── input             how inputs are gathered, from a person or the world
-├── context           how those inputs are presented to the model
+├── context           what the request holds, and how inputs are presented in it
 ├── model interface   how the harness interfaces with the model
 └── output            how the model's outputs are handled: shown to a person, or run as tools
 ```
@@ -39,16 +39,18 @@ Input and output are built independently, but they're two ends of the same excha
 
 You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
-The lessons go the other way and build it back up, one primitive at a time. The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent in 81 lines of Python. It's one way to build each primitive, not the only way. Each lesson stands on its own: it tells you what the primitive is, why a harness needs it and how it works, shows quark's version as code, has you run that code, then recaps with what else would have worked.
+The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Each lesson after that adds the primitive the last one was missing, and its `quark.py` is the previous lesson's plus that primitive.
+
+The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
 
 | # | Lesson | You build |
 |---|---|---|
 | 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply |
 | 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool |
 | 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again |
-| 4 | [Context](./lessons/04-context/) | how inputs are presented to the model: who it is, what's happened, what it remembers |
+| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers |
 
-By the end of Lesson 4 you've built quark, and you can take apart any harness someone hands you.
+Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
 
 ## Setup
 

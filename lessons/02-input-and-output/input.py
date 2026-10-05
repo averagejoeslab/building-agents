@@ -6,7 +6,7 @@ tools = [{"name": "bash", "description": "Run shell command — the whole system
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1024,
+    max_tokens=4096,
     tools=tools,
     messages=[{"role": "user", "content": task}],
 )

@@ -92,7 +92,7 @@ quark's context has five components.
 
 **Semantic memory: `.quark/memory/memory.md`.** There's no memory code. The system prompt tells quark where the file is, the exact format for an entry, a command for writing one, how to read it back with `grep` and `tail`, and what's worth keeping: who you are, what you prefer, corrections to how it works. quark writes and reads it with the tool it already has.
 
-**Compaction: `compact()`.** When working memory grows past what the model can read, the API refuses the request with "prompt is too long". quark catches that and adds one to `drop`. On the next pass, `compact()` drops the oldest `drop` turns, asks the model to summarize what's left, and replaces working memory with the summary. If even the summary request is too long, `drop` goes up and it tries again with less. This is *reactive*: quark never spends a call on a summary it didn't need, and the cost is that the oldest turns are dropped without being summarized.
+**Compaction: `compact()`.** When working memory grows past what the model can read, the API refuses the request with "prompt is too long". quark catches that and adds one to `drop`. On the next pass, `compact()` drops the oldest `drop` turns, asks the model to summarize what's left, and replaces working memory with the summary. If even the summary request is too long, `drop` goes up and it tries again with less. This is *reactive*: quark never spends a call on a summary it didn't need, and the cost is that the oldest turns are dropped without being summarized. The summary is one more call through Lesson 1's model interface, and going around again after it is Lesson 3's loop; what's new here is only the decision about what working memory holds. You're unlikely to see it happen: this model can read about a million tokens, so a session has to run very long to fill it. `context.py`, further down, shows compaction with a much smaller limit.
 
 > quark's own version also lets you interrupt it with ESC, and retries the summary if the network fails. Those are hardening, so they're left out here.
 
@@ -147,12 +147,9 @@ If you tell me more, I'll save it.
 
 Working memory didn't carry anything between the two runs. Semantic memory did.
 
-## What to take away
+## Going further
 
-**The rule:** before every call, context assembles what the request holds and fits it in the space the model has. Memory, retrieval, instructions and compaction are all ways of doing that.
-
-**What else context can be:** quark keeps working memory, a system prompt, its own source, one memory file and reactive compaction, but this primitive holds more in other harnesses.
-- **Which memories it keeps.** Working memory for this session, episodic memory of past sessions, semantic memory of facts, procedural memory of how to do things.
+**What else context can be:** quark keeps working memory, a system prompt, its own source, one memory file and reactive compaction. The components listed at the top of this lesson are what context is made of; these are the choices you make when you build them.
 - **Who decides what's remembered.** The model, writing it down when it thinks it matters, or harness code that saves and loads on its own.
 - **What it retrieves.** Nothing, or documents, code or past messages found by search and put in the request.
 - **When it fits.** After the API refuses, or before, by counting tokens against a limit.
@@ -246,20 +243,21 @@ Report the total, then the largest file.
 
 $ find . -name "*.py" -not -path "./.venv/*" | xargs wc -l | sort -n
     9 ./lessons/01-model-interface/quark.py
-   11 ./lessons/02-input-and-output/input.py
+   13 ./lessons/02-input-and-output/input.py
    16 ./lessons/01-model-interface/model_interface.py
    18 ./lessons/02-input-and-output/output.py
    21 ./lessons/02-input-and-output/quark.py
-   30 ./lessons/03-control-flow/control_flow.py
+   21 ./lessons/03-control-flow/workflow.py
    30 ./lessons/03-control-flow/quark.py
-   43 ./lessons/02-input-and-output/input_output.py
+   31 ./lessons/03-control-flow/control_flow.py
    48 ./lessons/04-context/quark.py
    56 ./lessons/04-context/context.py
-  282 total
+   64 ./lessons/02-input-and-output/input_output.py
+  327 total
 
-There are **282 lines** of Python in the repo (not counting `.venv`).
+There are **327 lines** of Python in this repo. I excluded `.venv/`, as the skill says to.
 
-The largest file is `./lessons/04-context/context.py`, at 56 lines.
+The largest file is `./lessons/02-input-and-output/input_output.py`, at 64 lines.
 ```
 
 It read the skill, then followed it. That session is now in the episode log, so a new one can find it:
@@ -269,19 +267,18 @@ uv run lessons/04-context/context.py "in a past session, how many lines of Pytho
 ```
 
 ```
-$ cd /home/user/building-agents; grep -i -n "lines" .quark/episodes.jsonl | head -50
+$ cd /home/user/building-agents; grep -i -n "lines of python\|python" .quark/episodes.jsonl | tail -30; cat .quark/skills/count-python.md
 1:{"role": "user", "content": "how many lines of Python are in this repo?"}
-3:{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_018bVfFrXMHXCTxHyohewmi3", "content": "How to count lines of Python in this repo\n\nUse: find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l\nReport the total, then the largest file.\n"}]}
-6:{"role": "assistant", "content": [{"citations": null, "text": "There are **282 lines** of Python in the repo (not counting `.venv`).\n\nThe largest file is `./lessons/04-context/context.py`, at 56 lines.", "type": "text"}]}
-11:{"role": "user", "content": "in a past session, how many lines of Python did you count? one line"}
-
-$ cd /home/user/building-agents; cat .quark/skills/count-python.md
+2:{"role": "assistant", "content": [{"id": "toolu_01EdcnY4YrCMPrKcMD3hizJV", "caller": {"type": "direct"}, "input": {"cmd": "cat .quark/skills/count-python.md"}, "name": "bash", "type": "tool_use", "toolset_name": null}]}
+3:{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01EdcnY4YrCMPrKcMD3hizJV", "content": "How to count lines of Python in this repo\n\nUse: find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l\nReport the total, then the largest file.\n"}]}
+6:{"role": "assistant", "content": [{"citations": null, "text": "There are **327 lines** of Python in this repo. I excluded `.venv/`, as the skill says to.\n\nThe largest file is `./lessons/02-input-and-output/input_output.py`, at 64 lines.", "type": "text"}]}
+7:{"role": "user", "content": "in a past session, how many lines of Python did you count? one line"}
 How to count lines of Python in this repo
 
 Use: find . -name "*.py" -not -path "./.venv/*" | xargs wc -l
 Report the total, then the largest file.
 
-In a past session I counted 282 lines of Python in the repo, not counting `.venv`.
+I counted 327 lines of Python in that session, excluding `.venv/`. The largest file was `./lessons/02-input-and-output/input_output.py`, at 64 lines.
 ```
 
 And with `LIMIT` set to 560 tokens and four questions typed into a chat, `fit()` summarizes before the last one, and the fact from the first survives in the summary:
@@ -299,7 +296,11 @@ Your favorite color is green.
 >
 ```
 
-Notice what isn't on that list. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. Gathering what goes in is input, and handling the response is output. Context only decides what the request holds and how it fits.
+## What to take away
+
+**The rule:** before every call, context assembles what the request holds and fits it in the space the model has. Memory, retrieval, instructions and compaction are all ways of doing that.
+
+Notice what context never does. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. Gathering what goes in is input, and handling the response is output. Context only decides what the request holds and how it fits.
 
 ## You've built a harness
 

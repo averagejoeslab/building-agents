@@ -16,7 +16,7 @@ from anthropic import Anthropic
 client = Anthropic()
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1024,
+    max_tokens=4096,
     messages=[{"role": "user", "content": "What's in this directory?"}],
 )
 print(reply.model_dump_json(indent=2))
@@ -42,17 +42,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjmAKeZuLp8WwNgyX8Pu",
+  "id": "msg_011Cfjtdeu23hbWiRDRTpJxg",
   "container": null,
   "content": [
     {
-      "signature": "CAQSxwUKEAgSGAI4AUIIdGhpbmtpbmcSDJ+fuyh6BI9Ywj+ISRoMzZ0T0X8MKNOBqOotIjCO...",
+      "signature": "CAQSwgUKEAgSGAI4AUIIdGhpbmtpbmcSDCu9/GfGfYwbroLG+RoMOqs4xtYaAvKYS9GoIjD/...",
       "thinking": "",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory. I don't have file system access here, and no files or attachments have come through in this conversation.\n\nYou can list the contents yourself with:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n- **Tree view:** `tree` (on most systems)\n\nIf you paste the output here, I can help you work out what the files are, how the project is organized, or what to do next. If you meant to upload a file or screenshot, it may not have attached, so try again.",
+      "text": "I can't see your file system, so I can't tell what's in your directory. No files or tools have been shared in this conversation. Here's how you can check yourself:\n\n**macOS / Linux (Terminal)**\n```bash\nls          # basic listing\nls -la      # detailed listing, including hidden files\ntree        # tree view (may need to be installed)\n```\n\n**Windows Command Prompt**\n```cmd\ndir\ndir /a      # include hidden files\n```\n\n**Windows PowerShell**\n```powershell\nGet-ChildItem   # or: ls / dir\nGet-ChildItem -Force   # include hidden files\n```\n\nIf you paste the output here, I can help you interpret it, find specific files, clean things up, or write a script to work with them.\n\nIf you're using an IDE or tool that's supposed to give me file access, it may not be set up correctly. Let me know what you're working with and I can help troubleshoot.",
       "type": "text"
     }
   ],
@@ -72,9 +72,9 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 246,
+    "output_tokens": 331,
     "output_tokens_details": {
-      "thinking_tokens": 40
+      "thinking_tokens": 38
     },
     "server_tool_use": null,
     "service_tier": "standard"
@@ -90,9 +90,7 @@ Yours will be worded differently; the model's output varies from run to run. (Th
 
 Read the `text`. The model knows the right next step is `ls`. It just can't take it.
 
-## What to take away
-
-**The rule:** the model interface sends tokens to the model as a request and gets tokens back as a response.
+## Going further
 
 **What else a model interface can be:** the mechanism is always a request out and a response back, but it holds more in other harnesses than it does here.
 - **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
@@ -183,7 +181,11 @@ Here's one run:
 
 It looks like the first response (its `signature` is shortened too), with one difference: the `thinking` block has text. That's the summary `display: "summarized"` asked for. The rest of what this version adds only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
 
-Notice what isn't on that list. When to call is control flow. Gathering what goes in, from a person or the world, is input. How it's presented in the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
+## What to take away
+
+**The rule:** the model interface sends tokens to the model as a request and gets tokens back as a response.
+
+Notice what the model interface never does. When to call is control flow. Gathering what goes in, from a person or the world, is input. How it's presented in the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
 **What's missing:** both ends of the path are stubs.
 

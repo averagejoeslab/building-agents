@@ -14,32 +14,20 @@ person or world ─► input ─► request ─► model interface ─► respon
 
 Input gathers what goes into the request. The model interface sends it and gets the response back. Output handles the response: it shows it to a person, or runs a tool. A tool's result is input again. Control flow decides what happens at the end of the path: the result goes back around, a person gets a turn, or everything stops.
 
-How you arrange them decides what you've built. The simplest arrangements:
+How you arrange them decides what you've built:
 
 - **Run once.** Input, call, output, stop. That's Lesson 2.
 - **A chat loop.** Call, show the response, hand back to the person, repeat. A chatbot.
-
-Past those, Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) names the arrangements that come up most. It splits them by who decides what happens next. In a **workflow**, your code decides: the calls follow paths you wrote in advance. In an **agent**, the model decides.
-
-Workflows:
-- **Prompt chaining.** A fixed sequence of calls, each working on the last one's output, with checks in code between them if you want.
-- **Routing.** One call sorts the input, and your code sends it down the path built for that kind.
-- **Parallelization.** Calls run at the same time, either splitting a task into independent parts or asking the same thing several times and combining the answers.
-- **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
-- **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
-
-Agents:
+- **A workflow.** Your code decides the steps: call the model to draft, then to check, then to fix.
 - **An agent loop.** Call, and while the model asks for tools, run them, send the results back, and call again. Hand back when it stops asking.
 
-There's no correct one. A workflow is predictable and easy to test, but only handles what you planned for. An agent handles what you didn't plan for, and costs you predictability.
-
-Two things in the article aren't control flow in this course. Its building block, the *augmented LLM*, is a model with retrieval, tools and memory: retrieval and memory are context, and tools are output. And routing sends a task down a different path, which can include a cheaper model; that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down.
+There's no correct one. They differ in who decides what happens next: in a workflow, your code does; in an agent, the model does. A workflow is predictable and easy to test, but only handles what you planned for. An agent handles what you didn't plan for, and costs you predictability.
 
 Whatever the shape, control flow does two things. It **sequences** the other primitives, passing what one produced to the next. And it **terminates**: it decides when to stop, or when to hand back to a person. A loop with no clear way to end is a bill with no clear way to end.
 
 ## The worked example
 
-Here's Lesson 2's input, model interface and output inside quark's loop. It's the whole of [`quark.py`](./quark.py):
+Here's Lesson 2's input, model interface and output inside quark's loop. `max_tokens` is 4096, the same as Lesson 2. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
@@ -91,33 +79,31 @@ Notice what the loop doesn't have: a step limit. quark trusts the model to finis
 From the root of the repo:
 
 ```bash
-uv run lessons/03-control-flow/quark.py "which lesson has the longest quark.py? answer in one sentence"
+uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is the longest? answer in one sentence"
 ```
 
 Here's one run:
 
 ```
-$ find / -name quark.py 2>/dev/null | xargs wc -l 2>/dev/null | sort -n | tail -5
-   18 /home/user/building-agents/lessons/02-input-and-output/quark.py
-   29 /home/user/building-agents/lessons/03-control-flow/quark.py
-   40 /home/user/building-agents/lessons/04-context/quark.py
-   81 /home/user/quark/quark.py
-  177 total
+$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + 2>/dev/null | sort -n
+   9 ./lessons/01-model-interface/quark.py
+  21 ./lessons/02-input-and-output/quark.py
+  30 ./lessons/03-control-flow/quark.py
+  48 ./lessons/04-context/quark.py
+ 108 total
 
-Lesson 04-context has the longest `quark.py` at 40 lines, in `/home/user/building-agents/lessons/04-context/quark.py`. A separate `/home/user/quark/quark.py` is longer at 81 lines, but it isn't inside a lesson.
+The longest is `./lessons/04-context/quark.py`, at 48 lines.
 ```
 
 That's two calls. The first asked for a command. Its result went back, and the second call answered from what it found. Run it with no task to chat with it instead.
 
-## What to take away
-
-**The rule:** control flow sequences the other four primitives and decides when to stop. Arranged differently, the same four pieces are a single call, a chatbot, an agent, or a workflow.
+## Going further
 
 **What else control flow can be:** quark runs one agent loop with no limit, but this primitive holds more in other harnesses.
-- **Its shape.** A single call, a chat loop, any of the workflows above, an agent loop, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
+- **Its shape.** A single call, a chat loop, a workflow, an agent loop, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
 - **When it stops.** When the model stops asking, after a number of steps, at a spending limit, when the model declines, when a person says stop.
 - **Who it hands back to.** A person, another program, or no one: it runs until the task is done.
-- **What runs at the same time.** One model call at a time, or several at once, as in parallelization.
+- **What runs at the same time.** One model call at a time, or several at once.
 
 It can be a product on its own. [LangGraph](https://github.com/langchain-ai/langgraph) is built around this primitive: you lay out the steps and the paths between them as a graph, and it runs them.
 
@@ -189,7 +175,16 @@ git version 2.43.0
 [stopped: hit the 1-step limit]
 ```
 
-Both of those are agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
+Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) names the workflows that come up most:
+- **Prompt chaining.** A fixed sequence of calls, each working on the last one's output, with checks in code between them if you want.
+- **Routing.** One call sorts the input, and your code sends it down the path built for that kind.
+- **Parallelization.** Calls run at the same time, either splitting a task into independent parts or asking the same thing several times and combining the answers.
+- **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
+- **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
+
+Two things in the article aren't control flow in this course. Its building block, the *augmented LLM*, is a model with retrieval, tools and memory: retrieval and memory are context, and tools are output. And routing sends a task down a different path, which can include a cheaper model; that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down.
+
+`quark.py` and `control_flow.py` are both agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
 
 ```python
 import sys
@@ -253,7 +248,11 @@ Agent frame holds model parts while tools guide small tasks.
 
 The first draft missed, the judging call said exactly why, and the rewrite passed. Every step was one your code laid out in advance.
 
-Notice what isn't on that list. Getting the request to the model and the response back is the model interface. Gathering what goes in is input, and handling the response is output. What each request holds, including that growing `messages` list and the prompts in `workflow.py`, is context. Control flow only decides what runs, in what order, and when to stop.
+## What to take away
+
+**The rule:** control flow sequences the other four primitives and decides when to stop. Arranged differently, the same four pieces are a single call, a chatbot, an agent, or a workflow.
+
+Notice what control flow never does. Getting the request to the model and the response back is the model interface. Gathering what goes in is input, and handling the response is output. What each request holds, including that growing `messages` list and the prompts in `workflow.py`, is context. Control flow only decides what runs, in what order, and when to stop.
 
 **What's missing:** this is an agent, but it knows nothing. Not where it is, not what day it is, not who it is, not what you told it yesterday. And `messages` grows every pass; in a long session it will outgrow what the model can read. Something has to decide what the model sees. That's context.
 

@@ -31,7 +31,7 @@ tools = [{"name": "bash", "description": "Run shell command — the whole system
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1024,
+    max_tokens=4096,
     tools=tools,
     messages=[{"role": "user", "content": task}],
 )
@@ -52,11 +52,11 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjrBvd7UKDT2iwDpTViY",
+  "id": "msg_011Cfjte3qQPBhRXPY1B2X2P",
   "container": null,
   "content": [
     {
-      "id": "toolu_01Lm5byxdfM7mhdyqpCygFar",
+      "id": "toolu_01UksmSeN8qGMiYrrgfvUDZC",
       "caller": {
         "type": "direct"
       },
@@ -108,7 +108,7 @@ client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1024,
+    max_tokens=4096,
     tools=tools,
     messages=[{"role": "user", "content": "What's in this directory?"}],
 )
@@ -121,9 +121,9 @@ for block in reply.content:
         print(done.stdout)
 ```
 
-**`tools`** is the same tool as in `input.py`, and it's what output can do. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
+**`tools`** is the same tool as in `input.py`, and it's what output can do. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, the model can ask for, which is why the setup warns you to run it somewhere you can afford to lose.
 
-**`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere.
+**`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere. `max_tokens` is 4096 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
 
 **`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. The command and what it printed go to the person, so they can see what ran.
 
@@ -138,11 +138,11 @@ Here's one run:
 ```
 $ ls -la
 total 104
-drwxr-xr-x 7 root root  4096 Oct  5 20:26 .
+drwxr-xr-x 7 root root  4096 Oct  5 21:56 .
 drwxr-xr-x 5 root root  4096 Oct  5 14:47 ..
 -rw-r--r-- 1 root root   125 Oct  5 20:26 .env
--rw-r--r-- 1 root root    29 Oct  5 20:24 .env.example
-drwxr-xr-x 8 root root  4096 Oct  5 21:44 .git
+-rw-r--r-- 1 root root   104 Oct  5 22:09 .env.example
+drwxr-xr-x 8 root root  4096 Oct  5 22:37 .git
 -rw-r--r-- 1 root root    41 Oct  5 20:24 .gitignore
 drwxr-xr-x 4 root root  4096 Oct  5 19:52 .venv
 -rw-r--r-- 1 root root  1071 Oct  5 14:47 LICENSE
@@ -169,7 +169,7 @@ tools = [{"name": "bash", "description": "Run shell command — the whole system
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1024,
+    max_tokens=4096,
     tools=tools,
     messages=[{"role": "user", "content": task}],
 )
@@ -201,13 +201,11 @@ $ wc -l README.md
 71 README.md
 ```
 
-It's the same task as `input.py`, and the model asked for the same `wc -l README.md`. This time output ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
+It's the same task as `input.py`, and the model asked for the same `wc -l README.md`. This time output ran it. The model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
 
 Notice what never happens: the model never sees the 71. It's sitting in `results`, and nothing sends it.
 
-## What to take away
-
-**The rule:** input gathers what goes to the model, from a person or from the world. Output handles what comes back, shown to a person or run as a tool. A tool is the model asking and the harness acting.
+## Going further
 
 **What else input and output can be:** quark gathers one task from a terminal and runs one tool on the same machine, but these primitives hold more in other harnesses.
 
@@ -328,7 +326,11 @@ git version 2.43.0
 
 One message asked for three things, the model asked for three tools in one response, and the executor ran them together. The results went to the chat. As with `quark.py`, the model never sees them.
 
-Notice what isn't on those lists. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. How what input gathers is presented in the request is context. Input only gathers what goes in, from a person or the world, and output only handles the response, showing it to a person or running a tool.
+## What to take away
+
+**The rule:** input gathers what goes to the model, from a person or from the world. Output handles what comes back, shown to a person or run as a tool. A tool is the model asking and the harness acting.
+
+Notice what input and output never do. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. How what input gathers is presented in the request is context. Input only gathers what goes in, from a person or the world, and output only handles the response, showing it to a person or running a tool.
 
 **What's missing:** the model asked for `wc -l`, it ran, and the model never saw what it found. The path ends at output. Something has to send the result back to the start and decide to go again. That's control flow.
 
