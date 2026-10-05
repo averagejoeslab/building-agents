@@ -2,109 +2,50 @@
 
 > 🎥 **Video:** coming soon
 
-Input is how inputs are gathered. Output is how the model's outputs are handled: shown to a person, or run as a tool. By the end of this lesson you'll have [`quark.py`](./quark.py), 23 lines that take a task from you, call the model once, and run any command the model asks for.
+A model only takes tokens in and gives tokens out. It can't read what you type, and it can't run a command. Input and output are how the harness connects it to everything else.
 
-## What they are
+**Input** is how inputs are gathered: from a person, like a task or a question, or from the world, like what happened when a command ran. **Output** is how the model's outputs are handled: shown to a person, or run as a tool. Input is the harness's afferent pathway, carrying signals in. Output is its efferent pathway, carrying actions out.
 
-Input and output are two primitives, built independently. They're taught together because they're the two ends of one exchange: output is how the model reaches the world, and input is how the world reaches the model.
+They're built independently, but they're two ends of one exchange, so they're taught together. The exchange runs through tools. The model can't act, but it can ask: its response can include a request to use a tool, a name and arguments in a shape the harness described to it. Output runs the request, and what happened comes back as input. The model asks; the harness acts.
 
-**Input** gathers what goes in, from two sources:
+You don't strictly need tools to have an agent. A model that can only talk still takes things in and responds. But without tools, the only thing it can change is what a person reads.
 
-- **A person.** Someone types a message, asks a question, gives a task.
-- **The world.** The result of something the harness did: a command's output, a file's contents, an error.
+## The worked example
 
-**Output** handles what comes out, to two destinations:
-
-- **A person.** The model's words are shown to someone.
-- **The world.** The model asks for a tool, and the harness runs it.
-
-## Why a harness needs them
-
-A model can only take in tokens and produce tokens. It can't read what you type, and it can't run a command. Without input, the only question it ever answers is one you hardcoded. Without output, the only thing it can change is what's printed on a screen.
-
-That second point is what tools are for. The model can't act, but it can produce tokens that *ask* for an action: a tool name and arguments, in a shape the harness agreed on. The harness reads the request, runs it, and the result comes back as input. The model asks, the harness acts.
-
-You don't strictly need tools to have an agent. A model that can only talk still perceives and responds. But most of what we want from an agent needs it to act.
-
-## How they work
-
-- **Input:** receive something, and put it in a form the model interface can send.
-- **Output:** look at what came back, route each part to its destination, and capture what happened.
-
-How you do each one is a choice. Where input comes from: a terminal, a chat app, a webhook, a file, a schedule. Where output goes. Which tools exist, and how many: one general tool or many specific ones. What a tool's result looks like when it fails or is cut off.
-
-## Show: quark's input and output
-
-Here's [`quark.py`](./quark.py). The model interface in the middle is the one from [Lesson 1](../01-model-interface/), now with `tools=body`. What's around it is new:
+Here's Lesson 1's call with quark's input and output around it. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
 from anthropic import Anthropic
 
-client, MODEL, body = Anthropic(), "claude-sonnet-5-5", [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-working_memory = [{"role": "user", "content": next(u for u in iter(lambda: " ".join(sys.argv[1:]).strip() or input("> "), None) if u.strip())}]
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
-with client.messages.stream(model=MODEL, max_tokens=4096, tools=body, messages=working_memory) as stream:
-    for ev in stream:
-        if ev.type == "content_block_delta" and hasattr(ev.delta, "text"): sys.stdout.write(ev.delta.text); sys.stdout.flush()
-    saying = stream.current_message_snapshot
-print()
-working_memory.append({"role": "assistant", "content": saying.content})
-calls = [b for b in saying.content if b.type == "tool_use"]
+messages = [{"role": "user", "content": " ".join(sys.argv[1:]) or input("> ")}]
+reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
+
 results = []
-for c in calls:
-    if "cmd" not in (c.input or {}) or (saying.stop_reason == "max_tokens" and c is calls[-1]):
-        results.append({"type": "tool_result", "tool_use_id": c.id, "content": "[your doing was cut off before it was fully formed — it never reached the world]"}); continue
-    print(f"$ {c.input['cmd']}")
-    doing = subprocess.run(c.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    out = doing.stdout.decode(errors="replace")
-    if out: print(out, end="")
-    results.append({"type": "tool_result", "tool_use_id": c.id, "content": out or f"(exit {doing.returncode})"})
-working_memory.append({"role": "user", "content": results})
+for block in reply.content:
+    if block.type == "text":
+        print(block.text)
+    if block.type == "tool_use":
+        print(f"$ {block.input['cmd']}")
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        print(done.stdout)
+        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
 ```
 
-### Input from a person
+**`tools`** is what quark's output can do: one tool, `bash`. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
 
-```python
-working_memory = [{"role": "user", "content": next(u for u in iter(lambda: " ".join(sys.argv[1:]).strip() or input("> "), None) if u.strip())}]
-```
+**`messages = [...]`** is input from a person: the task from the command line, or typed at a `> ` prompt.
 
-quark reads the task from the command line if you gave one. Otherwise it prompts you with `> `, and keeps prompting until you type something that isn't blank. A blank message would be a wasted call.
+**`client.messages.create(..., tools=tools)`** is Lesson 1's model interface, with the tools added to the request.
 
-### The tool
+**`for block in reply.content`** is output. The response is a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere.
 
-```python
-client, MODEL, body = Anthropic(), "claude-sonnet-5-5", [{"name": "bash", ...}]
-```
+**`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened, so the model would see what you'd see. The command and what it printed go to the person too, so they can see what ran.
 
-A tool definition is a name, a description the model reads to decide when to use it, and a JSON schema for its arguments. quark calls the list `body`, because it's how quark acts on the world, and gives it exactly one tool: `bash`. Anything you can do from a command line, quark can do: read files, write files, run programs, install more tools. One general tool instead of twenty specific ones. The cost is that nothing narrows what the model can do, which is why the setup warns you to run this somewhere you can afford to lose.
-
-### Output to a person and to the world
-
-The words were already shown to the person while they streamed. What's left is output to the world:
-
-```python
-working_memory.append({"role": "assistant", "content": saying.content})
-calls = [b for b in saying.content if b.type == "tool_use"]
-```
-
-The reply is kept, and every `tool_use` block in it is a request to run something. Each one has an `id` and an `input`. Then quark runs each request:
-
-- **The cutoff guard.** If the model hit `max_tokens` while writing a command, the command is incomplete, and running half a command is worse than running none. So quark skips it and tells the model why. This is what `stop_reason` is for.
-- **`print(f"$ {c.input['cmd']}")`.** The person sees what's about to run. Output goes to both destinations.
-- **`stderr=subprocess.STDOUT`.** Errors and normal output arrive as one stream, in the order they happened. The model sees what you would have seen.
-- **`out or f"(exit {doing.returncode})"`.** A command that prints nothing still tells the model something: whether it worked.
-
-### Input from the world
-
-```python
-results.append({"type": "tool_result", "tool_use_id": c.id, "content": ...})
-working_memory.append({"role": "user", "content": results})
-```
-
-Each result names the `tool_use_id` it answers, and all of them go back in one `user` message, which is the shape the model expects. This is input again, this time from the world.
-
-> quark's own version reads command output in chunks instead of all at once, so pressing ESC can stop a command partway through. That's hardening, so it's left out here. What's above is the primitive.
+**`results`** is input from the world: what the command printed, in the shape the model reads. A `tool_result` names the `tool_use_id` it answers, and a command that prints nothing still reports its exit code.
 
 ## Run it
 
@@ -114,31 +55,130 @@ From the root of the repo:
 uv run lessons/02-input-and-output/quark.py "what's in this directory?"
 ```
 
-You'll see the model say what it's going to do, the command it asked for, and the command's output, something like:
+Here's one run:
 
 ```
-I'll check what's in the current directory.
 $ ls -la
-total 24
-drwxr-xr-x  7 you  staff  224 Oct  5 10:12 .
-...
+total 104
+drwxr-xr-x 7 root root  4096 Oct  5 20:26 .
+drwxr-xr-x 5 root root  4096 Oct  5 14:47 ..
+-rw-r--r-- 1 root root   125 Oct  5 20:26 .env
+-rw-r--r-- 1 root root    29 Oct  5 20:24 .env.example
+drwxr-xr-x 8 root root  4096 Oct  5 21:13 .git
+-rw-r--r-- 1 root root    41 Oct  5 20:24 .gitignore
+drwxr-xr-x 4 root root  4096 Oct  5 19:52 .venv
+-rw-r--r-- 1 root root  1071 Oct  5 14:47 LICENSE
+-rw-r--r-- 1 root root  4691 Oct  5 20:24 README.md
+drwxr-xr-x 2 root root  4096 Oct  5 19:53 assets
+drwxr-xr-x 2 root root  4096 Oct  5 19:53 docs
+drwxr-xr-x 6 root root  4096 Oct  5 19:49 lessons
+-rw-r--r-- 1 root root   193 Oct  5 19:49 pyproject.toml
+-rw-r--r-- 1 root root 48687 Oct  5 19:52 uv.lock
 ```
 
-And then it stops. Run it without an argument and it will prompt you for the task instead.
+The model asked for `ls -la`, and quark ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
 
-## Recap
+Notice what never happens: the model never sees the listing. It's sitting in `results`, and nothing sends it.
 
-**The rule:** input puts the world into tokens; output puts tokens into the world. A tool is the model asking and the harness acting.
+## What to take away
 
-**What quark chose:** a task from the command line or a prompt, one `bash` tool that can reach the whole system, and command output returned exactly as it printed.
+**The rule:** input gathers what goes to the model, from a person or from the world. Output handles what comes back, shown to a person or run as a tool. A tool is the model asking and the harness acting.
 
-**What else would have worked:**
-- **Many specific tools** (`read_file`, `write_file`, `search`). Easier to check and limit, more to build, and the model can only do what you anticipated.
-- **A different input.** A chat app, an issue tracker, a webhook, a voice transcript.
-- **A different output.** Write to a file, post a message, open a pull request.
-- **A confirmation step.** Ask the person before each command runs.
-- **Tools that run somewhere else.** A container, a remote machine, a tool the provider hosts.
+**What else input and output can be:** quark gathers one task from a terminal and runs one tool on the same machine, but these primitives hold more in other harnesses.
 
-**What's missing:** the result went into `working_memory`, and nobody sent it. The model asked for `ls`, `ls` ran, and the model never saw what it found. Something has to send the result back and decide to go again. That's control flow.
+Input:
+- **Where a person's input comes from.** Command-line arguments, a prompt, a pipe, a chat app, a webhook, a schedule.
+- **What it can be.** Text, images, files.
+- **What happens to bad input.** A blank message can be asked for again instead of sent.
+- **What comes back from the world.** What a tool printed, its exit code, and whether it failed.
+
+Output:
+- **Where it goes.** A terminal, a file, a chat message, a pull request.
+- **How it reaches a person.** All at once, or as it's produced.
+- **Which tools exist.** One general tool, or many specific ones, each request routed by name.
+- **Where tools run.** This machine, a container, a remote machine, or a tool the provider hosts.
+- **When not to run.** A tool request the model was cut off in the middle of is incomplete, and running half a command is worse than running none.
+- **What happens when a tool fails or hangs.** Stop it after a timeout, and report the failure instead of crashing.
+
+Some of this is a product on its own. [MCP](https://modelcontextprotocol.io) servers package tools behind one protocol, so a harness can run tools someone else built without writing them. That part of MCP is output you plug in.
+
+Here's input and output that do more of that, in [`input_output.py`](./input_output.py):
+
+```python
+import subprocess, sys, pathlib
+from anthropic import Anthropic
+
+client = Anthropic()
+tools = [
+    {"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}},
+    {"name": "read_file", "description": "Read a text file", "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+]
+
+def gather():
+    if len(sys.argv) > 1: return " ".join(sys.argv[1:])
+    if not sys.stdin.isatty(): return sys.stdin.read()
+    while not (task := input("> ").strip()): pass
+    return task
+
+def run(block):
+    try:
+        if block.name == "bash":
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
+            return done.stdout + (f"\n(exit {done.returncode})" if done.returncode else ""), False
+        if block.name == "read_file":
+            return pathlib.Path(block.input["path"]).read_text(), False
+        return f"no tool named {block.name}", True
+    except subprocess.TimeoutExpired:
+        return "stopped after 30 seconds", True
+    except OSError as e:
+        return str(e), True
+
+messages = [{"role": "user", "content": gather()}]
+with client.messages.stream(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages) as stream:
+    for text in stream.text_stream: print(text, end="", flush=True)
+    reply = stream.get_final_message()
+print()
+
+results = []
+for block in reply.content:
+    if block.type != "tool_use": continue
+    if reply.stop_reason == "max_tokens" and block is reply.content[-1]:
+        results.append({"type": "tool_result", "tool_use_id": block.id, "content": "cut off before it was finished, so it was not run", "is_error": True}); continue
+    print(f"→ {block.name} {block.input}")
+    out, failed = run(block)
+    print(out)
+    results.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
+```
+
+- **Where a person's input comes from.** `gather()` takes the task from the command line, then from a pipe, then from a prompt that asks again if you type nothing.
+- **Which tools exist.** Two, `bash` and `read_file`, and `run()` routes each request by its name. A request for a tool that doesn't exist gets an error back instead of crashing the harness.
+- **How it reaches a person.** The text is printed as it's produced, using the streamed response from Lesson 1's `model_interface.py`.
+- **When not to run.** If the response hit `max_tokens`, its last tool request may be incomplete, so it isn't run.
+- **What happens when a tool fails or hangs.** `bash` stops after 30 seconds. Failures come back as results with `is_error` set, and a non-zero exit code is added to the output.
+
+Run it with the task piped in:
+
+```bash
+echo "Which Python version does this project need? Check pyproject.toml." | uv run lessons/02-input-and-output/input_output.py
+```
+
+Here's one run:
+
+```
+
+→ read_file {'path': 'pyproject.toml'}
+[project]
+name = "harness-engineering"
+version = "0.1.0"
+description = "A hands-on course in building agents by building their harness."
+requires-python = ">=3.13"
+dependencies = ["anthropic"]
+```
+
+The task came in through the pipe, and the model used `read_file` instead of `bash`. The blank first line is where its text would have streamed; it didn't say anything before asking. As with `quark.py`, the answer is in `results`, and the model never sees it.
+
+Notice what isn't on those lists. Calling the model is the model interface. Sending the result back and going again is control flow. Deciding what else the model sees is context. Input and output only bring things in and carry things out.
+
+**What's missing:** the model asked for `ls`, `ls` ran, and the model never saw what it found. Something has to send the result back and decide to go again. That's control flow.
 
 **→ [Lesson 3: Control flow](../03-control-flow/)**
