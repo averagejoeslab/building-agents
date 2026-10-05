@@ -2,7 +2,7 @@
 
 > 🎥 **Video:** coming soon
 
-Control flow is how information flows between the other four primitives. By the end of this lesson you'll have [`agent.py`](./agent.py), 28 lines that loop: run the command the model asked for, send the result back, and go again until the model is done. It's the first version that's an agent.
+Control flow is how information flows between the other four primitives. By the end of this lesson you'll have [`quark.py`](./quark.py), 28 lines that loop: run the command the model asked for, send the result back, and go again until the model is done. It's the first version that's an agent.
 
 ## What it is
 
@@ -30,7 +30,7 @@ Termination is the one people forget. A loop with no clear way to end is a bill 
 
 ## Show: quark's control flow
 
-Here's [`agent.py`](./agent.py). The model interface, input and output are the ones from [Lesson 1](../01-model-interface/) and [Lesson 2](../02-input-and-output/), indented into a loop:
+Here's [`quark.py`](./quark.py). The model interface, input and output are the ones from [Lesson 1](../01-model-interface/) and [Lesson 2](../02-input-and-output/), indented into a loop:
 
 ```python
 import subprocess, sys
@@ -82,7 +82,7 @@ Notice what the loop doesn't have: a step limit. quark trusts the model to finis
 From the root of the repo, give it a task that takes more than one command:
 
 ```bash
-uv run lessons/03-control-flow/agent.py "find the largest file in this directory and tell me what it is"
+uv run lessons/03-control-flow/quark.py "find the largest file in this directory and tell me what it is"
 ```
 
 You'll see the model run a command, read the result, maybe run another, and then answer, something like:

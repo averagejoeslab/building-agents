@@ -8,7 +8,7 @@ It's the thinnest of the five primitives, and that's because of where it sits. T
 
 ## The worked example
 
-Here's the call at the center of [quark](https://github.com/averagejoeslab/quark), with nothing around it. It's the whole of [`agent.py`](./agent.py):
+Here's the call at the center of [quark](https://github.com/averagejoeslab/quark), with nothing around it. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 from anthropic import Anthropic
@@ -35,7 +35,7 @@ print(reply.model_dump_json(indent=2))
 From the root of the repo:
 
 ```bash
-uv run lessons/01-model-interface/agent.py
+uv run lessons/01-model-interface/quark.py
 ```
 
 Here's one run:

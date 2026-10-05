@@ -2,7 +2,7 @@
 
 > 🎥 **Video:** coming soon
 
-Context is how inputs are presented to the model: who it is, what's happened, what it remembers. By the end of this lesson you'll have [`agent.py`](./agent.py), 40 lines that are quark: an agent that knows where it is, remembers you across sessions, reads its own source, and summarizes itself when its memory fills up.
+Context is how inputs are presented to the model: who it is, what's happened, what it remembers. By the end of this lesson you'll have [`quark.py`](./quark.py), 40 lines that are quark: an agent that knows where it is, remembers you across sessions, reads its own source, and summarizes itself when its memory fills up.
 
 ## What it is
 
@@ -34,7 +34,7 @@ You don't need all of them. You need the ones your agent needs, built in whateve
 
 ## Show: quark's context
 
-Here's [`agent.py`](./agent.py), with the system prompt shortened to `...` (it's one long line; read it in the file). The loop, input, output and model interface are the ones from Lessons [1](../01-model-interface/), [2](../02-input-and-output/) and [3](../03-control-flow/). What's new is `mechanics()`, `system()`, `system=system()` on the call, and compaction:
+Here's [`quark.py`](./quark.py), with the system prompt shortened to `...` (it's one long line; read it in the file). The loop, input, output and model interface are the ones from Lessons [1](../01-model-interface/), [2](../02-input-and-output/) and [3](../03-control-flow/). What's new is `mechanics()`, `system()`, `system=system()` on the call, and compaction:
 
 ```python
 import subprocess, sys, os, datetime
@@ -109,7 +109,7 @@ The choice is *reactive*: quark compacts when the API says the prompt is too lon
 From the root of the repo:
 
 ```bash
-uv run lessons/04-context/agent.py
+uv run lessons/04-context/quark.py
 ```
 
 Ask it about itself, and tell it something worth remembering:

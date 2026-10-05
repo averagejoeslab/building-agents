@@ -2,7 +2,7 @@
 
 > 🎥 **Video:** coming soon
 
-Input is how inputs are gathered. Output is how the model's outputs are handled: shown to a person, or run as a tool. By the end of this lesson you'll have [`agent.py`](./agent.py), 23 lines that take a task from you, call the model once, and run any command the model asks for.
+Input is how inputs are gathered. Output is how the model's outputs are handled: shown to a person, or run as a tool. By the end of this lesson you'll have [`quark.py`](./quark.py), 23 lines that take a task from you, call the model once, and run any command the model asks for.
 
 ## What they are
 
@@ -35,7 +35,7 @@ How you do each one is a choice. Where input comes from: a terminal, a chat app,
 
 ## Show: quark's input and output
 
-Here's [`agent.py`](./agent.py). The model interface in the middle is the one from [Lesson 1](../01-model-interface/), now with `tools=body`. What's around it is new:
+Here's [`quark.py`](./quark.py). The model interface in the middle is the one from [Lesson 1](../01-model-interface/), now with `tools=body`. What's around it is new:
 
 ```python
 import subprocess, sys
@@ -111,7 +111,7 @@ Each result names the `tool_use_id` it answers, and all of them go back in one `
 From the root of the repo:
 
 ```bash
-uv run lessons/02-input-and-output/agent.py "what's in this directory?"
+uv run lessons/02-input-and-output/quark.py "what's in this directory?"
 ```
 
 You'll see the model say what it's going to do, the command it asked for, and the command's output, something like:
