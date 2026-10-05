@@ -1,0 +1,6 @@
+[project]
+name = "harness-engineering"
+version = "0.1.0"
+description = "A hands-on course in building agents by building their harness."
+requires-python = ">=3.13"
+dependencies = ["anthropic"]
