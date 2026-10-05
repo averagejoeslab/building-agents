@@ -2,8 +2,6 @@
 
 > 🎥 **Video:** coming soon
 
-## Tell
-
 The model is a function: **TokensOut = Model(TokensIn)**. The model interface is the part of the harness that calls it. It's the only primitive that touches the model. The other four exist to prepare a call or to handle its reply, so this one comes first.
 
 Whatever the provider, a model interface does three things:
@@ -12,7 +10,7 @@ Whatever the provider, a model interface does three things:
 2. **Send** them, and wait for tokens to come out.
 3. **Keep** what comes back. That's more than text: the reply also says *why* the model stopped, how many tokens went in and out, and, once there are tools, what the model asked to do.
 
-## Show
+## quark's model interface
 
 Here's [quark](https://github.com/averagejoeslab/quark)'s model interface with everything else removed. It's the whole of [`agent.py`](./agent.py):
 
@@ -40,9 +38,9 @@ print()
 
 **`saying`** is what's kept: the whole reply as data, with its `content`, `stop_reason` and `usage`. The printing was for the person. `saying` is for the rest of the harness.
 
-## Do
+## Run it
 
-From the root of the repo, run it:
+From the root of the repo:
 
 ```bash
 uv run lessons/01-model-interface/agent.py
@@ -57,7 +55,7 @@ You can check by running `ls` (macOS/Linux) or `dir` (Windows)...
 
 The model knows the right next step. It just can't take it.
 
-## Recap
+## What to take away
 
 **The rule:** the model interface packages tokens in, sends them, and keeps what comes back.
 
