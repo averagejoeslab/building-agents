@@ -16,23 +16,91 @@ Here's where they sit around Lesson 1's call:
 person or world ─► input ─► request ─► model interface ─► response ─► output ─► person or world
 ```
 
-In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes them real.
+In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes each end real on its own, then puts them together.
 
-## The worked example
+## Input
 
-Here's Lesson 1's call with quark's input and output around it. It's the whole of [`quark.py`](./quark.py):
+Here's Lesson 1's call with real input. The output is still Lesson 1's stub. It's the whole of [`input.py`](./input.py):
 
 ```python
-import subprocess, sys
+import sys
+from anthropic import Anthropic
+
+client = Anthropic()
+task = " ".join(sys.argv[1:]) or input("> ")
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": task}],
+)
+print(reply.model_dump_json(indent=2))
+```
+
+**`task = ...`** is input from a person: the task from the command line, or typed at a `> ` prompt. It replaces Lesson 1's hardcoded question, and it goes into the request the same way. Everything else is Lesson 1.
+
+From the root of the repo:
+
+```bash
+uv run lessons/02-input-and-output/input.py "what's the capital of France? one word"
+```
+
+Here's one run:
+
+```json
+{
+  "id": "msg_011CfjpZbRMPEhYRutv1CJHh",
+  "container": null,
+  "content": [
+    {
+      "citations": null,
+      "text": "Paris",
+      "type": "text"
+    }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 18,
+    "output_tokens": 5,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
+```
+
+Your question went in, and the answer is in `content`. Input from the world needs something to have happened in the world first, so it waits until output can run a tool.
+
+## Output
+
+Here's Lesson 1's call with real output. The input is still Lesson 1's hardcoded question. It's the whole of [`output.py`](./output.py):
+
+```python
+import subprocess
 from anthropic import Anthropic
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-
-messages = [{"role": "user", "content": " ".join(sys.argv[1:]) or input("> ")}]
-reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
-
-results = []
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=[{"role": "user", "content": "What's in this directory?"}],
+)
 for block in reply.content:
     if block.type == "text":
         print(block.text)
@@ -40,27 +108,18 @@ for block in reply.content:
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         print(done.stdout)
-        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
 ```
 
-**`tools`** is what quark's output can do: one tool, `bash`. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
+**`tools`** is what output can do: one tool, `bash`. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
 
-**`messages = [...]`** is input from a person: the task from the command line, or typed at a `> ` prompt.
+**`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere.
 
-**`client.messages.create(..., tools=tools)`** is Lesson 1's model interface, with the tools added to the request.
-
-**`for block in reply.content`** is output. The response is a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere.
-
-**`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened, so the model would see what you'd see. The command and what it printed go to the person too, so they can see what ran.
-
-**`results`** is input from the world: what the command printed, in the shape the model reads. A `tool_result` names the `tool_use_id` it answers, and a command that prints nothing still reports its exit code.
-
-## Run it
+**`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. The command and what it printed go to the person, so they can see what ran.
 
 From the root of the repo:
 
 ```bash
-uv run lessons/02-input-and-output/quark.py "what's in this directory?"
+uv run lessons/02-input-and-output/output.py
 ```
 
 Here's one run:
@@ -72,7 +131,7 @@ drwxr-xr-x 7 root root  4096 Oct  5 20:26 .
 drwxr-xr-x 5 root root  4096 Oct  5 14:47 ..
 -rw-r--r-- 1 root root   125 Oct  5 20:26 .env
 -rw-r--r-- 1 root root    29 Oct  5 20:24 .env.example
-drwxr-xr-x 8 root root  4096 Oct  5 21:13 .git
+drwxr-xr-x 8 root root  4096 Oct  5 21:44 .git
 -rw-r--r-- 1 root root    41 Oct  5 20:24 .gitignore
 drwxr-xr-x 4 root root  4096 Oct  5 19:52 .venv
 -rw-r--r-- 1 root root  1071 Oct  5 14:47 LICENSE
@@ -84,9 +143,56 @@ drwxr-xr-x 6 root root  4096 Oct  5 19:49 lessons
 -rw-r--r-- 1 root root 48687 Oct  5 19:52 uv.lock
 ```
 
-The model asked for `ls -la`, and quark ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
+The model asked for `ls -la`, and output ran it. The listing went to the screen, and nowhere else.
 
-Notice what never happens: the model never sees the listing. It's sitting in `results`, and nothing sends it.
+## Together
+
+Here's [`input.py`](./input.py) and [`output.py`](./output.py) in one file: input's task going in, output's tools and handling coming out. It's the whole of [`quark.py`](./quark.py):
+
+```python
+import subprocess, sys
+from anthropic import Anthropic
+
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+task = " ".join(sys.argv[1:]) or input("> ")
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=[{"role": "user", "content": task}],
+)
+results = []
+for block in reply.content:
+    if block.type == "text":
+        print(block.text)
+    if block.type == "tool_use":
+        print(f"$ {block.input['cmd']}")
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        print(done.stdout)
+        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+```
+
+Lesson 1's dump is gone, because output now handles the response. And there's one piece neither file could have on its own:
+
+**`results`** is input from the world. Once output runs a tool, what the tool printed is something the model should know about. A `tool_result` puts it in the shape the model reads, naming the `tool_use_id` it answers, and a command that prints nothing still reports its exit code. That's the exchange: the model asks, output acts, input brings back what happened.
+
+From the root of the repo:
+
+```bash
+uv run lessons/02-input-and-output/quark.py "how many lines are in README.md?"
+```
+
+Here's one run:
+
+```
+$ wc -l README.md
+71 README.md
+```
+
+The model asked for `wc -l README.md`, and quark ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
+
+Notice what never happens: the model never sees the 71. It's sitting in `results`, and nothing sends it.
 
 ## What to take away
 
@@ -187,6 +293,6 @@ The task came in through the pipe, and the model used `read_file` instead of `ba
 
 Notice what isn't on those lists. Calling the model is the model interface. Sending the result back and going again is control flow. Deciding what else the model sees is context. Input and output only bring things in and carry things out.
 
-**What's missing:** the model asked for `ls`, `ls` ran, and the model never saw what it found. The path ends at output. Something has to send the result back to the start and decide to go again. That's control flow.
+**What's missing:** the model asked for `wc -l`, it ran, and the model never saw what it found. The path ends at output. Something has to send the result back to the start and decide to go again. That's control flow.
 
 **→ [Lesson 3: Control flow](../03-control-flow/)**

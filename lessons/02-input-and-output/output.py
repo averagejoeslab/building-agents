@@ -1,16 +1,14 @@
-import subprocess, sys
+import subprocess
 from anthropic import Anthropic
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
     max_tokens=1024,
     tools=tools,
-    messages=[{"role": "user", "content": task}],
+    messages=[{"role": "user", "content": "What's in this directory?"}],
 )
-results = []
 for block in reply.content:
     if block.type == "text":
         print(block.text)
@@ -18,4 +16,3 @@ for block in reply.content:
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         print(done.stdout)
-        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
