@@ -1,8 +1,8 @@
-# Resilience
+# Lesson 8: Resilience
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 Requests fail, tools hang, and networks drop. Resilience is how the harness keeps going, or stops cleanly, when they do.
 

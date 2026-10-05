@@ -1,8 +1,8 @@
-# Guardrails
+# Lesson 6: Guardrails
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 Guardrails decide what the agent is allowed to do, and when a person gets a say. They sit in control flow because they decide whether the next step runs.
 

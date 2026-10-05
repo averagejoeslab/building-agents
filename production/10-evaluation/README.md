@@ -1,8 +1,8 @@
-# Evaluation
+# Lesson 10: Evaluation
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 Evaluation measures whether the agent does its job, and catches it getting worse when you change something. It sits outside the five primitives and tests all of them together.
 

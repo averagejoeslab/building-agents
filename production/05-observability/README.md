@@ -1,8 +1,8 @@
-# Observability
+# Lesson 5: Observability
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 A harness you can't see into is one you can't trust or fix. Observability records what the agent did at every step: each request and response, each tool it ran, how long it took and what it cost.
 

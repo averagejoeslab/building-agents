@@ -1,8 +1,8 @@
-# Performance
+# Lesson 9: Performance
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 Performance is how fast the agent responds and how much each task costs. It's spread across three primitives, because time and tokens are spent in all of them.
 

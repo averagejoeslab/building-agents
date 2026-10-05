@@ -1,8 +1,8 @@
-# Sandboxing
+# Lesson 7: Sandboxing
 
 > 🎥 **Video:** coming soon
 
-> **Coming soon.** This lesson isn't written yet.
+> **Coming soon.** This production layer isn't written yet.
 
 quark runs whatever the model asks for, on your machine. Sandboxing moves that somewhere a mistake can't do lasting damage. It's part of output because it changes where tools run.
 

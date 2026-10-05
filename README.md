@@ -39,9 +39,13 @@ Input and output are built independently, but they're two ends of the same excha
 
 You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
-The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Each lesson after that adds the primitive the last one was missing, and its `quark.py` is the previous lesson's plus that primitive.
+The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add the primitive the last one was missing, and each one's `quark.py` is the previous lesson's plus that primitive.
 
-The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
+The course has two parts. **The primitives**, Lessons 1–4, build a working harness. **The production layers**, Lessons 5–10, harden it for running unattended.
+
+The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each primitive lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
+
+### The primitives
 
 | # | Lesson | You build | Video |
 |---|---|---|---|
@@ -52,18 +56,18 @@ The example throughout is [quark](https://github.com/averagejoeslab/quark), my o
 
 Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
 
-## Production (coming soon)
+### The production layers (coming soon)
 
-A harness that works isn't yet a harness you'd run unattended. Production adds hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on the primitives you already know, and these lessons will show where:
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on the primitives you already know, and these lessons will show where:
 
-| Topic | What it adds | Built on | Video |
-|---|---|---|---|
-| [Observability](./production/01-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | 🎥 coming soon |
-| [Guardrails](./production/02-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | 🎥 coming soon |
-| [Sandboxing](./production/03-sandboxing/) | tools that run somewhere they can't do lasting damage | output | 🎥 coming soon |
-| [Resilience](./production/04-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | 🎥 coming soon |
-| [Performance](./production/05-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | 🎥 coming soon |
-| [Evaluation](./production/06-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | 🎥 coming soon |
+| # | Lesson | What it adds | Built on | Video |
+|---|---|---|---|---|
+| 5 | [Observability](./production/05-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | 🎥 coming soon |
+| 7 | [Sandboxing](./production/07-sandboxing/) | tools that run somewhere they can't do lasting damage | output | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | 🎥 coming soon |
+| 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | 🎥 coming soon |
 
 ## Setup
 
