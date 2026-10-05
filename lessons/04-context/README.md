@@ -317,3 +317,5 @@ control flow          what kind of loop? who decides when to stop?
 ```
 
 Some things won't fit at first. Ask what each one does. Is it deciding what the model sees? Then it's context, whatever it's called. Is it acting on what the model said? Output. Keep asking until it fits. If you find something that genuinely fits none of the five, I'd like to hear about it.
+
+When you're ready to run your harness unattended, the [production lessons](../../README.md#production-coming-soon) are next. They're coming soon.

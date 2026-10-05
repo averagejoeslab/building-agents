@@ -54,16 +54,16 @@ Lesson 4's `quark.py` is the finished harness. By then you've built quark, and y
 
 ## Production (coming soon)
 
-A harness that works isn't yet a harness you'd run unattended. Production adds hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on one of the five you already know, and these lessons will show where:
+A harness that works isn't yet a harness you'd run unattended. Production adds hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on the primitives you already know, and these lessons will show where:
 
-| Topic | What it adds | Built on | Status |
+| Topic | What it adds | Built on | Video |
 |---|---|---|---|
-| Observability | traces, logs and costs for every step, so you can see what the agent did and why | control flow | coming soon |
-| Guardrails | approvals, interrupts, step and spending limits, policies on what may run | control flow | coming soon |
-| Sandboxing | tools that run somewhere they can't do lasting damage | output | coming soon |
-| Resilience | retries, backups and recovering from a failure partway through a task | model interface, output | coming soon |
-| Performance | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | coming soon |
-| Evaluation | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | coming soon |
+| [Observability](./production/01-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | 🎥 coming soon |
+| [Guardrails](./production/02-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | 🎥 coming soon |
+| [Sandboxing](./production/03-sandboxing/) | tools that run somewhere they can't do lasting damage | output | 🎥 coming soon |
+| [Resilience](./production/04-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | 🎥 coming soon |
+| [Performance](./production/05-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | 🎥 coming soon |
+| [Evaluation](./production/06-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | 🎥 coming soon |
 
 ## Setup
 
