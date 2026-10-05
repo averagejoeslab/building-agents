@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="System prompt learning: the model accumulates problem-solving strategies directly into its own system prompt over time, no weight update needed">
+  <title>Stage 7: System prompt learning</title>
+  <desc>On the left, a system prompt document is shown as a growing strategy book with bullet entries like "count letters one at a time", "show work for math problems", and "ask before assuming ambiguity". A newly added entry at the bottom in orange reads "when stuck, re-read the prompt". An arrow leads to a model box in the middle which is labelled as applying the strategies to a new task. The model produces a solution on the right that includes a newly distilled strategy. A dashed orange loop arrow runs back from the solution to the system prompt, labelled "append strategy → reuse next time". A caption notes that this paradigm runs at inference time, requires no GPUs, and is the one stage the harness owns.</desc>
+
+  <defs>
+    <marker id="arr-gray-t7" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#888"/>
+    </marker>
+    <marker id="arr-orange-t7" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <polygon points="0,0 6,3 0,6" fill="#EB6E1F"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="360" y="28" text-anchor="middle" fill="#EB6E1F" font-size="15" font-family="ui-monospace, monospace" font-weight="600">System prompt learning</text>
+  <text x="360" y="48" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">the model edits its own system prompt to accumulate problem-solving strategies — no weight update</text>
+
+  <!-- system prompt (left) -->
+  <rect x="40" y="78" width="240" height="200" rx="6" ry="6" fill="rgba(0,45,98,0.08)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="160" y="96" text-anchor="middle" fill="#002D62" font-size="11" font-family="ui-monospace, monospace" font-weight="600">system prompt</text>
+  <text x="160" y="110" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">strategy book, grows over time</text>
+  <line x1="55" y1="118" x2="265" y2="118" stroke="#002D62" stroke-width="0.6" opacity="0.5"/>
+
+  <text x="52" y="135" fill="#002D62" font-size="10" font-family="sans-serif">• count letters one at a time</text>
+  <text x="52" y="151" fill="#002D62" font-size="10" font-family="sans-serif">• show work for math problems</text>
+  <text x="52" y="167" fill="#002D62" font-size="10" font-family="sans-serif">• ask before assuming intent</text>
+  <text x="52" y="183" fill="#002D62" font-size="10" font-family="sans-serif">• verify sources before quoting</text>
+  <text x="52" y="199" fill="#002D62" font-size="10" font-family="sans-serif">• cite line numbers when reading code</text>
+
+  <!-- newly appended strategy (highlighted) -->
+  <line x1="50" y1="214" x2="270" y2="214" stroke="#EB6E1F" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.7"/>
+  <text x="52" y="232" fill="#EB6E1F" font-size="10" font-family="sans-serif" font-weight="600">• new: when stuck, re-read the prompt</text>
+  <text x="160" y="262" text-anchor="middle" fill="#888" font-size="9" font-family="sans-serif" font-style="italic">no GPUs, no gradient — just text</text>
+
+  <!-- arrow to model -->
+  <line x1="285" y1="160" x2="320" y2="160" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t7)"/>
+
+  <!-- model -->
+  <rect x="325" y="120" width="160" height="80" rx="6" ry="6" fill="rgba(0,45,98,0.20)" stroke="#002D62" stroke-width="1.4"/>
+  <text x="405" y="148" text-anchor="middle" fill="#002D62" font-size="12" font-family="ui-monospace, monospace" font-weight="600">model</text>
+  <text x="405" y="164" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">applies the strategies</text>
+  <text x="405" y="178" text-anchor="middle" fill="#888" font-size="10" font-family="sans-serif" font-style="italic">to solve a new task</text>
+
+  <!-- arrow to solution -->
+  <line x1="490" y1="160" x2="525" y2="160" stroke="#888" stroke-width="1.2" marker-end="url(#arr-gray-t7)"/>
+
+  <!-- solution + distilled strategy -->
+  <rect x="530" y="120" width="160" height="80" rx="6" ry="6" fill="rgba(235,110,31,0.10)" stroke="#EB6E1F" stroke-width="1.4"/>
+  <text x="610" y="142" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">solution</text>
+  <text x="610" y="158" text-anchor="middle" fill="#002D62" font-size="9" font-family="sans-serif">+ distilled strategy</text>
+  <line x1="545" y1="166" x2="675" y2="166" stroke="#EB6E1F" stroke-width="0.4" opacity="0.5"/>
+  <text x="610" y="185" text-anchor="middle" fill="#EB6E1F" font-size="10" font-family="sans-serif" font-style="italic">"when stuck, re-read the prompt"</text>
+
+  <!-- loop back arrow -->
+  <path d="M 610 205 Q 610 295 160 295 Q 50 295 50 250" fill="none" stroke="#EB6E1F" stroke-width="1.3" stroke-dasharray="3,3" marker-end="url(#arr-orange-t7)"/>
+  <text x="370" y="312" text-anchor="middle" fill="#EB6E1F" font-size="11" font-family="ui-monospace, monospace" font-weight="600">append strategy → reuse next time</text>
+
+  <!-- caption -->
+  <text x="360" y="335" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Runs at inference time, no GPUs needed — and the system prompt is owned by the harness, not the lab.</text>
+  <text x="360" y="351" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif" font-style="italic">Karpathy named this paradigm in 2025; it's the one stage on this list that you can actually build yourself.</text>
+</svg>
