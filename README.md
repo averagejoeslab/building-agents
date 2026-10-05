@@ -52,10 +52,13 @@ By the end of Lesson 4 you've built quark, and you can take apart any harness so
 
 ## Setup
 
-macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key:
+macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
+
+Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+cp .env.example .env        # then add your key to .env
+export UV_ENV_FILE=.env
 ```
 
 > [!WARNING]
