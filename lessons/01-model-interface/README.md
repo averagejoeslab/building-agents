@@ -8,7 +8,7 @@ Whatever the provider, a model interface does three things:
 
 1. **Package** the tokens in, in the shape the model expects.
 2. **Send** them, and wait for tokens to come out.
-3. **Keep** what comes back. That's more than text: the reply also says *why* the model stopped, how many tokens went in and out, and, once there are tools, what the model asked to do.
+3. **Keep** what comes back. That's more than text: the reply also says *why* the model stopped and how many tokens went in and out.
 
 ## quark's model interface
 
@@ -30,13 +30,13 @@ print()
 
 **`client, MODEL = ...`** is where the model lives and how quark reaches it: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`working_memory`** is the package: the tokens in, as a list of messages, each with a `role` and `content`. It's called working memory because, once there's a loop, it holds everything that has happened in the session.
+**`working_memory`** is the package: the tokens in, as a list of messages, each with a `role` and `content`.
 
 **`client.messages.stream(...)`** sends it. quark streams instead of waiting for the whole reply, so you see words as they're produced and a long reply can't time out. The cost is a few more lines than `client.messages.create(...)`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
-**`for ev in stream`** prints the text as it arrives. `hasattr(ev.delta, "text")` skips the other kinds of events, like a tool's arguments streaming in as JSON, so they aren't printed as speech.
+**`for ev in stream`** prints the text as it arrives, so you can watch the reply come back. `hasattr(ev.delta, "text")` skips the events that don't carry text.
 
-**`saying`** is what's kept: the whole reply as data, with its `content`, `stop_reason` and `usage`. The printing was for the person. `saying` is for the rest of the harness.
+**`saying`** is what's kept: the whole reply as data, with its `content`, `stop_reason` and `usage`.
 
 ## Run it
 
