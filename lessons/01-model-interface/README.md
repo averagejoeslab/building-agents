@@ -103,6 +103,8 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
 - **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.
 
+It can hold enough to be a product on its own. Gateways like [LiteLLM](https://github.com/BerriAI/litellm) and [OpenRouter](https://openrouter.ai) are this primitive and nothing else: a harness sends them one request format, and they handle where it goes, which provider and model answer, backups when one is down, retries and rate limits. A harness that uses one has handed off its model interface.
+
 Here's a model interface that does more of that, in [`model_interface.py`](./model_interface.py):
 
 ```python
