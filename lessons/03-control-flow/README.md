@@ -113,11 +113,11 @@ That's two calls. The first asked for a command. Its result went back, and the s
 
 **The rule:** control flow sequences the other four primitives and decides when to stop. Arranged differently, the same four pieces are a single call, a chatbot, an agent, or a workflow.
 
-**What else control flow can be:** quark runs one agent loop with no limit, one command after another, but this primitive holds more in other harnesses.
+**What else control flow can be:** quark runs one agent loop with no limit, but this primitive holds more in other harnesses.
 - **Its shape.** A single call, a chat loop, any of the workflows above, an agent loop, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
 - **When it stops.** When the model stops asking, after a number of steps, at a spending limit, when the model declines, when a person says stop.
 - **Who it hands back to.** A person, another program, or no one: it runs until the task is done.
-- **In what order things run.** Tool requests one after another, or at the same time.
+- **What runs at the same time.** One model call at a time, or several at once, as in parallelization.
 
 It can be a product on its own. [LangGraph](https://github.com/langchain-ai/langgraph) is built around this primitive: you lay out the steps and the paths between them as a graph, and it runs them.
 
@@ -125,63 +125,67 @@ Here's control flow that does more of that, in [`control_flow.py`](./control_flo
 
 ```python
 import subprocess, sys
-from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 MAX_STEPS = 10
 
-def run(block):
-    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    return {"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"}
-
-messages = [{"role": "user", "content": " ".join(sys.argv[1:]) or input("> ")}]
+task = " ".join(sys.argv[1:]) or input("> ")
+messages = [{"role": "user", "content": task}]
 
 for step in range(1, MAX_STEPS + 1):
     reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages)
     messages.append({"role": "assistant", "content": reply.content})
-    for block in reply.content:
-        if block.type == "text": print(block.text)
     if reply.stop_reason == "refusal":
-        print("[stopped: the model declined]"); break
-    calls = [b for b in reply.content if b.type == "tool_use"]
-    if not calls:
-        print(f"[done in {step} steps]"); break
-    print(f"[step {step}: running {len(calls)} command{'s at once' if len(calls) > 1 else ''}]")
-    for c in calls: print(f"$ {c.input['cmd']}")
-    with ThreadPoolExecutor() as pool:
-        messages.append({"role": "user", "content": list(pool.map(run, calls))})
+        print("[stopped: the model declined]")
+        break
+    results = []
+    for block in reply.content:
+        if block.type == "text":
+            print(block.text)
+        if block.type == "tool_use":
+            print(f"$ {block.input['cmd']}")
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            print(done.stdout)
+            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+    if not results:
+        print(f"[done in {step} steps]")
+        break
+    messages.append({"role": "user", "content": results})
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")
 ```
 
 - **When it stops.** The loop runs at most `MAX_STEPS` calls. It also stops when the model is done, or when it declines with a `refusal`, and it says which.
-- **In what order things run.** When the model asks for several commands in one response, they run at the same time instead of one after another.
 - **Who it hands back to.** No one. There's no chat mode; it runs the task and exits.
 
 Run it:
 
 ```bash
-uv run lessons/03-control-flow/control_flow.py "what versions of python3, uv and git are installed? check all three at once, then answer in one line"
+uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the most files? answer in one English sentence"
 ```
 
 Here's one run:
 
 ```
-[step 1: running 3 commands at once]
-$ python3 --version 2>&1
-$ uv --version 2>&1
-$ git --version 2>&1
-Python 3.13.14, uv 0.8.17 and git 2.43.0 are installed.
+$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5; pwd
+5 02-input-and-output/
+4 03-control-flow/
+3 04-context/
+3 01-model-interface/
+/home/user/building-agents/lessons
+
+The `02-input-and-output` folder in `lessons` has the most files, with 5.
 [done in 2 steps]
 ```
 
-The model asked for three commands in one response, and they ran at the same time. With `MAX_STEPS` set to 1, the same harness stops before the model sees any result:
+Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, the same harness stops after the first command, before the model sees its result:
 
 ```
-[step 1: running 1 command]
 $ git --version
+git version 2.43.0
+
 [stopped: hit the 1-step limit]
 ```
 
