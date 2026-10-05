@@ -10,33 +10,29 @@ Whatever the provider, a model interface does three things:
 2. **Send** them, and wait for tokens to come out.
 3. **Keep** what comes back. That's more than text: the reply also says *why* the model stopped and how many tokens went in and out.
 
-## quark's model interface
+## The worked example
 
-Here's [quark](https://github.com/averagejoeslab/quark)'s model interface with everything else removed. It's the whole of [`agent.py`](./agent.py):
+Here's the call at the center of [quark](https://github.com/averagejoeslab/quark), with nothing around it. It's the whole of [`agent.py`](./agent.py):
 
 ```python
-import sys
 from anthropic import Anthropic
 
-client, MODEL = Anthropic(), "claude-sonnet-4-5"
-working_memory = [{"role": "user", "content": "What's in this directory?"}]
-
-with client.messages.stream(model=MODEL, max_tokens=4096, messages=working_memory) as stream:
-    for ev in stream:
-        if ev.type == "content_block_delta" and hasattr(ev.delta, "text"): sys.stdout.write(ev.delta.text); sys.stdout.flush()
-    saying = stream.current_message_snapshot
-print()
+client = Anthropic()
+reply = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "What's in this directory?"}],
+)
+print(reply.model_dump_json(indent=2))
 ```
 
-**`client, MODEL = ...`** is where the model lives and how quark reaches it: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
+**`client = Anthropic()`** is how quark reaches the model: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`working_memory`** is the package: the tokens in, as a list of messages, each with a `role` and `content`.
+**`messages=[...]`** is the package: the tokens in, as a list of messages, each with a `role` and `content`.
 
-**`client.messages.stream(...)`** sends it. quark streams instead of waiting for the whole reply, so you see words as they're produced and a long reply can't time out. The cost is a few more lines than `client.messages.create(...)`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
+**`client.messages.create(...)`** sends it and waits. `model` picks which model, and `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
-**`for ev in stream`** prints the text as it arrives, so you can watch the reply come back. `hasattr(ev.delta, "text")` skips the events that don't carry text.
-
-**`saying`** is what's kept: the whole reply as data, with its `content`, `stop_reason` and `usage`.
+**`reply`** is what's kept: everything that came back, as data. The `print` shows all of it, so you can see what the model interface hands to the rest of the harness.
 
 ## Run it
 
@@ -46,34 +42,61 @@ From the root of the repo:
 uv run lessons/01-model-interface/agent.py
 ```
 
-The reply appears word by word. Here's one run:
+Here's one run:
 
+```json
+{
+  "id": "msg_011CfjjLu1KTynDxpWda5Tiw",
+  "container": null,
+  "content": [
+    {
+      "citations": null,
+      "text": "I don't have access to view your current directory or file system. I'm an AI assistant without the ability to execute commands or access your local environment directly.\n\nTo see what's in your current directory, you can use:\n\n**On Linux/Mac:**\n```bash\nls\n```\nor for more details:\n```bash\nls -la\n```\n\n**On Windows (Command Prompt):**\n```cmd\ndir\n```\n\n**On Windows (PowerShell):**\n```powershell\nGet-ChildItem\n```\nor simply:\n```powershell\nls\n```\n\nIf you run one of these commands and share the output with me, I'd be happy to help you understand what files and folders are present!",
+      "type": "text"
+    }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-4-5-20250929",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "not_available",
+    "input_tokens": 13,
+    "output_tokens": 161,
+    "output_tokens_details": null,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
 ```
-I don't have access to view your current directory or any filesystem. I'm an AI assistant without the ability to execute commands or access files on your computer.
 
-To see what's in a directory, you would need to run a command in your terminal:
+Yours will be worded differently; the model's output varies from run to run. Three fields matter:
 
-- **Linux/Mac/Unix:** `ls` (or `ls -la` for detailed view)
-- **Windows Command Prompt:** `dir`
-- **Windows PowerShell:** `ls` or `Get-ChildItem`
+- **`content`** is the tokens out: the model's reply.
+- **`stop_reason`** is why it stopped. `end_turn` means it finished; `max_tokens` would mean it hit the cap.
+- **`usage`** counts both sides: `input_tokens` is TokensIn, `output_tokens` is TokensOut.
 
-If you'd like help understanding the output or working with specific files, feel free to share what you see and I can help you interpret it!
-```
-
-Yours will be worded differently; the model's output varies from run to run.
-
-The model knows the right next step. It just can't take it.
+Read the `text`. The model knows the right next step is `ls`. It just can't take it.
 
 ## What to take away
 
 **The rule:** the model interface packages tokens in, sends them, and keeps what comes back.
 
 **What else would have worked:**
-- **Waiting instead of streaming.** Fewer lines, and fine for short replies or a harness no one watches.
+- **Streaming instead of waiting.** The reply arrives piece by piece as it's produced, so a person can watch it and a long reply can't time out. More code to read it.
 - **Raw HTTP.** One POST with a JSON body. No dependency, but you parse the reply and the stream yourself.
 - **A multi-provider library.** Swap models by changing a string, with a layer between you and each provider's features.
 - **A local model.** No API key and no per-token bill, in exchange for your own hardware and usually a smaller model.
 
-**What's missing:** the question is hardcoded, and the reply only goes to the screen. The model said what to do, and nothing could do it. That's input and output.
+**What's missing:** the question is hardcoded, and the reply is just data dumped to the screen. The model said what to do, and nothing could do it. That's input and output.
 
 **→ [Lesson 2: Input and output](../02-input-and-output/)**
