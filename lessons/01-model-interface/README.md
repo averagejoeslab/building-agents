@@ -84,7 +84,7 @@ Here's one run:
 
 Yours will be worded differently; the model's output varies from run to run. (The long `signature` is shortened here.) Three fields matter:
 
-- **`content`** is the tokens out, as a list of blocks. This model thinks before it answers, so the first block is its `thinking` (kept private here; the API returns only a signature for it) and the second is the `text` of its reply.
+- **`content`** is the tokens out, as a list of blocks. This model thinks before it answers, so the first block is its `thinking` and the second is the `text` of its reply. By default the thinking text comes back empty, with only a `signature`: an encrypted copy of the reasoning that only the API can read.
 - **`stop_reason`** is why it stopped. `end_turn` means it finished; `max_tokens` would mean it hit the cap.
 - **`usage`** counts both sides: `input_tokens` is TokensIn, `output_tokens` is TokensOut, thinking included.
 
@@ -101,7 +101,7 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out.
 - **How many go at once.** One request, or a batch of them.
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
-- **The request's settings.** How many tokens out, how much the model thinks first.
+- **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.
 
 Here's a model interface that does more of that, in [`model_interface.py`](./model_interface.py):
 
@@ -111,10 +111,10 @@ import anthropic
 client = anthropic.Anthropic(timeout=120, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 
-def call(messages, max_tokens=1024, effort="medium"):
+def call(messages, max_tokens=4096, effort="high", thinking="summarized"):
     for model in MODELS:
         try:
-            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, messages=messages) as stream:
+            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:
                 return stream.get_final_message()
         except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError):
             continue
@@ -127,7 +127,7 @@ print(reply.model_dump_json(indent=2))
 - **What happens when a request fails.** `timeout=120` gives up on a request that takes longer than two minutes. `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
 - **Which model answers.** If every retry fails, `call` moves on to the next model in `MODELS`.
 - **How the response arrives.** `stream` receives the response as it's produced, so a long one can't time out, and `get_final_message()` hands back the whole response once it's done. Nothing is printed along the way; showing it to a person would be output.
-- **The request's settings.** `max_tokens` and `effort`, how much the model thinks first, are arguments the caller can set.
+- **The request's settings.** `max_tokens`, `effort` (how much the model thinks first) and `thinking` are arguments the caller can set. `"summarized"` asks for a readable summary of the model's thinking instead of the empty default. The raw thinking itself is never returned.
 
 Run it the same way:
 
@@ -139,12 +139,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjmAgAcb7e9zoenfjoki",
+  "id": "msg_011Cfjmr2xbFAE1MRszzzWWX",
   "container": null,
   "content": [
     {
+      "signature": "CAQS0AUKEAgSGAI4AUIIdGhpbmtpbmcSDJo1AOU3Q8nzeKwLQRoMqA3M2GGFMP3dZLX+IjCE...",
+      "thinking": "I don't actually have access to this user's file system, so I can't see what's in their directory—I should explain that and suggest they paste the listing or output here instead.\n\n",
+      "type": "thinking"
+    },
+    {
       "citations": null,
-      "text": "I can't see your directory. I don't have file system access in this conversation, and no files or attachments have been shared with me.\n\nTo find out what's in a directory, you can run one of these yourself:\n\n**macOS/Linux:**\n```bash\nls          # basic listing\nls -la      # detailed, including hidden files\ntree        # tree view (if installed)\n```\n\n**Windows (Command Prompt):**\n```cmd\ndir\n```\n\n**Windows (PowerShell):**\n```powershell\nGet-ChildItem\n```\n\nIf you paste the output here, I can help you interpret it, find something specific, or figure out what to do next. And if you're using a tool or IDE that's supposed to give me file access, it may not be connected properly, so let me know what setup you're using and I can help troubleshoot.",
+      "text": "I can't see your directory. I don't have file system access in this conversation, and nothing has been shared with me besides your message.\n\nTo find out what's in it, you can run one of these yourself:\n\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -R` (recursive)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n- **Tree view:** `tree` (on Linux/macOS you may need to install it first)\n\nIf you paste the output here, I can help you make sense of it, such as explaining what the files are, finding something specific, or cleaning things up.",
       "type": "text"
     }
   ],
@@ -164,9 +169,9 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 251,
+    "output_tokens": 257,
     "output_tokens_details": {
-      "thinking_tokens": 0
+      "thinking_tokens": 41
     },
     "server_tool_use": null,
     "service_tier": "standard"
@@ -174,7 +179,7 @@ Here's one run:
 }
 ```
 
-It looks like the first response, with one difference: no `thinking` block, and `thinking_tokens` is 0. At `effort="medium"` the model decided this question didn't need it. The rest of what this version adds only shows when something goes wrong: a dropped connection, a rate limit, a model that's down. Batching and a layer for several providers aren't shown: a batch's responses come back later rather than in the same call, and a multi-provider layer needs a second provider to translate for.
+It looks like the first response (its `signature` is shortened too), with one difference: the `thinking` block has text. That's the summary `display: "summarized"` asked for. The rest of what this version adds only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
 
 Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
