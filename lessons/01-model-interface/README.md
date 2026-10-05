@@ -4,7 +4,7 @@
 
 The model is a function: **TokensOut = Model(TokensIn)**. The model interface is how the harness calls it. It sends tokens to the model as a request, and the model returns tokens as a response, just like any other API endpoint.
 
-It's the thinnest of the five primitives, and that's because of where it sits. The other four live on the harness's side: they decide when to call, what goes into the request, and what to do with the response. The model interface is the boundary between the harness and the model. In **Agent = Harness(Model)**, it's the parentheses. Nothing reaches the model without it, so it comes first.
+It's the thinnest of the five primitives, and that's because of where it sits. The other four live on the harness's side: control flow decides when to call, input gathers what goes in, context decides how it's presented in the request, and output handles the response. The model interface is the boundary between the harness and the model. In **Agent = Harness(Model)**, it's the parentheses. Nothing reaches the model without it, so it comes first.
 
 ## The worked example
 
@@ -183,7 +183,7 @@ Here's one run:
 
 It looks like the first response (its `signature` is shortened too), with one difference: the `thinking` block has text. That's the summary `display: "summarized"` asked for. The rest of what this version adds only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
 
-Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
+Notice what isn't on that list. When to call is control flow. Gathering what goes in, from a person or the world, is input. How it's presented in the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
 **What's missing:** both ends of the path are stubs.
 
