@@ -103,6 +103,40 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
 - **The request's settings.** How many tokens out, how much the model thinks first.
 
+Here's a model interface that does more of that, in [`model_interface.py`](./model_interface.py):
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(timeout=120, max_retries=3)
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+
+def call(messages, max_tokens=1024, effort="medium"):
+    for model in MODELS:
+        try:
+            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, messages=messages) as stream:
+                return stream.get_final_message()
+        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError):
+            continue
+    raise RuntimeError("no model answered")
+
+reply = call([{"role": "user", "content": "What's in this directory?"}])
+print(reply.model_dump_json(indent=2))
+```
+
+- **What happens when a request fails.** `timeout=120` gives up on a request that takes longer than two minutes. `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
+- **Which model answers.** If every retry fails, `call` moves on to the next model in `MODELS`.
+- **How the response arrives.** `stream` receives the response as it's produced, so a long one can't time out, and `get_final_message()` hands back the whole response once it's done. Nothing is printed along the way; showing it to a person would be output.
+- **The request's settings.** `max_tokens` and `effort`, how much the model thinks first, are arguments the caller can set.
+
+Run it the same way:
+
+```bash
+uv run lessons/01-model-interface/model_interface.py
+```
+
+The response looks like the one above. The difference is everything that happens when something goes wrong. Batching and a layer for several providers aren't shown: a batch's responses come back later rather than in the same call, and a multi-provider layer needs a second provider to translate for.
+
 Notice what isn't on that list. When to call is control flow. What goes into the request is context. What happens to the response is output. The model interface only gets the request there and the response back.
 
 **What's missing:** the question is hardcoded, and the reply is just data dumped to the screen. The model said what to do, and nothing could do it. That's input and output.
