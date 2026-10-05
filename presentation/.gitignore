@@ -1,5 +1,0 @@
-node_modules
-dist
-.remote-assets
-.vite
-components.d.ts
