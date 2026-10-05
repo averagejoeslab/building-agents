@@ -46,12 +46,21 @@ From the root of the repo:
 uv run lessons/01-model-interface/agent.py
 ```
 
-The reply appears word by word, something like:
+The reply appears word by word. Here's one run:
 
 ```
-I don't have access to your file system, so I can't see what's in your current directory.
-You can check by running `ls` (macOS/Linux) or `dir` (Windows)...
+I don't have access to view your current directory or any filesystem. I'm an AI assistant without the ability to execute commands or access files on your computer.
+
+To see what's in a directory, you would need to run a command in your terminal:
+
+- **Linux/Mac/Unix:** `ls` (or `ls -la` for detailed view)
+- **Windows Command Prompt:** `dir`
+- **Windows PowerShell:** `ls` or `Get-ChildItem`
+
+If you'd like help understanding the output or working with specific files, feel free to share what you see and I can help you interpret it!
 ```
+
+Yours will be worded differently; the model's output varies from run to run.
 
 The model knows the right next step. It just can't take it.
 
