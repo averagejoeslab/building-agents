@@ -1,0 +1,1875 @@
+I'll start by checking my long-term memory for the lessons.
+$ cd /home/user/building-agents 2>/dev/null && pwd && ls -la && ls .quark/memory/ && wc -l .quark/memory/memory.md && cat .quark/memory/memory.md
+/home/user/building-agents
+total 108
+drwxr-xr-x 9 root root  4096 Oct  5 22:58 .
+drwxr-xr-x 5 root root  4096 Oct  5 14:47 ..
+-rw-r--r-- 1 root root   104 Oct  5 22:09 .env.example
+drwxr-xr-x 8 root root  4096 Oct  5 22:58 .git
+-rw-r--r-- 1 root root    41 Oct  5 20:24 .gitignore
+drwxr-xr-x 3 root root  4096 Oct  5 22:58 .quark
+drwxr-xr-x 4 root root  4096 Oct  5 19:52 .venv
+-rw-r--r-- 1 root root  1071 Oct  5 14:47 LICENSE
+-rw-r--r-- 1 root root  6571 Oct  5 22:52 README.md
+drwxr-xr-x 2 root root  4096 Oct  5 19:53 assets
+drwxr-xr-x 2 root root  4096 Oct  5 19:53 docs
+drwxr-xr-x 6 root root  4096 Oct  5 19:49 lessons
+drwxr-xr-x 8 root root  4096 Oct  5 22:51 production
+-rw-r--r-- 1 root root   193 Oct  5 19:49 pyproject.toml
+-rw-r--r-- 1 root root 48687 Oct  5 19:52 uv.lock
+memory.md
+45 .quark/memory/memory.md
+# Quark Memory
+
+## 2026-10-05 22:58:58
+- REPO building-agents (/home/user/building-agents), a.k.a. "harness-engineering" (pyproject name), by averagejoeslab (MIT, 2026). "A hands-on course in building agents by building their harness." Python>=3.13, uv, dep only `anthropic`. Setup: cp .env.example .env (ANTHROPIC_API_KEY; TELEGRAM_BOT_TOKEN only for lessons/02/input_output.py), export UV_ENV_FILE=.env, run `uv run lessons/NN-name/file.py`. .gitignore: .venv, __pycache__, .quark/, uv.lock, .env. WARNING: from lesson 2 the agent runs model-written shell commands with no confirmation.
+- REPO thesis: no definition, show mechanism. TokensOut = Model(TokensIn) (model predicts). Agent = Harness(Model); harness = everything else. Model internals optional in docs/the-model.md (model development = first primitive; repo is about the harness = second primitive).
+- REPO five harness primitives: control flow (outer; how info flows between others: run once -> single call; loop+hand back each reply -> chatbot; loop while model asks for tools -> agent; or workflow), and inside it: input (gathered from person/world), context (what request holds + how inputs presented), model interface (how harness talks to model), output (model outputs shown to person or run as tools). Claude Code/Cursor/Codex = same five with different choices.
+- REPO method: ask "what is it and by what mechanistic primitives does it work?" recursively until answers diverge (terminal vs Slack). Lessons build back up outward from model; each lesson's quark.py = previous + one primitive. Worked example throughout = quark (github.com/averagejoeslab/quark, author's agent, one way not only way). Each primitive lesson structure: explain primitive -> walk through quark's version -> run it -> "Going further" with a second, richer example file -> "What to take away" (rule, what's missing, link to next). Lesson 4 quark.py = finished harness. Videos all "coming soon".
+- REPO layout: lessons/01..04 (primitives, real), production/05..10 (stubs, "coming soon", each README ~15 lines): 5 Observability (traces/logs/cost; built on control flow), 6 Guardrails (approve before tool, interrupt, step/spend limits, command policies; control flow), 7 Sandboxing (container, limit files/network/time, discard env; output), 8 Resilience (retries/backup models, timeouts/error results, resume after crash; model interface+output), 9 Performance (prompt caching, small requests [context]; streaming, per-request model choice [model interface]; parallel tools [output]), 10 Evaluation (tasks w/ known outcomes, grading by code or model, evals on every change; whole harness).
+- LESSON 1 Model interface (lessons/01-model-interface: README.md, quark.py, model_interface.py). Idea: model is function; model interface = how harness calls it: request out (tokens in), response back (tokens out), like any API. Thinnest primitive: it's the boundary/the parentheses in Agent=Harness(Model); other four live on harness side (control flow=when to call, input=what goes in, context=how presented, output=what to do with response). Comes first since nothing reaches model without it.
+  quark.py (whole file): `client=Anthropic()` (reads ANTHROPIC_API_KEY; hosted API via SDK); `client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, messages=[{"role":"user","content":"What's in this directory?"}])`; `print(reply.model_dump_json(indent=2))`. max_tokens caps output (stops even mid-sentence). Run: uv run lessons/01-model-interface/quark.py. Response fields that matter: content (list of blocks; model thinks first so block1 type=thinking with empty text + encrypted `signature`, block2 type=text), stop_reason (end_turn vs max_tokens), usage (input_tokens=TokensIn, output_tokens=TokensOut incl thinking_tokens). Demo outcome: model says it can't see the dir; it knows right step is `ls` but can't take it.
+  Going further list (what a model interface can be): where request goes (hosted API/local model/gateway), how it travels (SDK/raw HTTP/multi-provider layer), which model (one or fallback), how response arrives (whole or streamed), how many at once (single/batch), failure handling (retry/rate limit wait/timeout), request settings (max tokens, thinking effort, thinking summary). Gateways LiteLLM and OpenRouter = this primitive alone; using one hands off your model interface.
+  model_interface.py: `client=anthropic.Anthropic(timeout=120, max_retries=3)`; MODELS=["claude-sonnet-5-5","claude-opus-5-5"]; `call(messages,max_tokens=4096,effort="high",thinking="summarized")` loops MODELS, `with client.messages.stream(model=..., max_tokens=..., output_config={"effort":effort}, thinking={"type":"adaptive","display":thinking}, messages=messages) as stream: return stream.get_final_message()`; except (APIConnectionError, RateLimitError, InternalServerError): continue; after loop raise RuntimeError("no model answered"). Teaches: timeout=2min, SDK retries w/ backoff, fallback model, streaming avoids long-response timeout (nothing printed — printing is output), settings as args; "summarized" makes thinking block contain a readable summary (raw thinking never returned). Only visible difference in run: thinking has text.
+  Take away: RULE = model interface sends tokens as request and gets tokens back as response; it never decides when to call, what goes in, how presented, or what to do with response. MISSING: both ends are stubs (hardcoded input string, output just dumps whole response); model said what to do but nothing could do it -> Lesson 2.
+
+## 2026-10-05 22:59:12
+- LESSON 2 Input and output (lessons/02-input-and-output: README.md, input.py, output.py, quark.py, input_output.py). Idea: model only takes/gives tokens; can't read typing or run commands. INPUT = how inputs gathered: from a person (task/question) or the world (what happened when a command ran) = afferent pathway. OUTPUT = how model outputs handled: shown to a person or run as a tool = efferent pathway. Built independently but taught together because they're two ends of one exchange via TOOLS: model can't act but can ask (tool_use block: name+args in shape harness described); output runs it; result comes back as input. "The model asks; the harness acts." Tools not strictly needed for an agent, but without them only thing model changes is what a person reads. Diagram: person/world -> input -> request -> model interface -> response -> output -> person/world. Lesson 1 had both ends stubbed.
+  Shared tool def: tools=[{"name":"bash","description":"Run shell command — the whole system is in reach","input_schema":{"type":"object","properties":{"cmd":{"type":"string"}},"required":["cmd"]}}] (name, description model reads, JSON schema for args); passed as tools=tools in request.
+  input.py: real input, stub output. `task = " ".join(sys.argv[1:]) or input("> ")` replaces hardcoded question; tools in request; output still model_dump_json dump. Run `uv run lessons/02-input-and-output/input.py "how many lines are in README.md?"` -> response has tool_use block (id toolu_..., input {"cmd":"wc -l README.md"}, name bash) and stop_reason "tool_use" (stopped waiting for result). Model asked; nothing acted.
+  output.py: real output, hardcoded input "What's in this directory?". `for block in reply.content`: type text -> print(block.text); type tool_use -> print(f"$ {block.input['cmd']}"), `done=subprocess.run(cmd, shell=True, stdout=PIPE, stderr=subprocess.STDOUT, text=True)` (stderr merged in order), print(done.stdout). Thinking blocks ignored. max_tokens 4096 from here on to leave room for thinking: truncated tool request would lack block.input['cmd'] -> crash (input_output.py checks for it). bash = anything on command line -> warning to run somewhere disposable. Demo: model asked `ls -la`, listing printed.
+  quark.py (together): input.py + output.py, `import subprocess, sys`; adds `results=[]` and after printing, `results.append({"type":"tool_result","tool_use_id":block.id,"content":done.stdout or f"(exit {done.returncode})"})` = input from the world (tool_result names tool_use_id it answers; silent command still reports exit code). Lesson 1 dump removed. Run `uv run lessons/02-input-and-output/quark.py "how many lines are in README.md?"` -> "$ wc -l README.md / 71 README.md". Prompts if no arg. KEY GAP: model never sees the 71 — results is built but nothing sends it back.
+  Going further — Input: where person input comes from (CLI args, prompt, pipe, chat app, webhook, schedule); what it can be (text, images, files); bad input (re-ask blank); what comes back from world (printed output, exit code, failure). Output: where it goes (terminal, file, chat msg, PR); reaching a person (all at once vs streamed); which tools (one general vs many specific routed by name); where tools run (this machine, container, remote, provider-hosted); how run (sequential vs concurrent); when not to run (tool request cut off at max_tokens is incomplete — half a command worse than none); failure/hang (timeout, report failure not crash). MCP servers = package tools behind one protocol = output you plug in.
+  input_output.py (richer, needs TELEGRAM_BOT_TOKEN, via @BotFather): AsyncAnthropic; tools bash(cmd)+read_file(path); `telegram(method, **params)` urllib POST JSON to api.telegram.org/bot<token>/<method>; `receive()` long-polls getUpdates (offset, timeout=50) via asyncio.to_thread, returns (chat_id, text) of first text message and acks offset, takes ONE message and stops (repeating = control flow); `send(chat,text)` sendMessage text[:4000]; async `bash` uses create_subprocess_shell, wait_for 30s timeout -> kill, returns ("stopped after 30 seconds", True), appends "\n(exit N)" if nonzero; `read_file` -> (text,False) or (str(e),True) on OSError; `executors` dict name->lambda; `execute(block, cut_off)` returns tool_result with is_error: cut_off -> "cut off before it was finished, so it was not run"; unknown name -> "no tool named X"; content `out or "(no output)"`; main: receive, one create call, send text blocks, `asyncio.gather` all tool_use blocks concurrently (cut_off = stop_reason=="max_tokens" and block is last content), send each result as "→ name {json args}\nresult". Demo: one message asking 3 things -> 3 concurrent bash calls (3x2s tasks take 2s not 6). Model still never sees results.
+  Take away: RULE = input gathers what goes to model (person or world); output handles what comes back (shown or run as tool); tool = model asking + harness acting. They never: get request/response to model (model interface), decide when to call/whether result goes back (control flow), present input in request (context). MISSING: result never reaches the model; need to send it back to start and go again = control flow -> Lesson 3.
+
+## 2026-10-05 22:59:26
+- LESSON 3 Control flow (lessons/03-control-flow: README.md, quark.py, control_flow.py, workflow.py). Idea: control flow = how information flows between the other four primitives; they all sit inside it; decides what runs, order, whether to go again. Diagram: person/world -> input -> request -> model interface -> response -> output -> person/world, plus arrow from output's tool result back up to input (loop). At end of path control flow decides: result goes back around, person gets a turn, or stop. Arrangements: run once (Lesson 2); chat loop (call, show, hand back to person = chatbot); workflow (YOUR CODE decides steps: draft, check, fix); agent loop (call; while model asks for tools run them, send results back, call again; hand back when it stops asking). No correct one: differ in who decides next (workflow=code, predictable/testable but only planned cases; agent=model, handles unplanned, costs predictability). Does two things: SEQUENCES the primitives and TERMINATES (loop with no clear end = bill with no clear end).
+  quark.py (30 lines): same as lesson 2 but wrapped in `while True:`; `chat = len(sys.argv) < 2`; `messages=[{"role":"user","content":task}]`; each pass: create(...messages=messages), results=[], for-block handling same as L2; then `messages.append({"role":"assistant","content":reply.content})`; `if results: messages.append({"role":"user","content":results}); continue`; `if not chat or (task := input("\n> ")) == "/q": break`; else append new user task. Key points: while True = go again (each pass one model call); messages.append = the arrow back around (each request carries everything so far; growing list = simplest context/working memory; deciding what goes in = L4); `if results: continue` = agent loop; no results = termination (model decides by not asking for a tool; no step counting or magic word); chat flag gives two modes (task on CLI: run till model stops asking then exit; no task: chat, hands back with "> ", /q quits). NO step limit — trusts the model; if it never stops asking, quark never stops. Demo: `uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is the longest? answer in one sentence"` -> find|wc -l|sort -> 04-context/quark.py 48 lines; two calls. (Line counts: L1 9, L2 21, L3 30, L4 48.)
+  Going further (control flow can be): shape (single call, chat loop, workflow, agent loop, agents handing tasks to agents, loop waking on message/schedule); when it stops (model stops asking, N steps, spending limit, model declines, person says stop); who it hands back to (person, program, no one); concurrency (one call or several). LangGraph = this primitive as product (graph of steps and paths).
+  control_flow.py: MAX_STEPS=10; `for step in range(1, MAX_STEPS+1)`: create; append assistant msg; `if reply.stop_reason == "refusal": print("[stopped: the model declined]"); break`; handle blocks; `if not results: print(f"[done in {step} steps]"); break`; append results; for-else `else: print(f"[stopped: hit the {MAX_STEPS}-step limit]")`. No chat mode — runs task, exits, hands back to no one. Demo: 2 steps "[done in 2 steps]"; with MAX_STEPS=1 stops after first command before model sees result.
+  Anthropic "Building effective agents" workflows: prompt chaining (fixed sequence, code checks between), routing (one call classifies, code sends down path), parallelization (sectioning independent parts or voting same question), orchestrator-workers (one call breaks task down dynamically, workers do pieces, combine), evaluator-optimizer (one produces, another judges, repeat till pass). Course caveats: article's "augmented LLM" = retrieval+memory (context) + tools (output), not control flow; routing to a cheaper model is a decision about the work, unlike L1's fallback model which only covers outage.
+  workflow.py (evaluator-optimizer, no tools, max_tokens 2048): `ask(prompt)` -> single create, returns first text block; draft = ask("Do this task. Reply with only the result.\n\n{task}"); `for round in range(1,4)`: print draft; verdict = ask(task+draft+"Check the draft against every requirement... reply with only PASS. Otherwise list what to fix."); if verdict.strip()=="PASS": print("[evaluator: pass]"); break; else print verdict, draft = ask(task+draft+feedback+"Rewrite..."); for-else "[stopped: 3 rounds without a pass]". Who decides = your code (order always draft/judge/rewrite/judge); prompts built from task + last draft = simplest context. Demo: task "one sentence about agent harnesses, every word exactly five letters, >=8 words"; draft1 had 'rigs','wrap' (4 letters); evaluator listed; draft2 passed.
+  quark.py and control_flow.py are agents (model decides); workflow.py is a workflow (code decides).
+  Take away: RULE = control flow sequences the other four and decides when to stop; arranged differently same pieces = single call, chatbot, agent, workflow. It never does: model interface, input, output, or context (incl. the growing messages list and workflow prompts). MISSING: agent knows nothing (where it is, date, who it is, what you told it yesterday); messages grows every pass and will outgrow model's window; something must decide what model sees = context -> Lesson 4.
+
+## 2026-10-05 22:59:43
+- LESSON 4 Context (lessons/04-context: README.md, quark.py, context.py). NOTE: my own harness/system prompt (Self Model/World Model/Other Selves/Body Operations/Mechanics, mechanics(), compact()) IS lessons/04-context/quark.py — I am quark in lesson 4 form. Idea: model knows nothing about this moment except what's in the request (where it runs, date, who it is, what it did a minute ago, what you said last week) unless harness puts it there; every call starts from nothing. CONTEXT = how inputs are presented to the model; input gathers, context decides what the request actually holds and how laid out. Path: person/world -> input -> CONTEXT -> request -> model interface -> response -> output -> (result loops back to input). Does two things before every call: ASSEMBLES (choose what goes in, how presented) and FITS (context window limit; when bigger something gives). Context components: instructions (system prompt), working memory (this session), episodic memory (past sessions record), semantic memory (durable facts: who you are, prefs, past mistakes), procedural memory (recipes/playbooks/skills read when relevant), retrieval (search store, put results in request), compaction (summarize when won't fit), self-knowledge (tell model what it is/how it works). Need only the ones your agent needs.
+  quark.py (48 lines) = L3 + 5 components: (1) WORKING MEMORY = L3's messages renamed `working_memory`, all session sent in full each call. (2) INSTRUCTIONS `system()` passed as system=system() each call; function so cwd/date are current; written as models: Self Model (identity, mind=context window, body=bash, loop), World Model (os.getcwd(), datetime.date.today()), Other Selves Model (you exist, reach via echo/printf), Body Operations; returns [{"type":"text","text":...,"cache_control":{"type":"ephemeral"}}]; date only, no time because cache_control caches prompt and cache hits only if prompt identical (timestamp would change). (3) SELF-KNOWLEDGE `mechanics()` reads own file (__file__) and appends under "# Mechanics" at end of system prompt, with the `def system():` line replaced by placeholder. (4) SEMANTIC MEMORY `.quark/memory/memory.md`: no memory code; system prompt gives file path, entry format (## YYYY-MM-DD HH:MM:SS then bullets), write recipe (printf+heredoc), read moves with grep/tail, what's worth keeping (who you are, prefs, corrections); quark uses bash it already has. (5) COMPACTION `compact(working_memory, drop)`: REACTIVE — loop wraps create in try; `except BadRequestError as e: if "prompt is too long" not in str(e): raise; drop += 1; continue`; next pass `if drop: working_memory, drop = compact(...), 0`; compact finds indices of user turns that are plain str, `if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")`, keeps working_memory[turns[drop]:] (oldest `drop` turns discarded), asks model (same system prompt) "Your working memory is full. Summarize into a gist that preserves what matters for continuing.", returns single user msg "[your prior working memory, summarized] {gist}". If summary request also too long, drop rises, retries with less. Tradeoff: never spends a call on unneeded summary; oldest turns dropped unsummarized. Summary = one more call via L1 interface; looping again = L3; only new thing is what working memory holds. Rarely seen: model reads ~1M tokens. quark's real version also has ESC interrupt and summary retry on network failure (hardening, omitted).
+  Run demos: `uv run lessons/04-context/quark.py "what are you, and how do you work? three sentences"` (knows name/body/loop/memory file from context); "remember that I prefer short answers" -> writes memory.md entry via bash; new run "what do you know about me?" -> reads memory, reports preference: working memory didn't carry between runs, semantic memory did.
+  Going further (choices): who decides what's remembered (model vs harness code auto save/load); retrieval (nothing, or docs/code/past messages by search); when it fits (after API refuses vs before by counting tokens); how it fits (summarize old turns, drop them, cut long tool results); layout (one system prompt vs instructions loaded only when task needs). Mem0 = memory layer product = this primitive.
+  context.py (56 lines; no memory.md, no mechanics): LIMIT, KEEP = 50_000, 4_000; MODEL const; `system()` plain f-string: you're quark, body is bash, cwd, today; says past sessions are logged one msg per line in .quark/episodes.jsonl (search when past matters); skills: lists `.quark/skills/*.md` as "- path: first line" or "(none yet)", tells model to cat the one that fits before a covered task. `remember(message)` appends json.dumps(message, default=lambda b: b.model_dump()) to .quark/episodes.jsonl. `trim(text)`: if len>KEEP keep first KEEP//2 + "[... N characters cut ...]" + last KEEP//2 (applied to tool result before into working memory). `fit(working_memory)`: PROACTIVE — client.messages.count_tokens(model,system,tools,messages).input_tokens < LIMIT -> return as is; else find user str turns, need >=2, old = before last user turn, recent = from last user turn; summarize old with "Summarize this session so far into a gist..."; prints "[working memory over {LIMIT} tokens: summarized N messages]"; returns [{"role":"user","content":"[earlier in this session, summarized] {gist}"}] + recent. `add(wm, msg)` = append + remember (episodic log). Loop calls working_memory = fit(working_memory) before each create. Demos: skill file .quark/skills/count-python.md ("How to count lines of Python in this repo" / find . -name "*.py" -not -path "./.venv/*" | xargs wc -l / report total then largest) -> model cats skill, follows, answers 327 lines, largest input_output.py 64 lines; later session greps episodes.jsonl and recalls 327; LIMIT=560 chat demo: favorite color green survives in summary after "summarized 6 messages". Maps: episodic=add/remember, procedural=skills in system(), when fits=fit() counting tokens, how fits=trim().
+  Take away: RULE = before every call, context assembles what request holds and fits it in the model's space; memory, retrieval, instructions, compaction are all ways of doing that. It never does: model interface, control flow, input, output. "You've built a harness": 5 primitives, 48 lines. Next: dissect any harness (suggested nanoagent github.com/averagejoeslab/nanoagent, TypeScript) by sorting parts under the five primitives (control flow: what loop/who stops; input: where from; context: what request holds, memories, fit; model interface: where goes/how returns; output: where goes, which tools/how run); if it decides what model sees = context whatever it's called; acting on model's words = output; author wants to hear of anything fitting none. Then production layers start at Lesson 5.
+
+## 2026-10-05 22:59:57
+- DOCS docs/the-model.md (optional background, "the model: what the harness wraps"; lessons don't depend on it; has ~20 SVGs in assets/ I skipped): LLM = probabilistic next-token predictor; meaning as vectors in high-dim space (2,048–16,384 dims; king−man+woman≈queen). Forward pass: 1 tokenization (BPE, vocab 30k–200k, token IDs), 2 embedding lookup (matrix row per token), 3 positional encoding (RoPE; ALiBi alt; "dog bites man" vs "man bites dog"), 4 transformer blocks (self-attention + FFN/SwiGLU + residual & RMSNorm; stacked 60–120x; variants GQA standard 2026, MLA ~10x smaller KV cache; dense FFN vs MoE e.g. DeepSeek R1 671B total/37B active), 5 output head (last-position vector -> vocab probabilities, often weight-tied to embeddings, sample). Looping appended tokens = full response. Training pipeline: pretraining (base model), mid-training, SFT, preference tuning (RLHF/DPO/GRPO), Constitutional AI/RLAIF (Anthropic), reasoning RL (GRPO + verifiable rewards), and SYSTEM PROMPT LEARNING (Karpathy 2025; harness-owned): model edits its own system prompt/memory to accumulate strategies, no weights change. Parametric (change weights) vs non-parametric (change context; belongs to harness builder). quark's memory.md is substrate for it: facts/corrections = semantic memory; distilled reusable strategy = system prompt learning; quark's own prompt instructions were derived in live sessions, written to memory, promoted into prompt by hand. "The model is frozen; the harness is what gets smarter." Inference: sample with temperature/top-k/top-p, feed token back, until end-of-sequence or max length. Model alone can't read files, run commands, remember across sessions, or know when done -> harness.
+- READ-STATUS 2026-10-05: read every non-svg, non-.git, non-.venv file in repo (README, pyproject, .env.example, .gitignore, LICENSE, uv.lock header, docs/the-model.md, lessons 01-04 all files, production 05-10 stubs). Task from user: summarize repo + each lesson, save detail to memory so I can teach the four primitive lessons without rereading. Teaching order: model interface -> input&output -> control flow -> context (outward from model; each quark.py = previous + one primitive).
+
+My memory has detailed notes on all four lessons, so I won't reread the lesson files. I'll list the folders to confirm the paths and check that no `slides.md` already exists.
+$ cd /home/user/building-agents && ls lessons/*/ && ls assets | head -3; git status --short | head
+lessons/01-model-interface/:
+README.md
+model_interface.py
+quark.py
+
+lessons/02-input-and-output/:
+README.md
+input.py
+input_output.py
+output.py
+quark.py
+
+lessons/03-control-flow/:
+README.md
+control_flow.py
+quark.py
+workflow.py
+
+lessons/04-context/:
+README.md
+context.py
+quark.py
+01-tokenization.svg
+02-embedding-lookup.svg
+03-positional-encoding.svg
+
+No `slides.md` files exist yet, so I'll write the four decks, starting with lesson 1.
+$ cd /home/user/building-agents/lessons && cat > 01-model-interface/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 1 · Model interface"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Model interface
+
+### Building agents by building their harness
+Lesson 1 of 4
+
+<!-- Welcome. Over four lessons we build a harness, one primitive at a time. We start at the model. -->
+
+---
+
+# The question we keep asking
+
+**What is it, and by what mechanistic primitives does it work?**
+
+Ask it again on each answer, until the answers diverge.
+
+<!-- No definitions. We show the mechanism. -->
+
+---
+
+# An agent, as an equation
+
+```
+TokensOut = Model(TokensIn)
+
+Agent = Harness(Model)
+```
+
+The model predicts tokens. The **harness is everything else**.
+
+---
+
+# Five harness primitives
+
+- **Control flow**: when to call, and whether to go again
+- **Input**: what is gathered from the person or world
+- **Context**: what the request holds, and how it is presented
+- **Model interface**: how the harness talks to the model
+- **Output**: what happens with what comes back
+
+Claude Code, Cursor and Codex have the same five, with different choices.
+
+---
+
+# Today: the model interface
+
+The thinnest primitive. It is the **parentheses** in `Harness(Model)`.
+
+---
+
+# The model is a function
+
+Tokens in, tokens out.
+
+The **model interface** is how the harness calls that function.
+
+---
+
+# A request goes out
+
+The request is the tokens in.
+
+Like any API call: model name, messages, settings.
+
+---
+
+# A response comes back
+
+The response is the tokens out.
+
+Nothing reaches the model without this boundary, so it comes first.
+
+---
+
+# What it is *not*
+
+The model interface never decides:
+
+- **when** to call (control flow)
+- **what** goes in (input)
+- **how** it is presented (context)
+- **what to do** with the response (output)
+
+Those four live on the harness side.
+
+---
+
+# Quark's version: the whole file
+
+```python
+client = Anthropic()
+
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user",
+               "content": "What's in this directory?"}],
+)
+print(reply.model_dump_json(indent=2))
+```
+
+Nine lines in all.
+
+---
+
+# Line by line: the client
+
+```python
+client = Anthropic()
+```
+
+Reads `ANTHROPIC_API_KEY`.
+
+Talks to the hosted API through the SDK.
+
+---
+
+# Line by line: the request
+
+```python
+client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[...],
+)
+```
+
+`max_tokens` caps the output. The model stops there, even mid-sentence.
+
+---
+
+# Run it
+
+```bash
+uv run lessons/01-model-interface/quark.py
+```
+
+We get the whole response back as JSON.
+
+---
+
+# Response field: `content`
+
+A list of blocks.
+
+The model thinks first, so:
+
+1. `thinking`: empty text plus an encrypted `signature`
+2. `text`: the answer
+
+---
+
+# Response field: `stop_reason`
+
+Why the model stopped.
+
+- `end_turn`: it finished
+- `max_tokens`: we cut it off
+
+---
+
+# Response field: `usage`
+
+- `input_tokens` = **TokensIn**
+- `output_tokens` = **TokensOut**, including thinking tokens
+
+This is where cost shows up.
+
+---
+
+# What the model said
+
+It can't see the directory.
+
+It knows the right step is `ls`, but it can't take it.
+
+---
+
+# Going further: what a model interface can be
+
+- **Where** the request goes: hosted API, local model, gateway
+- **How** it travels: SDK, raw HTTP, multi-provider layer
+- **Which** model: one, or a fallback
+- **How** the response arrives: whole or streamed
+- **How many** at once: single or batch
+- **Failure**: retry, rate-limit wait, timeout
+- **Settings**: max tokens, thinking effort, thinking summary
+
+---
+
+# Gateways are this primitive alone
+
+LiteLLM and OpenRouter are the model interface and nothing else.
+
+Using one **hands off** your model interface.
+
+---
+
+# A richer example: `model_interface.py`
+
+Same primitive, built for the real world.
+
+```python
+client = anthropic.Anthropic(timeout=120, max_retries=3)
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+```
+
+---
+
+# Timeout and retries
+
+```python
+anthropic.Anthropic(timeout=120, max_retries=3)
+```
+
+- Give up after two minutes
+- The SDK retries with backoff
+
+---
+
+# Fallback model
+
+```python
+for model in MODELS:
+    try: ...
+    except (APIConnectionError, RateLimitError,
+            InternalServerError):
+        continue
+raise RuntimeError("no model answered")
+```
+
+If one model is down, try the next.
+
+---
+
+# Streaming
+
+```python
+with client.messages.stream(...) as stream:
+    return stream.get_final_message()
+```
+
+Streaming avoids timeouts on long responses.
+
+Nothing is printed. Printing is **output**, not model interface.
+
+---
+
+# Settings as arguments
+
+```python
+def call(messages, max_tokens=4096,
+         effort="high", thinking="summarized"):
+```
+
+With `"summarized"`, the thinking block holds a readable summary.
+
+Raw thinking is never returned.
+
+---
+
+# Run the richer version
+
+The only visible difference: the thinking block now has text.
+
+Everything else changed underneath.
+
+---
+
+# What to take away
+
+**Rule:** the model interface sends tokens as a request and gets tokens back as a response.
+
+It never decides when to call, what goes in, how it is presented, or what to do with the response.
+
+---
+
+# What's missing
+
+Both ends are stubs:
+
+- the input is a hardcoded string
+- the output just dumps the whole response
+
+The model said what to do, but nothing could do it.
+
+---
+
+<!-- _class: title -->
+
+# Next: Input and output
+
+Lesson 2 gives the model real input and real output.
+EOF
+echo ok
+ok
+
+$ cd /home/user/building-agents/lessons && cat > 02-input-and-output/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 2 · Input and output"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Input and output
+
+### Building agents by building their harness
+Lesson 2 of 4
+
+---
+
+# Where we left off
+
+Lesson 1 had both ends stubbed:
+
+- the input was a hardcoded string
+- the output was a JSON dump
+
+The model knew to run `ls` and couldn't.
+
+---
+
+# The model only takes and gives tokens
+
+It can't read what you type.
+
+It can't run a command.
+
+Something on each side has to do that.
+
+---
+
+# Input
+
+**How inputs are gathered.**
+
+From a person: a task or a question.
+
+From the world: what happened when a command ran.
+
+The **afferent** pathway.
+
+---
+
+# Output
+
+**How the model's outputs are handled.**
+
+Shown to a person, or run as a tool.
+
+The **efferent** pathway.
+
+---
+
+# Two primitives, taught together
+
+Built independently, but they are two ends of one exchange.
+
+What connects them is **tools**.
+
+---
+
+# The path so far
+
+```
+person/world → input → request → model interface
+                                       ↓
+person/world ← output ← response ←─────┘
+```
+
+---
+
+# What is a tool?
+
+The model can't act, **but it can ask**.
+
+It emits a `tool_use` block: a name and arguments, in the shape the harness described.
+
+---
+
+# The model asks, the harness acts
+
+1. The model asks for a tool
+2. **Output** runs it
+3. The result comes back as **input**
+
+---
+
+# Tools aren't strictly required
+
+An agent can work without them.
+
+Without tools, the only thing the model changes is **what a person reads**.
+
+---
+
+# Describing a tool
+
+```python
+tools = [{
+  "name": "bash",
+  "description": "Run shell command — the whole system is in reach",
+  "input_schema": {
+    "type": "object",
+    "properties": {"cmd": {"type": "string"}},
+    "required": ["cmd"],
+  },
+}]
+```
+
+---
+
+# Three parts of a tool definition
+
+- **name**: what the model calls it
+- **description**: what the model reads to decide
+- **input_schema**: a JSON schema for the arguments
+
+Passed in the request as `tools=tools`.
+
+---
+
+# Input first: `input.py`
+
+Real input, stub output.
+
+```python
+task = " ".join(sys.argv[1:]) or input("> ")
+```
+
+Replaces the hardcoded question.
+
+---
+
+# Run `input.py`
+
+```bash
+uv run lessons/02-input-and-output/input.py \
+  "how many lines are in README.md?"
+```
+
+---
+
+# The model asks
+
+The response now has a `tool_use` block:
+
+```json
+{"type": "tool_use", "id": "toolu_...",
+ "name": "bash", "input": {"cmd": "wc -l README.md"}}
+```
+
+`stop_reason` is `"tool_use"`: it stopped, waiting for a result.
+
+---
+
+# Nothing acted
+
+The model asked. Nothing ran the command.
+
+That is the missing half: **output**.
+
+---
+
+# Output next: `output.py`
+
+Real output, hardcoded input: "What's in this directory?"
+
+```python
+for block in reply.content:
+    ...
+```
+
+---
+
+# Output: text blocks
+
+```python
+if block.type == "text":
+    print(block.text)
+```
+
+Showing the model's words to a person.
+
+---
+
+# Output: tool requests
+
+```python
+if block.type == "tool_use":
+    print(f"$ {block.input['cmd']}")
+    done = subprocess.run(block.input["cmd"], shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True)
+    print(done.stdout)
+```
+
+Running the command. Thinking blocks are ignored.
+
+---
+
+# Why merge stderr
+
+`stderr=subprocess.STDOUT`
+
+Errors and output arrive **in order**, as one stream.
+
+---
+
+# Why `max_tokens` is 4096 from here on
+
+Room for thinking.
+
+A tool request cut off at the limit lacks `block.input['cmd']`.
+
+That would crash.
+
+---
+
+# Warning: bash is everything
+
+Anything on the command line can run.
+
+**Run this somewhere disposable.**
+
+No confirmation, from here on.
+
+---
+
+# Run `output.py`
+
+The model asks for `ls -la`.
+
+The listing prints.
+
+---
+
+# Together: `quark.py`
+
+`input.py` plus `output.py`.
+
+New: collect the tool results.
+
+---
+
+# The tool result
+
+```python
+results.append({
+  "type": "tool_result",
+  "tool_use_id": block.id,
+  "content": done.stdout or f"(exit {done.returncode})",
+})
+```
+
+This is **input from the world**.
+
+---
+
+# Matching result to request
+
+`tool_use_id` names the request this answers.
+
+A silent command still reports its exit code.
+
+---
+
+# Run `quark.py`
+
+```bash
+uv run lessons/02-input-and-output/quark.py \
+  "how many lines are in README.md?"
+```
+
+```
+$ wc -l README.md
+71 README.md
+```
+
+---
+
+# The key gap
+
+`results` is built.
+
+**Nothing sends it back.**
+
+The model never sees the 71.
+
+---
+
+# Going further: input
+
+- **Where** a person's input comes from: CLI args, prompt, pipe, chat app, webhook, schedule
+- **What** it can be: text, images, files
+- **Bad input**: re-ask on blank
+- **From the world**: printed output, exit code, failure
+
+---
+
+# Going further: output
+
+- **Where** it goes: terminal, file, chat message, PR
+- **Reaching a person**: all at once or streamed
+- **Which tools**: one general or many specific, routed by name
+- **Where tools run**: this machine, container, remote, provider-hosted
+- **How they run**: one at a time or concurrently
+
+---
+
+# Going further: when not to run
+
+A tool request cut off at `max_tokens` is incomplete.
+
+Half a command is worse than none.
+
+Also handle hangs: time out, and report failure instead of crashing.
+
+---
+
+# MCP servers
+
+They package tools behind one protocol.
+
+That is **output you plug in**.
+
+---
+
+# A richer example: `input_output.py`
+
+A Telegram bot.
+
+Needs `TELEGRAM_BOT_TOKEN` from @BotFather.
+
+Two tools: `bash` and `read_file`.
+
+---
+
+# Richer input: Telegram
+
+```python
+def telegram(method, **params): ...   # urllib POST
+async def receive(): ...              # long-poll getUpdates
+async def send(chat, text): ...       # sendMessage
+```
+
+`receive()` takes **one** message and stops.
+
+Repeating is control flow.
+
+---
+
+# Richer output: time limit
+
+```python
+# async bash: create_subprocess_shell, wait_for 30s
+→ ("stopped after 30 seconds", True)
+```
+
+A hung command is killed and reported as an error.
+
+---
+
+# Richer output: errors as results
+
+`execute(block, cut_off)` returns a tool result with `is_error`.
+
+- cut off: "cut off before it was finished, so it was not run"
+- unknown tool: "no tool named X"
+- empty output: "(no output)"
+
+---
+
+# Richer output: concurrent tools
+
+```python
+await asyncio.gather(*[execute(b, ...) for b in tool_blocks])
+```
+
+Three 2-second tasks take **2 seconds**, not 6.
+
+---
+
+# Demo
+
+One Telegram message asks for three things.
+
+Three concurrent bash calls.
+
+The model still never sees the results.
+
+---
+
+# What to take away
+
+**Rule:** input gathers what goes to the model. Output handles what comes back. A tool is the model asking and the harness acting.
+
+They never get the request to the model, decide when to call, or present input.
+
+---
+
+# What's missing
+
+The result never reaches the model.
+
+We need to send it back and go again.
+
+---
+
+<!-- _class: title -->
+
+# Next: Control flow
+
+Lesson 3 closes the loop.
+EOF
+echo ok
+ok
+
+$ cd /home/user/building-agents/lessons && cat > 03-control-flow/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 3 · Control flow"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Control flow
+
+### Building agents by building their harness
+Lesson 3 of 4
+
+---
+
+# Where we left off
+
+The model asked for `wc -l README.md`.
+
+We ran it and got `71`.
+
+The model never saw it.
+
+---
+
+# Control flow
+
+**How information flows between the other four primitives.**
+
+They all sit inside it.
+
+---
+
+# What it decides
+
+- what runs
+- in what order
+- whether to go again
+
+---
+
+# The path, with a loop
+
+```
+person/world → input → request → model interface
+     ↑                                  ↓
+     └──── tool result ←── output ←── response
+```
+
+---
+
+# At the end of the path
+
+Control flow decides one of three things:
+
+- the result goes **back around**
+- the **person** gets a turn
+- **stop**
+
+---
+
+# Arrangement 1: run once
+
+Lesson 2.
+
+One call, one answer, done.
+
+---
+
+# Arrangement 2: chat loop
+
+Call, show the reply, hand back to the person.
+
+That is a **chatbot**.
+
+---
+
+# Arrangement 3: workflow
+
+**Your code** decides the steps.
+
+Draft, check, fix.
+
+---
+
+# Arrangement 4: agent loop
+
+Call the model.
+
+While it asks for tools: run them, send results back, call again.
+
+Hand back when it stops asking.
+
+---
+
+# No arrangement is correct
+
+They differ in **who decides what's next**.
+
+---
+
+# Workflow: code decides
+
+Predictable and testable.
+
+Handles only the cases you planned.
+
+---
+
+# Agent: the model decides
+
+Handles cases you didn't plan.
+
+Costs predictability.
+
+---
+
+# Control flow does two things
+
+1. **Sequences** the primitives
+2. **Terminates**
+
+A loop with no clear end is a bill with no clear end.
+
+---
+
+# Quark's version: `quark.py`
+
+Same as Lesson 2, wrapped in `while True:`.
+
+30 lines.
+
+---
+
+# Two modes from one flag
+
+```python
+chat = len(sys.argv) < 2
+```
+
+- Task on the command line: run until the model stops asking, then exit
+- No task: chat mode
+
+---
+
+# `while True`: go again
+
+```python
+while True:
+    reply = client.messages.create(...)
+```
+
+Each pass is **one model call**.
+
+---
+
+# `messages.append`: the arrow back
+
+```python
+messages.append({"role": "assistant", "content": reply.content})
+messages.append({"role": "user", "content": results})
+```
+
+Each request carries everything so far.
+
+---
+
+# The growing list is context
+
+A growing `messages` list is the simplest working memory.
+
+It's control flow that appends. Deciding what goes in is **context** (Lesson 4).
+
+---
+
+# `if results: continue`
+
+```python
+if results:
+    messages.append({"role": "user", "content": results})
+    continue
+```
+
+This one line is the **agent loop**.
+
+---
+
+# Termination
+
+No results means the model didn't ask for a tool.
+
+So the model decides to stop.
+
+No step counting. No magic word.
+
+---
+
+# Handing back to the person
+
+```python
+if not chat or (task := input("\n> ")) == "/q":
+    break
+messages.append({"role": "user", "content": task})
+```
+
+Chat mode asks for the next task. `/q` quits.
+
+---
+
+# Run it
+
+```bash
+uv run lessons/03-control-flow/quark.py \
+  "which quark.py in the lessons folder is the longest? \
+   answer in one sentence"
+```
+
+---
+
+# What happened
+
+1. Call 1: the model runs `find | wc -l | sort`
+2. The result goes back
+3. Call 2: the answer is `04-context/quark.py`, 48 lines
+
+Two calls.
+
+---
+
+# The gap: no step limit
+
+Quark trusts the model.
+
+If it never stops asking, quark never stops.
+
+---
+
+# Going further: shape
+
+- single call
+- chat loop
+- workflow
+- agent loop
+- agents handing tasks to agents
+- a loop that wakes on a message or schedule
+
+---
+
+# Going further: when it stops
+
+- the model stops asking
+- N steps
+- a spending limit
+- the model declines
+- the person says stop
+
+---
+
+# Going further: who it hands back to
+
+A person, a program, or no one.
+
+And concurrency: one call, or several.
+
+---
+
+# LangGraph
+
+This primitive as a product.
+
+A graph of steps and the paths between them.
+
+---
+
+# A richer example: `control_flow.py`
+
+Adds the stopping rules.
+
+```python
+MAX_STEPS = 10
+for step in range(1, MAX_STEPS + 1):
+    ...
+```
+
+---
+
+# Stop 1: the model declines
+
+```python
+if reply.stop_reason == "refusal":
+    print("[stopped: the model declined]")
+    break
+```
+
+---
+
+# Stop 2: the model is done
+
+```python
+if not results:
+    print(f"[done in {step} steps]")
+    break
+```
+
+---
+
+# Stop 3: the step limit
+
+```python
+else:
+    print(f"[stopped: hit the {MAX_STEPS}-step limit]")
+```
+
+A `for`-`else` runs only if the loop never hit `break`.
+
+---
+
+# No chat mode here
+
+It runs the task, exits, and hands back to no one.
+
+---
+
+# Run `control_flow.py`
+
+Two steps: `[done in 2 steps]`.
+
+With `MAX_STEPS = 1` it stops after the first command, before the model sees the result.
+
+---
+
+# Workflows: code decides
+
+From Anthropic's "Building effective agents."
+
+Five patterns.
+
+---
+
+# Workflow patterns
+
+- **Prompt chaining**: fixed sequence, code checks between steps
+- **Routing**: one call classifies, code picks the path
+- **Parallelization**: split independent parts, or vote on one question
+- **Orchestrator-workers**: one call breaks the task down, workers do the pieces
+- **Evaluator-optimizer**: one produces, another judges, repeat until pass
+
+---
+
+# Two caveats on that article
+
+- Its "augmented LLM" is retrieval and memory (**context**) plus tools (**output**). It isn't control flow.
+- Routing to a cheaper model is a decision about the work. Lesson 1's fallback only covers an outage.
+
+---
+
+# `workflow.py`: evaluator-optimizer
+
+No tools. One helper:
+
+```python
+def ask(prompt):  # single call, first text block
+```
+
+---
+
+# The draft
+
+```python
+draft = ask(f"Do this task. Reply with only the result.\n\n{task}")
+```
+
+---
+
+# The loop
+
+```python
+for round in range(1, 4):
+    verdict = ask(task + draft + "Check ... reply with only PASS "
+                  "or list what to fix.")
+    if verdict.strip() == "PASS":
+        break
+    draft = ask(task + draft + verdict + "Rewrite...")
+else:
+    print("[stopped: 3 rounds without a pass]")
+```
+
+---
+
+# Who decides
+
+**Your code.**
+
+The order is always: draft, judge, rewrite, judge.
+
+---
+
+# Demo
+
+Task: one sentence about agent harnesses.
+
+Every word exactly five letters, at least 8 words.
+
+---
+
+# Demo result
+
+- Draft 1 used "rigs" and "wrap": four letters
+- The evaluator listed them
+- Draft 2 passed
+
+---
+
+# Agents vs workflows
+
+`quark.py` and `control_flow.py` are **agents**: the model decides.
+
+`workflow.py` is a **workflow**: the code decides.
+
+---
+
+# What to take away
+
+**Rule:** control flow sequences the other four and decides when to stop.
+
+The same pieces, arranged differently, give a single call, a chatbot, an agent, or a workflow.
+
+It never does model interface, input, output, or context.
+
+---
+
+# What's missing
+
+The agent knows nothing: where it is, the date, who it is, what you told it yesterday.
+
+`messages` grows every pass and will outgrow the model's window.
+
+Something must decide what the model sees.
+
+---
+
+<!-- _class: title -->
+
+# Next: Context
+
+Lesson 4 decides what the model sees.
+EOF
+echo ok
+ok
+
+$ cd /home/user/building-agents/lessons && cat > 04-context/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 4 · Context"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Context
+
+### Building agents by building their harness
+Lesson 4 of 4
+
+---
+
+# Where we left off
+
+The agent loop works.
+
+But the agent knows nothing.
+
+---
+
+# What the model doesn't know
+
+- where it runs
+- today's date
+- who it is
+- what it did a minute ago
+- what you said last week
+
+---
+
+# Every call starts from nothing
+
+The model knows only what is **in the request**.
+
+Unless the harness puts it there.
+
+---
+
+# Context
+
+**How inputs are presented to the model.**
+
+Input gathers. Context decides what the request holds and how it is laid out.
+
+---
+
+# Where it sits
+
+```
+person/world → input → CONTEXT → request → model interface
+                                                  ↓
+          (result loops back to input) ← output ← response
+```
+
+---
+
+# Context does two things
+
+Before every call:
+
+1. **Assembles**: what goes in, and how it is presented
+2. **Fits**: the request must fit the context window
+
+---
+
+# Fitting: something has to give
+
+The window has a limit.
+
+When the request is bigger, something must be cut.
+
+---
+
+# The components
+
+- Instructions
+- Working memory
+- Episodic memory
+- Semantic memory
+- Procedural memory
+- Retrieval
+- Compaction
+- Self-knowledge
+
+You only need the ones your agent needs.
+
+---
+
+# Instructions
+
+The system prompt.
+
+Standing guidance for every call.
+
+---
+
+# Working memory
+
+This session, sent in full each call.
+
+---
+
+# Episodic memory
+
+A record of past sessions.
+
+---
+
+# Semantic memory
+
+Durable facts: who you are, your preferences, past mistakes.
+
+---
+
+# Procedural memory
+
+Recipes, playbooks, skills.
+
+Read when relevant.
+
+---
+
+# Retrieval
+
+Search a store.
+
+Put the results in the request.
+
+---
+
+# Compaction
+
+Summarize when it won't fit.
+
+---
+
+# Self-knowledge
+
+Tell the model what it is and how it works.
+
+---
+
+# Quark's version
+
+`quark.py` is 48 lines.
+
+Lesson 3, plus five components.
+
+---
+
+# Component 1: working memory
+
+Lesson 3's `messages`, **renamed** `working_memory`.
+
+The whole session is sent in full on every call.
+
+---
+
+# Component 2: instructions
+
+```python
+reply = client.messages.create(..., system=system(), ...)
+```
+
+Passed on every call.
+
+---
+
+# `system()` is a function
+
+So the working directory and date are **current** on every call.
+
+```python
+os.getcwd()
+datetime.date.today()
+```
+
+---
+
+# How the prompt is written
+
+As models of the world:
+
+- **Self Model**: identity, mind, body, loop
+- **World Model**: where, when
+- **Other Selves Model**: who else exists
+- **Body Operations**: how to act
+
+---
+
+# Why the date, not the time
+
+The prompt carries `cache_control: ephemeral`.
+
+A cache hit needs an **identical** prompt.
+
+A timestamp would change it every call.
+
+---
+
+# Component 3: self-knowledge
+
+```python
+def mechanics(): ...
+```
+
+Quark reads its own file with `__file__`.
+
+It appends it under `# Mechanics` at the end of the system prompt.
+
+---
+
+# A small trick
+
+The `def system():` line is replaced with a placeholder.
+
+Otherwise the prompt would contain itself.
+
+---
+
+# Component 4: semantic memory
+
+`.quark/memory/memory.md`
+
+There is **no memory code**.
+
+---
+
+# Memory lives in the prompt
+
+The system prompt tells the model:
+
+- the file path
+- the entry format
+- how to write (printf plus heredoc)
+- how to read (grep, tail)
+- what is worth keeping
+
+Quark uses the bash it already has.
+
+---
+
+# Component 5: compaction
+
+```python
+def compact(working_memory, drop): ...
+```
+
+When the request won't fit, summarize.
+
+---
+
+# Compaction is reactive
+
+```python
+except BadRequestError as e:
+    if "prompt is too long" not in str(e): raise
+    drop += 1
+    continue
+```
+
+Wait for the API to refuse, then compact.
+
+---
+
+# How `compact` works
+
+1. Find the plain-text user turns
+2. Discard the oldest `drop` turns
+3. Ask the model to summarize the rest
+4. Return one message: "[your prior working memory, summarized] ..."
+
+---
+
+# If the summary is too long too
+
+`drop` rises and it retries with less.
+
+If it can't get small enough, it exits.
+
+---
+
+# Tradeoff
+
+It never spends a call on an unneeded summary.
+
+The oldest turns are dropped **unsummarized**.
+
+---
+
+# Compaction is the other primitives
+
+The summary is one more call through Lesson 1's interface.
+
+Looping again is Lesson 3.
+
+Only what working memory holds is new.
+
+---
+
+# Rarely seen
+
+The model reads about 1M tokens.
+
+Quark's real version also adds an ESC interrupt and a summary retry on network failure. That is hardening, omitted here.
+
+---
+
+# Run it: self-knowledge
+
+```bash
+uv run lessons/04-context/quark.py \
+  "what are you, and how do you work? three sentences"
+```
+
+It knows its name, body, loop and memory file, from context alone.
+
+---
+
+# Run it: remember
+
+```bash
+uv run lessons/04-context/quark.py \
+  "remember that I prefer short answers"
+```
+
+It writes an entry to `memory.md` using bash.
+
+---
+
+# Run it: recall
+
+New run:
+
+```bash
+uv run lessons/04-context/quark.py \
+  "what do you know about me?"
+```
+
+It reads memory and reports your preference.
+
+---
+
+# What carried over
+
+Working memory **didn't** carry between runs.
+
+Semantic memory **did**.
+
+---
+
+# Going further: who decides what's remembered
+
+- the model
+- the harness code, saving and loading automatically
+
+---
+
+# Going further: retrieval and fitting
+
+- **Retrieval**: nothing, or docs, code, past messages by search
+- **When** it fits: after the API refuses, or before, by counting tokens
+- **How** it fits: summarize old turns, drop them, cut long tool results
+
+---
+
+# Going further: layout
+
+One system prompt.
+
+Or instructions loaded only when the task needs them.
+
+---
+
+# Mem0
+
+A memory layer as a product.
+
+This primitive.
+
+---
+
+# A richer example: `context.py`
+
+56 lines.
+
+No `memory.md`, no `mechanics()`.
+
+Different choices for the same primitive.
+
+---
+
+# Episodic memory: `remember`
+
+```python
+def remember(message):
+    # append json to .quark/episodes.jsonl
+```
+
+`add(working_memory, msg)` appends and remembers.
+
+A record of every message.
+
+---
+
+# Using the episodes
+
+The system prompt tells the model the log exists.
+
+It searches `.quark/episodes.jsonl` when the past matters.
+
+---
+
+# Procedural memory: skills
+
+`.quark/skills/*.md`
+
+The system prompt lists each as `path: first line`, or "(none yet)".
+
+The model reads the one that fits before a covered task.
+
+---
+
+# Skill demo
+
+Skill: "How to count lines of Python in this repo".
+
+The model reads it, follows it, and reports: **327 lines**, largest `input_output.py` at 64.
+
+---
+
+# Recall demo
+
+A later session greps `episodes.jsonl` and recalls 327.
+
+---
+
+# Fitting, how: `trim`
+
+```python
+def trim(text):
+    # if over KEEP: first half + "[... N characters cut ...]" + last half
+```
+
+Applied to each tool result before it enters working memory.
+
+---
+
+# Fitting, when: `fit`
+
+```python
+client.messages.count_tokens(...).input_tokens < LIMIT
+```
+
+**Proactive**: count before the call, not after a refusal.
+
+---
+
+# What `fit` does when over
+
+1. Keep the last user turn onward
+2. Summarize everything before it
+3. Print `[working memory over LIMIT tokens: summarized N messages]`
+
+The loop calls `fit` before every `create`.
+
+---
+
+# Fit demo
+
+Set `LIMIT = 560` and chat.
+
+Your favorite color, green, **survives** in the summary.
+
+---
+
+# Mapping the choices
+
+- episodic memory: `add` and `remember`
+- procedural memory: skills in `system()`
+- when it fits: `fit()` counts tokens
+- how it fits: `trim()`
+
+---
+
+# What to take away
+
+**Rule:** before every call, context assembles what the request holds and fits it into the model's space.
+
+Memory, retrieval, instructions and compaction are all ways of doing that.
+
+It never does model interface, control flow, input or output.
+
+---
+
+# You've built a harness
+
+Five primitives, 48 lines.
+
+---
+
+# Next: read other harnesses
+
+Sort the parts of any harness under the five primitives.
+
+- **Control flow**: what loops, who stops it
+- **Input**: where it comes from
+- **Context**: what the request holds, how it fits
+- **Model interface**: where it goes, how it returns
+- **Output**: where it goes, which tools
+
+---
+
+# Two rules for sorting
+
+If it decides what the model sees, it's **context**, whatever it's called.
+
+If it acts on the model's words, it's **output**.
+
+---
+
+# Try it on `nanoagent`
+
+github.com/averagejoeslab/nanoagent (TypeScript)
+
+If something fits none of the five, the author wants to hear about it.
+
+---
+
+# After the primitives
+
+Production layers begin at Lesson 5.
+
+---
+
+<!-- _class: title -->
+
+# Thank you
+
+You've built a harness.
+EOF
+for f in */slides.md; do echo "$f: $(grep -c '^---$' $f) separators"; done; which marp npx 2>/dev/null
+01-model-interface/slides.md: 29 separators
+02-input-and-output/slides.md: 42 separators
+03-control-flow/slides.md: 49 separators
+04-context/slides.md: 61 separators
+/opt/node22/bin/npx
+
+$ cd /home/user/building-agents && printf '\n## %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> .quark/memory/memory.md && cat >> .quark/memory/memory.md << 'EOF'
+- SLIDES task done: wrote Marp decks lessons/01-model-interface/slides.md, 02-input-and-output/slides.md, 03-control-flow/slides.md, 04-context/slides.md from memory only (no lesson rereads). One idea per slide, follows each README flow (explain -> quark.py walk-through -> run -> Going further -> take away -> next). Each deck: title slide, closing "Next:" slide, frontmatter marp:true paginate header. Slide counts ~30/43/50/62. Not rendered/validated (marp CLI not installed; npx available). User = presenter recording videos; "four primitive lessons" = the 4 lesson folders (lesson 2 covers two primitives). Details from memory could be slightly off vs files — user may want a check against READMEs.
+EOF
+
+I wrote a Marp deck to `slides.md` in each of the four lesson folders, using only my memory notes. I haven't rendered them, because the Marp CLI isn't installed, so I don't know how they look yet.
+
+| Lesson | Slides |
+|---|---|
+| `01-model-interface` | about 30 |
+| `02-input-and-output` | about 43 |
+| `03-control-flow` | about 50 |
+| `04-context` | about 62 |
+
+- **Flow:** each deck follows the lesson's own order. It starts with a title slide and where the last lesson left off. Then it explains the primitive, walks through quark's version, runs it, and covers "Going further" with the richer example file. It ends with "What to take away", what's missing, and a "Next:" slide.
+- **Slide style:** each slide has one idea, so a few are only a sentence long and you'll pause on them. Code snippets are short excerpts, not full files. Title and closing slides are centered, and the other slides carry a header with the lesson name and page numbers.
+- **Four lesson folders:** I read "four primitive lessons" as the four folders. Lesson 2 covers two primitives, input and output, so it's one deck.
+
+My notes were detailed, but I haven't checked the decks against the actual files, so some details could be slightly off. The ones most worth checking are the line counts, the demo outputs (71, 327, 48 and so on) and the exact code excerpts.
+
+To preview, run `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`. That downloads the CLI the first time.

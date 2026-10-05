@@ -69,6 +69,96 @@ A harness that works isn't yet a harness you'd run unattended. The production la
 | 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | 🎥 coming soon |
 
+## quark at work
+
+Lesson 4's `quark.py` is 48 lines. Here it is doing real work on this repo: it made the slides for the four primitive lessons. It took two runs, and the second one started with empty working memory, so everything it knew came from what the first run wrote down.
+
+**Run 1: read the repo and remember it.**
+
+```bash
+uv run lessons/04-context/quark.py "Read every file in this repo, skipping .git, .venv and the SVG images in assets/, and summarize what this repo is and what each lesson teaches. Save what you learn to your long-term memory in enough detail that you could teach each of the four primitive lessons later without rereading the files."
+```
+
+quark made 10 bash calls. It listed the repo, read the files in batches (the root files, each lesson's README and code, the model deep dive, the production stubs), and after each lesson appended what it had learned to `.quark/memory/memory.md`. That left 25 KB of notes, one timestamped entry per lesson plus one for the deep dive. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I read every file except `.git`, `.venv` and the SVGs in `assets/`, and saved what I learned to `.quark/memory/memory.md`. That covers the root files, `docs/the-model.md`, all of `lessons/01` to `04`, and the six production stubs. For `uv.lock` I only read the header. It's the generated dependency lock, so nothing in it affects the lessons. I haven't run any of the lesson scripts.
+
+## What the repo is
+It's **harness-engineering**, a hands-on course on building agents by building their harness, by averagejoeslab (MIT license, Python 3.13 or later, `uv`, and the `anthropic` package). Its thesis:
+- **Model:** `TokensOut = Model(TokensIn)`. The model only predicts the next tokens.
+- **Agent:** `Agent = Harness(Model)`. The harness is everything around the model.
+- **Five primitives:** control flow wraps four others: input, context, model interface and output.
+
+The course builds one example agent, **quark**, outward from the model. Each lesson's `quark.py` is the previous one plus one primitive, and Lesson 4's `quark.py` is the finished harness.
+
+Lessons 1 to 4 are the real content. Lessons 5 to 10 (observability, guardrails, sandboxing, resilience, performance, evaluation) are short "coming soon" stubs. `docs/the-model.md` is optional background on how an LLM works inside.
+
+## The four lessons
+1. **Model interface.** This is one request out and one response back. `quark.py` is a single `client.messages.create(...)` call. The response fields that matter are `content`, `stop_reason` and `usage`. `model_interface.py` adds a timeout, retries, a fallback model, streaming and settable thinking options. Nothing real feeds in or handles the reply yet.
+2. **Input and output.**
+   - **Input:** a task from the command line or a prompt, plus the `tool_result` that returns what a tool printed.
+   - **Output:** printing text blocks and running `tool_use` blocks with `subprocess`.
+   - **Tools:** the model asks for them and the harness acts. The result is built but never sent back to the model.
+   - **`input_output.py`:** a Telegram chat, concurrent tools, timeouts and error results.
+3. **Control flow.** `quark.py` wraps Lesson 2 in `while True`. It appends results to `messages` and stops when the model stops asking for tools, which makes it an agent loop with no step limit. `control_flow.py` adds `MAX_STEPS` and handles refusals. `workflow.py` is an evaluator-optimizer workflow where the code decides the order of calls.
+4. **Context.** `quark.py` adds working memory, a system prompt built as several "models" (self, world, other selves, body), a view of its own source (`mechanics()`), a memory file (`.quark/memory/memory.md`) and compaction. Compaction only happens after the API says "prompt is too long". `context.py` adds an episode log, skills files, token counting before each call (`fit`) and cutting long tool results (`trim`).
+
+My own system prompt and loop are Lesson 4's `quark.py`, so I'm quark in that form.
+
+The memory file has the details for each lesson: the code, the demos, the "going further" options and each lesson's rule and what it leaves missing. I can teach the lessons from that without rereading the repo.
+```
+
+</details>
+
+**Run 2: a new session makes the slides from memory.**
+
+```bash
+uv run lessons/04-context/quark.py "Using what's in your long-term memory, and without rereading the lesson files, create the slides I'll present while recording a video for each of the four primitive lessons. Write each deck as Marp markdown to slides.md inside that lesson's folder, following the lesson's flow, with one idea per slide."
+```
+
+quark made 7 bash calls. It read its memory file, listed the lesson folders, wrote one deck per lesson, and added a note to its memory that the job was done. It never opened a lesson file. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I wrote a Marp deck to `slides.md` in each of the four lesson folders, using only my memory notes. I haven't rendered them, because the Marp CLI isn't installed, so I don't know how they look yet.
+
+| Lesson | Slides |
+|---|---|
+| `01-model-interface` | about 30 |
+| `02-input-and-output` | about 43 |
+| `03-control-flow` | about 50 |
+| `04-context` | about 62 |
+
+- **Flow:** each deck follows the lesson's own order. It starts with a title slide and where the last lesson left off. Then it explains the primitive, walks through quark's version, runs it, and covers "Going further" with the richer example file. It ends with "What to take away", what's missing, and a "Next:" slide.
+- **Slide style:** each slide has one idea, so a few are only a sentence long and you'll pause on them. Code snippets are short excerpts, not full files. Title and closing slides are centered, and the other slides carry a header with the lesson name and page numbers.
+- **Four lesson folders:** I read "four primitive lessons" as the four folders. Lesson 2 covers two primitives, input and output, so it's one deck.
+
+My notes were detailed, but I haven't checked the decks against the actual files, so some details could be slightly off. The ones most worth checking are the line counts, the demo outputs (71, 327, 48 and so on) and the exact code excerpts.
+
+To preview, run `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`. That downloads the CLI the first time.
+```
+
+</details>
+
+The decks it wrote:
+
+| Lesson | Slides |
+|---|---|
+| [Model interface](./lessons/01-model-interface/slides.md) | 30 |
+| [Input and output](./lessons/02-input-and-output/slides.md) | 43 |
+| [Control flow](./lessons/03-control-flow/slides.md) | 50 |
+| [Context](./lessons/04-context/slides.md) | 62 |
+
+We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
+
+Everything quark printed, and the memory file it wrote, are in [`docs/quark-at-work/`](./docs/quark-at-work/): [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), [memory](./docs/quark-at-work/memory.md).
+
 ## Setup
 
 macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
