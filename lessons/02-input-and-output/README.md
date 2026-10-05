@@ -27,41 +27,52 @@ import sys
 from anthropic import Anthropic
 
 client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 task = " ".join(sys.argv[1:]) or input("> ")
 reply = client.messages.create(
     model="claude-sonnet-5-5",
     max_tokens=1024,
+    tools=tools,
     messages=[{"role": "user", "content": task}],
 )
 print(reply.model_dump_json(indent=2))
 ```
 
-**`task = ...`** is input from a person: the task from the command line, or typed at a `> ` prompt. It replaces Lesson 1's hardcoded question, and it goes into the request the same way. Everything else is Lesson 1.
+**`task = ...`** is input from a person: the task from the command line, or typed at a `> ` prompt. It replaces Lesson 1's hardcoded question, and it goes into the request the same way.
 
-From the root of the repo:
+**`tools`** describes one tool, `bash`, and goes in the request so the model knows it can ask for it. Nothing here can run it yet. Running it is output, which is still the stub.
+
+From the root of the repo, give it a task that needs a tool:
 
 ```bash
-uv run lessons/02-input-and-output/input.py "what's the capital of France? one word"
+uv run lessons/02-input-and-output/input.py "how many lines are in README.md?"
 ```
 
 Here's one run:
 
 ```json
 {
-  "id": "msg_011CfjpZbRMPEhYRutv1CJHh",
+  "id": "msg_011CfjrBvd7UKDT2iwDpTViY",
   "container": null,
   "content": [
     {
-      "citations": null,
-      "text": "Paris",
-      "type": "text"
+      "id": "toolu_01Lm5byxdfM7mhdyqpCygFar",
+      "caller": {
+        "type": "direct"
+      },
+      "input": {
+        "cmd": "wc -l README.md"
+      },
+      "name": "bash",
+      "type": "tool_use",
+      "toolset_name": null
     }
   ],
   "diagnostics": null,
   "model": "claude-sonnet-5-5",
   "role": "assistant",
   "stop_details": null,
-  "stop_reason": "end_turn",
+  "stop_reason": "tool_use",
   "stop_sequence": null,
   "type": "message",
   "usage": {
@@ -72,8 +83,8 @@ Here's one run:
     "cache_creation_input_tokens": 0,
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
-    "input_tokens": 18,
-    "output_tokens": 5,
+    "input_tokens": 382,
+    "output_tokens": 54,
     "output_tokens_details": {
       "thinking_tokens": 0
     },
@@ -83,7 +94,7 @@ Here's one run:
 }
 ```
 
-Your question went in, and the answer is in `content`. Input from the world needs something to have happened in the world first, so it waits until output can run a tool.
+Your task went in, and the model answered it the only way it can: with a `tool_use` block asking to run `wc -l README.md`, and a `stop_reason` of `tool_use`, which means it stopped to wait for the result. The output stub dumps that request to the screen, and nothing runs it. The model asked; nothing acted.
 
 ## Output
 
@@ -110,7 +121,7 @@ for block in reply.content:
         print(done.stdout)
 ```
 
-**`tools`** is what output can do: one tool, `bash`. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
+**`tools`** is the same tool as in `input.py`, and it's what output can do. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, quark can do, which is why the setup warns you to run it somewhere you can afford to lose.
 
 **`for block in reply.content`** handles the response. It's a list of blocks, and each one goes where it belongs: a `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere.
 
@@ -190,7 +201,7 @@ $ wc -l README.md
 71 README.md
 ```
 
-The model asked for `wc -l README.md`, and quark ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
+It's the same task as `input.py`, and the model asked for the same `wc -l README.md`. This time output ran it. This time the model didn't say anything before asking; sometimes it does. Run it without the task and it prompts you for one instead.
 
 Notice what never happens: the model never sees the 71. It's sitting in `results`, and nothing sends it.
 
