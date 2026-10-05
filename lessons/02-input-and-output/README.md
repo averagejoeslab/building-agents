@@ -222,85 +222,111 @@ Output:
 - **How it reaches a person.** All at once, or as it's produced.
 - **Which tools exist.** One general tool, or many specific ones, each request routed by name.
 - **Where tools run.** This machine, a container, a remote machine, or a tool the provider hosts.
+- **How tool requests run.** One after another, or all at the same time.
 - **When not to run.** A tool request the model was cut off in the middle of is incomplete, and running half a command is worse than running none.
 - **What happens when a tool fails or hangs.** Stop it after a timeout, and report the failure instead of crashing.
 
 Some of this is a product on its own. [MCP](https://modelcontextprotocol.io) servers package tools behind one protocol, so a harness can run tools someone else built without writing them. That part of MCP is output you plug in.
 
-Here's input and output that do more of that, in [`input_output.py`](./input_output.py):
+Here's input and output that do more of that, in [`input_output.py`](./input_output.py). The input is a Telegram chat, and the output goes back to that chat and to a tool executor that runs every tool request at once:
 
 ```python
-import subprocess, sys, pathlib
-from anthropic import Anthropic
+import asyncio, json, os, pathlib, urllib.request
+from anthropic import AsyncAnthropic
 
-client = Anthropic()
+client = AsyncAnthropic()
+BOT = f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}"
 tools = [
     {"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}},
     {"name": "read_file", "description": "Read a text file", "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
 ]
 
-def gather():
-    if len(sys.argv) > 1: return " ".join(sys.argv[1:])
-    if not sys.stdin.isatty(): return sys.stdin.read()
-    while not (task := input("> ").strip()): pass
-    return task
+def telegram(method, **params):
+    request = urllib.request.Request(f"{BOT}/{method}", data=json.dumps(params).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.load(response)["result"]
 
-def run(block):
+async def receive():
+    offset = 0
+    while True:
+        for update in await asyncio.to_thread(telegram, "getUpdates", offset=offset, timeout=50):
+            offset = update["update_id"] + 1
+            if text := update.get("message", {}).get("text"):
+                await asyncio.to_thread(telegram, "getUpdates", offset=offset, timeout=0)
+                return update["message"]["chat"]["id"], text
+
+async def send(chat, text):
+    await asyncio.to_thread(telegram, "sendMessage", chat_id=chat, text=text[:4000])
+
+async def bash(cmd):
+    proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     try:
-        if block.name == "bash":
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
-            return done.stdout + (f"\n(exit {done.returncode})" if done.returncode else ""), False
-        if block.name == "read_file":
-            return pathlib.Path(block.input["path"]).read_text(), False
-        return f"no tool named {block.name}", True
-    except subprocess.TimeoutExpired:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except asyncio.TimeoutError:
+        proc.kill()
         return "stopped after 30 seconds", True
+    return out.decode(errors="replace") + (f"\n(exit {proc.returncode})" if proc.returncode else ""), False
+
+async def read_file(path):
+    try:
+        return await asyncio.to_thread(pathlib.Path(path).read_text), False
     except OSError as e:
         return str(e), True
 
-messages = [{"role": "user", "content": gather()}]
-with client.messages.stream(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=messages) as stream:
-    for text in stream.text_stream: print(text, end="", flush=True)
-    reply = stream.get_final_message()
-print()
+executors = {"bash": lambda args: bash(args["cmd"]), "read_file": lambda args: read_file(args["path"])}
 
-results = []
-for block in reply.content:
-    if block.type != "tool_use": continue
-    if reply.stop_reason == "max_tokens" and block is reply.content[-1]:
-        results.append({"type": "tool_result", "tool_use_id": block.id, "content": "cut off before it was finished, so it was not run", "is_error": True}); continue
-    print(f"→ {block.name} {block.input}")
-    out, failed = run(block)
-    print(out)
-    results.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
+async def execute(block, cut_off):
+    if cut_off:
+        out, failed = "cut off before it was finished, so it was not run", True
+    elif block.name not in executors:
+        out, failed = f"no tool named {block.name}", True
+    else:
+        out, failed = await executors[block.name](block.input)
+    return {"type": "tool_result", "tool_use_id": block.id, "content": out or "(no output)", "is_error": failed}
+
+async def main():
+    chat, task = await receive()
+    reply = await client.messages.create(model="claude-sonnet-5-5", max_tokens=4096, tools=tools, messages=[{"role": "user", "content": task}])
+    if words := "\n".join(b.text for b in reply.content if b.type == "text"):
+        await send(chat, words)
+    calls = [b for b in reply.content if b.type == "tool_use"]
+    results = await asyncio.gather(*(execute(b, reply.stop_reason == "max_tokens" and b is reply.content[-1]) for b in calls))
+    for call, result in zip(calls, results):
+        await send(chat, f"→ {call.name} {json.dumps(call.input)}\n{result['content']}")
+
+asyncio.run(main())
 ```
 
-- **Where a person's input comes from.** `gather()` takes the task from the command line, then from a pipe, then from a prompt that asks again if you type nothing.
-- **Which tools exist.** Two, `bash` and `read_file`, and `run()` routes each request by its name. A request for a tool that doesn't exist gets an error back instead of crashing the harness.
-- **How it reaches a person.** The text is printed as it's produced, using the streamed response from Lesson 1's `model_interface.py`.
+- **Where a person's input comes from.** `receive()` asks Telegram for new messages and waits until one arrives, then hands back its text and which chat it came from. It takes one message and stops; answering message after message would be control flow.
+- **Where output goes.** `send()` posts the model's words, and each tool's result, back to the chat the message came from.
+- **Which tools exist.** Two, `bash` and `read_file`. `executors` maps each tool's name to the code that runs it, and a request for a tool that isn't there gets an error back instead of crashing the harness.
+- **How tool requests run.** `asyncio.gather` starts every request in the response at once and waits for all of them. Three commands that each take two seconds finish in two seconds, not six.
 - **When not to run.** If the response hit `max_tokens`, its last tool request may be incomplete, so it isn't run.
-- **What happens when a tool fails or hangs.** `bash` stops after 30 seconds. Failures come back as results with `is_error` set, and a non-zero exit code is added to the output.
+- **What happens when a tool fails or hangs.** `bash` is stopped after 30 seconds. Failures come back as results with `is_error` set, and a non-zero exit code is added to the output.
 
-Run it with the task piped in:
+To run it, make a bot by messaging [@BotFather](https://t.me/BotFather) on Telegram, put its token in `.env` as `TELEGRAM_BOT_TOKEN=...`, then:
 
 ```bash
-echo "Which Python version does this project need? Check pyproject.toml." | uv run lessons/02-input-and-output/input_output.py
+uv run lessons/02-input-and-output/input_output.py
 ```
 
-Here's one run:
+Send your bot a message. Here's one run. For this run, Telegram was swapped for a stand-in that prints each message, labeled by which way it went; the model and the tools were real:
 
 ```
+[telegram → bot] check the python3 version, the git version and the first line of pyproject.toml, all three at once
+[bot → telegram] → bash {"cmd": "python3 --version"}
+Python 3.13.14
 
-→ read_file {'path': 'pyproject.toml'}
+
+[bot → telegram] → bash {"cmd": "git --version"}
+git version 2.43.0
+
+
+[bot → telegram] → bash {"cmd": "head -n 1 pyproject.toml"}
 [project]
-name = "harness-engineering"
-version = "0.1.0"
-description = "A hands-on course in building agents by building their harness."
-requires-python = ">=3.13"
-dependencies = ["anthropic"]
 ```
 
-The task came in through the pipe, and the model used `read_file` instead of `bash`. The blank first line is where its text would have streamed; it didn't say anything before asking. As with `quark.py`, the answer is in `results`, and the model never sees it.
+One message asked for three things, the model asked for three tools in one response, and the executor ran them together. The results went to the chat. As with `quark.py`, the model never sees them.
 
 Notice what isn't on those lists. Getting the request to the model and the response back is the model interface. When to call, and whether a result goes back around, is control flow. How what input gathers is presented in the request is context. Input only gathers what goes in, from a person or the world, and output only handles the response, showing it to a person or running a tool.
 
