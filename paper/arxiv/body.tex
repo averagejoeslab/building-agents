@@ -293,13 +293,13 @@ A taxonomy may be complete on paper yet incomplete in practice. The constructive
 
 The construction proceeds outward from the model, in a different order from §3: the model interface first, since nothing reaches the model without it, and thereafter the primitive whose absence limits the preceding step. The worked example is quark, the author's agent. Each step's \passthrough{\lstinline!quark.py!} is the preceding step's file plus one primitive. All four files appear in Appendix A, and the runs quoted below appear in Appendix B. The implementation is one instantiation of each primitive among many.
 
-\subsection{Step 1: the model interface alone (9 lines)}
+\subsection{Step 1: the model interface alone (12 lines)}
 
-The first harness consists of a single call. The model interface is one function, \passthrough{\lstinline!call()!}, which sends a request to the model and returns its response; every later step calls the model through it. The harness sends a fixed question, \emph{``What's in this directory?''}, and prints the full response as \passthrough{\lstinline!output!}. Three fields of the response are relevant: \passthrough{\lstinline!content!} (the output tokens, as blocks), \passthrough{\lstinline!stop\_reason!} (why generation stopped) and \passthrough{\lstinline!usage!} (input and output token counts).
+The first harness consists of a single call. The model interface is one function, \passthrough{\lstinline!call()!}, which sends a request to the model and receives its response as a stream, passing each fragment to a function supplied by the caller (here one that does nothing) and returning the complete response; every later step calls the model through it. The harness sends a fixed question, \emph{``What's in this directory?''}, and prints the full response as \passthrough{\lstinline!output!}. Three fields of the response are relevant: \passthrough{\lstinline!content!} (the output tokens, as blocks), \passthrough{\lstinline!stop\_reason!} (why generation stopped) and \passthrough{\lstinline!usage!} (input and output token counts).
 
 The model replies that it cannot see the directory and suggests running \passthrough{\lstinline!ls!}. It identifies the correct next action but cannot take it. Both ends of the path are stubs: the input is a fixed string, and the output is an unprocessed dump of the response.
 
-\subsection{Step 2: input and output (33 lines)}
+\subsection{Step 2: input and output (38 lines)}
 
 Input and output are constructed separately and then combined. The code names them generically, \passthrough{\lstinline!input!} and \passthrough{\lstinline!output!}, because input is whatever arrives, from a person or from the environment, and output is whatever the model produces; neither is assumed to be a task, a question or an answer.
 
@@ -308,24 +308,24 @@ Input and output are constructed separately and then combined. The code names th
 \item
   \textbf{Input} gathers from a person: the words on the command line, or a line read at a prompt by a small \passthrough{\lstinline!read()!} function, which, as a terminal does, gives a fresh prompt when Enter is pressed on an empty line, and signals the end of input. The request also describes one tool, \passthrough{\lstinline!bash!}. Given \emph{``how many lines are in README.md?''}, the model responds with a single \passthrough{\lstinline!tool\_use!} block requesting \passthrough{\lstinline!wc -l README.md!}, with \passthrough{\lstinline!stop\_reason: tool\_use!}. With output still a stub, the request is not executed.
 \item
-  \textbf{Output} processes each block of the model's \passthrough{\lstinline!output!}: text is printed and a tool call is executed with \passthrough{\lstinline!subprocess!}.
+  \textbf{Output} processes the model's \passthrough{\lstinline!output!}: a small \passthrough{\lstinline!show()!} function, passed to \passthrough{\lstinline!call()!}, prints text as it streams in, and each tool call is executed with \passthrough{\lstinline!subprocess!}.
 \item
   \textbf{Combined,} the two require one further element: the command's result, wrapped as a \passthrough{\lstinline!tool\_result!}, which constitutes input from the environment. The code collects it in the same variable, \passthrough{\lstinline!input!}, since it is input from another source.
 \end{itemize}
 
-The combined harness executes \passthrough{\lstinline!wc -l!} and prints \passthrough{\lstinline!333 README.md!}. The model never observes this result; it is held in \passthrough{\lstinline!input!} and not sent. The path terminates at output.
+The combined harness executes \passthrough{\lstinline!wc -l!} and prints \passthrough{\lstinline!301 README.md!}. The model never observes this result; it is held in \passthrough{\lstinline!input!} and not sent. The path terminates at output.
 
-\subsection{Step 3: control flow (46 lines)}
+\subsection{Step 3: control flow (51 lines)}
 
 The step-2 harness is placed inside a loop. After each call, the model's \passthrough{\lstinline!output!} is appended to a list of \passthrough{\lstinline!messages!}; if the model requested tools, the \passthrough{\lstinline!input!} they produced is appended after it, and the loop calls the model again. When the model stops requesting tools, the run ends or, in interactive mode, returns control to the person, whose next input is read at the prompt.
 
-Asked which step's \passthrough{\lstinline!quark.py!} is longest, the agent executed one \passthrough{\lstinline!find … | wc -l!} command and answered from its output. The run required two calls, and the second was possible only because the first call's result was returned.
+Asked which step's \passthrough{\lstinline!quark.py!} is longest, the agent executed one \passthrough{\lstinline!find!} command that counted each file's lines with \passthrough{\lstinline!wc -l!}, and answered from its output that the step-4 file, at 239 lines, is the longest. The run required two calls, and the second was possible only because the first call's result was returned.
 
 The system is now an agent: the model determines the next step. The same four components arranged differently yield a single call, a chatbot or a workflow (§3.4); the artifact's second example for this step is an evaluator--optimizer workflow in which code determines the order of calls.
 
 The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and \passthrough{\lstinline!messages!} grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 
-\subsection{Step 4: context (234 lines: 86 of code and a 148-line system prompt)}
+\subsection{Step 4: context (239 lines: 91 of code and a 148-line system prompt)}
 
 The final primitive adds the context section of the harness. The step-3 \passthrough{\lstinline!messages!} list is renamed \passthrough{\lstinline!working\_memory!}, and every append becomes a call to \passthrough{\lstinline!add()!}. The section has eight components.
 
@@ -349,7 +349,7 @@ The final primitive adds the context section of the harness. The step-3 \passthr
   \textbf{Lazy compaction:} when the API rejects a request as too long, the oldest turns are dropped and the remainder summarized. The summary states where the original messages are kept, and the episode file retains all of them, so compaction removes nothing from the record.
 \end{itemize}
 
-Six runs demonstrate the result (Appendix B.5). Asked what it is, the agent describes its tool, its loop and its three stores, all of which are present in its context. Told that the person prefers short answers, it records a fact. In a new session with empty working memory, asked what it knows about the person, it reads semantic memory for the fact and episodic memory for what happened. Told that a request will recur, it completes the request, writes a generalized skill and a fact referencing the skill; in a later session it reads the skill before acting. Asked what it was asked in earlier sessions, it lists the opening input of every prior episode with a single search. Working memory did not persist between runs; the three stores did.
+Six runs demonstrate the result (Appendix B.5). Asked what it is, in three sentences, the agent describes its tool, its loop, its context window as working memory and its three stores, all of which are present in its context; it uses six sentences rather than the three requested. Told that the person prefers short answers, it records a fact. In a new session with empty working memory, asked what it knows about the person, it reads semantic memory for the fact and the beginnings of the two earlier episodes for what happened, and adds an inference from the name of the working directory, which it identifies as an inference. Told that a request will recur, it completes the request, writes a generalized skill and a fact referencing the skill; in a later session it reads the skill before acting. Asked what it was asked in earlier sessions, it lists the opening input of every prior episode with a single search. Working memory did not persist between runs; the three stores did.
 
 \subsection{Summary of the construction}
 
@@ -373,10 +373,10 @@ Remaining deficiency
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-1 & Model interface & 9 lines & Both ends are stubs; the model identifies \passthrough{\lstinline!ls!} as the next action and cannot execute it. \\
-2 & Input and output & 33 lines & A tool executes, but its result never reaches the model. \\
-3 & Control flow & 46 lines & The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. \\
-4 & Context & 234 lines (86 of code) & None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. \\
+1 & Model interface & 12 lines & Both ends are stubs; the model identifies \passthrough{\lstinline!ls!} as the next action and cannot execute it. \\
+2 & Input and output & 38 lines & A tool executes, but its result never reaches the model. \\
+3 & Control flow & 51 lines & The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. \\
+4 & Context & 239 lines (91 of code) & None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. \\
 \end{longtable}
 }
 
@@ -418,10 +418,10 @@ Net lines
 \bottomrule\noalign{}
 \endlastfoot
 Sandboxing & output & where a tool executes was always output's decision & commands executed via \passthrough{\lstinline!docker exec!} in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits & +10 \\
-Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting, the partial work being kept and the model informed & +59 \\
+Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting at once, the model being informed & +62 \\
 Observability & control flow & the only primitive with visibility of the whole sequence & reads the clock, \passthrough{\lstinline!usage!}, exit codes, refusals and interruptions already present; appends one JSON record per event, each naming the episode of the same session & +14 \\
-Resilience & model interface, output & where the environment can fail & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; resumption from the episode that context already keeps, marking interrupted commands as \emph{may or may not have run} & +29 \\
-Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); streaming, which also makes the interrupt immediate, and a fixed small model for summaries (model interface); concurrent tool execution (output) & +19 \\
+Resilience & model interface, output & where the environment can fail & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed or truncated ones; the partial work of an interrupted response or command kept rather than lost; resumption from the episode that context already keeps, marking interrupted commands as \emph{may or may not have run} & +31 \\
+Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) & +17 \\
 Evaluation & outside the harness & it treats the agent as a black box & an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run & +38 \\
 \end{longtable}
 }
@@ -610,7 +610,7 @@ Products are thus composed of primitives as well: each is marketed as a single c
 
 \section{Case study: the constructed agent at work}
 
-The harness of §5, unmodified, was used for ten sessions of work on the companion artifact. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The memory stores began empty, and every session began with empty working memory, so whatever quark knew beyond its prompt came from the three stores of §5.4. Prompts were deliberately brief where the purpose was to require the use of memory. The supporting evidence appears in Appendix D; the transcripts and the final state of the stores are retained in the artifact. Over ten sessions, quark:
+The harness of §5 was used for ten sessions of work on the companion artifact. The sessions predate the addition of streaming: the version used (234 lines) differs from Appendix A.4 only in that text was printed once each response was complete, rather than as it arrived; its context, system prompt, tool and loop are otherwise identical. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The memory stores began empty, and every session began with empty working memory, so whatever quark knew beyond its prompt came from the three stores of §5.4. Prompts were deliberately brief where the purpose was to require the use of memory. The supporting evidence appears in Appendix D; the transcripts and the final state of the stores are retained in the artifact. Over ten sessions, quark:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -746,7 +746,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from sandboxing to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 91 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from sandboxing to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 

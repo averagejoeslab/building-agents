@@ -313,13 +313,13 @@ Input and output are constructed separately and then combined. The code names th
   \textbf{Combined,} the two require one further element: the command's result, wrapped as a \passthrough{\lstinline!tool\_result!}, which constitutes input from the environment. The code collects it in the same variable, \passthrough{\lstinline!input!}, since it is input from another source.
 \end{itemize}
 
-The combined harness executes \passthrough{\lstinline!wc -l!} and prints \passthrough{\lstinline!333 README.md!}. The model never observes this result; it is held in \passthrough{\lstinline!input!} and not sent. The path terminates at output.
+The combined harness executes \passthrough{\lstinline!wc -l!} and prints \passthrough{\lstinline!301 README.md!}. The model never observes this result; it is held in \passthrough{\lstinline!input!} and not sent. The path terminates at output.
 
 \subsection{Step 3: control flow (51 lines)}
 
 The step-2 harness is placed inside a loop. After each call, the model's \passthrough{\lstinline!output!} is appended to a list of \passthrough{\lstinline!messages!}; if the model requested tools, the \passthrough{\lstinline!input!} they produced is appended after it, and the loop calls the model again. When the model stops requesting tools, the run ends or, in interactive mode, returns control to the person, whose next input is read at the prompt.
 
-Asked which step's \passthrough{\lstinline!quark.py!} is longest, the agent executed one \passthrough{\lstinline!find … | wc -l!} command and answered from its output. The run required two calls, and the second was possible only because the first call's result was returned.
+Asked which step's \passthrough{\lstinline!quark.py!} is longest, the agent executed one \passthrough{\lstinline!find!} command that counted each file's lines with \passthrough{\lstinline!wc -l!}, and answered from its output that the step-4 file, at 239 lines, is the longest. The run required two calls, and the second was possible only because the first call's result was returned.
 
 The system is now an agent: the model determines the next step. The same four components arranged differently yield a single call, a chatbot or a workflow (§3.4); the artifact's second example for this step is an evaluator--optimizer workflow in which code determines the order of calls.
 
@@ -349,7 +349,7 @@ The final primitive adds the context section of the harness. The step-3 \passthr
   \textbf{Lazy compaction:} when the API rejects a request as too long, the oldest turns are dropped and the remainder summarized. The summary states where the original messages are kept, and the episode file retains all of them, so compaction removes nothing from the record.
 \end{itemize}
 
-Six runs demonstrate the result (Appendix B.5). Asked what it is, the agent describes its tool, its loop and its three stores, all of which are present in its context. Told that the person prefers short answers, it records a fact. In a new session with empty working memory, asked what it knows about the person, it reads semantic memory for the fact and episodic memory for what happened. Told that a request will recur, it completes the request, writes a generalized skill and a fact referencing the skill; in a later session it reads the skill before acting. Asked what it was asked in earlier sessions, it lists the opening input of every prior episode with a single search. Working memory did not persist between runs; the three stores did.
+Six runs demonstrate the result (Appendix B.5). Asked what it is, in three sentences, the agent describes its tool, its loop, its context window as working memory and its three stores, all of which are present in its context; it uses six sentences rather than the three requested. Told that the person prefers short answers, it records a fact. In a new session with empty working memory, asked what it knows about the person, it reads semantic memory for the fact and the beginnings of the two earlier episodes for what happened, and adds an inference from the name of the working directory, which it identifies as an inference. Told that a request will recur, it completes the request, writes a generalized skill and a fact referencing the skill; in a later session it reads the skill before acting. Asked what it was asked in earlier sessions, it lists the opening input of every prior episode with a single search. Working memory did not persist between runs; the three stores did.
 
 \subsection{Summary of the construction}
 
@@ -421,7 +421,7 @@ Sandboxing & output & where a tool executes was always output's decision & comma
 Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting at once, the model being informed & +62 \\
 Observability & control flow & the only primitive with visibility of the whole sequence & reads the clock, \passthrough{\lstinline!usage!}, exit codes, refusals and interruptions already present; appends one JSON record per event, each naming the episode of the same session & +14 \\
 Resilience & model interface, output & where the environment can fail & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed or truncated ones; the partial work of an interrupted response or command kept rather than lost; resumption from the episode that context already keeps, marking interrupted commands as \emph{may or may not have run} & +31 \\
-Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) & +16 \\
+Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) & +17 \\
 Evaluation & outside the harness & it treats the agent as a black box & an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run & +38 \\
 \end{longtable}
 }
