@@ -231,6 +231,16 @@ The last two sessions asked about the past and nothing else. For run 6a, *"What 
 
 For run 6b, *"In the session where you made the PDFs, which slides overflowed, and how did you find out, given that you can't see images?"*, it went from its PDF skill to the episodes that mention Marp. Inside the right session it found the step where it had measured the original PDFs. It answered with the five slides, the exact point where each one ran off its 960×540 page, and the three ways it had checked, including the test that showed the checker could catch overflow at all.
 
+### Writing AGENTS.md
+
+Later, on today's 239-line `quark.py`, I gave quark one more job. I deleted [`AGENTS.md`](./AGENTS.md), the file that tells an agent how this repo works, emptied its memory, and asked it to read the whole repo and its history and write the file again: *"…everything an agent needs to work in this repo… It's for understanding the repo, not a to-do list. Change no other file."*
+
+It crashed three times first. Each time, after a dozen to fifty commands of reading, it ran something like `grep … | cut -c1-140` on files full of `─`. `cut` counts bytes, so it split a three-byte character in half, and Lesson 4's `quark.py` couldn't decode the output and died. Adding a warning to the prompt didn't help: the third attempt got one and cut lines by bytes anyway. The fault was the harness's, not the model's. Upstream quark decodes with `errors="replace"`, so a stray byte becomes `�`, and the course now does the same from Lesson 2 on. With that fix, the fourth attempt, with the original prompt, read the README, every lesson, the paper and its build, the decks, the proof and the git history in 40 calls and about five minutes, and wrote the `AGENTS.md` that's in the repo now. It changed no other file.
+
+It also found two mistakes of mine and only described them, as told: the `errors="replace"` change had leaked into the README listings of three fuller examples whose files don't have it, and the arXiv bundle hadn't been rebuilt. Both were real, and both are fixed. I fixed three of its lines by hand: the two bullets that described those mistakes, which were no longer true once they were fixed, and an evaluation timing it got wrong (it said about 25 seconds a case; the lesson shows five to seven).
+
+The transcripts of all four attempts and its memory afterwards are in [`docs/quark-at-work/agents-md/`](./docs/quark-at-work/agents-md/).
+
 ### What we checked, and what we fixed by hand
 
 We reviewed everything quark changed before it was merged.

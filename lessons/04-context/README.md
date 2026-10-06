@@ -531,7 +531,7 @@ while True:
         if block.type == "text": print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": trim(done.stdout) or f"(exit {done.returncode})"})
     add(working_memory, {"role": "assistant", "content": output.content})
