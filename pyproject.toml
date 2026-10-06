@@ -5,4 +5,7 @@ description = "A hands-on course in building agents by building their harness."
 authors = [{ name = "Chase Dovey" }]
 license = "MIT"
 requires-python = ">=3.13"
-dependencies = ["anthropic"]
+dependencies = [
+    "anthropic",
+    "typesafe-sdk>=0.7.2",
+]
