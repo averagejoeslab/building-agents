@@ -45,7 +45,7 @@ You've just watched the method. Take a thing and ask, *what is it, and by what m
 
 The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add the primitive the last one was missing, and each one's `quark.py` is the previous lesson's plus that primitive.
 
-The course has two parts. **The primitives**, Lessons 1–4, build a working harness. **The production layers**, Lessons 5–10, harden it for running unattended.
+The course is **the primitives**, Lessons 1–4: they build a working harness, and they're the part to learn first. **The production layers**, Lessons 5–10, come after. They harden that harness for running unattended, and every one of them folds back into the primitives you already built.
 
 The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each primitive lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
 
@@ -62,7 +62,7 @@ Lesson 4's `quark.py` is the finished harness. By then you've built quark, and y
 
 ### The production layers
 
-A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on the primitives you already know, and these lessons will show where:
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where:
 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
