@@ -2,7 +2,7 @@
 
 > 🎥 **Video:** coming soon
 
-Lesson 9 ended on a worry. Every saving in it was a bet: a trimmed result might have cut the line that mattered, a summary from the small model might have lost a fact, a router might have sent a hard task to a weak model. And the same is true of any change you make to an agent, whether it's a new line in the system prompt, a different model, a lower step limit or a rewritten tool. After the change the agent still runs, the trace still looks normal, and nothing tells you whether it can still do its job. You find out the way you find out about any software that isn't tested: someone uses it, and it's wrong.
+Lesson 9 ended on a worry. Every saving in it was a bet: a trimmed result might have cut the line that mattered, a summary from the small model might have lost a fact, a parallel command might have depended on another. And the same is true of any change you make to an agent, whether it's a new line in the system prompt, a different model, a lower step limit or a rewritten tool. After the change the agent still runs, the trace still looks normal, and nothing tells you whether it can still do its job. You find out the way you find out about any software that isn't tested: someone uses it, and it's wrong.
 
 Evaluation is how you find out first. It runs the agent on tasks whose right outcome you already know, checks what happened, and compares the result with what it was before the change. It works in three parts.
 
@@ -16,107 +16,9 @@ This is a production layer, so it adds hardening, not a new primitive. It's **bu
 
 ## The worked example
 
-`quark.py` can now evaluate itself. It's Lesson 9's file with one addition, `python quark.py --eval`, which runs a small set of cases against the agent in this very file. The whole of [`quark.py`](./quark.py) is below, with the system prompt shortened to `...` as before. The new code is the `CASES` list, `evaluate()`, two more imports, and the line before `resumed = unfinished()` that starts it. The rest is Lesson 9 unchanged:
+[`quark.py`](./quark.py) is Lesson 9's `quark.py` plus evaluation, and nothing else: `tempfile` and `shutil` in the imports, and one new section, placed before `# ── input ──` so that `--eval` is caught before anything is read:
 
 ```python
-import subprocess, sys, os, datetime, json, time, uuid, re, atexit, tempfile, shutil
-from concurrent.futures import ThreadPoolExecutor
-from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusError
-
-client = Anthropic(timeout=300, max_retries=3)
-run = uuid.uuid4().hex[:8]
-tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-def trace(**event):
-    os.makedirs(".quark", exist_ok=True)
-    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "run": run, **event}) + "\n")
-
-
-MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
-class Down(Exception): pass
-def ask(models=MODELS, live=False, **request):
-    for model in models:
-        try:
-            with client.messages.stream(model=model, **request) as stream:
-                shown = False
-                for text in stream.text_stream:
-                    if live: print(text, end="", flush=True); shown = True
-                if shown: print()
-                return stream.get_final_message()
-        except (APIConnectionError, APIStatusError) as e:
-            if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
-            trace(event="model_failed", model=model, error=type(e).__name__)
-    raise Down()
-
-
-MAX_RESULT = 20_000
-def trim(text):
-    if len(text) <= MAX_RESULT: return text
-    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + text[-MAX_RESULT // 2:]
-def cached(working_memory):
-    last = working_memory[-1]
-    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) else list(last["content"])
-    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
-    return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
-
-
-SESSION = ".quark/session.json"
-def save(task, working_memory):
-    os.makedirs(".quark", exist_ok=True)
-    with open(SESSION + ".tmp", "w") as f: json.dump({"task": task, "working_memory": working_memory}, f, default=lambda b: b.model_dump(exclude_none=True))
-    os.replace(SESSION + ".tmp", SESSION)
-def unfinished():
-    if not os.path.exists(SESSION): return None
-    saved = json.load(open(SESSION))
-    try: answer = input(f"unfinished run: {saved['task'][:60]!r}. pick it up? [y/N] ").strip().lower()
-    except EOFError: answer = ""
-    if answer != "y": return None
-    working_memory = saved["working_memory"]
-    if working_memory[-1]["role"] == "assistant":
-        lost = [b for b in working_memory[-1]["content"] if b["type"] == "tool_use"]
-        if not lost: return os.remove(SESSION)
-        working_memory.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in lost]})
-    return saved["task"], working_memory
-
-
-IMAGE, TIMEOUT = "python:3.13-slim", 30
-box = f"quark-{run}"
-def sandbox():
-    where = os.getcwd()
-    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
-    atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-
-
-def execute(cmd):
-    start = time.time()
-    done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
-    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
-    return trim(done.stdout) or f"(exit {done.returncode})"
-
-
-MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
-DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):
-    if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
-    try: answer = input(f"allow `{cmd}`? [y/N] ").strip()
-    except EOFError: answer = ""
-    return None if answer.lower() == "y" else f"the person said no: {answer or 'no'}"
-
-def mechanics(): return "\n".join('def system(): return "<system prompt redacted so you can see your self mechanics in harness>"' if l.startswith("def system():") else l for l in open(__file__).read().split("\n"))
-def system(): return [{"type": "text", "text": f"# Self Model\n\n**Identity:** You are quark ... **Where:** {os.getcwd()}\n**When:** {datetime.date.today()} ... ```python\n{mechanics()}\n```", "cache_control": {"type": "ephemeral"}}]
-
-def compact(working_memory, drop):
-    turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
-    if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
-    keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
-    summary = ask(models=FAST, max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
-    gist = next((b.text for b in summary.content if b.type == "text"), "")
-    return [{"role": "user", "content": f"[your prior working memory, summarized] {gist}"}]
-
-
 CASES = [
     {"name": "count", "setup": "seq 1 37 > numbers.txt", "task": "How many lines are in numbers.txt? Write only the number into answer.txt.",
      "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
@@ -127,7 +29,7 @@ CASES = [
     {"name": "remember", "setup": "true", "task": "Remember that I prefer short answers.",
      "check": "grep -qi short .quark/memory/memory.md"},
 ]
-def evaluate(names):
+def evaluate(names):                                     # evaluation: run every case in a fresh folder, and grade what's left
     log, before = ".quark/evals.jsonl", {}
     os.makedirs(".quark", exist_ok=True)
     if os.path.exists(log):
@@ -152,78 +54,14 @@ def evaluate(names):
     print(f"{len(cases) - failed}/{len(cases)} passed")
     return 1 if failed else 0
 
-
 if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
-resumed = unfinished()
-task = resumed[0] if resumed else " ".join(sys.argv[1:]) or input("> ")
-chat = len(sys.argv) < 2
-working_memory, drop, steps, spent = resumed[1] if resumed else [{"role": "user", "content": task}], 0, 0, 0
-trace(event="start", task=task, resumed=bool(resumed))
-sandbox()
-
-while True:
-    save(task, working_memory)
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
-        print(f"[stopped: {steps} steps, {spent} tokens]")
-        if not chat or (task := input("\n> ")) == "/q": break
-        working_memory.append({"role": "user", "content": task})
-        steps, spent = 0, 0
-        continue
-    try:
-        if drop:
-            working_memory, drop = compact(working_memory, drop), 0
-        start = time.time()
-        reply = ask(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
-        trace(event="model", seconds=round(time.time() - start, 2), stop_reason=reply.stop_reason, input_tokens=reply.usage.input_tokens, output_tokens=reply.usage.output_tokens, cache_read=reply.usage.cache_read_input_tokens, cache_write=reply.usage.cache_creation_input_tokens)
-        steps += 1
-        spent += reply.usage.input_tokens + reply.usage.output_tokens + reply.usage.cache_read_input_tokens + reply.usage.cache_creation_input_tokens
-    except BadRequestError as e:
-        if "prompt is too long" not in str(e): raise
-        drop += 1
-        trace(event="too_long", drop=drop)
-        continue
-    except Down:
-        sys.exit("[the model isn't answering. Everything so far is saved; run quark again to pick it up]")
-
-    working_memory.append({"role": "assistant", "content": reply.content})
-    save(task, working_memory)
-    refused, pending = {}, {}
-    for block in reply.content:
-        if block.type == "tool_use":
-            cmd = block.input.get("cmd")
-            print(f"$ {cmd}")
-            if not cmd or (reply.stop_reason == "max_tokens" and block is reply.content[-1]):
-                refused[block.id] = "your request was cut off at the token limit, so it was not run. Send it again, shorter."
-            elif (no := guard(cmd)):
-                refused[block.id] = no
-            else:
-                pending[block.id] = cmd
-    with ThreadPoolExecutor() as pool:
-        outputs = dict(zip(pending, pool.map(execute, pending.values())))
-    results = []
-    for block in reply.content:
-        if block.type == "tool_use":
-            text = refused.get(block.id) or outputs[block.id]
-            print(f"[{text}]" if block.id in refused else text)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused else {})})
-
-    if results:
-        working_memory.append({"role": "user", "content": results})
-        continue
-    os.remove(SESSION)
-    if not chat or (task := input("\n> ")) == "/q":
-        break
-    working_memory.append({"role": "user", "content": task})
-    steps, spent = 0, 0
 ```
-
-There are three additions.
 
 **`CASES`.** Four of them, each a dictionary: a `name`, a `setup` (a shell command that makes the starting folder), a `task`, and a `check` (a shell command that exits 0 if the outcome is right). Three change files and one writes to memory, and all four have an outcome that can be looked at afterwards: `answer.txt` holds 37; `python3 test.py` passes and `test.py` hasn't been edited to make it; the `.txt` files are `.md` files; `memory.md` mentions `short`. The `fix` check does two things on purpose. An agent that "fixes" a failing test by deleting the assertion makes `test.py` pass, so the check also looks for the assertion that was supposed to stay. It's worth asking of every case you write how the agent could pass it without doing the job.
 
-**`evaluate()`.** For each case it makes a new folder with `tempfile.mkdtemp()` and runs the setup in it. Then it runs *quark itself* on the task: `subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, ...)`. That's the whole point: it isn't a mock or a copy of the loop, it's the same file, with the same prompt, guard, sandbox, retries and tracing, started the way a person would start it with a task on the command line. Because the working folder is the case's folder, the sandbox mounts only that, and the `.quark/` directory with the memory and the trace is created there too, so cases can't see each other's memory. The guard still asks before anything it doesn't recognize runs, and `input="y\n" * 50` answers it, fifty times over. That isn't a way around Lesson 6: the policy that blocks `rm -rf` and `.env` still blocks them, and only the questions are answered. And because it runs under Lesson 7's sandbox, an agent that does something strange does it in a container holding a throwaway folder. A run that goes over five minutes is killed and then graded like any other, on what it left behind. (Killing it that way skips its cleanup, so its container can be left running, the gap Lesson 7 noted for a harness that is killed.)
+**`evaluate()`.** For each case it makes a new folder with `tempfile.mkdtemp()` and runs the setup in it. Then it runs *quark itself* on the task: `subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, ...)`. That's the whole point: it isn't a mock or a copy of the loop, it's the same file, with the same prompt, guard, sandbox, retries and tracing, started the way a person would start it with a task on the command line. Because the working folder is the case's folder, the sandbox mounts only that, and the `.quark/` directory with the memory and the trace is created there too, so cases can't see each other's memory. The guard still asks before anything it doesn't recognize runs, and `input="y\n" * 50` answers it, fifty times over. That isn't a way around Lesson 6: the policy that blocks `rm -rf` and `.env` still blocks them, and only the questions are answered. And because it runs under Lesson 5's sandbox, an agent that does something strange does it in a container holding a throwaway folder. A run that goes over five minutes is killed and then graded like any other, on what it left behind. (Killing it that way skips its cleanup, so its container can be left running, the gap Lesson 5 noted for a harness that is killed.)
 
-Then comes the grade. The `check` runs on this machine, in the case's folder, with its output thrown away: pass is exit 0. The cost comes from somewhere that already exists. The child run wrote a trace (Lesson 5) into its folder, so `evaluate()` reads the `model` events out of it, and counts them as steps, and adds up their tokens. Note that the token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line, and a line is appended to `.quark/evals.jsonl`, where the next run will look. A case that failed keeps its folder, and the line says where it is, so you can open it and see what the agent did. A case that passed has its folder deleted.
+Then comes the grade. The `check` runs on this machine, in the case's folder, with its output thrown away: pass is exit 0. The cost comes from somewhere that already exists. The child run wrote a trace (Lesson 7) into its folder, so `evaluate()` reads the `model` events out of it, and counts them as steps, and adds up their tokens. Note that the token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line, and a line is appended to `.quark/evals.jsonl`, where the next run will look. A case that failed keeps its folder, and the line says where it is, so you can open it and see what the agent did: its trace, and its episode, with every message the model saw and wrote. A case that passed has its folder deleted.
 
 **The comparison.** Before running, `evaluate()` reads the log from last time. If a case passed then and fails now, its line says `REGRESSED`. That's what "catch it getting worse" means: not that it failed, but that it used to pass. The command's exit status is 1 if anything failed, which is what a script or a CI job needs. You can run some of the cases only, by naming them: `quark.py --eval fix rename`. The only thing you can't do is give quark a task that begins with `--eval`.
 
@@ -231,56 +69,55 @@ Four cases is a smoke test, not a benchmark. It can tell you quark is badly brok
 
 ## Run it
 
-You need what Lesson 9 needed: Docker running, and `uv`. Start in a scratch folder, not in this repo, because the cases' results are logged in it. Each run is `uv run --project /path/to/building-agents /path/to/building-agents/production/10-evaluation/quark.py --eval`, which I'll write as `quark.py --eval`. Each case runs the real agent, so a run makes real model calls, and takes about twenty seconds.
+You need Docker running, as in Lesson 5. Start in a scratch folder, not in this repo, because the cases' results are logged in it. Each run is `uv run --project /path/to/building-agents /path/to/building-agents/production/10-evaluation/quark.py --eval`, which I'll write as `quark.py --eval`. Each case runs the real agent, so a run makes real model calls, and takes about twenty-five seconds.
 
 **A baseline.** This is the number everything is compared with:
 
 ```
-pass  count      2 steps    4.1s    13435 tokens
-pass  fix        3 steps    5.2s    20262 tokens
-pass  rename     2 steps    3.9s    13428 tokens
-pass  remember   2 steps    4.3s    13582 tokens
+pass  count      2 steps    5.1s    18919 tokens
+pass  fix        3 steps    7.2s    28561 tokens
+pass  rename     2 steps    5.4s    18998 tokens
+pass  remember   2 steps    5.0s    18995 tokens
 4/4 passed
 exit 0
 ```
 
-The last line is the exit status. Four cases, four passes, and what each one cost: two to three steps, four to five seconds, and 13,000 to 20,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its copy of its own code, is over five thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9). Each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it had to read the code before changing it. That's what normal looks like for this agent, and now it's written down.
+The last line is the exit status. Four cases, four passes, and what each one cost: two or three steps, five to seven seconds, and 19,000 to 29,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about eight thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it read the code before changing it. That's what normal looks like for this agent, and now it's written down.
 
 **A change that breaks something.** Suppose someone wants to cap what a run can spend, and lowers `MAX_STEPS` from 20 to 1. Nothing about the change looks dangerous, and running quark on a simple task by hand, it still works. I made the change in a copy of the file, `sed 's/^MAX_STEPS, MAX_TOKENS = 20, /MAX_STEPS, MAX_TOKENS = 1, /'`, and ran the same cases in the same folder:
 
 ```
-pass  count      1 steps    3.0s     6687 tokens
-FAIL  fix        1 steps    2.6s     6644 tokens  kept /tmp/eval-fix-1pf3a9_w  REGRESSED: it passed last time
-pass  rename     1 steps    2.9s     6674 tokens
-pass  remember   1 steps    3.1s     6778 tokens
+pass  count      1 steps    3.7s     9439 tokens
+FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
+pass  rename     1 steps    3.6s     9440 tokens
+pass  remember   1 steps    4.0s     9520 tokens
 3/4 passed
 exit 1
 ```
 
-Three of the four still pass: counting lines, renaming files and writing a note can all be done in one command, and the agent does them in one. But `fix` can't, because the agent reads the code before it changes it. It fails, and the line says what the log said: it passed last time. The exit code is 1. This is the kind of change you can ship without anybody noticing, if nothing tests it. I'd also point out how little a hand test would have shown. Whoever made the change would probably have tried one of the three that still work.
+Three of the four still pass: counting lines, renaming files and writing a note can each be done in one command, and the agent does them in one. But `fix` can't, because the agent reads the code before it changes it. It fails, and the line says what the log said: it passed last time. The exit code is 1. This is the kind of change you can ship without anybody noticing, if nothing tests it, and a hand test would probably have tried one of the three that still work.
 
 The failed case kept its folder. To see why it failed:
 
 ```
-$ ls -a /tmp/eval-fix-1pf3a9_w
+$ ls -a /tmp/eval-fix-8ega07z3
 .
 ..
 .quark
 __pycache__
 calc.py
 test.py
-$ cat /tmp/eval-fix-1pf3a9_w/calc.py
+$ cat /tmp/eval-fix-8ega07z3/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}' /tmp/eval-fix-1pf3a9_w/.quark/traces.jsonl
+$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-8ega07z3/.quark/traces.jsonl
 {"event":"start"}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool","cmd":"cat calc.py test.py"}
+{"event":"stopped"}
 ```
 
-The calculator still subtracts. The trace shows one model call, which asked for `cat calc.py test.py`, and then no more: the run stopped at the step limit before the model had seen what it read. Reading a failure like this is the most useful thing an evaluation gives you, which is why the folder is kept.
-
-Passing isn't the only thing that moves. In an earlier run of the same cases I tried a different change, cutting tool results to 20 characters (`MAX_RESULT = 20`, Lesson 9's trim). All four cases passed, so a pass-or-fail check would have called it fine. But `fix` took four steps and 27,245 tokens, where the baseline took three and 20,255. The agent worked around the damage and paid for it, which is why steps and tokens are recorded next to the grade.
+The calculator still subtracts. The trace shows one model call, which asked for `cat calc.py test.py`, then the guardrail's `stopped`: the run hit the step limit before the model had seen what it read. The episode in the same folder has the request itself. Reading a failure like this is the most useful thing an evaluation gives you, which is why the folder is kept.
 
 ## Going further
 
@@ -515,7 +352,7 @@ The file is a correct explanation. The judge said `**PASS**`, in bold, and my co
 
 Notice what Evaluation never does. It sits outside the harness and treats it as a box, and it leaves all five primitives alone. It doesn't change the agent's control flow: the loop under test is the loop it always was, with the same stops, and the evaluation's own loop is a separate one around it. Input is untouched: the agent gets its task the way a person would give it. Context is untouched: it doesn't edit the prompt, the memory or the working memory, though it's how you find out whether an edit of yours helped. The model interface is untouched: the same calls, to the same models. And output is untouched: the agent's tools run as they always did, and the check is one more command beside them. Evaluation runs the primitives. It never rebuilds them.
 
-**What's missing:** evaluation tells you whether the agent does the jobs you wrote down. It says nothing about the jobs you didn't. Four cases all passing is not a good agent, and even a large set is only as good as how well it matches what the agent is really asked to do, and it goes out of date as that changes. It tells you that something got worse, and doesn't say why: that's what Lesson 5's traces are for. A few trials make noise look like signal; a run of three that passes 2 of 3 and a run that passes 3 of 3 aren't different. A model that grades can be wrong, as the judge was here, and a check on the grader catches some of that and not all of it. And a case can be passed without doing the job in a way you didn't think of. All of these are reasons to keep reading the failures and to keep adding cases, and none are solved by a bigger harness.
+**What's missing:** evaluation tells you whether the agent does the jobs you wrote down. It says nothing about the jobs you didn't. Four cases all passing is not a good agent, and even a large set is only as good as how well it matches what the agent is really asked to do, and it goes out of date as that changes. It tells you that something got worse, and doesn't say why: that's what Lesson 7's traces are for, and the episode beside them. A few trials make noise look like signal; a run of three that passes 2 of 3 and a run that passes 3 of 3 aren't different. A model that grades can be wrong, as the judge was here, and a check on the grader catches some of that and not all of it. And a case can be passed without doing the job in a way you didn't think of. All of these are reasons to keep reading the failures and to keep adding cases, and none are solved by a bigger harness.
 
 That's the last production layer. There's no Lesson 11 to link to: what's next is your own agent, with its own cases, and the five primitives to take it apart with when it surprises you.
 

@@ -1,24 +1,10 @@
 import subprocess, sys, os, re, glob, json, datetime, atexit, time
-from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusError
-from concurrent.futures import ThreadPoolExecutor
+from anthropic import Anthropic, BadRequestError
 
 # ── model interface ─────────────────────────────────────────────────────────
-client = Anthropic(timeout=300, max_retries=3)
-MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
-class Down(Exception): pass
-def call(models=MODELS, live=False, **request):          # resilience: retries, then a backup model, then give up cleanly
-    for model in models:
-        try:
-            with client.messages.stream(model=model, **request) as stream:   # performance: streamed, shown as it arrives
-                shown = False
-                for text in stream.text_stream:
-                    if live: print(text, end="", flush=True); shown = True
-                if shown: print()
-                return stream.get_final_message()
-        except (APIConnectionError, APIStatusError) as e:
-            if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
-            trace(event="model_failed", model=model, error=type(e).__name__)
-    raise Down()
+client = Anthropic()
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -31,13 +17,6 @@ def sandbox():                                           # sandboxing: one locke
     if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
     atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
-def execute(cmd):                                        # performance: one command in the box, so several can run at once
-    start = time.time()
-    done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
-    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
-    return trim(done.stdout) or f"(exit {done.returncode})"
-
 # ── context ─────────────────────────────────────────────────────────────────
 EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
 
@@ -47,26 +26,6 @@ def remember(message):                                   # episodic memory: the 
 
 def add(working_memory, message):                        # one message, two places: in context and on disk
     working_memory.append(message); remember(message)
-
-MAX_RESULT = 20_000
-def trim(text):                                          # performance: keep the start and end of a long result
-    if len(text) <= MAX_RESULT: return text
-    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + text[-MAX_RESULT // 2:]
-
-def cached(working_memory):                              # performance: cache everything up to the newest message
-    last = working_memory[-1]
-    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) else list(last["content"])
-    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
-    return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
-
-def unfinished():                                        # resilience: the last session's episode, if it ended mid-task
-    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
-    if not episodes: return None
-    messages = [json.loads(line) for line in open(episodes[-1])]
-    last = messages[-1]
-    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]): return None
-    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() != "y": return None
-    return episodes[-1], messages
 
 def skills():                                            # procedural memory: an index built from each skill's front matter
     index = []
@@ -207,7 +166,7 @@ Write memory only from what happened and what other selves told you, never becau
 
 # Body Operations
 
-Prefer focused actions to keep results small. Commands that don't depend on each other can go in the same response: they run at the same time.
+One bash invocation per response (prefer focused actions to keep results small).
 When utils fall short, escalate: compose pipes → inline interpreters (python -c) → write and run scripts → install tools. Prefer the lightest act that does the job.
 
 Acts:
@@ -233,7 +192,7 @@ def compact(working_memory, drop):                       # lazy: runs only after
     turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
     if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
     keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
-    summary = call(models=FAST, max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
+    summary = call(max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
     gist = next((b.text for b in summary.content if b.type == "text"), "")
     return [{"role": "user", "content": f"[your earlier working memory, summarized; every original message is in {EPISODE}] {gist}"}]
 
@@ -245,8 +204,7 @@ def read(prompt):                                        # input: from a person
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
         if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
-resumed = unfinished()
-input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
+input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
 chat = len(sys.argv) < 2
 
@@ -266,13 +224,8 @@ def guard(cmd):                                          # guardrails: deny, all
 
 sandbox()
 working_memory, drop, steps, spent = [], 0, 0, 0
-if resumed:                                              # resilience: pick up where the episode ends
-    EPISODE, working_memory = resumed
-    if working_memory[-1]["role"] == "assistant":
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in working_memory[-1]["content"] if b["type"] == "tool_use"]})
-else:
-    add(working_memory, {"role": "user", "content": input})
-trace(event="start", input=input, resumed=bool(resumed))
+add(working_memory, {"role": "user", "content": input})
+trace(event="start", input=input)
 
 while True:
     if steps >= MAX_STEPS or spent >= MAX_TOKENS:        # guardrails: a limit hands back to the person, or ends the run
@@ -286,7 +239,7 @@ while True:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
         start = time.time()
-        response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
+        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
         trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens, cache_read=response.usage.cache_read_input_tokens, cache_write=response.usage.cache_creation_input_tokens)
         output = response.content
         steps += 1
@@ -296,32 +249,26 @@ while True:
         drop += 1
         trace(event="too_long", drop=drop)
         continue
-    except Down:
-        sys.exit("[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]")
 
     add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
 
-    refused, pending = {}, {}
-    for block in output:                                 # output: decide each tool request, in order
-        if block.type == "tool_use":
-            cmd = block.input.get("cmd")
-            print(f"$ {cmd}")
-            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
-                refused[block.id] = "your request was cut off at the token limit, so it was not run. Send it again, shorter."
-            elif (no := guard(cmd)):
-                trace(event="refused", cmd=cmd, why=no)
-                refused[block.id] = no
-            else:
-                pending[block.id] = cmd
-    with ThreadPoolExecutor() as pool:                   # performance: everything allowed runs at the same time
-        outputs = dict(zip(pending, pool.map(execute, pending.values())))
-
     input = []
-    for block in output:
+    for block in output:                                 # output: show text, run tool requests
+        if block.type == "text":
+            print(block.text)
         if block.type == "tool_use":
-            text = refused.get(block.id) or outputs[block.id]
-            print(f"[{text}]" if block.id in refused else text)
-            input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused else {})})  # input: from the world
+            print(f"$ {block.input['cmd']}")
+            if (no := guard(block.input["cmd"])):
+                print(f"[{no}]")
+                trace(event="refused", cmd=block.input["cmd"], why=no)
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+                continue
+            start = time.time()
+            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+            if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+            trace(event="tool", cmd=block.input["cmd"], seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
+            print(done.stdout)
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
     if input:
         add(working_memory, {"role": "user", "content": input})

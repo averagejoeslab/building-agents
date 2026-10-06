@@ -2,11 +2,11 @@
 
 > 🎥 **Video:** coming soon
 
-Lesson 7 ended on a list of things that go wrong when a run is long enough: the API drops a call, a command hangs, the process dies halfway through and the work goes with it. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that assumption is the one that fails first.
+Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that's the assumption that fails first: the API drops a call, the model is overloaded, a response is cut off in the middle of a command, the process dies halfway through and the work goes with it.
 
-Resilience is how the harness keeps going, or stops cleanly, when something doesn't answer. It has two jobs. The first is to get through the failures that pass: a dropped connection, a request told to slow down, a service that's briefly overloaded, a command that never comes back. The second is to leave things in a state you can pick up from when a failure doesn't pass, so that the hour of work before it isn't lost.
+Resilience is how the harness keeps going, or stops cleanly, when something doesn't answer. It has two jobs. The first is to get through the failures that pass. The second is to leave things in a state you can pick up from when a failure doesn't pass, so that the hour of work before it isn't lost.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), and the API is a service across a network, so it can be slow, busy or gone. Output is what runs the model's words (Lesson 2), and what runs there is arbitrary, so it can hang, flood or die. Everything below happens inside those two. The loop, the person's input and what the model is shown are left as they are.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), a service across a network, so it can be slow, busy or gone. Output runs the model's words (Lesson 2), so what it's handed can be broken. And to pick a run back up it **reads context's own record**: Lesson 4's episode already holds every message, written before any tool runs, so resilience doesn't need a save file of its own.
 
 The mechanism, first in the model interface. Not every failure means the same thing, so the first step is to sort them:
 
@@ -17,7 +17,7 @@ For the first kind, the way to retry matters. Wait longer after each failure (*e
 
 Then output. The model asks for a command and output runs it, and a command can fail in a way the harness doesn't see coming: it hangs (Lesson 7 already puts a time limit on that), it prints bytes that aren't text, or the model's request itself arrives broken, cut off in the middle by the token limit, with a command that's half a sentence. The rule for all of them is the one Lesson 2 started with: every request gets an answer the model can read. A result that says *this was cut off, it wasn't run, send it again shorter* is something the model can act on. A crash isn't.
 
-Last, picking a task back up. If the harness is killed during a long task, the whole exchange so far (everything that crossed the model interface in one direction and output in the other) is in the working memory, and that's gone with the process. So the harness writes it down after each step, to a file, in a way that can't leave a half-written file behind. When it starts and finds one, it can offer to continue.
+Last, picking a task back up. If the harness is killed during a long task, working memory dies with the process. But since Lesson 4, every message has also been written to the session's episode, by the harness, as it happens, and the model's request is on disk *before* the command it asks for runs. So the record already exists. Resilience only has to notice, at startup, that the last episode ended mid-task, and offer to continue it.
 
 There's one trap, and it's the reason this isn't just "load the file." Suppose the harness died while a command was running. The saved record ends with the model asking for that command and no result. The API won't accept a request in that state: every request for a tool must be followed by a result for it. And the harness can't simply run the command again, because it may already have run: the command that was killed might have been `git push`, or sent an email, or appended a line to a file. It can't know, so it says so. The missing result becomes an error result: *interrupted; this may or may not have run; check before repeating it.* Then the model, which is the one that knows what the command was for, looks at the world and decides. It isn't a guess made by the harness.
 
@@ -25,163 +25,88 @@ None of this makes the model right, and it doesn't make a failed run succeed. It
 
 ## The worked example
 
-Here's Lesson 7's agent with resilience added. It's the whole of [`quark.py`](./quark.py), with the system prompt shortened to `...` as before. The new code is the client settings, `MODELS` with `ask()` and `Down`, `SESSION` with `save()` and `unfinished()`, a few lines at the start of the run, and a few in the loop that go with them. The rest is Lesson 7 unchanged, sandbox, guardrails and tracing included:
+[`quark.py`](./quark.py) is Lesson 7's `quark.py` plus resilience, and nothing else: 29 lines.
+
+In `# ── model interface ──`, Lesson 1's `call()` grows a backup:
 
 ```python
-import subprocess, sys, os, datetime, json, time, uuid, re, atexit
-from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusError
-
 client = Anthropic(timeout=300, max_retries=3)
-run = uuid.uuid4().hex[:8]
-tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-def trace(**event):
-    os.makedirs(".quark", exist_ok=True)
-    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "run": run, **event}) + "\n")
-
-
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 class Down(Exception): pass
-def ask(**request):
+def call(**request):                                     # resilience: retries, then a backup model, then give up cleanly
     for model in MODELS:
         try: return client.messages.create(model=model, **request)
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
-
-
-SESSION = ".quark/session.json"
-def save(task, working_memory):
-    os.makedirs(".quark", exist_ok=True)
-    with open(SESSION + ".tmp", "w") as f: json.dump({"task": task, "working_memory": working_memory}, f, default=lambda b: b.model_dump(exclude_none=True))
-    os.replace(SESSION + ".tmp", SESSION)
-def unfinished():
-    if not os.path.exists(SESSION): return None
-    saved = json.load(open(SESSION))
-    try: answer = input(f"unfinished run: {saved['task'][:60]!r}. pick it up? [y/N] ").strip().lower()
-    except EOFError: answer = ""
-    if answer != "y": return None
-    working_memory = saved["working_memory"]
-    if working_memory[-1]["role"] == "assistant":
-        lost = [b for b in working_memory[-1]["content"] if b["type"] == "tool_use"]
-        if not lost: return os.remove(SESSION)
-        working_memory.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in lost]})
-    return saved["task"], working_memory
-
-
-IMAGE, TIMEOUT = "python:3.13-slim", 30
-box = f"quark-{run}"
-def sandbox():
-    where = os.getcwd()
-    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
-    atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-
-
-MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
-DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):
-    if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
-    try: answer = input(f"allow `{cmd}`? [y/N] ").strip()
-    except EOFError: answer = ""
-    return None if answer.lower() == "y" else f"the person said no: {answer or 'no'}"
-
-def mechanics(): return "\n".join('def system(): return "<system prompt redacted so you can see your self mechanics in harness>"' if l.startswith("def system():") else l for l in open(__file__).read().split("\n"))
-def system(): return [{"type": "text", "text": f"# Self Model\n\n**Identity:** You are quark ... **Where:** {os.getcwd()}\n**When:** {datetime.date.today()} ... ```python\n{mechanics()}\n```", "cache_control": {"type": "ephemeral"}}]
-
-def compact(working_memory, drop):
-    turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
-    if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
-    keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
-    summary = ask(max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
-    gist = next((b.text for b in summary.content if b.type == "text"), "")
-    return [{"role": "user", "content": f"[your prior working memory, summarized] {gist}"}]
-
-
-resumed = unfinished()
-task = resumed[0] if resumed else " ".join(sys.argv[1:]) or input("> ")
-chat = len(sys.argv) < 2
-working_memory, drop, steps, spent = resumed[1] if resumed else [{"role": "user", "content": task}], 0, 0, 0
-trace(event="start", task=task, resumed=bool(resumed))
-sandbox()
-
-while True:
-    save(task, working_memory)
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
-        print(f"[stopped: {steps} steps, {spent} tokens]")
-        if not chat or (task := input("\n> ")) == "/q": break
-        working_memory.append({"role": "user", "content": task})
-        steps, spent = 0, 0
-        continue
-    try:
-        if drop:
-            working_memory, drop = compact(working_memory, drop), 0
-        start = time.time()
-        reply = ask(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
-        trace(event="model", seconds=round(time.time() - start, 2), stop_reason=reply.stop_reason, input_tokens=reply.usage.input_tokens, output_tokens=reply.usage.output_tokens, cache_read=reply.usage.cache_read_input_tokens, cache_write=reply.usage.cache_creation_input_tokens)
-        steps += 1
-        spent += reply.usage.input_tokens + reply.usage.output_tokens + reply.usage.cache_read_input_tokens + reply.usage.cache_creation_input_tokens
-    except BadRequestError as e:
-        if "prompt is too long" not in str(e): raise
-        drop += 1
-        trace(event="too_long", drop=drop)
-        continue
-    except Down:
-        sys.exit("[the model isn't answering. Everything so far is saved; run quark again to pick it up]")
-
-    working_memory.append({"role": "assistant", "content": reply.content})
-    save(task, working_memory)
-    results = []
-    for block in reply.content:
-        if block.type == "text":
-            print(block.text)
-        if block.type == "tool_use":
-            cmd = block.input.get("cmd")
-            print(f"$ {cmd}")
-            if not cmd or (reply.stop_reason == "max_tokens" and block is reply.content[-1]):
-                print("[cut off, not run]")
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": "your request was cut off at the token limit, so it was not run. Send it again, shorter.", "is_error": True})
-                continue
-            if (no := guard(cmd)):
-                print(f"[{no}]")
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
-                continue
-            start = time.time()
-            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-            if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
-            trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
-            print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-
-    if results:
-        working_memory.append({"role": "user", "content": results})
-        continue
-    os.remove(SESSION)
-    if not chat or (task := input("\n> ")) == "/q":
-        break
-    working_memory.append({"role": "user", "content": task})
-    steps, spent = 0, 0
 ```
 
-There are five additions.
+**The client.** `Anthropic(timeout=300, max_retries=3)`. The SDK does the retrying, with backoff, and honors the server's `Retry-After`. `timeout` is how long to wait on a single request; it's five minutes because a reply of 16,000 tokens takes minutes to write. `max_retries=3` is one more than the SDK's default, written out so you can see it's a choice.
 
-**The client.** `Anthropic(timeout=300, max_retries=3)`. The SDK does the retrying, with backoff, and honors the server's `Retry-After`. `timeout` is how long to wait on a single request before giving up on it, and a timeout is a failure like any other: it's retried too. It's long, five minutes, because a reply of 16,000 tokens takes minutes to write, and a limit that's too short would turn slow answers into failures. `max_retries=3` is one more than the SDK's default of 2, written out so you can see it's a choice.
+**`call()`.** Every call to the model already went through it, the main one and the summary in `compact()`, so this is the one place to change. It tries each model in `MODELS`, in order. A call that fails *after the SDK's retries* with something transient (a lost connection or timeout, 429, or any 5xx) is traced as `model_failed` and the next model is tried. Everything else is raised: a bad key, a bad request, and in particular "prompt is too long", which Lesson 4's compaction is waiting for. If every model fails, `call()` raises `Down`. The test is on the status code, not a list of exception classes, because the SDK has a class for each and it's easy to miss 529, the overloaded error, which is the one you most want to catch.
 
-**`ask()`.** Every call to the model now goes through it, the main one and the summary call in `compact()`. It tries each model in `MODELS`, in order. A call that fails *after the SDK's retries* with something transient (a lost connection or timeout, 429, or any 5xx) is written to the trace as `model_failed` and the next model is tried. Everything else is re-raised: a bad key, a bad request, and in particular the "prompt is too long" error that Lesson 4's compaction is waiting for. If every model has failed, `ask()` raises `Down`, which the loop catches and turns into a message and an exit. The test is on the status code and not on a list of exception classes, because the SDK has a class for each (`RateLimitError`, `InternalServerError`, `OverloadedError`, `ServiceUnavailableError`...) and they aren't all subclasses of each other. The first version I wrote caught a list of classes and missed 529, the overloaded error, which is the one you most want to catch.
+In `# ── context ──`, after `add()`, a function that reads the last episode back:
 
-**`save()` and `unfinished()`.** `save()` writes the task and the working memory to `.quark/session.json` after each step. It writes to a temporary file first and then `os.replace`s it over the real one, which is a single step that either happens or doesn't, so a crash can't leave half a file. The content blocks the API returned are objects, not dicts, so `default=` turns them into plain JSON with `model_dump`. `unfinished()` runs at startup. If there's a saved session, it shows you the task and asks. A `y` loads it and, if the record ends in the model's request for tools, adds the "interrupted" results described above, one for each request. Anything else, and the run starts fresh and the old file is overwritten the first time it saves. The saved file is deleted when the model finishes without asking for a tool, so a file left behind always means a run that didn't finish.
+```python
+def unfinished():                                        # resilience: the last session's episode, if it ended mid-task
+    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
+    if not episodes: return None
+    messages = [json.loads(line) for line in open(episodes[-1])]
+    last = messages[-1]
+    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]): return None
+    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() != "y": return None
+    return episodes[-1], messages
+```
 
-**The loop.** `save()` is called at the top of every pass and right after the model's reply (that's why the `working_memory.append` for the reply moved up: the reply has to be in the list before it can be saved, and has to be saved before any tool runs. If the harness dies during the command, the file already says what was asked.) `except Down` stops the run with a message that says the work is saved. The `start` event in the trace now records whether the run was `resumed`.
+**`unfinished()`** looks at the newest episode. If it ends with the model's answer and no tool request, that session finished, and there's nothing to do. Otherwise it shows you the input that opened it and asks, with Lesson 2's `read()`. On a `y`, it hands back the episode's path and its messages.
 
-**The tool call.** Three small changes, all for output's side of the layer. `block.input.get("cmd")` replaces `block.input["cmd"]`, so a request with no command is answered and not a `KeyError`. If the reply was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run: the model gets an error result saying so. And `errors="replace"` on the subprocess means a command that prints bytes that aren't valid text produces `�` characters in the result, not a `UnicodeDecodeError` that kills the harness.
+In `# ── input ──`, it's asked before anything else is read:
 
-Everything else is unchanged on purpose. The guard still runs before the box does. The sandbox still holds the commands. Tracing still records every call, and now it also shows how long a call took *including* the retries: the `seconds` of a `model` event is the whole time from request to answer, so a flaky API shows up as slow calls and `model_failed` events in the same file. The system prompt is also unchanged; it doesn't tell the model that the harness will retry or that it may have been resumed. That would be a decision about context.
+```python
+resumed = unfinished()
+input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
+```
+
+In `# ── control flow ──`, a resumed session continues in its own episode, and an unanswered tool request gets the "interrupted" result:
+
+```python
+if resumed:                                              # resilience: pick up where the episode ends
+    EPISODE, working_memory = resumed
+    if working_memory[-1]["role"] == "assistant":
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in working_memory[-1]["content"] if b["type"] == "tool_use"]})
+else:
+    add(working_memory, {"role": "user", "content": input})
+trace(event="start", input=input, resumed=bool(resumed))
+```
+
+`EPISODE` is pointed at the old file, so everything from here on is appended to the same session. If the record ends with the model asking for tools, each request is answered with the "interrupted" result, through `add()`, so the episode records that too. The trace marks the start as `resumed`.
+
+When no model answers, the run ends with a sentence, not a stack trace:
+
+```python
+    except Down:
+        sys.exit("[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]")
+```
+
+And in the output loop, a cut-off request is never run:
+
+```python
+            cmd = block.input.get("cmd")
+            print(f"$ {cmd}")
+            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
+                print("[cut off, not run]")
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "your request was cut off at the token limit, so it was not run. Send it again, shorter.", "is_error": True})
+                continue
+```
+
+`block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run: the model gets an error result saying so. The other uses of `block.input["cmd"]` become `cmd`, and `errors="replace"` on the box's output means bytes that aren't valid text become `�`, not a `UnicodeDecodeError` that kills the harness.
+
+Everything else is unchanged on purpose. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it.
 
 ## Run it
 
-You need what Lesson 7 needed: Docker running, and `uv`. Start in a scratch folder, not in this repo, because the box mounts it and the session file goes in it. Each run below is `uv run --project /path/to/building-agents /path/to/building-agents/production/08-resilience/quark.py`, which I'll write as `quark.py`. Answers piped to prompts aren't echoed, so a prompt is followed directly by whatever comes next.
+You need Docker running, as in Lesson 5. Start in a scratch folder. Each run below is `uv run --project /path/to/building-agents /path/to/building-agents/production/08-resilience/quark.py`, which I'll write as `quark.py`. Answers piped to prompts aren't echoed.
 
 Failures that actually happen are hard to schedule, so for the demos I used a stand-in for the API that fails on purpose and passes everything else through to the real one. It's about 30 lines of Python, built on the standard library, and it never prints headers, so your key doesn't appear anywhere. Save it as `flaky.py`:
 
@@ -238,18 +163,18 @@ $ wc -c notes.txt
 notes.txt is 6 bytes.
 ```
 
-You don't see the failures in the output: the run looks like any other. The trace does:
+You don't see the failures in the output: the run looks like any other. The trace does (shown with only the fields that matter here):
 
 ```
 {"event":"start"}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":5.15,"stop_reason":"tool_use"}
-{"event":"tool","seconds":0.07}
+{"event":"model","seconds":5.22,"stop_reason":"tool_use"}
+{"event":"tool","seconds":0.14}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":3.81,"stop_reason":"end_turn"}
+{"event":"model","seconds":4.35,"stop_reason":"end_turn"}
 ```
 
-Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked. That's what the stand-in's log shows too, ten requests for two model calls. And look at the `seconds` of the two `model` events: 5.15 and 3.81, where a normal call here takes one or two. That's the backoff. Every call tried the preferred model again from scratch. That's a choice (the fuller example makes a different one, below): it costs a few seconds a call while the model is down, and means quark is back on its preferred model the moment it recovers.
+Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked; the stand-in's log shows ten requests for two calls. The `seconds` of the two `model` events, 5.22 and 4.35, are the backoff. Every call tries the preferred model again from scratch: a few seconds a call while it's down, and quark is back on it the moment it recovers.
 
 **Nothing answers.** Now the stand-in fails every request, for every model:
 
@@ -258,17 +183,20 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:8106 quark.py "How many bytes is notes.txt? 
 ```
 
 ```
-[the model isn't answering. Everything so far is saved; run quark again to pick it up]
-
-$ ls .quark
-session.json
+[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]
+$ ls .quark .quark/episodes
+.quark:
+episodes
 traces.jsonl
+
+.quark/episodes:
+2026-10-06T18-07-55.jsonl
 ```
 
-It tried both models, gave up and said so, in one line and not a stack trace. The session file is there, with the task and the one message so far. Then the API comes back (no `ANTHROPIC_BASE_URL` now, so no stand-in) and I run `quark.py` again, answering `y` when asked, and `/q` when it finished:
+It tried both models, gave up and said so. There's no save file: the episode is the record. Then the API comes back (no `ANTHROPIC_BASE_URL`) and I run `quark.py` again with no input, answering `y` when asked, and `/q` when it finished:
 
 ```
-unfinished run: 'How many bytes is notes.txt? Answer in one line.'. pick it up? [y/N] $ stat -c %s notes.txt
+unfinished session: 'How many bytes is notes.txt? Answer in one line.'. pick it up? [y/N] $ stat -c %s notes.txt
 6
 
 notes.txt is 6 bytes.
@@ -276,23 +204,23 @@ notes.txt is 6 bytes.
 >
 ```
 
-The task was picked up from the file. The trace shows it as a second `start`, with `resumed` set:
+The session was picked up from its episode, and finished in it: that one file now holds all four messages. The trace shows the second `start` as resumed, with no new input:
 
 ```
-{"event":"start","task":"How many bytes is notes.txt? Answer in one line.","resumed":false}
+{"event":"start","input":"How many bytes is notes.txt? Answer in one line.","resumed":false}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
 {"event":"model_failed","model":"claude-opus-5-5","error":"OverloadedError"}
-{"event":"start","task":"How many bytes is notes.txt? Answer in one line.","resumed":true}
+{"event":"start","input":"","resumed":true}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool"}
 {"event":"model","stop_reason":"end_turn"}
 ```
 
-**The harness is killed.** This is the one that matters most, and the hardest to stage. The task is one slow command, `sleep 15 && echo finished > flag.txt`, started in the background so I can kill it, with `y` piped in for the guard. The kill is `kill -9`, on the process ID that the shell gave me, which is the Python process itself because I ran the repo's own Python directly. (`uv run` puts a wrapper process in between, and `$!` would be the wrapper's ID.) (That's not `pkill`, which matches on names and can match a lot more than you meant.) I waited nine seconds, so it was in the middle of the command, and then killed it:
+**The harness is killed.** This is the one that matters most. The task is one slow command, started in the background with `y` piped in for the guard, and killed with `kill -9` on its process ID twelve seconds in, in the middle of the command. I ran the repo's own Python directly, so `$!` is the harness itself (`uv run` puts a wrapper in between). That's `kill` on a PID, not `pkill`, which matches on names and can match far more than you meant:
 
 ```bash
 (yes y | /path/to/building-agents/.venv/bin/python /path/to/building-agents/production/08-resilience/quark.py "Run exactly this one command: sleep 15 && echo finished > flag.txt   (it is slow on purpose). Then tell me what flag.txt contains." > out1.txt 2>&1 & echo $! > pid)
-sleep 9; kill -9 $(cat pid)
+sleep 12; kill -9 $(cat pid)
 cat out1.txt
 ```
 
@@ -301,10 +229,9 @@ $ sleep 15 && echo finished > flag.txt
 allow `sleep 15 && echo finished > flag.txt`? [y/N]
 ```
 
-That's all it printed before it died. `ls` shows what was left, in the folder, and then again once the command's fifteen seconds were up:
+That's all it printed before it died. What it left, and then the same folder a few seconds later:
 
 ```
-$ ls -a . .quark
 .:
 .
 ..
@@ -315,7 +242,7 @@ pid
 .quark:
 .
 ..
-session.json
+episodes
 traces.jsonl
 
 $ ls
@@ -324,22 +251,21 @@ out1.txt
 pid
 ```
 
-`.quark` has `session.json`, which was written when the model asked for the command, before it ran. `flag.txt` isn't there yet, and then it is: the harness was killed, but the container was not (Lesson 7's warning about `kill -9`), so the command went on and finished in it. (I removed the leftover container with `docker rm -f` afterwards.) That's exactly the case the "interrupted" result is for. The command did run, and the harness doesn't know. Now run `quark.py` again, answering `y` to resume the run, `y` to the guard's question, and `/q` at the end:
+The episode was written when the model asked for the command, before it ran. `flag.txt` isn't there, and then it is: the harness was killed, but its container wasn't (`atexit` can't run after `kill -9`), so the command finished in it. (I removed the leftover container with `docker rm -f` afterwards.) That's exactly the case the "interrupted" result is for: the command did run, and the harness doesn't know. Now `quark.py` again, answering `y` to resume, `y` to the guard, and `/q` at the end:
 
 ```
-unfinished run: 'Run exactly this one command: sleep 15 && echo finished > fl'. pick it up? [y/N] $ ls -l flag.txt; cat flag.txt; date
-allow `ls -l flag.txt; cat flag.txt; date`? [y/N] -rw-rw-rw- 1 root root 9 Oct  5 23:52 flag.txt
+unfinished session: 'Run exactly this one command: sleep 15 && echo finished > fl'. pick it up? [y/N] $ ls -l flag.txt; cat flag.txt
+allow `ls -l flag.txt; cat flag.txt`? [y/N] -rw-rw-rw- 1 root root 9 Oct  6 18:09 flag.txt
 finished
-Mon Oct  5 23:52:17 UTC 2026
 
 `flag.txt` contains `finished`.
 
-The harness reported my first run as interrupted, so I checked the file before running the command again. The file already existed, timestamped 23:52, so the command did finish. I didn't run it a second time.
+The first run of the command was interrupted, and I wasn't sure it had completed. I checked the file before running it again. The file already existed and held that text, so I didn't repeat the command.
 
 >
 ```
 
-The model was told the command was interrupted and may or may not have run, and it did what that wording asks: it looked, with `ls -l flag.txt; cat flag.txt; date`, found the file and didn't run the command again. If `flag.txt` hadn't been there, the same sentence would have led it to run the command once. It's the model's call, made with the facts, which is the point.
+The model was told the command was interrupted and may or may not have run, and it did what that wording asks: it looked, found the file, and didn't run the command again. If `flag.txt` hadn't been there, the same sentence would have led it to run the command once. It's the model's call, made with the facts.
 
 ## Going further
 
@@ -631,10 +557,10 @@ The result for the dead request carried the command with it, the model checked t
 
 ## What to take away
 
-**The rule:** assume the call can fail, and make failure something the harness handles instead of something that ends the run. Tell the failures that pass from the ones that don't, and retry the first kind a bounded number of times with a longer wait each time. When the preferred model is out, have somewhere else to go, and when everywhere is out, stop with a message. When a command misbehaves, answer the request anyway, with a result the model can read. And write the run down after each step, so that when the harness itself fails, what was in flight can be reported as *unknown*, not guessed at and not lost.
+**The rule:** assume the call can fail, and make failure something the harness handles instead of something that ends the run. Retry what passes a bounded number of times, have somewhere else to go when the preferred model is out, and stop with a sentence when everywhere is. Answer every tool request, even a broken one, with a result the model can read. And keep a record written before each step, so that when the harness itself fails, what was in flight can be reported as *unknown*, not guessed at and not lost.
 
-Notice what Resilience never does. It sits in the model interface and output, and it leaves the other primitives alone. Control flow is the same loop with the same stop conditions: a retry happens inside a single call, so the loop sees a call that took longer, or, at worst, one that stopped the run, and the only new way out is `Down`. Input is untouched: the person's task is read the way it was, and the one question asked on startup is the harness's own, in the style of the guard's. Context is untouched: the saved working memory is replayed exactly as it was, nothing in it is summarized or edited, and the model learns that something went wrong only through the result it's handed, in words it can read. What the model is shown changes only by one message, the "interrupted" one.
+Notice what Resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Control flow is the same loop with the same stop conditions: a retry happens inside one call, so the loop sees a call that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes by one message, the "interrupted" one, written like any other result.
 
-**What's missing:** resilience keeps a run alive and recoverable; it doesn't tell you the run was good. A resumed run can't undo what an interrupted command did, only ask the model to check, and the model can be wrong. The save is a single file per folder, so two runs in the same place overwrite each other's. A backup model may do the task differently, or worse, and nothing here judges it. The retries and fallbacks cost time and money, and the harness only notices when it reads the trace, because a call that took forty seconds, by retrying, looks like any other. Keeping up with how long a run takes, how many tokens it spends and how fast it answers, and how to make those smaller, is its own layer.
+**What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation and waits for the whole reply before you see a word. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other. And the retries and fallbacks cost time that only the trace shows. Making each step smaller, faster and cheaper is its own layer.
 
 **→ [Lesson 9: Performance](../09-performance/)**
