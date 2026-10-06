@@ -2,7 +2,7 @@
 
 The four files of §5 are reproduced in full. Each extends the previous file by one primitive, under a section heading named for it.
 
-\subsection{The model interface alone (9 lines)}
+\subsection{The model interface alone (12 lines)}
 
 \begin{lstlisting}[language=Python]
 from anthropic import Anthropic
@@ -10,13 +10,16 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
 print(output.model_dump_json(indent=2))
 \end{lstlisting}
 
-\subsection{Plus input and output (33 lines)}
+\subsection{Plus input and output (38 lines)}
 
 \begin{lstlisting}[language=Python]
 import subprocess, sys
@@ -25,10 +28,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -41,12 +51,10 @@ def read(prompt):                                        # input: from a person
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
 
-output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
+output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
 
 input = []
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -54,7 +62,7 @@ for block in output:                                     # output: show text, ru
         input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 \end{lstlisting}
 
-\subsection{Plus control flow (46 lines)}
+\subsection{Plus control flow (51 lines)}
 
 \begin{lstlisting}[language=Python]
 import subprocess, sys
@@ -63,10 +71,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -84,13 +99,11 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": input}]
 
 while True:
-    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    output = call(show, max_tokens=16384, tools=tools, messages=messages).content
     messages.append({"role": "assistant", "content": output})
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -105,9 +118,9 @@ while True:
     messages.append({"role": "user", "content": input})
 \end{lstlisting}
 
-\subsection{Plus context: the finished harness (234 lines)}
+\subsection{Plus context: the finished harness (239 lines)}
 
-The system prompt (the text of \passthrough{\lstinline!system()!}) accounts for 148 of the 234 lines.
+The system prompt (the text of \passthrough{\lstinline!system()!}) accounts for 148 of the 239 lines.
 
 \begin{lstlisting}[language=Python]
 import subprocess, sys, os, re, glob, json, datetime
@@ -116,10 +129,17 @@ from anthropic import Anthropic, BadRequestError
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── context ─────────────────────────────────────────────────────────────────
 EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
@@ -320,7 +340,7 @@ while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        output = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
+        output = call(show, max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -329,9 +349,7 @@ while True:
     add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -518,19 +536,22 @@ done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEO
 if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
 \end{lstlisting}
 
-\textbf{C.2 Guardrails (+59 lines), in control flow, with the interrupt received through input.} A gate before each tool, asking through the input function of §5.2; limits before each call; and an interrupt. A key (ESC) is watched only while the model is called and while commands run; on it, a running command is stopped inside the sandbox with its partial output kept, commands not yet started are answered as never having run, and the model is told it was interrupted.
+\textbf{C.2 Guardrails (+62 lines), in control flow, with the interrupt received through input.} A gate before each tool, asking through the input function of §5.2; limits before each call; and an interrupt. A key (ESC) is watched only while the model is called and while commands run. On it, the response stream is abandoned at once, a running command is stopped inside the sandbox, commands not yet started are answered as never having run, and the model is told it was interrupted. What was interrupted is discarded; keeping it is resilience (C.4).
 
 \begin{lstlisting}[language=Python]
 MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", ...
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "f ...
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):
+def guard(cmd):                                          # guardrails: deny, allow, or ask a per ...
     if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|") ...
+    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.sp ...
     answer = read(f"allow `{cmd}`? [y/N] ")
-    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {ans ...
+    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else ...
+def unless_esc(event):                                   # guardrails: show the response, unless ...
+    if ESC.is_set(): return True
+    show(event)
 # ...
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
+    if steps >= MAX_STEPS or spent >= MAX_TOKENS:        # guardrails: a limit hands back to the ...
         print(f"[stopped: {steps} steps, {spent} tokens]")
         if not chat or (input := read("\n> ")) == "/q": break
         add(working_memory, {"role": "user", "content": input})
@@ -539,39 +560,44 @@ def guard(cmd):
 # ...
             if (no := guard(block.input["cmd"])):
                 print(f"[{no}]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is ...
                 continue
 \end{lstlisting}
 
 \begin{lstlisting}[language=Python]
-ESC = threading.Event()                                  # input: a person pressing ESC while quark works
+        for event in stream:
+            if each(event): return stream.current_message_snapshot   # guardrails: told to stop, ...
+        return stream.get_final_message()
+# ...
+ESC = threading.Event()                                  # input: a person pressing ESC while qu ...
 SAYING = "[other self interrupted what you were saying — acknowledge]"
 DOING = "[other self interrupted what you were doing — acknowledge]"
 def watch(stop):
     while not stop.is_set():
         if select.select([sys.stdin], [], [], 0.1)[0] and os.read(sys.stdin.fileno(), 1) == b"\x1b":
             if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
-            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)
-# ...  listening(): watch the keyboard only inside its with-block, and only on a terminal
-    if ESC.is_set():
-        for block in output:
-            if block.type == "text": print(block.text)
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, ...
-        ESC.clear()
+            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64) ...
+# ...
+    if response.stop_reason is None:                     # guardrails: ESC stopped it while it t ...
+        print()
+        add(working_memory, {"role": "user", "content": SAYING})
         continue
 # ...
-            with listening():
-                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), ...
-                while True:
-                    try: done = subprocess.CompletedProcess(doing.args, 0, ...
-                    except subprocess.TimeoutExpired:
-                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", ...
-            done.returncode = doing.returncode
-            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+            if ESC.is_set():                             # guardrails: after ESC, nothing else s ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your ...
+                continue
 # ...
-    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+            with listening():                            # guardrails: ESC stops the command
+                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TI ...
+                while True:
+                    try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(tim ...
+                    except subprocess.TimeoutExpired:
+                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kil ...
+            done.returncode = doing.returncode
+            if ESC.is_set(): done.stdout = "[your doing stopped before done]"
+# ...
+    if ESC.is_set():                                     # guardrails: ESC while it acted: stop ...
         add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
-        ESC.clear()
         continue
 \end{lstlisting}
 
@@ -587,64 +613,82 @@ trace(event="refused", cmd=block.input["cmd"], why=no)
 trace(event="interrupted", during="acting")
 \end{lstlisting}
 
-\textbf{C.4 Resilience (+29 lines), in the model interface and output.} SDK retries and a backup model; resumption from the episode that context already keeps; interrupted and truncated requests answered, not executed.
+\textbf{C.4 Resilience (+31 lines), in the model interface and output.} SDK retries and a backup model around the stream; resumption from the episode that context already keeps; the partial work of an interruption kept rather than lost, in whole blocks for a response and as printed output for a command; truncated requests answered, not executed.
 
 \begin{lstlisting}[language=Python]
 client = Anthropic(timeout=300, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 class Down(Exception): pass
-def call(**request):
-    for model in MODELS:
-        try: return client.messages.create(model=model, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams ...
+    for model in MODELS:                                 # resilience: retries, then a backup mo ...
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                for event in stream:
+                    if each(event): return stream.current_message_snapshot   # guardrails: told ...
+                return stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
 # ...
-def unfinished():
+def unfinished():                                        # resilience: the last session's episod ...
     episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
     if not episodes: return None
     messages = [json.loads(line) for line in open(episodes[-1])]
     last = messages[-1]
-    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]): return None
-    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() != "y":  ...
+    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]) ...
+    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() ...
     return episodes[-1], messages
 # ...
-if resumed:                                              # resilience: pick up where the episode ends
+if resumed:                                              # resilience: pick up where the episode ...
     EPISODE, working_memory = resumed
     if working_memory[-1]["role"] == "assistant":
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", ...
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": ...
 # ...
-            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):
+        kept = [b for b in output if (b.type != "text" or b.text) and (b.type != "thinking" or b ...
+        if kept: add(working_memory, {"role": "assistant", "content": kept})
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": ...
+# ...
+            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # re ...
                 print("[cut off, not run]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your ...
                 continue
+# ...
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"   # resilience: ...
 \end{lstlisting}
 
-\textbf{C.5 Performance (+19 lines net), in context, the model interface and output.} Streaming, which also lets the interrupt stop a response mid-sentence, and a small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response.
+\textbf{C.5 Performance (+16 lines net), in context, the model interface and output.} A small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response, each stopped by the same interrupt.
 
 \begin{lstlisting}[language=Python]
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
-class Down(Exception): pass
-def call(models=MODELS, live=False, **request):
-    for model in models:
-        try:
-            with client.messages.stream(model=model, **request) as stream:
-                shown = False
-                for event in stream:
-                    if ESC.is_set(): break
-                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta" ...
-                if shown: print()
-                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
 # ...
-def cached(working_memory):
+def call(each=lambda event: None, models=MODELS, **request):   # model interface: the response s ...
+    for model in models:                                 # resilience: retries, then a backup mo ...
+# ...
+def execute(cmd):                                        # performance: one command in the box, ...
+    start = time.time()
+    doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh" ...
+    while True:
+        try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0] ...
+        except subprocess.TimeoutExpired:
+            if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], c ...
+    done.returncode = doing.returncode
+    if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+    elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out o ...
+    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, ch ...
+    return trim(done.stdout) or f"(exit {done.returncode})"
+# ...
+def trim(text):                                          # performance: keep the start and end o ...
+    if len(text) <= MAX_RESULT: return text
+    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + t ...
+
+def cached(working_memory):                              # performance: cache everything up to t ...
     last = working_memory[-1]
-    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], ...
+    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) els ...
     blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
     return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
 # ...
-        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking"  ...
-    with listening(), ThreadPoolExecutor() as pool:
+    with listening(), ThreadPoolExecutor() as pool:      # performance: everything allowed runs ...
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 \end{lstlisting}
 

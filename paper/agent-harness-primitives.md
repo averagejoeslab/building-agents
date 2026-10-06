@@ -23,7 +23,7 @@ We separate an agent into two components. The **model** is treated as a fixed fu
 
 Each primitive is defined both positively, by what it does, and negatively, by what it never does, so that the five are mutually exclusive.
 
-The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 86 lines of Python and a 148-line system prompt, containing nothing outside the five.
+The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 91 lines of Python and a 148-line system prompt, containing nothing outside the five.
 
 Two results follow.
 
@@ -255,23 +255,23 @@ A taxonomy may be complete on paper yet incomplete in practice. The constructive
 
 The construction proceeds outward from the model, in a different order from §3: the model interface first, since nothing reaches the model without it, and thereafter the primitive whose absence limits the preceding step. The worked example is quark, the author's agent. Each step's `quark.py` is the preceding step's file plus one primitive. All four files appear in Appendix A, and the runs quoted below appear in Appendix B. The implementation is one instantiation of each primitive among many.
 
-### 5.1 Step 1: the model interface alone (9 lines)
+### 5.1 Step 1: the model interface alone (12 lines)
 
-The first harness consists of a single call. The model interface is one function, `call()`, which sends a request to the model and returns its response; every later step calls the model through it. The harness sends a fixed question, *"What's in this directory?"*, and prints the full response as `output`. Three fields of the response are relevant: `content` (the output tokens, as blocks), `stop_reason` (why generation stopped) and `usage` (input and output token counts).
+The first harness consists of a single call. The model interface is one function, `call()`, which sends a request to the model and receives its response as a stream, passing each fragment to a function supplied by the caller (here one that does nothing) and returning the complete response; every later step calls the model through it. The harness sends a fixed question, *"What's in this directory?"*, and prints the full response as `output`. Three fields of the response are relevant: `content` (the output tokens, as blocks), `stop_reason` (why generation stopped) and `usage` (input and output token counts).
 
 The model replies that it cannot see the directory and suggests running `ls`. It identifies the correct next action but cannot take it. Both ends of the path are stubs: the input is a fixed string, and the output is an unprocessed dump of the response.
 
-### 5.2 Step 2: input and output (33 lines)
+### 5.2 Step 2: input and output (38 lines)
 
 Input and output are constructed separately and then combined. The code names them generically, `input` and `output`, because input is whatever arrives, from a person or from the environment, and output is whatever the model produces; neither is assumed to be a task, a question or an answer.
 
 - **Input** gathers from a person: the words on the command line, or a line read at a prompt by a small `read()` function, which, as a terminal does, gives a fresh prompt when Enter is pressed on an empty line, and signals the end of input. The request also describes one tool, `bash`. Given *"how many lines are in README.md?"*, the model responds with a single `tool_use` block requesting `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, the request is not executed.
-- **Output** processes each block of the model's `output`: text is printed and a tool call is executed with `subprocess`.
+- **Output** processes the model's `output`: a small `show()` function, passed to `call()`, prints text as it streams in, and each tool call is executed with `subprocess`.
 - **Combined,** the two require one further element: the command's result, wrapped as a `tool_result`, which constitutes input from the environment. The code collects it in the same variable, `input`, since it is input from another source.
 
 The combined harness executes `wc -l` and prints `333 README.md`. The model never observes this result; it is held in `input` and not sent. The path terminates at output.
 
-### 5.3 Step 3: control flow (46 lines)
+### 5.3 Step 3: control flow (51 lines)
 
 The step-2 harness is placed inside a loop. After each call, the model's `output` is appended to a list of `messages`; if the model requested tools, the `input` they produced is appended after it, and the loop calls the model again. When the model stops requesting tools, the run ends or, in interactive mode, returns control to the person, whose next input is read at the prompt.
 
@@ -281,7 +281,7 @@ The system is now an agent: the model determines the next step. The same four co
 
 The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and `messages` grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 
-### 5.4 Step 4: context (234 lines: 86 of code and a 148-line system prompt)
+### 5.4 Step 4: context (239 lines: 91 of code and a 148-line system prompt)
 
 The final primitive adds the context section of the harness. The step-3 `messages` list is renamed `working_memory`, and every append becomes a call to `add()`. The section has eight components.
 
@@ -300,10 +300,10 @@ Six runs demonstrate the result (Appendix B.5). Asked what it is, the agent desc
 
 | Step | Adds | `quark.py` | Remaining deficiency |
 |---|---|---|---|
-| 1 | Model interface | 9 lines | Both ends are stubs; the model identifies `ls` as the next action and cannot execute it. |
-| 2 | Input and output | 33 lines | A tool executes, but its result never reaches the model. |
-| 3 | Control flow | 46 lines | The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. |
-| 4 | Context | 234 lines (86 of code) | None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. |
+| 1 | Model interface | 12 lines | Both ends are stubs; the model identifies `ls` as the next action and cannot execute it. |
+| 2 | Input and output | 38 lines | A tool executes, but its result never reaches the model. |
+| 3 | Control flow | 51 lines | The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. |
+| 4 | Context | 239 lines (91 of code) | None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. |
 
 At each step the remaining deficiency is the next primitive, and no step requires a component outside the five. Each step's file differs from the previous one only by the code of the primitive it adds, under a section heading named for that primitive; the four files appear in full in Appendix A.
 
@@ -322,10 +322,10 @@ The second part of the artifact tests this corollary one layer at a time, on the
 | Layer | Resides in | Rationale | Mechanism | Net lines |
 |----|----|------|------------|----|
 | Sandboxing | output | where a tool executes was always output's decision | commands executed via `docker exec` in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits | +10 |
-| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting, the partial work being kept and the model informed | +59 |
+| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting at once, the model being informed | +62 |
 | Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage`, exit codes, refusals and interruptions already present; appends one JSON record per event, each naming the episode of the same session | +14 |
-| Resilience | model interface, output | where the environment can fail | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; resumption from the episode that context already keeps, marking interrupted commands as *may or may not have run* | +29 |
-| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming, which also makes the interrupt immediate, and a fixed small model for summaries (model interface); concurrent tool execution (output) | +19 |
+| Resilience | model interface, output | where the environment can fail | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed or truncated ones; the partial work of an interrupted response or command kept rather than lost; resumption from the episode that context already keeps, marking interrupted commands as *may or may not have run* | +31 |
+| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) | +16 |
 | Evaluation | outside the harness | it treats the agent as a black box | an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run | +38 |
 
 Several entries require qualification.
@@ -431,7 +431,7 @@ Products are thus composed of primitives as well: each is marketed as a single c
 
 ## 8. Case study: the constructed agent at work
 
-The harness of §5, unmodified, was used for ten sessions of work on the companion artifact. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The memory stores began empty, and every session began with empty working memory, so whatever quark knew beyond its prompt came from the three stores of §5.4. Prompts were deliberately brief where the purpose was to require the use of memory. The supporting evidence appears in Appendix D; the transcripts and the final state of the stores are retained in the artifact. Over ten sessions, quark:
+The harness of §5 was used for ten sessions of work on the companion artifact. The sessions predate the addition of streaming: the version used (234 lines) differs from Appendix A.4 only in that text was printed once each response was complete, rather than as it arrived; its context, system prompt, tool and loop are otherwise identical. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The memory stores began empty, and every session began with empty working memory, so whatever quark knew beyond its prompt came from the three stores of §5.4. Prompts were deliberately brief where the purpose was to require the use of memory. The supporting evidence appears in Appendix D; the transcripts and the final state of the stores are retained in the artifact. Over ten sessions, quark:
 
 1. read the primitive lessons and recorded 32 facts in semantic memory;
 2. brought the slide deck of the first lesson into line with its text and code, and recorded the method, including a checking script, as a skill;
@@ -529,7 +529,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from sandboxing to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 91 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from sandboxing to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 
@@ -607,7 +607,7 @@ The thesis, the five primitives, their definitions and the method are the author
 
 The four files of §5 are reproduced in full. Each extends the previous file by one primitive, under a section heading named for it.
 
-### A.1 The model interface alone (9 lines)
+### A.1 The model interface alone (12 lines)
 
 ```python
 from anthropic import Anthropic
@@ -615,13 +615,16 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
 print(output.model_dump_json(indent=2))
 ```
 
-### A.2 Plus input and output (33 lines)
+### A.2 Plus input and output (38 lines)
 
 ```python
 import subprocess, sys
@@ -630,10 +633,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -646,12 +656,10 @@ def read(prompt):                                        # input: from a person
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
 
-output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
+output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
 
 input = []
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -659,7 +667,7 @@ for block in output:                                     # output: show text, ru
         input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 ```
 
-### A.3 Plus control flow (46 lines)
+### A.3 Plus control flow (51 lines)
 
 ```python
 import subprocess, sys
@@ -668,10 +676,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -689,13 +704,11 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": input}]
 
 while True:
-    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    output = call(show, max_tokens=16384, tools=tools, messages=messages).content
     messages.append({"role": "assistant", "content": output})
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -710,9 +723,9 @@ while True:
     messages.append({"role": "user", "content": input})
 ```
 
-### A.4 Plus context: the finished harness (234 lines)
+### A.4 Plus context: the finished harness (239 lines)
 
-The system prompt (the text of `system()`) accounts for 148 of the 234 lines.
+The system prompt (the text of `system()`) accounts for 148 of the 239 lines.
 
 ````python
 import subprocess, sys, os, re, glob, json, datetime
@@ -721,10 +734,17 @@ from anthropic import Anthropic, BadRequestError
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── context ─────────────────────────────────────────────────────────────────
 EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
@@ -925,7 +945,7 @@ while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        output = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
+        output = call(show, max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -934,9 +954,7 @@ while True:
     add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -1123,19 +1141,22 @@ done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEO
 if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
 ```
 
-**C.2 Guardrails (+59 lines), in control flow, with the interrupt received through input.** A gate before each tool, asking through the input function of §5.2; limits before each call; and an interrupt. A key (ESC) is watched only while the model is called and while commands run; on it, a running command is stopped inside the sandbox with its partial output kept, commands not yet started are answered as never having run, and the model is told it was interrupted.
+**C.2 Guardrails (+62 lines), in control flow, with the interrupt received through input.** A gate before each tool, asking through the input function of §5.2; limits before each call; and an interrupt. A key (ESC) is watched only while the model is called and while commands run. On it, the response stream is abandoned at once, a running command is stopped inside the sandbox, commands not yet started are answered as never having run, and the model is told it was interrupted. What was interrupted is discarded; keeping it is resilience (C.4).
 
 ```python
 MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", ...
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "f ...
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):
+def guard(cmd):                                          # guardrails: deny, allow, or ask a per ...
     if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|") ...
+    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.sp ...
     answer = read(f"allow `{cmd}`? [y/N] ")
-    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {ans ...
+    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else ...
+def unless_esc(event):                                   # guardrails: show the response, unless ...
+    if ESC.is_set(): return True
+    show(event)
 # ...
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
+    if steps >= MAX_STEPS or spent >= MAX_TOKENS:        # guardrails: a limit hands back to the ...
         print(f"[stopped: {steps} steps, {spent} tokens]")
         if not chat or (input := read("\n> ")) == "/q": break
         add(working_memory, {"role": "user", "content": input})
@@ -1144,39 +1165,44 @@ def guard(cmd):
 # ...
             if (no := guard(block.input["cmd"])):
                 print(f"[{no}]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is ...
                 continue
 ```
 
 ```python
-ESC = threading.Event()                                  # input: a person pressing ESC while quark works
+        for event in stream:
+            if each(event): return stream.current_message_snapshot   # guardrails: told to stop, ...
+        return stream.get_final_message()
+# ...
+ESC = threading.Event()                                  # input: a person pressing ESC while qu ...
 SAYING = "[other self interrupted what you were saying — acknowledge]"
 DOING = "[other self interrupted what you were doing — acknowledge]"
 def watch(stop):
     while not stop.is_set():
         if select.select([sys.stdin], [], [], 0.1)[0] and os.read(sys.stdin.fileno(), 1) == b"\x1b":
             if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
-            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)
-# ...  listening(): watch the keyboard only inside its with-block, and only on a terminal
-    if ESC.is_set():
-        for block in output:
-            if block.type == "text": print(block.text)
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, ...
-        ESC.clear()
+            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64) ...
+# ...
+    if response.stop_reason is None:                     # guardrails: ESC stopped it while it t ...
+        print()
+        add(working_memory, {"role": "user", "content": SAYING})
         continue
 # ...
-            with listening():
-                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), ...
-                while True:
-                    try: done = subprocess.CompletedProcess(doing.args, 0, ...
-                    except subprocess.TimeoutExpired:
-                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", ...
-            done.returncode = doing.returncode
-            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+            if ESC.is_set():                             # guardrails: after ESC, nothing else s ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your ...
+                continue
 # ...
-    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+            with listening():                            # guardrails: ESC stops the command
+                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TI ...
+                while True:
+                    try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(tim ...
+                    except subprocess.TimeoutExpired:
+                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kil ...
+            done.returncode = doing.returncode
+            if ESC.is_set(): done.stdout = "[your doing stopped before done]"
+# ...
+    if ESC.is_set():                                     # guardrails: ESC while it acted: stop ...
         add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
-        ESC.clear()
         continue
 ```
 
@@ -1192,64 +1218,82 @@ trace(event="refused", cmd=block.input["cmd"], why=no)
 trace(event="interrupted", during="acting")
 ```
 
-**C.4 Resilience (+29 lines), in the model interface and output.** SDK retries and a backup model; resumption from the episode that context already keeps; interrupted and truncated requests answered, not executed.
+**C.4 Resilience (+31 lines), in the model interface and output.** SDK retries and a backup model around the stream; resumption from the episode that context already keeps; the partial work of an interruption kept rather than lost, in whole blocks for a response and as printed output for a command; truncated requests answered, not executed.
 
 ```python
 client = Anthropic(timeout=300, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 class Down(Exception): pass
-def call(**request):
-    for model in MODELS:
-        try: return client.messages.create(model=model, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams ...
+    for model in MODELS:                                 # resilience: retries, then a backup mo ...
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                for event in stream:
+                    if each(event): return stream.current_message_snapshot   # guardrails: told ...
+                return stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
 # ...
-def unfinished():
+def unfinished():                                        # resilience: the last session's episod ...
     episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
     if not episodes: return None
     messages = [json.loads(line) for line in open(episodes[-1])]
     last = messages[-1]
-    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]): return None
-    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() != "y":  ...
+    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]) ...
+    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() ...
     return episodes[-1], messages
 # ...
-if resumed:                                              # resilience: pick up where the episode ends
+if resumed:                                              # resilience: pick up where the episode ...
     EPISODE, working_memory = resumed
     if working_memory[-1]["role"] == "assistant":
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", ...
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": ...
 # ...
-            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):
+        kept = [b for b in output if (b.type != "text" or b.text) and (b.type != "thinking" or b ...
+        if kept: add(working_memory, {"role": "assistant", "content": kept})
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": ...
+# ...
+            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # re ...
                 print("[cut off, not run]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, ...
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your ...
                 continue
+# ...
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"   # resilience: ...
 ```
 
-**C.5 Performance (+19 lines net), in context, the model interface and output.** Streaming, which also lets the interrupt stop a response mid-sentence, and a small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response.
+**C.5 Performance (+16 lines net), in context, the model interface and output.** A small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response, each stopped by the same interrupt.
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
-class Down(Exception): pass
-def call(models=MODELS, live=False, **request):
-    for model in models:
-        try:
-            with client.messages.stream(model=model, **request) as stream:
-                shown = False
-                for event in stream:
-                    if ESC.is_set(): break
-                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta" ...
-                if shown: print()
-                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
 # ...
-def cached(working_memory):
+def call(each=lambda event: None, models=MODELS, **request):   # model interface: the response s ...
+    for model in models:                                 # resilience: retries, then a backup mo ...
+# ...
+def execute(cmd):                                        # performance: one command in the box, ...
+    start = time.time()
+    doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh" ...
+    while True:
+        try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0] ...
+        except subprocess.TimeoutExpired:
+            if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], c ...
+    done.returncode = doing.returncode
+    if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+    elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out o ...
+    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, ch ...
+    return trim(done.stdout) or f"(exit {done.returncode})"
+# ...
+def trim(text):                                          # performance: keep the start and end o ...
+    if len(text) <= MAX_RESULT: return text
+    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + t ...
+
+def cached(working_memory):                              # performance: cache everything up to t ...
     last = working_memory[-1]
-    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], ...
+    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) els ...
     blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
     return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
 # ...
-        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking"  ...
-    with listening(), ThreadPoolExecutor() as pool:
+    with listening(), ThreadPoolExecutor() as pool:      # performance: everything allowed runs ...
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 ```
 

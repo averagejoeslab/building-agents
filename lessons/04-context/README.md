@@ -29,7 +29,7 @@ You don't need all of them. You need the ones your agent needs, built in whateve
 
 ## The worked example
 
-Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 234 lines: 86 of code, and a system prompt of 148 lines. The prompt is shortened to `...` here and shown in full after the code:
+Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 239 lines: 91 of code, and a system prompt of 148 lines. The prompt is shortened to `...` here and shown in full after the code:
 
 ```python
 import subprocess, sys, os, re, glob, json, datetime
@@ -38,10 +38,17 @@ from anthropic import Anthropic, BadRequestError
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── context ─────────────────────────────────────────────────────────────────
 EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
@@ -95,7 +102,7 @@ while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        output = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
+        output = call(show, max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -104,9 +111,7 @@ while True:
     add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -321,7 +326,7 @@ This code is your harness — shown so you know your self mechanics. The system 
 
 </details>
 
-> quark's own version also lets you interrupt it with ESC, and retries the summary if the network fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and the retries in [Lesson 8: Resilience](../../production/08-resilience/).
+> quark's own version does more than this. You can interrupt it with ESC, it keeps what it had done when you do, and it retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and keeping partial work, the retries and the backup model in [Lesson 8: Resilience](../../production/08-resilience/). Streaming isn't left out: quark has streamed its answers since Lesson 1.
 
 ## Run it
 
@@ -641,7 +646,7 @@ Notice what context never does. Getting the request to the model and the respons
 
 ## You've built a harness
 
-Control flow, input, context, model interface, output. Five primitives in 234 lines, 86 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Now you know what the choices are.
+Control flow, input, context, model interface, output. Five primitives in 239 lines, 91 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Now you know what the choices are.
 
 So go the other way. Pick a harness you haven't read. [nanoagent](https://github.com/averagejoeslab/nanoagent) is a good first one: another small agent, written in TypeScript. Or pick a big one. Read it and sort what you find under the five primitives:
 

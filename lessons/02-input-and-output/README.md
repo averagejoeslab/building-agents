@@ -29,7 +29,10 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -49,7 +52,7 @@ output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content
 print(output.model_dump_json(indent=2))
 ```
 
-The model interface section is Lesson 1's, unchanged. Two sections are new.
+The model interface section is Lesson 1's, unchanged: the response still streams, and nothing is done with the pieces yet. Two sections are new.
 
 **`# ── input ──`** gathers what goes to the model. `input` is whatever comes in: here, the words on the command line, or a line typed at the `> ` prompt. It isn't assumed to be a task or a question; it's just input, and it goes into the request as the `user` message. `read()` is the afferent pathway from a person: it prints a prompt and reads a line. Press Enter on an empty line and it gives you a fresh `> ` on the next line, as a terminal does, so you can make space as often as you like; nothing is sent. When the input ends (Ctrl-D) it returns `/q`, so the harness can stop.
 
@@ -65,11 +68,11 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfmJRoD3spJBCcwLHusuX",
+  "id": "msg_011CfmciMBCLmSLo5sPPnQDJ",
   "container": null,
   "content": [
     {
-      "id": "toolu_01MZ8CLRS3qnG1TjJz5AoCX1",
+      "id": "toolu_01HvC7GjvCdrykj9h3xuPkh7",
       "caller": {
         "type": "direct"
       },
@@ -120,16 +123,21 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
-output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content": "What's in this directory?"}]).content
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "content": "What's in this directory?"}]).content
+
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -138,7 +146,9 @@ for block in output:                                     # output: show text, ru
 
 **`tools`** is what output can do. Each tool has a name, a description the model reads to decide when to use it, and a schema for its arguments. The descriptions travel in the request, `tools=tools`, so the model knows what it can ask for. With `bash`, anything you can do from a command line, the model can ask for, which is why the setup warns you to run it somewhere you can afford to lose.
 
-**`output`** is now the content of the response, `call(...).content`: a list of blocks. **`for block in output`** handles each one where it belongs. A `text` block is printed for the person, and a `tool_use` block is a request to run something. Thinking blocks go nowhere. `max_tokens` is 16384 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
+**`show()`** is output that shows text as it's written. Lesson 1's `call()` hands each piece of the streaming response to `each()`; here `call(show, ...)` makes that `show`. Each piece of text is printed the moment it arrives, so you watch the words appear instead of waiting for the whole response, and when a text block ends, `show()` ends the line. Every other piece, like thinking or a tool request being written, it lets pass.
+
+**`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` is 16384 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
 
 **`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. The command and what it printed go to the person, so they can see what ran.
 
@@ -152,24 +162,30 @@ Here's one run:
 
 ```
 $ ls -la
-total 156
-drwxr-xr-x 9 root root  4096 Oct  6 16:29 .
-drwxr-xr-x 5 root root  4096 Oct  5 14:47 ..
--rw-r--r-- 1 root root   104 Oct  5 22:09 .env.example
-drwxr-xr-x 8 root root  4096 Oct  6 16:29 .git
--rw-r--r-- 1 root root   113 Oct  6 03:58 .gitignore
-drwxr-xr-x 4 root root  4096 Oct  5 19:52 .venv
--rw-r--r-- 1 root root   835 Oct  6 05:44 CITATION.cff
--rw-r--r-- 1 root root  1086 Oct  6 03:32 LICENSE
--rw-r--r-- 1 root root 20045 Oct  6 03:32 LICENSE-CONTENT
--rw-r--r-- 1 root root 30846 Oct  6 05:44 README.md
-drwxr-xr-x 2 root root  4096 Oct  5 19:53 assets
-drwxr-xr-x 3 root root  4096 Oct  5 23:03 docs
-drwxr-xr-x 6 root root  4096 Oct  5 19:49 lessons
-drwxr-xr-x 4 root root  4096 Oct  6 05:54 paper
-drwxr-xr-x 8 root root  4096 Oct  5 22:51 production
--rw-r--r-- 1 root root   246 Oct  6 03:33 pyproject.toml
--rw-r--r-- 1 root root 48687 Oct  5 19:52 uv.lock
+total 196
+drwxr-xr-x 11 root root  4096 Oct  6 20:29 .
+drwxr-xr-x  5 root root  4096 Oct  5 14:47 ..
+-rw-r--r--  1 root root   125 Oct  6 20:27 .env
+-rw-r--r--  1 root root   104 Oct  5 22:09 .env.example
+drwxr-xr-x  8 root root  4096 Oct  6 20:29 .git
+-rw-r--r--  1 root root   113 Oct  6 03:58 .gitignore
+drwxr-xr-x  3 root root  4096 Oct  6 20:29 .quark
+drwxr-xr-x  4 root root  4096 Oct  5 19:52 .venv
+-rw-r--r--  1 root root 21995 Oct  6 19:22 AGENTS.md
+-rw-r--r--  1 root root   835 Oct  6 05:44 CITATION.cff
+-rw-r--r--  1 root root   316 Oct  6 16:54 CLAUDE.md
+-rw-r--r--  1 root root  1086 Oct  6 03:32 LICENSE
+-rw-r--r--  1 root root 20045 Oct  6 03:32 LICENSE-CONTENT
+-rw-r--r--  1 root root 27871 Oct  6 19:22 README.md
+drwxr-xr-x  2 root root  4096 Oct  5 19:53 assets
+drwxr-xr-x  3 root root  4096 Oct  5 23:03 docs
+-rw-r--r--  1 root root   114 Oct  6 18:26 ithout these, marp waits on stdin and hangs#
+drwxr-xr-x  6 root root  4096 Oct  5 19:49 lessons
+drwxr-xr-x  4 root root  4096 Oct  6 19:23 paper
+drwxr-xr-x  8 root root  4096 Oct  6 18:00 production
+-rw-r--r--  1 root root   246 Oct  6 03:33 pyproject.toml
+drwxr-xr-x  2 root root  4096 Oct  6 18:34 tools
+-rw-r--r--  1 root root 48687 Oct  5 19:52 uv.lock
 ```
 
 The model asked for `ls -la`, and output ran it. The listing went to the screen, and nowhere else.
@@ -185,10 +201,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -201,12 +224,10 @@ def read(prompt):                                        # input: from a person
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
 
-output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
+output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
 
 input = []
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -228,12 +249,12 @@ Here's one run:
 
 ```
 $ wc -l README.md
-333 README.md
+301 README.md
 ```
 
 It's the same input as `input.py`, and the model asked for the same `wc -l README.md`. This time output ran it. The model didn't say anything before asking; sometimes it does. Run it with no input on the command line and it prompts you with `> ` instead.
 
-Notice what never happens: the model never sees the 333. It's sitting in `input`, and nothing sends it.
+Notice what never happens: the model never sees the 301. It's sitting in `input`, and nothing sends it.
 
 ## Going further
 
@@ -247,7 +268,7 @@ Input:
 
 Output:
 - **Where it goes.** A terminal, a file, a chat message, a pull request.
-- **How it reaches a person.** All at once, or as it's produced.
+- **How it reaches a person.** All at once, or as it's produced, the way `show()` does it.
 - **Which tools exist.** One general tool, or many specific ones, each request routed by name.
 - **Where tools run.** This machine, a container, a remote machine, or a tool the provider hosts.
 - **How tool requests run.** One after another, or all at the same time.

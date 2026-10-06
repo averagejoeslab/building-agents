@@ -57,7 +57,7 @@ The example throughout is [quark](https://github.com/averagejoeslab/quark), my o
 
 | # | Lesson | You build | Slides | Video |
 |---|---|---|---|---|
-| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | [slides](./lessons/01-model-interface/slides.pdf) · [md](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
+| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply as it streams back | [slides](./lessons/01-model-interface/slides.pdf) · [md](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
 | 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | [slides](./lessons/02-input-and-output/slides.pdf) · [md](./lessons/02-input-and-output/slides.md) | 🎥 coming soon |
 | 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | [slides](./lessons/03-control-flow/slides.pdf) · [md](./lessons/03-control-flow/slides.md) | 🎥 coming soon |
 | 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | [slides](./lessons/04-context/slides.pdf) · [md](./lessons/04-context/slides.md) | 🎥 coming soon |
@@ -75,10 +75,10 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
 | 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
-| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to interrupt | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to stop it thinking, saying or acting | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
 | 7 | [Observability](./production/07-observability/) | a trace of every step, its time, tokens and outcome, for the person running it | control flow | [slides](./production/07-observability/slides.pdf) · [md](./production/07-observability/slides.md) | 🎥 coming soon |
-| 8 | [Resilience](./production/08-resilience/) | retries, a backup model, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
-| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, smaller requests, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, a backup model, keeping what an interrupt cut short, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
 ## Setup
@@ -116,7 +116,7 @@ It's a preprint. [`paper/README.md`](./paper/README.md) lists the paper's files.
 
 ## quark at work
 
-This is the proof. It's the `quark.py` you finish Lesson 4 with, 234 lines and nothing added, doing real work on this repo. In ten sessions, it:
+This is the proof. It's the `quark.py` you finish Lesson 4 with, nothing added, doing real work on this repo. These runs came just before quark started streaming, so their `quark.py` is 234 lines and prints each response once it's complete. Everything else is the same as today's 239 lines. In ten sessions, it:
 - brought the four primitive lessons' slide decks into line with the lessons;
 - turned all ten decks into PDFs;
 - reviewed the paper;
