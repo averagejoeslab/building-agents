@@ -182,7 +182,7 @@ Anthropic's [Building effective agents](https://www.anthropic.com/engineering/bu
 - **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
 - **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
 
-Two things in the article aren't control flow in this course. Its building block, the *augmented LLM*, is a model with retrieval, tools and memory: retrieval and memory are context, and tools are output. And routing sends a task down a different path, which can include a cheaper model; that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down.
+Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down and belongs to the model interface.
 
 `quark.py` and `control_flow.py` are both agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
 

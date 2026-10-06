@@ -150,10 +150,10 @@ The decks it wrote:
 
 | Lesson | Slides |
 |---|---|
-| [Model interface](./lessons/01-model-interface/slides.md) | 30 |
-| [Input and output](./lessons/02-input-and-output/slides.md) | 43 |
-| [Control flow](./lessons/03-control-flow/slides.md) | 50 |
-| [Context](./lessons/04-context/slides.md) | 62 |
+| [Model interface](./lessons/01-model-interface/slides.md) | 28 |
+| [Input and output](./lessons/02-input-and-output/slides.md) | 41 |
+| [Control flow](./lessons/03-control-flow/slides.md) | 48 |
+| [Context](./lessons/04-context/slides.md) | 60 |
 
 We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. A later read of every slide found nothing invented in these four decks, but 22 slides were tightened by hand: shortened code now says it's shortened, a few lines that put something under the wrong primitive were corrected, and wording that simplified the code too far was fixed. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
 
@@ -196,7 +196,7 @@ It didn't go smoothly, and the failures were the course's own lessons:
 - **Lesson 5 stopped twice without writing anything.** A trace of each response showed why: with thinking on, 4,096 output tokens wasn't enough to think and then write a file. One response hit `max_tokens` partway through a tool request, and the harness crashed with `KeyError: 'cmd'`, the gap Lesson 2 describes. We raised `max_tokens` to 16,384 across the course, and it went through.
 - **Lesson 8 killed itself.** To test crash recovery, quark ran `pkill -9 -f 08-resilience/quark.py` to kill its test agent. Its own command line contained that path, so it killed quark too. Its Docker container outlived it, the leftover Lesson 7 had warned about. We added "stop processes by PID, never by name" to the prompt and ran Lesson 8 again; it picked up the `quark.py` it had already written and finished the lesson.
 
-We reviewed every lesson against the course's method before it was committed: each `quark.py` is the previous one plus exactly one layer, each lesson stays on the primitives it names, and every output is from a real run. Two things were changed by hand: Lesson 6 now says what was typed at an interrupt prompt, and Lesson 9's fuller example calls per-task model routing control flow, as Lesson 3 does.
+We reviewed every lesson against the course's method before it was committed: each `quark.py` is the previous one plus exactly one layer, each lesson stays on the primitives it names, and every output is from a real run. Two things were changed by hand then: Lesson 6 now says what was typed at an interrupt prompt, and Lesson 9's fuller example calls per-task model routing control flow, as Lesson 3 does. A later line-by-line read, re-running every lesson's code and checking its claims against the API documentation, changed a few more: Lesson 9's framing of which model a request goes to and of printing a streamed reply, its minimum cacheable prompt size, and Lesson 8's statement of the SDK's default retries. Every lesson's demos reproduced.
 
 **Run 4: a new session makes their slides from memory.**
 
