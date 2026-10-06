@@ -354,34 +354,62 @@ As a product alone: **Open Policy Agent**, **NeMo Guardrails**, **Guardrails AI*
 
 Built on Lesson 3's `control_flow.py`, with no system prompt:
 
+- **Jev decides what only reads,** in place of a hand-written list
 - **Judged per piece:** `cd /tmp && rm x` is judged by `cd` *and* `rm`
 - **Always:** `a` at the prompt adds those programs to `ALLOWED` for the rest of the run
 - **A spending limit** in dollars, from each response's `usage`
 - **A repeat limit:** the same command `MAX_REPEATS` times stops the run
 
-<!-- Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. -->
+<!-- Jev is the decision model from Lesson 5: it writes no text, it answers typed questions. Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. -->
+
+---
+
+# Asking Jev: read, write, delete or other?
+
+`DENIED` wins first; then (abridged):
+
+```python
+def kind(cmd):
+    try:
+        answer = jev.system_one({"command": cmd}, KIND).answers["kind"]
+        return answer.choice, answer.confidence
+    except Exception as e:
+        return f"no answer ({type(e).__name__})", 0.0
+```
+
+```python
+    choice, confidence = kind(cmd)
+    if choice == "read" and confidence >= SURE:
+        print(f"[Jev: read, {confidence:.2f}]")
+        return "allow", ""
+```
+
+- Anything else, or no answer, asks the person, with Jev's answer as the reason
+
+<!-- SURE is 0.9. Asking Jev is a model-interface act, a second model; running or asking is control flow. It answers "what does this do?", not "is this safe?": cat ~/.aws/credentials came back read at 1.00, which is why DENIED runs first. If Jev is silent (no key, a timeout), the person is asked: it never runs because Jev was silent. -->
 
 ---
 
 # Two questions covered five commands
 
-I answered `a` to `mkdir` and to the first `touch`:
+I answered `a` to `mkdir` and to the first `touch` (shortened):
 
 ```
 $ mkdir /tmp/gdemo
-allow `mkdir /tmp/gdemo`? (mkdir isn't on the allowed list) [y]es, [a]lways, or say why not: 
+allow `mkdir /tmp/gdemo`? (Jev: write, 0.99) [y]es, [a]lways, or say why not: 
 $ cat .env
 [blocked by policy: secrets files are off limits]
 $ touch /tmp/gdemo/a.txt
-allow `touch /tmp/gdemo/a.txt`? (touch isn't on the allowed list) [y]es, [a]lways, or say why not: 
+allow `touch /tmp/gdemo/a.txt`? (Jev: write, 1.00) [y]es, [a]lways, or say why not: 
 $ touch /tmp/gdemo/b.txt
 
 $ ls /tmp/gdemo
+[Jev: read, 1.00]
 a.txt
 b.txt
 ```
 
-<!-- cat .env was denied without asking. The second touch didn't ask, because touch was by then allowed. ls was already on the list. -->
+<!-- cat .env was denied without asking Jev at all. The second touch didn't ask, because touch was by then allowed. Jev called ls a read at 1.00, so it just ran. -->
 
 ---
 
