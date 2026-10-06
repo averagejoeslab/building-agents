@@ -4,7 +4,11 @@
 
 Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-> **The paper:** [*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md) ([PDF](./paper/latex/main.pdf)) sets out this course's thesis: every agent harness reduces to five primitives, and every production concern folds back into them. It tests the claim by taking apart Claude Code, OpenAI Codex and opencode; the evidence is in [the supplement](./paper/decomposition-study.md).
+This repo has three parts, in the order to read them:
+
+1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four primitives, then six production layers. Start here.
+2. **[The paper](#the-paper).** The course's thesis, written up and tested against Claude Code, OpenAI Codex and opencode.
+3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4, 48 lines long, doing real work on this repo: it wrote the production lessons and every slide deck.
 
 ## What is harness engineering?
 
@@ -73,9 +77,42 @@ A harness that works isn't yet a harness you'd run unattended. The production la
 | 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | [slides](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
+## Setup
+
+Everything you need to run the lessons.
+
+macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
+
+Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
+
+```bash
+cp .env.example .env        # then add your key to .env
+export UV_ENV_FILE=.env
+```
+
+> [!WARNING]
+> From Lesson 2 on, the agent runs shell commands the model writes, with no confirmation. Run it somewhere you can afford to lose.
+
+**→ [Start with Lesson 1](./lessons/01-model-interface/)**
+
+## The paper
+
+**[*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md)** · [PDF](./paper/latex/main.pdf) · [supplement](./paper/decomposition-study.md)
+
+The paper is the course's thesis, written up for people who want the argument rather than the lessons:
+
+- **The claim:** an agent is a model wrapped in a harness, and every harness is made of five primitives. It builds the case the way Lessons 1–4 do: one primitive at a time, from a single API call to a working agent.
+- **Production:** every production concern folds back into those five primitives instead of adding a sixth, as Lessons 5–10 show one layer at a time.
+- **Beyond the course:**
+  - **A test on real harnesses.** It takes apart three production coding agents, Claude Code, OpenAI Codex and opencode, part by part. Nothing in them needs a sixth primitive. The [supplement](./paper/decomposition-study.md) has the evidence for every assignment, with file and line or doc link.
+  - **Rules for the hard cases,** such as where a tool call's effect lands, backup models versus routing, and who a file is for.
+  - **The case study** that the next section shows in full.
+
+It's a preprint draft. [`paper/README.md`](./paper/README.md) explains how to build the PDF and what's left before submission.
+
 ## quark at work
 
-Lesson 4's `quark.py` is 48 lines. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
+This is the proof. Lesson 4's `quark.py` is 48 lines: the five primitives and nothing else. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
 
 **Run 1: read the repo and remember it.**
 
@@ -254,9 +291,11 @@ We checked the four details it flagged and every code line on the slides against
 
 Everything quark printed is in [`docs/quark-at-work/`](./docs/quark-at-work/), including the failed attempts: [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), run 3 for lessons [5](./docs/quark-at-work/run-3-lesson-05.txt), [6](./docs/quark-at-work/run-3-lesson-06.txt), [7](./docs/quark-at-work/run-3-lesson-07.txt), [8](./docs/quark-at-work/run-3-lesson-08.txt), [9](./docs/quark-at-work/run-3-lesson-09.txt) and [10](./docs/quark-at-work/run-3-lesson-10.txt), the [two](./docs/quark-at-work/run-3-lesson-05-attempt-1-silent-stop.txt) [silent stops](./docs/quark-at-work/run-3-lesson-05-attempt-2-silent-stop.txt) and the [traced crash](./docs/quark-at-work/run-3-lesson-05-attempt-3-traced-crash.txt), the [run that killed itself](./docs/quark-at-work/run-3-lesson-08-attempt-1-killed-itself.txt) and the [Lesson 9 session we stopped](./docs/quark-at-work/run-3-lesson-09-attempt-1-stopped.txt) because it was building on it, [run 4](./docs/quark-at-work/run-4-make-production-slides.txt), and the [memory file](./docs/quark-at-work/memory.md) as it stands after all four runs.
 
-## How Claude Code and quark worked together
+The paper's case study (§8) reads these failures through the primitives: each one lands on a specific primitive or layer.
 
-Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the writing: the slides for all ten lessons and the six production lessons.
+### How Claude Code and quark worked together
+
+Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the writing: the slides for all ten lessons and the six production lessons. Later it ran the paper's decomposition study under my direction and helped draft the paper.
 
 What Claude Code did, run by run:
 
@@ -268,22 +307,6 @@ What Claude Code did, run by run:
 - **Checked the slides.** It rendered the decks with Marp, checked every number and code line against the lessons, and looked at the slides as images.
 
 quark never saw Claude Code. From its side, someone gave it a task in a terminal, the same as anyone running it would.
-
-## Setup
-
-macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
-
-Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
-
-```bash
-cp .env.example .env        # then add your key to .env
-export UV_ENV_FILE=.env
-```
-
-> [!WARNING]
-> From Lesson 2 on, the agent runs shell commands the model writes, with no confirmation. Run it somewhere you can afford to lose.
-
-**→ [Start with Lesson 1](./lessons/01-model-interface/)**
 
 ## How to cite
 
