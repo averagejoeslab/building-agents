@@ -16,7 +16,7 @@ This is a production layer, so it adds hardening, not a new primitive. It's **bu
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 9's `quark.py` plus evaluation, and nothing else, 410 lines, 38 more than Lesson 9's: `tempfile` and `shutil` in the imports, and one new section, placed before `# ── input ──` so that `--eval` is caught before anything is read:
+[`quark.py`](./quark.py) is Lesson 9's `quark.py` plus evaluation, and nothing else, 411 lines, 38 more than Lesson 9's: `tempfile` and `shutil` in the imports, and one new section, placed before `# ── input ──` so that `--eval` is caught before anything is read:
 
 ```python
 CASES = [
@@ -74,10 +74,10 @@ You need Docker running, as in Lesson 5. Start in a scratch folder, not in this 
 **A baseline.** This is the number everything is compared with:
 
 ```
-pass  count      2 steps    7.0s    21245 tokens
-pass  fix        3 steps    7.1s    32043 tokens
-pass  rename     2 steps    4.6s    21327 tokens
-pass  remember   2 steps    4.6s    21319 tokens
+pass  count      2 steps    7.2s    21342 tokens
+pass  fix        3 steps    6.6s    32208 tokens
+pass  rename     2 steps    5.8s    21385 tokens
+pass  remember   2 steps    4.7s    21422 tokens
 4/4 passed
 exit 0
 ```
@@ -87,10 +87,10 @@ The last line is the exit status. Four cases, four passes, and what each one cos
 **A change that breaks something.** Suppose someone wants to cap what a run can spend, and lowers `MAX_STEPS` from 20 to 1. Nothing about the change looks dangerous, and running quark on a simple task by hand, it still works. I made the change in a copy of the file, `sed 's/^MAX_STEPS, MAX_TOKENS = 20, /MAX_STEPS, MAX_TOKENS = 1, /'`, and ran the same cases in the same folder:
 
 ```
-pass  count      1 steps    3.6s    10601 tokens
-FAIL  fix        1 steps    3.6s    10574 tokens  kept /tmp/eval-fix-99pbfc0x  REGRESSED: it passed last time
-pass  rename     1 steps    3.7s    10604 tokens
-pass  remember   1 steps    3.8s    10648 tokens
+pass  count      1 steps    3.4s    10654 tokens
+FAIL  fix        1 steps    4.6s    10623 tokens  kept /tmp/eval-fix-effj187m  REGRESSED: it passed last time
+pass  rename     1 steps    3.5s    10654 tokens
+pass  remember   1 steps    4.1s    10700 tokens
 3/4 passed
 exit 1
 ```
@@ -100,17 +100,17 @@ Three of the four still pass: counting lines, renaming files and writing a note 
 The failed case kept its folder. To see why it failed:
 
 ```
-$ ls -a /tmp/eval-fix-99pbfc0x
+$ ls -a /tmp/eval-fix-effj187m
 .
 ..
 .quark
 __pycache__
 calc.py
 test.py
-$ cat /tmp/eval-fix-99pbfc0x/calc.py
+$ cat /tmp/eval-fix-effj187m/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-99pbfc0x/.quark/traces.jsonl
+$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-effj187m/.quark/traces.jsonl
 {"event":"start"}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool","cmd":"cat calc.py test.py"}

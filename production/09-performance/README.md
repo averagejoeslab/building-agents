@@ -30,7 +30,7 @@ Nothing here makes the model smarter or the answer better. It makes the same wor
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else: 372 lines, 16 more than Lesson 8's. In `# ── model interface ──`, `call()` takes a list of models, which is Lesson 8's list unless you say otherwise:
+[`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else: 373 lines, 17 more than Lesson 8's. In `# ── model interface ──`, `call()` takes a list of models, which is Lesson 8's list unless you say otherwise:
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
@@ -74,7 +74,7 @@ One line of the system prompt changes too. Lesson 4 asked for one command per re
 Prefer focused actions to keep results small. Commands that don't depend on each other can go in the same response: they run at the same time.
 ```
 
-In `# ── output ──`, running one command becomes a function, so several can run at once. It's Lesson 8's way of running a command, moved: in the box, with a time limit, stopped by ESC with what it had printed kept, and now trimmed:
+In `# ── output ──`, running one command becomes a function, so several can run at once. It's Lesson 8's way of running a command, moved: in the box, with a time limit, stopped by ESC with what it had printed kept, and now trimmed. Its first line keeps Lesson 8's promise that after ESC nothing else starts. The pool has a fixed number of threads, so when the model asks for more commands than that, the extra ones wait for a free thread, and if ESC came while they waited, they never run:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
@@ -82,6 +82,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 ```python
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
+    if ESC.is_set(): return "[your doing never reached the world]"   # guardrails: after ESC, nothing else starts
     start = time.time()
     doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
     while True:
@@ -117,11 +118,11 @@ And in the loop, the tool requests are handled in two passes. The first decides 
     for block in output:
         if block.type == "tool_use":
             text = refused.get(block.id) or outputs[block.id]
-            print(f"[{text}]" if block.id in refused else text)
+            print(text if block.id in outputs or text.startswith("[") else f"[{text}]")
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused and not text.startswith("[your doing") else {})})  # input: from the world
 ```
 
-Lesson 8 had one more case in that loop: after ESC, a command that hadn't started yet got `[your doing never reached the world]`. Here there's no "yet": everything allowed starts together, so ESC finds them all running, and each one gets what it had printed and `[your doing stopped before done]`.
+Lesson 8's loop gave a command that hadn't started yet `[your doing never reached the world]` after ESC. That check now lives in `execute()`. Usually everything allowed starts together, so ESC finds them all running, and each one gets what it had printed and `[your doing stopped before done]`; only a command still waiting for a thread gets the other result.
 
 Everything else is unchanged. The guard still decides before anything runs, the box still holds every command, the trace still records each call and command, and resilience's backup model, resume and kept partials work through the same `call()` and episode.
 
@@ -171,19 +172,19 @@ types ok
 
 tests ok
 
-Lint, types and tests all passed.
-[wall: 8.1s]
+Lint, types, and tests all passed.
+[wall: 8.0s]
 ```
 
 ```
-{"event":"model","seconds":1.96,"input_tokens":4,"cache_read":0,"cache_write":9209}
-{"event":"tool","seconds":3.18,"cmd":"sleep 3; echo tests ok"}
-{"event":"tool","seconds":3.19,"cmd":"sleep 3; echo types ok"}
-{"event":"tool","seconds":3.24,"cmd":"sleep 3; echo lint ok"}
-{"event":"model","seconds":1.08,"input_tokens":2,"cache_read":9209,"cache_write":264}
+{"event":"model","seconds":1.84,"input_tokens":4,"cache_read":0,"cache_write":9262}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo tests ok"}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo lint ok"}
+{"event":"model","seconds":1.23,"input_tokens":2,"cache_read":9262,"cache_write":264}
 ```
 
-All three questions come first (piped `y`s answer them, so the answers don't show), then the three commands run together: three seconds of waiting instead of nine, 8.1 seconds against 14.4 for the whole run. The trace lists them in the order they finished, `tests` first, but the results went back to the model in the order it asked. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
+All three questions come first (piped `y`s answer them, so the answers don't show), then the three commands run together: three seconds of waiting instead of nine, 8.0 seconds against 14.4 for the whole run. The trace lists them in the order they finished, `types` first, but the results went back to the model in the order it asked. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
 
 **Caching.** A task of three steps, in a folder holding a copy of `lessons/`, one command per step:
 
@@ -203,8 +204,8 @@ $ grep -nE "^\s*(import|from) " lessons/04-context/quark.py
 allow `grep -nE "^\s*(import|from) " lessons/04-context/quark.py`? [y/N] 1:import subprocess, sys, os, re, glob, json, datetime
 2:from anthropic import Anthropic, BadRequestError
 
-The longest file is `lessons/04-context/quark.py` (239 lines), and its imports show a program that uses the standard library (subprocess, os, re, glob, json, datetime) to run commands, read files, match patterns and keep episode logs, with the `anthropic` SDK as its only external dependency for model calls and handling "prompt too long" errors.
-[wall: 6.8s]
+The longest file, `lessons/04-context/quark.py` (239 lines), imports only the standard library (subprocess, os, re, glob, json and similar) plus the `anthropic` SDK. That means it's a self-contained agent that runs shell commands, handles files and JSON, and talks to Claude, with no other third-party dependencies.
+[wall: 6.7s]
 ```
 
 ```
@@ -212,12 +213,12 @@ jq -c 'select(.event=="model") | {seconds,input_tokens,output_tokens,cache_read,
 ```
 
 ```
-{"seconds":1.51,"input_tokens":4,"output_tokens":67,"cache_read":0,"cache_write":9197}
-{"seconds":1.42,"input_tokens":2,"output_tokens":75,"cache_read":9197,"cache_write":153}
-{"seconds":1.89,"input_tokens":2,"output_tokens":115,"cache_read":9350,"cache_write":125}
+{"seconds":1.52,"input_tokens":4,"output_tokens":67,"cache_read":0,"cache_write":9250}
+{"seconds":1.42,"input_tokens":2,"output_tokens":75,"cache_read":9250,"cache_write":153}
+{"seconds":1.77,"input_tokens":2,"output_tokens":111,"cache_read":9403,"cache_write":125}
 ```
 
-`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 9,200 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last response and its result, 153 and 125 tokens. The harness resent about 9,300 tokens each time and paid full price for a handful of them.
+`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 9,250 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last response and its result, 153 and 125 tokens. The harness resent about 9,250 to 9,400 tokens each time and paid full price for a handful of them.
 
 **Trimming.** A command that prints a lot. The folder has a copy of `docs/`, and the task is:
 
@@ -234,13 +235,13 @@ $ cat docs/the-model.md
 [... 5435 characters cut ...]
 oops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width=
 ...
-The first heading, "The model: what the harness wraps", introduces the model as the first of an agent's two primitives (TokensOut = Model(TokensIn)), which is the thing the harness wraps.
+The first heading is "The model: what the harness wraps", and the section under it says the model is the first of an agent's two primitives (TokensOut = Model(TokensIn)). It then gives a short tour of what an LLM is made of, how it's trained, and how it generates output, so you know what your harness is wrapping.
 ```
 
 ```
-{"event":"model","seconds":1.8,"input_tokens":4,"cache_read":0,"cache_write":9167}
-{"event":"tool","seconds":0.09,"chars":25435}
-{"event":"model","seconds":2.06,"input_tokens":2,"cache_read":9167,"cache_write":6533}
+{"event":"model","seconds":1.62,"input_tokens":4,"cache_read":0,"cache_write":9220}
+{"event":"tool","seconds":0.1,"chars":25435}
+{"event":"model","seconds":2.24,"input_tokens":2,"cache_read":9220,"cache_write":6533}
 ```
 
 (The trace is shortened as before.) The trace's `chars` is the length before trimming, 25,435. The second call wrote 6,533 tokens to the cache, which is what the trimmed result came to: the 5,435 characters that were cut are characters that every later call would otherwise have resent.
@@ -267,9 +268,12 @@ b4
 b5
 
 [your doing stopped before done]
-You interrupted me, so I stopped both commands. They ran in parallel and each got through 5 of its 9 iterations. The first printed a1–a5 and the second printed b1–b5. Neither finished.
+You interrupted me with ESC, so I stopped both commands. I had started them at the same time as separate commands. Each one got through 5 of its 9 iterations before it was killed:
 
-Should I rerun them to completion, or do something else?
+- The first printed a1 to a5.
+- The second printed b1 to b5.
+
+Neither loop finished. Do you want me to rerun them, or do something different?
 
 > /q
 ```
@@ -277,8 +281,8 @@ Should I rerun them to completion, or do something else?
 The trace, cut to those three lines and their fields that matter:
 
 ```
-{"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done","seconds":4.22,"exit":137,"chars":48}
 {"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done","seconds":4.22,"exit":137,"chars":48}
+{"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done","seconds":4.22,"exit":137,"chars":48}
 {"event":"interrupted","during":"acting"}
 ```
 
