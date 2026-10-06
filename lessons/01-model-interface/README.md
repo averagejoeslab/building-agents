@@ -16,7 +16,10 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
 print(output.model_dump_json(indent=2))
@@ -25,6 +28,8 @@ print(output.model_dump_json(indent=2))
 **`client = Anthropic()`** is where the request goes: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
 **`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson calls the model through this one function, so the primitive stays in one place.
+
+**`client.messages.stream(...)`** is how the response comes back: streamed, piece by piece, as the model produces it, instead of all at once at the end. A long response that arrives all at once can time out while you wait; one that streams can't. **`for event in stream: each(event)`** hands each piece, as it arrives, to `each()`. Here nothing is done with the pieces: `each` defaults to a function that ignores them. **`stream.get_final_message()`** then returns the whole response, put back together, so `call()` hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2.
 
 **`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
@@ -44,17 +49,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011CfmJRUrVjniKSZKETcqsX",
+  "id": "msg_011CfmchdJHXQnQ1gNhjXJjf",
   "container": null,
   "content": [
     {
-      "signature": "CAQSzwUKEAgSGAI4AUIIdGhpbmtpbmcSDKlrwMSNM6lBxU18bRoMn4edTKN1RKRgwt8dIjBD...",
+      "signature": "CAQSzwUKEAgSGAI4AUIIdGhpbmtpbmcSDAgH/jj7KMlOglfI8hoMai9nd4Mi9EZhjvr2IjBn...",
       "thinking": "",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared.\n\nYou can list the contents yourself with one of these:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n\nIf you paste the output here, I can help you work out what the files are, how the project is organized, or what to do next. If you're using a tool or IDE that is supposed to give me file access, it doesn't seem to be connected here.",
+      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared with me.\n\nYou can list the contents yourself with one of these:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n\nIf you paste the output here, I can help you interpret it, find something specific, or decide what to do next. If you're using a tool or IDE that's supposed to give me file access, it may not be set up for this chat.",
       "type": "text"
     }
   ],
@@ -74,7 +79,7 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 242,
+    "output_tokens": 240,
     "output_tokens_details": {
       "thinking_tokens": 41
     },
@@ -98,7 +103,7 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
 - **How it travels.** An official SDK, raw HTTP, or a layer that speaks several providers' formats so the rest of the harness doesn't have to.
 - **Which model answers.** One model, or a backup that takes over when the first is unavailable.
-- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out.
+- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out. quark streams.
 - **How many go at once.** One request, or a batch of them.
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
 - **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.
@@ -128,7 +133,7 @@ print(output.model_dump_json(indent=2))
 
 - **What happens when a request fails.** `timeout=120` gives up on a request that takes longer than two minutes. `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
 - **Which model answers.** If every retry fails, `call` moves on to the next model in `MODELS`.
-- **How the response arrives.** `stream` receives the response as it's produced, so a long one can't time out, and `get_final_message()` hands back the whole response once it's done. Nothing is printed along the way; showing it to a person would be output.
+- **How the response arrives.** It streams, just like `quark.py`, and `get_final_message()` hands back the whole response once it's done. There's no `each()` here: nothing looks at the pieces along the way.
 - **The request's settings.** `max_tokens`, `effort` (how much the model thinks first) and `thinking` are arguments the caller can set. `"summarized"` asks for a readable summary of the model's thinking instead of the empty default. The raw thinking itself is never returned.
 
 Run it the same way:

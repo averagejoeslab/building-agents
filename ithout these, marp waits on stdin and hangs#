@@ -1,1 +1,0 @@
-  npx @marp-team/marp-cli --no-stdin <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files < /dev/null   

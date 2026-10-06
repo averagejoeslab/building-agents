@@ -2,11 +2,11 @@
 
 > 🎥 **Video:** coming soon
 
-Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that's the assumption that fails first: the API drops a call, the model is overloaded, a response is cut off in the middle of a command, the process dies halfway through and the work goes with it.
+Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that's the assumption that fails first: the API drops a call, the model is overloaded, a response is cut off in the middle of a command, the process dies halfway through and the work goes with it. Or you stop it yourself, with Lesson 6's ESC, and what it had already done goes with it.
 
 Resilience is how the harness keeps going, or stops cleanly, when something doesn't answer. It has two jobs. The first is to get through the failures that pass. The second is to leave things in a state you can pick up from when a failure doesn't pass, so that the hour of work before it isn't lost.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), a service across a network, so it can be slow, busy or gone. Output runs the model's words (Lesson 2), so what it's handed can be broken. And to pick a run back up it **reads context's own record**: Lesson 4's episode already holds every message, written before any tool runs, so resilience doesn't need a save file of its own.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), a service across a network, so it can be slow, busy or gone. Output runs the model's words (Lesson 2), so what it's handed can be broken. They're also the two places where work is in flight when you press ESC: a response half streamed, a command half run. And to pick a run back up it **reads context's own record**: Lesson 4's episode already holds every message, written before any tool runs, so resilience doesn't need a save file of its own.
 
 The mechanism, first in the model interface. Not every failure means the same thing, so the first step is to sort them:
 
@@ -15,7 +15,9 @@ The mechanism, first in the model interface. Not every failure means the same th
 
 For the first kind, the way to retry matters. Wait longer after each failure (*exponential backoff*: one second, two, four), so a service that's struggling isn't hit at full speed. Add a little randomness (*jitter*), so a thousand clients that failed together don't all come back together. If the server said how long to wait, wait that long. And put a limit on it: a few tries, not forever. The Anthropic SDK already does all of this for you: it retries connection errors, 408, 409, 429 and 5xx with backoff, and the number of tries is the `max_retries` setting. So quark doesn't write a retry loop; it turns the setting up and sets a timeout. What the SDK can't do is choose a different model. That's the one thing quark adds here: when the preferred model is still failing after the SDK has given up, try a backup, and when nothing answers, stop with a message instead of a stack trace.
 
-Then output. The model asks for a command and output runs it, and a command can fail in a way the harness doesn't see coming: it hangs (Lesson 5's sandbox already puts a time limit on that), it prints bytes that aren't text, or the model's request itself arrives broken, cut off in the middle by the token limit, with a command that's half a sentence. The rule for all of them is the one Lesson 2 started with: every request gets an answer the model can read. A result that says *this was cut off, it wasn't run, send it again shorter* is something the model can act on. A crash isn't.
+Then output. The model asks for a command and output runs it, and a command can fail in a way the harness doesn't see coming: it hangs (Lesson 5's sandbox already puts a time limit on that), it prints bytes that aren't text, or the model's request itself arrives broken, cut off in the middle by the token limit, with a command that's half a sentence. The rule for all of them is the one Lesson 2 started with: every request gets an answer the model can read. A result that says *this was cut off before it was whole, and it never reached the world* is something the model can act on. A crash isn't.
+
+Then the failure that's yours: you press ESC. Lesson 6 made that stop at once, and it stops cleanly by throwing away whatever was in flight. Whatever the model had already said, it's told only that you interrupted it. Whatever the command had printed, the model gets only `[your doing stopped before done]`. But both of those happened. The words were written, and the command did its first steps in the world. Dropping them leaves the model's record out of step with what happened, which is the same failure as losing a run to a crash, only smaller. So resilience keeps the partials, the way upstream quark does. What the model had produced goes into working memory in whole blocks: text that had started, thinking that had finished and been signed (a thinking block's signature comes at its end, and the API won't take thinking back without one), and any tool request, answered with `[your doing never reached the world]`. A stopped command keeps what it had printed, with `[your doing stopped before done]` after it.
 
 Last, picking a task back up. If the harness is killed during a long task, working memory dies with the process. But since Lesson 4, every message has also been written to the session's episode, by the harness, as it happens, and the model's request is on disk *before* the command it asks for runs. So the record already exists. Resilience only has to notice, at startup, that the last episode ended mid-task, and offer to continue it.
 
@@ -25,7 +27,7 @@ None of this makes the model right, and it doesn't make a failed run succeed. It
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 7's `quark.py` plus resilience, and nothing else: 29 lines.
+[`quark.py`](./quark.py) is Lesson 7's `quark.py` plus resilience, and nothing else: 31 lines.
 
 In `# ── model interface ──`, Lesson 1's `call()` grows a backup:
 
@@ -33,9 +35,13 @@ In `# ── model interface ──`, Lesson 1's `call()` grows a backup:
 client = Anthropic(timeout=300, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 class Down(Exception): pass
-def call(**request):                                     # resilience: retries, then a backup model, then give up cleanly
-    for model in MODELS:
-        try: return client.messages.create(model=model, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    for model in MODELS:                                 # resilience: retries, then a backup model, then give up cleanly
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                for event in stream:
+                    if each(event): return stream.current_message_snapshot   # guardrails: told to stop, so stop reading
+                return stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
@@ -44,7 +50,7 @@ def call(**request):                                     # resilience: retries, 
 
 **The client.** `Anthropic(timeout=300, max_retries=3)`. The SDK does the retrying, with backoff, and honors the server's `Retry-After`. `timeout` is how long to wait on a single request; it's five minutes because a reply of 16,000 tokens takes minutes to write. `max_retries=3` is one more than the SDK's default, written out so you can see it's a choice.
 
-**`call()`.** Every call to the model already went through it, the main one and the summary in `compact()`, so this is the one place to change. It tries each model in `MODELS`, in order. A call that fails *after the SDK's retries* with something transient (a lost connection or timeout, 429, or any 5xx) is traced as `model_failed` and the next model is tried. Everything else is raised: a bad key, a bad request, and in particular "prompt is too long", which Lesson 4's compaction is waiting for. If every model fails, `call()` raises `Down`. The test is on the status code, not a list of exception classes, because the SDK has a class for each and it's easy to miss 529, the overloaded error, which is the one you most want to catch.
+**`call()`.** Every call to the model already went through it, the main one and the summary in `compact()`, so this is the one place to change. The stream from Lesson 1 is unchanged; it's now inside a loop that tries each model in `MODELS`, in order. A call that fails *after the SDK's retries* with something transient (a lost connection or timeout, 429, or any 5xx) is traced as `model_failed` and the next model is tried. Everything else is raised: a bad key, a bad request, and in particular "prompt is too long", which Lesson 4's compaction is waiting for. If every model fails, `call()` raises `Down`. The test is on the status code, not a list of exception classes, because the SDK has a class for each and it's easy to miss 529, the overloaded error, which is the one you most want to catch.
 
 In `# ── context ──`, after `add()`, a function that reads the last episode back:
 
@@ -89,7 +95,29 @@ When no model answers, the run ends with a sentence, not a stack trace:
         sys.exit("[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]")
 ```
 
-And in the output loop, a cut-off request is never run:
+When you press ESC while it's thinking or saying something, what it had produced is kept:
+
+```python
+    if response.stop_reason is None:                     # guardrails: ESC stopped it while it thought or said
+        trace(event="interrupted", during="saying")
+        print()
+        kept = [b for b in output if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]   # resilience: keep what it had said, in whole blocks
+        if kept: add(working_memory, {"role": "assistant", "content": kept})
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in kept if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
+        continue
+```
+
+`output` is what had arrived when the stream stopped: Lesson 6's `call()` hands back the message as far as it got. Lesson 6 dropped it. Now every block in it is kept unless it's empty text or thinking with no signature, which is thinking that was cut off before it finished. The kept blocks go into working memory, and so into the episode, as the model's message. Then comes your interruption, as before, and in the same message an answer for each tool request it had begun: `[your doing never reached the world]`, because none of them ran.
+
+And when you press ESC while a command runs, what it had printed is kept:
+
+```python
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"   # resilience: keep what it had printed
+```
+
+In Lesson 6 this line was `=`; now it's `+=`. One character, and the model sees what its command did before you stopped it.
+
+In the output loop, a cut-off request is never run:
 
 ```python
             cmd = block.input.get("cmd")
@@ -99,13 +127,13 @@ And in the output loop, a cut-off request is never run:
                 continue
             if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
                 print("[cut off, not run]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "your request was cut off at the token limit, so it was not run. Send it again, shorter.", "is_error": True})
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your doing was cut off before it was fully formed — it never reached the world]"})
                 continue
 ```
 
-`block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run: the model gets an error result saying so. The other uses of `block.input["cmd"]` become `cmd`, and `errors="replace"` on the box's output means bytes that aren't valid text become `�`, not a `UnicodeDecodeError` that kills the harness.
+`block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run, and the model is told so in the same words as everything else that didn't happen: it never reached the world. The other uses of `block.input["cmd"]` become `cmd`.
 
-Everything else is unchanged on purpose. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it.
+Everything else is unchanged on purpose. ESC still stops the stream and kills the commands exactly as in Lesson 6; this layer only decides what's kept afterwards. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it.
 
 ## Run it
 
@@ -149,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
 HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 ```
 
-The harness reaches it through `ANTHROPIC_BASE_URL`, which the SDK reads. Nothing in `quark.py` knows about it.
+The harness reaches it through `ANTHROPIC_BASE_URL`, which the SDK reads. Nothing in `quark.py` knows about it. The stand-in reads each response whole before passing it on, so through it the stream arrives all at once; that doesn't matter for these runs.
 
 **The preferred model is down.** The stand-in answers "529 overloaded" to every request for `claude-sonnet-5-5`, and forwards the rest:
 
@@ -171,13 +199,13 @@ You don't see the failures in the output: the run looks like any other. The trac
 ```
 {"event":"start"}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":4.96,"stop_reason":"tool_use"}
+{"event":"model","seconds":5.27,"stop_reason":"tool_use"}
 {"event":"tool","seconds":0.12}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":4.47,"stop_reason":"end_turn"}
+{"event":"model","seconds":4.65,"stop_reason":"end_turn"}
 ```
 
-Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked; the stand-in's log shows ten requests for two calls. The `seconds` of the two `model` events, 4.96 and 4.47, are the backoff. Every call tries the preferred model again from scratch: a few seconds a call while it's down, and quark is back on it the moment it recovers.
+Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked; the stand-in's log shows ten requests for two calls. The `seconds` of the two `model` events, 5.27 and 4.65, are mostly the backoff. Every call tries the preferred model again from scratch: a few seconds a call while it's down, and quark is back on it the moment it recovers.
 
 **Nothing answers.** Now the stand-in fails every request, for every model:
 
@@ -193,7 +221,7 @@ episodes
 traces.jsonl
 
 .quark/episodes:
-2026-10-06T19-17-14.jsonl
+2026-10-06T20-32-21.jsonl
 ```
 
 It tried both models, gave up and said so. There's no save file: the episode is the record. Then the API comes back (no `ANTHROPIC_BASE_URL`) and I run `quark.py` again with no input, answering `y` when asked, and `/q` when it finished:
@@ -219,11 +247,11 @@ The session was picked up from its episode, and finished in it: that one file no
 {"event":"model","stop_reason":"end_turn"}
 ```
 
-**The harness is killed.** This is the one that matters most. The task is one slow command, started in the background with `y` piped in for the guard, and killed with `kill -9` on its process ID twelve seconds in, in the middle of the command. I ran the repo's own Python directly, so `$!` is the harness itself (`uv run` puts a wrapper in between). That's `kill` on a PID, not `pkill`, which matches on names and can match far more than you meant:
+**The harness is killed.** This is the one that matters most. The task is one slow command, started in the background with `y` piped in for the guard, and killed with `kill -9` on its process ID twelve seconds after the guard's question appeared, in the middle of the command. I ran the repo's own Python directly, so `$!` is the harness itself (`uv run` puts a wrapper in between). That's `kill` on a PID, not `pkill`, which matches on names and can match far more than you meant:
 
 ```bash
 (yes y | /path/to/building-agents/.venv/bin/python /path/to/building-agents/production/08-resilience/quark.py "Run exactly this one command: sleep 15 && echo finished > flag.txt   (it is slow on purpose). Then tell me what flag.txt contains." > out1.txt 2>&1 & echo $! > pid)
-sleep 12; kill -9 $(cat pid)
+until grep -q allow out1.txt; do sleep 0.25; done; sleep 12; kill -9 $(cat pid)
 cat out1.txt
 ```
 
@@ -259,17 +287,133 @@ The episode was written when the model asked for the command, before it ran. `fl
 ```
 unfinished session: 'Run exactly this one command: sleep 15 && echo finished > fl'. pick it up? [y/N] $ cat flag.txt; ls -l flag.txt; date
 allow `cat flag.txt; ls -l flag.txt; date`? [y/N] finished
--rw-rw-rw- 1 root root 9 Oct  6 19:17 flag.txt
-Tue Oct  6 19:17:59 UTC 2026
+-rw-rw-rw- 1 root root 9 Oct  6 20:33 flag.txt
+Tue Oct  6 20:33:44 UTC 2026
 
 `flag.txt` contains `finished`.
 
-The harness reported my first run as interrupted, so I didn't re-run the command. I checked the file instead, and it already existed with that content. The command had completed.
+The harness reported my first run as interrupted, so I checked the file before running the command again. It was already there with that content, which means the command had completed. I didn't run it a second time.
 
 >
 ```
 
 The model was told the command was interrupted and may or may not have run, and it did what that wording asks: it looked, found the file, and didn't run the command again. If `flag.txt` hadn't been there, the same sentence would have led it to run the command once. It's the model's call, made with the facts.
+
+**You press ESC while it's saying something.** ESC needs a terminal, so these two runs are in chat mode, typed at the prompt, each in a fresh folder. I asked for something long and pressed ESC a few seconds after the answer started to appear, then `/q`:
+
+```
+> without running anything, work out whether 1000003 is prime, then explain how you know in about 400 words.
+**1000003 is prime.** I didn't run anything, and I didn't do the full proof by hand. Part of my confidence is recall.
+
+**What a full proof needs**
+
+A number n is composite only if it has a prime factor no larger than √n. Here 1000² = 1,000,000 and 1001² = 1,002,001, so √1000003 is just over 1000. To prove primality, I would show that none of the 168 primes up to 1000 divides it. That is a finite check, but it is long to do mentally.
+
+**Checks I can do by hand**
+
+Write N = 10⁶ + 3. A prime p divides N exactly when 10⁶ ≡ −3 (mod p).
+
+- **2 and 5:** N is odd and ends in 3, so neither divides it.
+- **3:** the digit sum is 1 + 3 = 4, which isn't a multiple of 3.
+- **7, 13:** 10⁶ ≡ 1 by Fermat's little theorem, so N ≡ 4 (mod p). Neither divides it.
+- **11:** 10 ≡ −1, so 10⁶ ≡ 1 and N ≡ 4.
+- **37:** 1000 = 27·37 + 1, so 10³ ≡ 1 and 10⁶ ≡ 1. Again N ≡ 4.
+- **101:** 10⁴ ≡ 1, so 10⁶ ≡ 10² = 100 ≡ −1, and N ≡ 2.
+
+The same trick works for any prime where 10⁶ ≡ 1: the remainder is always 4, so none
+Sorry, I was cut off partway through. Here is where things stand.
+
+**Answer:** 1000003 is prime.
+
+**How sure I am:** I'm confident, but not because I did the whole proof in my head. Two things support it:
+
+- **Recall:** 1000003 is well known as the first prime after one million. Its neighbors fail: 1000001 = 101 × 9901, and 1000002 is even.
+- **Partial checks:** I ruled out 2, 3, 5, 7, 11, 13, 37 and 101 by hand. Fermat's little theorem and the fact that 10⁶ ≡ 1 mod several small primes made those quick.
+
+**What a full proof would take:** √1000003 is just over 1000, so I'd have to rule out every prime up to 1000. That's 168 primes. I haven't done that mentally, and I don't want to imply that I did.
+
+If you'd like it verified, I can run a quick trial-division check in the sandbox. Do you want me to?
+
+> /q
+```
+
+The second answer picks up where the first stopped: it knows it had ruled out 2, 3, 5, 7, 11, 13, 37 and 101, because that text is in its working memory. In Lesson 6 it would have been told only that you interrupted it, with no idea what it had already said. The episode shows what was kept (each block cut down to its type and the end of its text, with this `jq`):
+
+```bash
+jq -c '{role, content: (if (.content|type)=="string" then .content[:50] else [.content[] | if .type=="text" then {type, end: .text[-50:]} elif .type=="thinking" then {type, signed: (.signature|length > 0)} else {type} end] end)}' .quark/episodes/*.jsonl
+```
+
+```
+{"role":"user","content":"without running anything, work out whether 1000003"}
+{"role":"assistant","content":[{"type":"thinking","signed":true},{"type":"text","end":"0⁶ ≡ 1: the remainder is always 4, so none of them"}]}
+{"role":"user","content":[{"type":"text","end":"lf interrupted what you were saying — acknowledge]"}]}
+{"role":"assistant","content":[{"type":"text","end":"-division check in the sandbox. Do you want me to?"}]}
+```
+
+The model's first message has both of its blocks: the thinking it did before it started writing, finished and signed, and the text as far as it got. The text ends two words later than the screen does ("so none of them", where the screen stopped at "so none"): they were the piece of the stream that arrived just as ESC was pressed. The SDK had already added it to the message when `unless_esc()` saw ESC and chose not to show it.
+
+**You press ESC while it's doing something.** A command that prints a line a second, `y` to the guard, ESC three and a half seconds later, and `/q`:
+
+```
+> run this as one command: for i in 1 2 3 4 5 6 7 8 9 10; do echo step $i; sleep 1; done
+$ for i in 1 2 3 4 5 6 7 8 9 10; do echo step $i; sleep 1; done
+allow `for i in 1 2 3 4 5 6 7 8 9 10; do echo step $i; sleep 1; done`? [y/N] y
+step 1
+step 2
+step 3
+step 4
+
+[your doing stopped before done]
+You interrupted the command, so it stopped after step 4. Steps 5 through 10 never ran.
+
+I can run it again from the start, or run only the remaining steps. Which do you want?
+
+> /q
+```
+
+It saw `step 1` to `step 4`, so it knew exactly how far the command got and what never ran. Here's the result it was given, from the episode:
+
+```bash
+jq -c '.content[]? | select(.type=="tool_result")' .quark/episodes/*.jsonl
+```
+
+```
+{"type":"tool_result","tool_use_id":"toolu_01BXdPMZa1BhW8LGBVcxifqQ","content":"step 1\nstep 2\nstep 3\nstep 4\n\n[your doing stopped before done]"}
+```
+
+In Lesson 6 that result was only `[your doing stopped before done]`. The trace's `tool` line for it has `exit` 137 and `chars` 61: the output and the note.
+
+**A request is cut off.** `max_tokens` is 16,384, so a real cut-off is rare and slow to wait for. This run uses a copy with the main call's `max_tokens` lowered to 400 (`sed 's/response = call(unless_esc, max_tokens=16384,/response = call(unless_esc, max_tokens=400,/'`), `y` piped in, and a task that needs a long command (I call the copy `quark-400.py`):
+
+```bash
+yes y | quark-400.py "write a 40-line poem about rivers into poem.txt, in one command"
+```
+
+```
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+$ None
+[cut off, not run]
+I couldn't write `poem.txt`. Seven tries in a row failed, and none of them reached the shell. Each time, the command came out empty or cut off before it was complete, so the harness refused to run it. Nothing has been created or changed on disk.
+
+My guess is that a 40-line heredoc is too long for what I can send in a single step. I haven't confirmed that.
+
+I can try again with a shorter form, such as very short lines in a `printf` command. Or I can write the poem in two or more commands instead of one. Tell me which you'd prefer, or I'll retry with the shorter lines.
+```
+
+Every response hit the limit while the model was writing its command, before any of it was complete, so each request arrived with no `cmd` at all (`input` is `{}` in the episode), which is why the line says `$ None`. None of them ran. Each was answered with the cut-off result, and after the eighth (it says seven) the model stopped trying and told me what was happening, with nothing half-written on disk. With the real limit, the same rule catches the rare command that's too long to finish.
 
 ## Going further
 
@@ -278,13 +422,14 @@ The model was told the command was interrupted and may or may not have run, and 
 - **How to wait.** Exponential backoff, with jitter, a cap on any single wait, and a limit on the total, so a run spends at most so long on one call. Honoring `Retry-After` when the server sends it. Or a client-side limiter that keeps *under* the rate limit in the first place, so the 429 never comes.
 - **What the backup is.** A different model, as in quark. The same model from a different provider (the Claude models are also served through the big cloud platforms) or a different region. Or a smaller model that's good enough to finish the task. Whichever it is, it has costs: the prompt cache is per model, so a switch pays full price for the whole prompt once, and a backup may be worse at the task, so a harness that fails over should say so.
 - **How long a failure is remembered.** quark forgets: every call starts with the preferred model. A *circuit breaker* remembers: after a model fails, leave it alone for a minute, so a long outage costs one slow call instead of one per step. The fuller example does that.
-- **Streaming.** Stream the reply and a dropped connection costs you only the end of it, because you've kept what arrived. A timeout on *silence* ("nothing for 30 seconds") then replaces one on the whole reply, which catches a stuck call much sooner than five minutes.
+- **When a stream breaks partway.** quark streams from Lesson 1, but if the connection drops in the middle of a response, `call()` starts the request again on the next model, and what had arrived is thrown away. A harness could keep it, as quark keeps what had arrived when you press ESC. And a timeout on *silence* ("nothing for 30 seconds") can replace one on the whole reply, which catches a stuck call much sooner than five minutes.
+- **What's kept when it's stopped.** quark keeps whole blocks: text that had started, thinking that was signed, tool requests (answered as never run), and what a stopped command printed. It drops thinking that hadn't been signed. A harness could keep that as plain text instead, or keep a half-written command as text so the model can see what it was about to do.
 - **What a tool failure looks like.** A time limit, with the whole process group killed so its children go too. A cap on output. Errors flagged as errors, so the model reads them as failures. Retrying a *read* automatically is usually safe; retrying a *write* never is, unless the tool is built so that doing it twice is the same as doing it once.
 - **How state is saved.** After every step, as in quark. To a file, or a database. As a log of events from which the state can be rebuilt, which also gives you a history of the run. With a unique ID on each action, so a replay can tell "done" from "not done" without asking the model.
 - **How a run restarts.** Asking you, as in quark. Or automatically, by something that watches the process and starts it again (a supervisor such as systemd, or an orchestrator). Or by a service built for this.
 - **How it ends.** A signal such as Ctrl-C or SIGTERM can be caught: save, clean up, exit, so a stop you asked for loses nothing. A hard kill can't be caught, which is why the file is written *before* the work and not after.
 
-It can be a product on its own. Gateways like [LiteLLM](https://www.litellm.ai) and [OpenRouter](https://openrouter.ai) sit in front of several models and providers and handle retries, fallbacks and rate limits for you. If your harness sends every call to one of those, the model interface half of this layer is theirs. For the other half, durable-execution systems such as [Temporal](https://temporal.io), and checkpointing in agent frameworks such as [LangGraph](https://www.langchain.com/langgraph), record each step of a long process, so that after a crash it picks up at the step it was on. The idea is the same as quark's `session.json`, with more machinery.
+It can be a product on its own. Gateways like [LiteLLM](https://www.litellm.ai) and [OpenRouter](https://openrouter.ai) sit in front of several models and providers and handle retries, fallbacks and rate limits for you. If your harness sends every call to one of those, the model interface half of this layer is theirs. For the other half, durable-execution systems such as [Temporal](https://temporal.io), and checkpointing in agent frameworks such as [LangGraph](https://www.langchain.com/langgraph), record each step of a long process, so that after a crash it picks up at the step it was on. The idea is the same as quark's episode, with more machinery.
 
 The fuller example, [`resilience.py`](./resilience.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails, no sandbox) so resilience is all there is to look at. It turns the SDK's retries off and does them itself, in plain sight: it prints each failed try and how long it's waiting, honors `Retry-After`, backs off with jitter, and benches a model that has given up for a minute. Commands run under a time limit that kills the whole process group, with their output capped, and every result tells the model how the command ended. And the checkpoint is written at every step, so `resilience.py resume` picks a run up. Here it is, all of it:
 
@@ -562,10 +707,10 @@ The result for the dead request carried the command with it, the model checked t
 
 ## What to take away
 
-**The rule:** assume the call can fail, and make failure something the harness handles instead of something that ends the run. Retry what passes a bounded number of times, have somewhere else to go when the preferred model is out, and stop with a sentence when everywhere is. Answer every tool request, even a broken one, with a result the model can read. And keep a record written before each step, so that when the harness itself fails, what was in flight can be reported as *unknown*, not guessed at and not lost.
+**The rule:** assume the call can fail, and make failure something the harness handles instead of something that ends the run. Retry what passes a bounded number of times, have somewhere else to go when the preferred model is out, and stop with a sentence when everywhere is. Answer every tool request, even a broken one, with a result the model can read. When you stop it, keep what it had already said and done. And keep a record written before each step, so that when the harness itself fails, what was in flight can be reported as *unknown*, not guessed at and not lost.
 
-Notice what Resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Control flow is the same loop with the same stop conditions: a retry happens inside one call, so the loop sees a call that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes by one message, the "interrupted" one, written like any other result.
+Notice what Resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Control flow is the same loop with the same stop conditions: a retry happens inside one call, so the loop sees a call that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes only in what it's told about its own work: the "interrupted" result, the cut-off one, and the partial work an ESC used to throw away, each written like any other message.
 
-**What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation and waits for the whole reply before you see a word. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other. And the retries and fallbacks cost time that only the trace shows. Making each step smaller, faster and cheaper is its own layer.
+**What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation, and only the system prompt is cached, so the messages are paid for in full every time. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other, because quark asks for one at a time and runs them one after another. And when working memory fills up, the summary is written by the same big model as everything else. Making each step smaller, faster and cheaper is its own layer.
 
 **→ [Lesson 9: Performance](../09-performance/)**

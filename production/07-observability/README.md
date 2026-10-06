@@ -55,7 +55,7 @@ Nothing else changed. The request is built by the same code, the same commands r
 
 ## Run it
 
-In a scratch folder with a two-line `small.txt`, a 5,000-line `big.txt` and a `.env`. This time nothing is piped in, so there's no one to answer the guard:
+In a scratch folder with a two-line `small.txt` and a 5,000-line `big.txt`. This time nothing is piped in, so there's no one to answer the guard:
 
 ```bash
 uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/quark.py "which file in this folder has the most lines? answer in one sentence" < /dev/null
@@ -64,44 +64,48 @@ uv run --project /path/to/building-agents /path/to/building-agents/production/07
 ```
 $ wc -l * 2>/dev/null | sort -rn | head -5
 allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
-$ ls
-big.txt
-small.txt
+$ ls -la
+total 36
+drwxr-xr-x 3 root root  4096 Oct  6 20:30 .
+drwxr-xr-x 3 root root    60 Oct  6 20:30 ..
+drwxr-xr-x 3 root root  4096 Oct  6 20:30 .quark
+-rw-r--r-- 1 root root 23893 Oct  6 20:30 big.txt
+-rw-r--r-- 1 root root     8 Oct  6 20:30 small.txt
 
 $ wc -l big.txt small.txt
  5000 big.txt
     2 small.txt
  5002 total
 
-`big.txt` has the most lines, at 5,000 (`small.txt` has 2).
+`big.txt` has the most lines, at 5,000, compared with 2 in `small.txt`.
 ```
 
 The first command wasn't on the safe list (`2>` redirects, and `sort` isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. Here's what the person running it sees afterwards, in `.quark/traces.jsonl`:
 
 ```
-{"ts": "2026-10-06T19:16:13", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
-{"ts": "2026-10-06T19:16:15", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.69, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 70, "cache_read": 0, "cache_write": 7665}
-{"ts": "2026-10-06T19:16:15", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "refused", "cmd": "wc -l * 2>/dev/null | sort -rn | head -5", "why": "the person said no"}
-{"ts": "2026-10-06T19:16:17", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.53, "stop_reason": "tool_use", "input_tokens": 180, "output_tokens": 81, "cache_read": 7665, "cache_write": 0}
-{"ts": "2026-10-06T19:16:17", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "tool", "cmd": "ls", "seconds": 0.09, "exit": 0, "chars": 18}
-{"ts": "2026-10-06T19:16:18", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.36, "stop_reason": "tool_use", "input_tokens": 276, "output_tokens": 59, "cache_read": 7665, "cache_write": 0}
-{"ts": "2026-10-06T19:16:18", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "tool", "cmd": "wc -l big.txt small.txt", "seconds": 0.11, "exit": 0, "chars": 42}
-{"ts": "2026-10-06T19:16:19", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.24, "stop_reason": "end_turn", "input_tokens": 363, "output_tokens": 31, "cache_read": 7665, "cache_write": 0}
+{"ts": "2026-10-06T20:30:11", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
+{"ts": "2026-10-06T20:30:13", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.37, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 70, "cache_read": 0, "cache_write": 7770}
+{"ts": "2026-10-06T20:30:13", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "refused", "cmd": "wc -l * 2>/dev/null | sort -rn | head -5", "why": "the person said no"}
+{"ts": "2026-10-06T20:30:14", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.66, "stop_reason": "tool_use", "input_tokens": 180, "output_tokens": 51, "cache_read": 7770, "cache_write": 0}
+{"ts": "2026-10-06T20:30:14", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "tool", "cmd": "ls -la", "seconds": 0.12, "exit": 0, "chars": 249}
+{"ts": "2026-10-06T20:30:16", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.94, "stop_reason": "tool_use", "input_tokens": 397, "output_tokens": 93, "cache_read": 7770, "cache_write": 0}
+{"ts": "2026-10-06T20:30:16", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "tool", "cmd": "wc -l big.txt small.txt", "seconds": 0.09, "exit": 0, "chars": 42}
+{"ts": "2026-10-06T20:30:18", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.74, "stop_reason": "end_turn", "input_tokens": 518, "output_tokens": 34, "cache_read": 7770, "cache_write": 0}
 ```
 
-Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Read the cache columns: the first call wrote the 7,665-token system prompt to the cache, and every call after that read it back instead of paying for it again.
+Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Read the cache columns: the first call wrote the 7,770-token system prompt to the cache, and every call after that read it back instead of paying for it again.
 
 Because it's one JSON object per line, you can ask the file questions with `jq`. Add up one run, by its episode:
 
 ```bash
-jq -c -s --arg e ".quark/episodes/2026-10-06T19-16-13.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
+jq -c -s --arg e ".quark/episodes/2026-10-06T20-30-11.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
 ```
 
 ```
-{"calls":4,"input":914,"output":241,"cache_read":22995,"cache_write":7665,"seconds":5.82}
+{"calls":4,"input":1190,"output":248,"cache_read":23310,"cache_write":7770,"seconds":6.710000000000001}
 ```
 
-Now a run where things go wrong: a command that fails, and one the box kills. This uses a copy with the sandbox's `TIMEOUT` lowered to 5, and `y` piped in for the guard:
+Now a run where things go wrong: a command that fails, and one the box kills. This uses a copy with the sandbox's `TIMEOUT` lowered to 5, `y` piped in for the guard, and the input "run ls /nonexistent, then run sleep 60 as a separate command, then say what happened in one sentence":
 
 ```
 $ ls /nonexistent
@@ -110,7 +114,7 @@ ls: cannot access '/nonexistent': No such file or directory
 $ sleep 60
 allow `sleep 60`? [y/N] 
 (killed: ran over 5 seconds or out of memory)
-`ls /nonexistent` failed because the path doesn't exist, and `sleep 60` was killed after the sandbox's 5-second timeout, so it never ran the full 60 seconds.
+`ls /nonexistent` failed because the path doesn't exist, and `sleep 60` was killed after the sandbox's 5-second time limit.
 ```
 
 The agent told you what happened, this time. Without the trace, you'd only know if you were watching. Here's everything that didn't go to plan, across both runs:
@@ -120,12 +124,12 @@ jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces
 ```
 
 ```
-{"ts":"2026-10-06T19:16:15","episode":".quark/episodes/2026-10-06T19-16-13.jsonl","event":"refused","cmd":"wc -l * 2>/dev/null | sort -rn | head -5","why":"the person said no"}
-{"ts":"2026-10-06T19:16:23","episode":".quark/episodes/2026-10-06T19-16-21.jsonl","event":"tool","cmd":"ls /nonexistent","seconds":0.1,"exit":2,"chars":60}
-{"ts":"2026-10-06T19:16:28","episode":".quark/episodes/2026-10-06T19-16-21.jsonl","event":"tool","cmd":"sleep 60","seconds":5.09,"exit":137,"chars":46}
+{"ts":"2026-10-06T20:30:13","episode":".quark/episodes/2026-10-06T20-30-11.jsonl","event":"refused","cmd":"wc -l * 2>/dev/null | sort -rn | head -5","why":"the person said no"}
+{"ts":"2026-10-06T20:30:32","episode":".quark/episodes/2026-10-06T20-30-30.jsonl","event":"tool","cmd":"ls /nonexistent","seconds":0.12,"exit":2,"chars":60}
+{"ts":"2026-10-06T20:30:37","episode":".quark/episodes/2026-10-06T20-30-30.jsonl","event":"tool","cmd":"sleep 60","seconds":5.1,"exit":137,"chars":46}
 ```
 
-A refusal, a failure (`exit` 2) and a kill (`exit` 137, after 5.09 seconds). Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
+A refusal, a failure (`exit` 2) and a kill (`exit` 137, after 5.1 seconds). Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
 
 And when you break in. In a terminal, I asked for `sleep 30`, said `y`, and pressed ESC three seconds later:
 
@@ -133,9 +137,10 @@ And when you break in. In a terminal, I asked for `sleep 30`, said `y`, and pres
 > run sleep 30 as one command
 $ sleep 30
 allow `sleep 30`? [y/N] y
-
 [your doing stopped before done]
-You interrupted `sleep 30` before it finished, so I stopped it. I haven't run it again. Do you want me to retry? The sandbox kills any command at 30 seconds, so `sleep 30` may get cut off right at the limit even if you don't interrupt it.
+You interrupted me, so `sleep 30` was stopped before it finished. I didn't get an exit status. Do you want me to run it again?
+
+The sandbox kills any command that runs past 30 seconds. A bare `sleep 30` would probably hit that limit and be killed (exit 137). If you want it to complete, I can run `sleep 25` instead.
 
 > /q
 ```
@@ -144,13 +149,13 @@ The trace of that run, with only the fields that matter here:
 
 ```
 {"event":"start"}
-{"event":"model","seconds":2.31}
-{"event":"tool","cmd":"sleep 30","seconds":3.24,"exit":137}
+{"event":"model","seconds":1.72}
+{"event":"tool","cmd":"sleep 30","seconds":3.23,"exit":137}
 {"event":"interrupted","during":"acting"}
-{"event":"model","seconds":1.81}
+{"event":"model","seconds":2.01}
 ```
 
-The command was stopped at 3.24 seconds (`exit` 137, the box's kill), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it.
+The command was stopped at 3.23 seconds (`exit` 137, the box's kill), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it. Its answer says it "didn't get an exit status": since Lesson 6, a stopped command's result is just `[your doing stopped before done]`, so the trace knows more about that command than the model does.
 
 > The trace file only grows. Delete or rotate it when it gets big.
 
@@ -316,6 +321,6 @@ The costs are computed at the example rates in `PRICE`, so they show you which r
 
 Notice what Observability never does. It sits inside control flow's loop, but it never decides what runs next or when to stop. The model interface sends and receives exactly as before; observability only reads `usage` off the response. It gathers no input, and it puts nothing in front of the model: the trace is not in the request, which is what makes it observability and not context. Output runs tools the way it always did, only with a clock around them.
 
-**What's missing:** it watches, and that's all it does. It will faithfully record that the API dropped a call halfway through a long run, that the model was cut off in the middle of a command, or that the process died and took the work with it. It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
+**What's missing:** it watches, and that's all it does. It will faithfully record that the API dropped a call halfway through a long run, that the model was cut off in the middle of a command, that you pressed ESC and everything it had said or printed up to then was thrown away, or that the process died and took the work with it. It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
 
 **→ [Lesson 8: Resilience](../08-resilience/)**

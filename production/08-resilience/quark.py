@@ -5,9 +5,13 @@ from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusE
 client = Anthropic(timeout=300, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 class Down(Exception): pass
-def call(**request):                                     # resilience: retries, then a backup model, then give up cleanly
-    for model in MODELS:
-        try: return client.messages.create(model=model, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    for model in MODELS:                                 # resilience: retries, then a backup model, then give up cleanly
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                for event in stream:
+                    if each(event): return stream.current_message_snapshot   # guardrails: told to stop, so stop reading
+                return stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
@@ -15,6 +19,10 @@ def call(**request):                                     # resilience: retries, 
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 IMAGE, TIMEOUT = "python:3.13-slim", 30
 box = f"quark-{os.getpid()}"
@@ -229,7 +237,8 @@ def watch(stop):
             if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
             while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)   # an arrow key, not ESC
 @contextlib.contextmanager
-def listening():                                         # input: watch the keyboard only while quark thinks or acts
+def listening():                                         # input: watch the keyboard only while quark thinks, says or acts
+    ESC.clear()
     if not sys.stdin.isatty(): yield; return
     attrs, stop = termios.tcgetattr(sys.stdin), threading.Event()
     tty.setcbreak(sys.stdin); watcher = threading.Thread(target=watch, args=(stop,), daemon=True); watcher.start()
@@ -253,6 +262,9 @@ def guard(cmd):                                          # guardrails: deny, all
     if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
     answer = read(f"allow `{cmd}`? [y/N] ")
     return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {answer}")
+def unless_esc(event):                                   # guardrails: show the response, unless ESC says stop
+    if ESC.is_set(): return True
+    show(event)
 
 sandbox()
 working_memory, drop, steps, spent = [], 0, 0, 0
@@ -277,11 +289,11 @@ while True:
             working_memory, drop = compact(working_memory, drop), 0
         start = time.time()
         with listening():
-            response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+            response = call(unless_esc, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
         trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens, cache_read=response.usage.cache_read_input_tokens, cache_write=response.usage.cache_creation_input_tokens)
         output = response.content
         steps += 1
-        spent += response.usage.input_tokens + response.usage.output_tokens + response.usage.cache_read_input_tokens + response.usage.cache_creation_input_tokens
+        spent += response.usage.input_tokens + response.usage.output_tokens + (response.usage.cache_read_input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0)
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -290,19 +302,18 @@ while True:
     except Down:
         sys.exit("[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]")
 
-    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
-    if ESC.is_set():                                     # guardrails: ESC while it thought or said; keep what it said, run nothing
+    if response.stop_reason is None:                     # guardrails: ESC stopped it while it thought or said
         trace(event="interrupted", during="saying")
-        for block in output:
-            if block.type == "text": print(block.text)
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in output if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
-        ESC.clear()
+        print()
+        kept = [b for b in output if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]   # resilience: keep what it had said, in whole blocks
+        if kept: add(working_memory, {"role": "assistant", "content": kept})
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in kept if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
         continue
 
+    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             cmd = block.input.get("cmd")
             print(f"$ {cmd}")
@@ -311,7 +322,7 @@ while True:
                 continue
             if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
                 print("[cut off, not run]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "your request was cut off at the token limit, so it was not run. Send it again, shorter.", "is_error": True})
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your doing was cut off before it was fully formed — it never reached the world]"})
                 continue
             if (no := guard(cmd)):
                 print(f"[{no}]")
@@ -319,23 +330,22 @@ while True:
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
             start = time.time()
-            with listening():                            # guardrails: ESC stops the command and keeps what it printed
+            with listening():                            # guardrails: ESC stops the command
                 doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")   # sandboxing: in the box, with a time limit
                 while True:
                     try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
                     except subprocess.TimeoutExpired:
                         if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
             done.returncode = doing.returncode
-            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"   # resilience: keep what it had printed
             elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
             trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
-    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+    if ESC.is_set():                                     # guardrails: ESC while it acted: stop there
         trace(event="interrupted", during="acting")
         add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
-        ESC.clear()
         continue
     if input:
         add(working_memory, {"role": "user", "content": input})

@@ -36,10 +36,17 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 # ── input ───────────────────────────────────────────────────────────────────
 def read(prompt):                                        # input: from a person
@@ -57,16 +64,14 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": input}]
 
 while True:
-    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    output = call(show, max_tokens=16384, tools=tools, messages=messages).content
     messages.append({"role": "assistant", "content": output})
 
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
@@ -103,14 +108,14 @@ uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is
 Here's one run:
 
 ```
-$ find . -ipath '*lessons*' -name 'quark.py' -exec wc -l {} + 2>/dev/null | sort -n
-    9 ./lessons/01-model-interface/quark.py
-   33 ./lessons/02-input-and-output/quark.py
-   46 ./lessons/03-control-flow/quark.py
-  234 ./lessons/04-context/quark.py
-  322 total
+$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + | sort -n | tail -5
+   12 ./lessons/01-model-interface/quark.py
+   38 ./lessons/02-input-and-output/quark.py
+   51 ./lessons/03-control-flow/quark.py
+  239 ./lessons/04-context/quark.py
+  340 total
 
-The longest is `./lessons/04-context/quark.py`, at 234 lines.
+The longest one is `./lessons/04-context/quark.py`, at 239 lines.
 ```
 
 That's two calls. The first asked for a command. Its result went back, and the second call answered from what it found. Run it with no input to chat with it instead.

@@ -57,7 +57,7 @@ The example throughout is [quark](https://github.com/averagejoeslab/quark), my o
 
 | # | Lesson | You build | Slides | Video |
 |---|---|---|---|---|
-| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | [slides](./lessons/01-model-interface/slides.pdf) · [md](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
+| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply as it streams back | [slides](./lessons/01-model-interface/slides.pdf) · [md](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
 | 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | [slides](./lessons/02-input-and-output/slides.pdf) · [md](./lessons/02-input-and-output/slides.md) | 🎥 coming soon |
 | 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | [slides](./lessons/03-control-flow/slides.pdf) · [md](./lessons/03-control-flow/slides.md) | 🎥 coming soon |
 | 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | [slides](./lessons/04-context/slides.pdf) · [md](./lessons/04-context/slides.md) | 🎥 coming soon |
@@ -75,10 +75,10 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
 | 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
-| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to interrupt | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to stop it thinking, saying or acting | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
 | 7 | [Observability](./production/07-observability/) | a trace of every step, its time, tokens and outcome, for the person running it | control flow | [slides](./production/07-observability/slides.pdf) · [md](./production/07-observability/slides.md) | 🎥 coming soon |
-| 8 | [Resilience](./production/08-resilience/) | retries, a backup model, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
-| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, smaller requests, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, a backup model, keeping what an interrupt cut short, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
 ## Setup
@@ -116,7 +116,7 @@ It's a preprint. [`paper/README.md`](./paper/README.md) lists the paper's files.
 
 ## quark at work
 
-This is the proof. It's the `quark.py` you finish Lesson 4 with, 234 lines and nothing added, doing real work on this repo. In ten sessions, it:
+This is the proof. It's the `quark.py` you finish Lesson 4 with, nothing added, doing real work on this repo. These runs came just before quark started streaming, so their `quark.py` is 234 lines and prints each response once it's complete. Everything else is the same as today's 239 lines. In ten sessions, it:
 - brought the four primitive lessons' slide decks into line with the lessons;
 - turned all ten decks into PDFs;
 - reviewed the paper;
@@ -230,6 +230,16 @@ I went with neither order exactly: sandboxing, guardrails, observability, resili
 The last two sessions asked about the past and nothing else. For run 6a, *"What have you done in this repo across your sessions, in order, and what did you leave for the author to decide?"*, it read its facts and skill index, then listed every earlier episode by its first line, the input that opened it, and read how each one ended. It answered with all eight earlier sessions in order, each with its start time, and the open questions it had left for the author.
 
 For run 6b, *"In the session where you made the PDFs, which slides overflowed, and how did you find out, given that you can't see images?"*, it went from its PDF skill to the episodes that mention Marp. Inside the right session it found the step where it had measured the original PDFs. It answered with the five slides, the exact point where each one ran off its 960×540 page, and the three ways it had checked, including the test that showed the checker could catch overflow at all.
+
+### Writing AGENTS.md
+
+Later, on today's 239-line `quark.py`, I gave quark one more job. I deleted [`AGENTS.md`](./AGENTS.md), the file that tells an agent how this repo works, emptied its memory, and asked it to read the whole repo and its history and write the file again: *"…everything an agent needs to work in this repo… It's for understanding the repo, not a to-do list. Change no other file."*
+
+It crashed three times first. Each time, after a dozen to fifty commands of reading, it ran something like `grep … | cut -c1-140` on files full of `─`. `cut` counts bytes, so it split a three-byte character in half, and Lesson 4's `quark.py` couldn't decode the output and died. Adding a warning to the prompt didn't help: the third attempt got one and cut lines by bytes anyway. The fault was the harness's, not the model's. Upstream quark decodes with `errors="replace"`, so a stray byte becomes `�`, and the course now does the same from Lesson 2 on. With that fix, the fourth attempt, with the original prompt, read the README, every lesson, the paper and its build, the decks, the proof and the git history in 40 calls and about five minutes, and wrote the `AGENTS.md` that's in the repo now. It changed no other file.
+
+It also found two mistakes of mine and only described them, as told: the `errors="replace"` change had leaked into the README listings of three fuller examples whose files don't have it, and the arXiv bundle hadn't been rebuilt. Both were real, and both are fixed. I fixed three of its lines by hand: the two bullets that described those mistakes, which were no longer true once they were fixed, and an evaluation timing it got wrong (it said about 25 seconds a case; the lesson shows five to seven).
+
+The transcripts of all four attempts and its memory afterwards are in [`docs/quark-at-work/agents-md/`](./docs/quark-at-work/agents-md/).
 
 ### What we checked, and what we fixed by hand
 

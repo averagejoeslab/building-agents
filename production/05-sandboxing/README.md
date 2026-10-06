@@ -49,7 +49,7 @@ sandbox()
 And in the loop, the one line that ran a command on your machine now runs it in the box:
 
 ```python
-            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")   # sandboxing: in the box, with a time limit
             if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
 ```
 
@@ -73,32 +73,37 @@ uv run --project /path/to/building-agents /path/to/building-agents/production/05
 ```
 
 ```
-$ cd /tmp/demo 2>/dev/null; pwd; echo hi > hello.txt && echo "hello ok: $(cat hello.txt)"; (echo x > /etc/testfile) 2>&1 && echo ETC_OK || echo ETC_FAIL; python -c "import urllib.request;print(urllib.request.urlopen('http://example.com',timeout=8).status)" 2>&1 | tail -1; env | grep -iqE 'api[_-]?key|secret|token|anthropic|openai' && echo KEYS_YES || echo KEYS_NO; id; hostname; whoami
-/tmp/demo
-hello ok: hi
-sh: 1: cannot create /etc/testfile: Read-only file system
-ETC_FAIL
-urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
-KEYS_NO
-uid=0(root) gid=0(root) groups=0(root)
-d8df059026c0
-root
+$ echo hi > hello.txt && cat hello.txt; echo "--- etc"; echo x > /etc/testfile 2>&1; echo "exit $?"; echo "--- net"; python -c "import urllib.request;print(urllib.request.urlopen('http://example.com',timeout=5).status)" 2>&1 | tail -1; echo "--- keys"; env | grep -iqE 'api[_-]?key|secret|token|anthropic|openai' && echo yes || echo no; echo "--- who"; id; whoami 2>&1; pwd; hostname; cat /etc/os-release | head -2; ls /.dockerenv 2>&1
+hi
+--- etc
+sh: 1: cannot create /etc/testfile: Read-only file systemexit 2
+--- net
 
-I wrote `hello.txt` in `/tmp/demo`, and it contains `hi`. Of your three checks, only the API key one came out clean.
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+--- keys
+no
+--- who
+uid=0(root) gid=0(root) groups=0(root)
+root
+/tmp/demo
+2f94ff1e868d
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+/.dockerenv
+
+`hello.txt` is written in `/tmp/demo` and contains `hi`.
 
 | Check | Result |
 |---|---|
-| Write a file to `/etc` | **Failed.** The filesystem is read-only. |
-| Reach example.com with python | **Failed.** Name resolution failed because the sandbox has no network. |
-| See API keys in the environment | **No.** I searched variable names for key, secret, token, anthropic and openai, and found none. |
+| Write a file to `/etc` | **Failed.** The error was "Read-only file system". |
+| Reach example.com with python | **Failed.** Name resolution failed, which fits the container having no network. |
+| See API keys in my environment | **No.** I found nothing matching key, secret, token, anthropic or openai. |
 
-I'm running as `root` (uid 0, gid 0). That is root inside a Docker container with hostname `d8df059026c0`, and my working directory is `/tmp/demo`. The container is locked down:
-- It has no network.
-- Its root filesystem is read-only.
-- All capabilities are dropped.
-- It has memory, CPU and process limits.
+Only the `hello.txt` write worked.
 
-So root here has very little power outside the mounted directory. The mounted directory is the one place I can write.
+I'm running as `root` (uid 0, gid 0). That's root inside a Docker container, not on the host. The working directory is `/tmp/demo` and the hostname is `2f94ff1e868d`. The OS is Debian 13 (trixie).
+
+Being root didn't let me write to `/etc`, because the filesystem is read-only. The network is cut off as well. The sandbox limits what I can do, not the user account.
 ```
 
 The model wrote `hello.txt` in the mounted folder, and the other three hit the walls. `/etc` is read-only. There's no network, so the name didn't even resolve. And there are no keys, because the harness's environment stays with the harness. It says it's root because I was root when I ran it: `--user` passes on whoever you are.
@@ -113,7 +118,7 @@ notes.txt
 Now the limits. `TIMEOUT` is 30 seconds, so this run uses a copy with it set to 5 (`sed 's/"python:3.13-slim", 30/"python:3.13-slim", 5/' quark.py`):
 
 ```
-I'll start with the first command.
+I'll start with the first command, `sleep 60`.
 $ sleep 60
 
 (killed: ran over 5 seconds or out of memory)
@@ -125,10 +130,12 @@ $ ls
 hello.txt
 notes.txt
 
-I ran the three commands one at a time. The sandbox limits each command to 5 seconds and the container to 512 MB of memory.
+I ran the three commands one at a time. The first two were killed and the third ran normally.
 
-1. **`sleep 60`**: The sandbox killed it after 5 seconds, well before the 60 seconds were up. The harness reported "killed: ran over 5 seconds or out of memory".
-2. **`python3 -c 'x = bytearray(2*1024**3); ...'`**: It was killed and printed `Killed`. The script tries to allocate 2 GB and then write 2 GB more (`b"a"*len(x)`), so it needs about 4 GB. That is far above the 512 MB limit. The harness's note doesn't say whether the time limit or the memory limit stopped it, but memory is the likely cause.
+1. **`sleep 60`**: The harness killed it after 5 seconds. It reported "killed: ran over 5 seconds or out of memory". The sandbox limits every command to 5 seconds, so the full 60 seconds never elapsed.
+
+2. **`python3 -c 'x = bytearray(2*1024**3); ...'`**: This was also killed. Python printed `Killed`, and the harness added the same "ran over 5 seconds or out of memory" note. The script tries to allocate 2 GiB and then write to all of it. The sandbox container has a 512 MB memory cap, so it most likely hit that limit. The 5-second limit could also have caused it. The output doesn't say which one it was.
+
 3. **`ls`**: It ran normally and listed two files in `/tmp/demo`: `hello.txt` and `notes.txt`.
 ```
 
@@ -141,7 +148,7 @@ $ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Me
 - user: prefers short answers
 EOF
 
-Noted: you prefer short answers.
+Saved. I'll keep answers short.
 ```
 
 The fact is in `.quark/memory/memory.md` on the host, where the next session will find it.
@@ -376,6 +383,6 @@ The command printed a million `x`s and the model got 300, with a note that it wa
 
 Notice what Sandboxing never does. It sits inside output, changing where a tool runs, and leaves the other primitives alone. The model interface still talks to the model from outside the box; the API key never goes in. Control flow is the same loop. Input still brings back what a command printed, the same way. And context is untouched: nothing about the box is put in front of the model, so the model finds the walls by walking into them.
 
-**What's missing:** the box limits what a command can reach, not whether it runs. Inside the box everything still runs unasked, including `rm -rf` on the mounted folder, which is your real project. Nothing lets you say no to one command, and nothing stops a run that loops forever, spending your money one call at a time. Deciding what's allowed to run, and when to stop, is next.
+**What's missing:** the box limits what a command can reach, not whether it runs. Inside the box everything still runs unasked, including `rm -rf` on the mounted folder, which is your real project. Nothing lets you say no to one command, nothing lets you break in while it works, and nothing stops a run that loops forever, spending your money one call at a time. Deciding what's allowed to run, and when to stop, is next.
 
 **→ [Lesson 6: Guardrails](../06-guardrails/)**

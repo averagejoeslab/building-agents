@@ -65,12 +65,12 @@ You need the ones your agent needs, built in whatever way fits.
 
 # quark.py: Lesson 3, plus a context section
 
-- 234 lines: 86 of code, and a system prompt of 148
+- 239 lines: 91 of code, and a system prompt of 148
 - `messages` is renamed `working_memory`; `append` becomes `add()`
 - The call is wrapped in `try`, to catch "prompt is too long"
 - The new section, context, has eight components
 
-<!-- Everything outside the context section is Lesson 3's, with those two changes in the loop. quark's own version also lets you interrupt it with ESC and retries the summary if the network fails; those are hardening, so they're left out here: ESC comes back in Lesson 6, the retries in Lesson 8. -->
+<!-- Everything outside the context section is Lesson 3's, with those two changes in the loop. quark's own version also lets you interrupt it with ESC, keeps what it had done when you do, and retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: ESC comes back in Lesson 6; partial work, retries and the backup model in Lesson 8. Streaming isn't left out: quark has streamed since Lesson 1. -->
 
 ---
 
@@ -191,7 +191,7 @@ while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        output = call(max_tokens=16384, system=system(), ...).content
+        output = call(show, max_tokens=16384, system=system(), ...).content
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
@@ -212,9 +212,9 @@ while True:
 
 `uv run lessons/04-context/quark.py "what are you, and how do you work? three sentences"`
 
-> I'm quark, an agent that runs on a language model and acts only through bash. It's my one tool for reading, writing, running programs and talking to you. I work in a loop of observe, think, act, and repeat. My working memory is this session's context window. Three stores on disk persist beyond it: semantic facts in `.quark/memory/memory.md`, skills in `.quark/skills/`, and a log of every past session in `.quark/episodes/`.
+> I'm quark, an AI agent that works through a single tool, bash. That tool lets me observe and act on the whole system from the command line. I run a loop of observe, think, act, and repeat, and my context window is my working memory. Three stores outside it persist across sessions: semantic memory (facts), procedural memory (skills), and episodic memory (a log of every session). I read from them and write to the first two. The harness writes the third automatically.
 
-<!-- Its name, its body, its loop and its memories are all in its context. -->
+<!-- It took six sentences, not three, but it knows its name, its body, its loop and its memories because they're in its context. -->
 
 ---
 
@@ -228,14 +228,14 @@ A new run, `"what do you know about me?"` (shortened):
 # Quark Memory
 - user: prefers short answers
 ...
-Not much:
-
-- You prefer short answers. This is the only fact in my memory.
+Not much. Here is what I know about you:
+- You prefer short answers. This is saved in my memory.
+- You've asked me how I work, and you asked me to remember your preference.
 ...
-I don't know your name, your work, or anything else about you.
+I don't know your name, your role, or anything else.
 ```
 
-<!-- That first run ended. The new one starts with empty working memory. Semantic memory carried the fact, and episodic memory carried what happened: it also told me what I'd asked in earlier sessions. Working memory carried nothing between the runs. -->
+<!-- That first run ended. The new one starts with empty working memory. Semantic memory carried the fact, and episodic memory carried what happened: it read the earlier episodes and knew I'd asked how it works. Working memory carried nothing between the runs. -->
 
 ---
 
@@ -248,15 +248,14 @@ It answers, then saves this to `.quark/skills/count-python-lines.md` (shortened)
 ```
 ---
 name: count-python-lines
-description: count how many lines of Python are in a repo, excluding .venv (and .git)
----
-1. cd to the repo root (default: the current working directory).
 ...
-3. Optionally count files: same find piped to wc -l.
-4. Report total lines and number of files.
+1. cd to the repo root (default: the working directory).
+2. Run: find . -name '*.py' -not -path '*/.venv/*' -print0 | xargs -0 cat | wc -l
+...
+4. Report total lines and file count.
 ```
 
-<!-- It answered, 1,949 lines across 24 files, and it wrote two memories: this skill, named for the class of task and not for this repo, and a fact about me that points to the skill. -->
+<!-- It answered, 3,335 lines across 25 files, and it wrote two memories: this skill, named for the class of task and not for this repo, and a fact about me that points to the skill. I've cut the skill's description line and step 3 on the slide. -->
 
 ---
 
@@ -269,11 +268,11 @@ $ cat .quark/skills/count-python-lines.md 2>/dev/null
 ---
 name: count-python-lines
 ...
-1949
-24
+3335
+25
 ```
 
-> The repo has **1,949 lines of Python** across **24 files**. I excluded `.venv` and `.git` from the count.
+> The repo has **3,335 lines of Python** across **25 `.py` files**. I left out anything under `.venv`.
 
 <!-- The skill was in the index in its prompt, so the first thing it did was read it and follow it. -->
 
@@ -362,7 +361,7 @@ control flow          what kind of loop? who decides when to stop?
 - Start with [nanoagent](https://github.com/averagejoeslab/nanoagent), or pick a big one
 - Ask what each piece does until it fits one of the five
 
-<!-- Five primitives in 234 lines, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Is it deciding what the model sees? Then it's context, whatever it's called. If you find something that genuinely fits none of the five, I'd like to hear about it. -->
+<!-- Five primitives in 239 lines, 91 of them code, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Is it deciding what the model sees? Then it's context, whatever it's called. If you find something that genuinely fits none of the five, I'd like to hear about it. -->
 
 ---
 

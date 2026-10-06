@@ -87,7 +87,7 @@ Comments cut. The output is still Lesson 1's stub: the whole response, dumped.
 - End of input (Ctrl-D) returns `/q`, so the harness can stop
 - The new `# ── output: the one tool ──` section describes `bash` in the request; nothing can run it yet
 
-<!-- The model interface section is Lesson 1's, unchanged. Two sections are new: input, and the description of the one tool. -->
+<!-- The model interface section is Lesson 1's, unchanged: the response still streams, and nothing is done with the pieces yet. Two sections are new: input, and the description of the one tool. -->
 
 ---
 
@@ -112,35 +112,35 @@ One real run (shortened)
 
 ---
 
-# Output: output.py runs the request (abridged)
+# Output: output.py shows and runs (abridged)
 
 ```python
-output = call(max_tokens=16384, tools=tools, messages=[...]).content
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+output = call(show, max_tokens=16384, tools=tools, messages=[...]).content
+
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, ...)
         print(done.stdout)
 ```
 
-The input is still Lesson 1's hardcoded question.
-
-<!-- This is Lesson 1's harness with real output. The messages list is the same hardcoded question, and the subprocess line also merges stderr into stdout; I've cut both on the slide. -->
+<!-- This is Lesson 1's harness with real output. The input is still Lesson 1's hardcoded question; the messages list is cut on the slide, and the subprocess line also merges stderr into stdout. -->
 
 ---
 
 # Each block goes where it belongs
 
 - **`tools`** is what output can do: a name, a description the model reads, a schema for arguments
-- **`output`** is now `call(...).content`: a list of blocks
-- A `text` block is printed; a `tool_use` block is run; thinking goes nowhere
-- `stderr=subprocess.STDOUT` merges errors in, in the order they happened
+- **`show()`**: `call(show, ...)` hands it each streamed piece; text is printed the moment it arrives
+- **`output`** is now `call(...).content`, the whole response once it's done
+- Its text has already been shown, so the loop only runs `tool_use` blocks; thinking goes nowhere
 - `max_tokens` is 16384 from now on, so a response that thinks first has room to finish a tool request
 
-<!-- With bash, anything you can do from a command line, the model can ask for. That's why the setup warns you to run it somewhere you can afford to lose. A response cut off mid-request would leave no cmd, and this code would crash. -->
+<!-- You watch the words appear instead of waiting for the whole response, and when a text block ends, show ends the line. Every other piece, like thinking or a tool request being written, it lets pass. stderr=subprocess.STDOUT merges errors in, in the order they happened. With bash, anything you can do from a command line, the model can ask for. That's why the setup warns you to run it somewhere you can afford to lose. A response cut off mid-request would leave no cmd, and this code would crash. -->
 
 ---
 
@@ -152,10 +152,10 @@ uv run lessons/02-input-and-output/output.py
 
 ```
 $ ls -la
-total 156
--rw-r--r-- 1 root root 30846 Oct  6 05:44 README.md
-drwxr-xr-x 6 root root  4096 Oct  5 19:49 lessons
--rw-r--r-- 1 root root   246 Oct  6 03:33 pyproject.toml
+total 192
+-rw-r--r--  1 root root 28138 Oct  6 20:31 README.md
+drwxr-xr-x  6 root root  4096 Oct  5 19:49 lessons
+-rw-r--r--  1 root root   246 Oct  6 03:33 pyproject.toml
 ```
 
 One real run (shortened). The listing went to the screen, and nowhere else.
@@ -167,12 +167,10 @@ One real run (shortened). The listing went to the screen, and nowhere else.
 # Together: quark.py (abridged)
 
 ```python
-output = call(max_tokens=16384, tools=tools, messages=[...]).content
+output = call(show, max_tokens=16384, tools=tools, messages=[...]).content
 
 input = []
-for block in output:                                     # output: show text, run tool requests
-    if block.type == "text":
-        print(block.text)
+for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, ...)
@@ -180,7 +178,7 @@ for block in output:                                     # output: show text, ru
         input.append({"type": "tool_result", ..., "content": ...})  # input: from the world
 ```
 
-Before these lines, quark.py is input.py. Lesson 1's dump is gone.
+Before these lines, quark.py is input.py plus output.py's `show()`. Lesson 1's dump is gone.
 
 <!-- quark.py is input.py and output.py in one file. The request carries input as the user message. And there's one piece neither file could have on its own: the last line. -->
 
@@ -205,11 +203,11 @@ uv run lessons/02-input-and-output/quark.py "how many lines are in README.md?"
 
 ```
 $ wc -l README.md
-333 README.md
+301 README.md
 ```
 
 - Same input as input.py, same `wc -l`. This time output ran it
-- The model never sees the 333. It's sitting in `input`, and nothing sends it
+- The model never sees the 301. It's sitting in `input`, and nothing sends it
 
 <!-- The model didn't say anything before asking; sometimes it does. Run it with no input on the command line and it prompts you with > instead. -->
 
