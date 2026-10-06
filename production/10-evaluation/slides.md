@@ -248,21 +248,20 @@ exit 0
 
 ---
 
-# A change that looks harmless
-
-<style scoped>pre { white-space: pre-wrap; }</style>
+# A change that looks harmless (output abridged)
 
 `MAX_STEPS` from 20 to 1, to cap what a run can spend:
 
 ```
 pass  count      1 steps    7.0s    13399 tokens  jev 0.97  llm pass
-FAIL  fix        1 steps    6.4s    13370 tokens  jev 0.02  llm fail  kept /tmp/eval-fix-kd2npnqc  REGRESSED: it passed last time
+FAIL  fix        1 steps    6.4s    13370 tokens  jev 0.02  llm fail  ...
 pass  rename     1 steps    6.0s    13398 tokens  jev 0.97  llm pass
 pass  remember   1 steps    6.1s    13443 tokens  jev 0.94  llm pass
 3/4 passed
 exit 1
 ```
 
+- The `fix` line ends: `kept /tmp/eval-fix-kd2npnqc  REGRESSED: it passed last time`
 - `fix` can't be done in one step; the other three can
 - Both judges agree with all four grades
 

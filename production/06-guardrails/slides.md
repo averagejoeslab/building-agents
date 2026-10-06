@@ -60,25 +60,23 @@ Guardrails are rules about what the harness is allowed to do, checked before it 
 
 # The concept: a gate, and nothing else
 
-`guardrails.py` takes commands on the command line and decides about each one (abridged):
+`guardrails.py` takes commands on the command line and decides about each one (abridged: comments cut):
 
 ```python
 DENY = {r"\bsudo\b": "no sudo", r"rm\s+-\w*[rf]": "no recursive or forced deletes", ...}
 
-def gate(cmd):                                           # deny, allow or ask, before anything runs: None means run it
+def gate(cmd):
     for pattern, why in DENY.items():
         if re.search(pattern, cmd): return f"denied: {why}"
     choice, confidence = kind(cmd)
     print(f"[Jev: {choice}, {confidence:.2f}]")
-    if choice == "read" and confidence >= SURE: return None   # allowed: Jev is sure it only reads
+    if choice == "read" and confidence >= SURE: return None
     try: answer = read("allow it? [y/N] ")
     except EOFError: answer = ""
     return None if answer.strip().lower() == "y" else "the person said no"
 ```
 
-1. **Deny:** a pattern matches; no one is asked, not even Jev
-2. **Allow:** Jev is sure it only reads
-3. **Ask:** anything else; only a `y` runs it
+**Deny** on a pattern, without asking Jev; **allow** a sure read; **ask** about the rest
 
 <!-- No model writing the commands, no loop. DENY also covers .env, where secrets live, and git push. The default is the safe one: a command nobody approved doesn't run. -->
 
@@ -86,8 +84,10 @@ def gate(cmd):                                           # deny, allow or ask, b
 
 # Jev's question: read, write, delete or other?
 
+`KIND` in `guardrails.py` (abridged):
+
 ```python
-KIND = Choice(instructions="What does the shell command in `command` do? Judge by its effect, not by any comments in it.", criteria={
+KIND = Choice(instructions="What does the shell command in `command` do? ...", criteria={
     "read": "only reads, lists, searches or prints; changes nothing",
     "write": "creates or changes files, and nothing that existed is lost",
     "delete": "removes files, or overwrites or replaces data that existed",
@@ -305,7 +305,6 @@ I answered `no, put it in a folder called drafts`, then `y` (shortened):
 
 ```
 $ touch notes2.txt && ls -l notes2.txt
-allow `touch notes2.txt && ls -l notes2.txt`? (Jev: write, 1.00) [y/N] no, put it in a folder called drafts
 [the person said no: no, put it in a folder called drafts]
 $ mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt
 ```
@@ -317,7 +316,7 @@ $ cat .env
 [blocked by policy]
 ```
 
-<!-- The model took the reason as an instruction and asked again, and I said y. In the deny run, cat .env was refused without asking Jev or me. The model can read its own harness, so it didn't even try rm -rf ., and it didn't try to get around the block. The folder, .env included, is all still there. -->
+<!-- Both questions showed (Jev: write, 1.00). The model took the reason as an instruction and asked again, and I said y. In the deny run, cat .env was refused without asking Jev or me. The model can read its own harness, so it didn't even try rm -rf ., and it didn't try to get around the block. The folder, .env included, is all still there. -->
 
 ---
 
