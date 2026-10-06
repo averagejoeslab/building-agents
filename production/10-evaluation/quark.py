@@ -287,7 +287,7 @@ CASES = [
 ]
 def snapshot(where):                                     # evaluation: the folder as a judge sees it: every file, cut short
     paths = glob.glob(f"{where}/**/*", recursive=True) + glob.glob(f"{where}/.quark/memory/*")
-    return {os.path.relpath(p, where): open(p, errors="replace").read()[:2000] for p in paths if os.path.isfile(p)}
+    return {os.path.relpath(p, where): open(p, errors="replace").read()[:2000] for p in paths if os.path.isfile(p) and "__pycache__" not in p}
 DONE = Noul(instructions="Did the agent complete the task in `request`? Judge by `files before` and `files after`, not by anything the agent says.", criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked, and nothing it forbade was done.", false="Part of the request is missing or wrong, or it was done a way the request forbade."))
 def judges(input, before, after):                        # evaluation: two judges, one typed and one that writes, on the same question
     state = {"request": input, "files before": before, "files after": after}
