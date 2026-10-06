@@ -1,0 +1,22 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  node distance=3.5mm,
+  prim/.style={draw, rounded corners=2pt, minimum height=8mm, align=center, font=\footnotesize, fill=black!6},
+  data/.style={font=\footnotesize\itshape, align=center},
+  >=Latex]
+\node[data] (pw) {person\\or world};
+\node[prim, right=of pw] (in) {input};
+\node[prim, right=of in] (ctx) {context};
+\node[data, right=of ctx] (req) {request};
+\node[prim, right=of req] (mi) {model\\interface};
+\node[data, right=of mi] (resp) {response};
+\node[prim, right=of resp] (out) {output};
+\node[data, right=of out] (pw2) {person\\or world};
+\draw[->] (pw) -- (in); \draw[->] (in) -- (ctx); \draw[->] (ctx) -- (req);
+\draw[->] (req) -- (mi); \draw[->] (mi) -- (resp); \draw[->] (resp) -- (out); \draw[->] (out) -- (pw2);
+\draw[->] (out.south) -- ++(0,-6mm) -| node[pos=0.25, below, font=\footnotesize\itshape] {result} (in.south);
+\end{tikzpicture}
+\caption{One pass through a harness. A tool's result comes back as input; control flow decides whether to go around again.}
+\label{fig:path}
+\end{figure}
