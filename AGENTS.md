@@ -83,7 +83,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
           print(r, os.path.basename(best), [l for l in lines if l not in files[best]][:3])
   PY
   ```
-- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (82 of code, 152 of prompt), and the 1,949 total in Lesson 4's demo.
+- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (86 of code, 148 of prompt), and the 1,949 total in Lesson 4's demo.
   - They appear in the lesson READMEs (including demo output) and the top-level README.
   - In the paper: the abstract, §5 headings, §5.5, §6, the conclusion, Appendix A/B, and `paper/arxiv/METADATA.txt`.
   - If a `quark.py` changes length, re-run the demos and update every one of them.

@@ -92,7 +92,7 @@ You don't need all of them. You need the ones your agent needs, built in whateve
 
 Here's Lesson 3's agent with quark's context added.
 
-It's `quark.py`, 234 lines: 82 of code, and a system prompt of 152 lines.
+It's `quark.py`, 234 lines: 86 of code, and a system prompt of 148 lines.
 
 The prompt is shortened to `...` here and shown in full after the code:
 
@@ -1193,7 +1193,7 @@ Context only decides what the request holds and how it fits.
 
 # You've built a harness
 
-Control flow, input, context, model interface, output. Five primitives in 234 lines, 82 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is.
+Control flow, input, context, model interface, output. Five primitives in 234 lines, 86 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is.
 
 ---
 

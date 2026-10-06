@@ -107,7 +107,7 @@ while True:
 
 \subsection{Plus context: the finished harness (234 lines)}
 
-The system prompt (the text of \passthrough{\lstinline!system()!}) accounts for 152 of the 234 lines.
+The system prompt (the text of \passthrough{\lstinline!system()!}) accounts for 148 of the 234 lines.
 
 \begin{lstlisting}[language=Python]
 import subprocess, sys, os, re, glob, json, datetime
@@ -615,7 +615,7 @@ pass  remember   1 steps    3.1s     6778 tokens
 
 \section{Case-study evidence}
 
-\textbf{D.1 The silent stop and the crash.} The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson. The last response hit the cap partway through a tool request:
+\textbf{D.1 The silent stop and the crash.} The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson (the last four of eight lines, followed by the end of the traceback). The traceback refers to the 48-line version of \passthrough{\lstinline!lessons/04-context/quark.py!} that was then current. The last response hit the cap partway through a tool request:
 
 \begin{lstlisting}
 [trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=3642 thinking=2498
@@ -627,13 +627,13 @@ pass  remember   1 steps    3.1s     6778 tokens
 KeyError: 'cmd'
 \end{lstlisting}
 
-\textbf{D.2 The agent that killed itself.} The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained \passthrough{\lstinline!08-resilience/quark.py!}, so the pattern matched quark too:
+\textbf{D.2 Self-termination.} The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained \passthrough{\lstinline!08-resilience/quark.py!}, so the pattern matched quark too:
 
 \begin{lstlisting}
 (yes y | uv run --project $R $R/production/08-resilience/quark.py "Run 'sleep 20; echo first > first.txt' as one command, ..." > out1.txt 2>&1 &) ; ... ; pkill -9 -f 08-resilience/quark.py; ...
 \end{lstlisting}
 
-\textbf{D.3 Fabrication from memory.} The two decks written from memory were checked slide by slide against the lessons:
+\textbf{D.3 Fabrication from memory.} The two sets of decks written from memory were checked slide by slide against the lessons:
 
 \begin{itemize}
 \tightlist

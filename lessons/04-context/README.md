@@ -29,7 +29,7 @@ You don't need all of them. You need the ones your agent needs, built in whateve
 
 ## The worked example
 
-Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 234 lines: 82 of code, and a system prompt of 152 lines. The prompt is shortened to `...` here and shown in full after the code:
+Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 234 lines: 86 of code, and a system prompt of 148 lines. The prompt is shortened to `...` here and shown in full after the code:
 
 ```python
 import subprocess, sys, os, re, glob, json, datetime
@@ -640,7 +640,7 @@ Notice what context never does. Getting the request to the model and the respons
 
 ## You've built a harness
 
-Control flow, input, context, model interface, output. Five primitives in 234 lines, 82 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Now you know what the choices are.
+Control flow, input, context, model interface, output. Five primitives in 234 lines, 86 of them code and the rest the prompt, and an agent that works, remembers facts, learns skills, recalls what happened, and knows what it is. quark is one set of choices. Now you know what the choices are.
 
 So go the other way. Pick a harness you haven't read. [nanoagent](https://github.com/averagejoeslab/nanoagent) is a good first one: another small agent, written in TypeScript. Or pick a big one. Read it and sort what you find under the five primitives:
 
