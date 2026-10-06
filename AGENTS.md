@@ -218,7 +218,7 @@ The README's "What we checked, and what we fixed by hand" lists every change mad
   3. Set `\bibliography{references}` in `arxiv/main.tex` (the `latex/` copy uses `../references`; that line is the only intended difference in `main.tex`).
   4. Run pdflatex/bibtex there to regenerate `main.bbl`.
   5. Check `\pdfoutput=1` is the first line and there are no TeX comments.
-  6. Re-zip. `paper/arxiv/METADATA.txt` holds the submission form fields (abstract under 1,920 characters, currently 1,713; comments with the page count, currently 36); update it when the abstract or page count changes. Submission is in progress.
+  6. Re-zip. `paper/arxiv/METADATA.txt` holds the submission form fields (abstract under 1,920 characters, currently 1,713; comments with the page count, currently 40); update it when the abstract or page count changes. Submission is in progress.
 
 ## The proof: quark at work
 
