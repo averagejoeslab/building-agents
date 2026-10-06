@@ -52,6 +52,8 @@ Our approach is \textbf{reductive}: we decompose an agent until its parts are no
   \textbf{A case study} in which the constructed agent produced much of its own teaching material (§8).
 \end{enumerate}
 
+This is a conceptual and analytical contribution, in the tradition of frameworks such as CoALA \cite{sumers2024cognitive}: its evidence is a construction, a decomposition of existing systems, and a case study, and it reports no quantitative experiments. Measuring how much each primitive contributes to differences in performance is left to future work (§9.5).
+
 The paper is accompanied by a companion artifact, \emph{harness-engineering} \cite{course}, an open course with runnable code. The artifact builds the harness of §5 and the production layers of §6 incrementally and retains full transcripts of every run. The paper is self-contained: every listing and run on which the argument depends is reproduced in Appendices A--D.
 
 \section{Two components: the model and the harness}
@@ -682,6 +684,23 @@ No component required a sixth primitive, but two definitions are under strain.
 \item
   \textbf{Build-versus-buy decisions.} Each product in §7.5 replaces part of a primitive or a layer. Adopting a product is a decision about which part of the harness becomes opaque to its builder.
 \end{itemize}
+
+\subsection{Future work}
+
+The framework is intended to support quantitative follow-up work, of which four directions are most immediate.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Attribution of performance variance to primitives.} Zhang et al.~\cite{zhang2026stop} show that the harness can account for more performance variance than the choice of model, but not which part of the harness accounts for it. Holding the model fixed and varying the implementation of one primitive at a time on a standard benchmark would decompose that variance by primitive, and would test whether the disclosure schema of §9.4 captures the factors that matter.
+\item
+  \textbf{Inter-rater agreement.} Independent coders, given only the definitions and boundary rules, could assign the components catalogued in the supplement. Their agreement would measure whether the primitives are as mutually exclusive in practice as they are in definition.
+\item
+  \textbf{Coverage across domains.} Extending the decomposition to a larger and more varied corpus of harnesses, including browser, voice and framework-based agents, would turn the absence of a sixth primitive into a measured rate.
+\item
+  \textbf{Necessity.} Disabling one primitive at a time in the constructed agent and measuring task success would complement the sufficiency argument of §5 with evidence that each primitive is necessary.
+\end{enumerate}
 
 \section{Related work}
 

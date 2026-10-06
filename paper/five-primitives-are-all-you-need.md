@@ -64,6 +64,8 @@ Our approach is **reductive**: we decompose an agent until its parts are no long
 5. **A decomposition of three production harnesses,** Claude Code, Codex and opencode, which finds no need for a sixth primitive and refines the boundary rules (§7).
 6. **A case study** in which the constructed agent produced much of its own teaching material (§8).
 
+This is a conceptual and analytical contribution, in the tradition of frameworks such as CoALA [1]: its evidence is a construction, a decomposition of existing systems, and a case study, and it reports no quantitative experiments. Measuring how much each primitive contributes to differences in performance is left to future work (§9.5).
+
 The paper is accompanied by a companion artifact, *harness-engineering* [25], an open course with runnable code. The artifact builds the harness of §5 and the production layers of §6 incrementally and retains full transcripts of every run. The paper is self-contained: every listing and run on which the argument depends is reproduced in Appendices A–D.
 
 ---
@@ -480,6 +482,15 @@ No component required a sixth primitive, but two definitions are under strain.
 - **A shared vocabulary.** A claim that an agent "uses memory" becomes a claim about context: which components, how they are assembled, and how they are fitted. A claim that an agent is "reliable" becomes a set of claims about resilience in the model interface and output, and about evaluation outside them.
 - **A disclosure schema.** Calls to disclose the harness when comparing agents [4] require a schema specifying what to disclose. The five primitives and the production layers provide one, and §7.2 shows such a disclosure for three agents.
 - **Build-versus-buy decisions.** Each product in §7.5 replaces part of a primitive or a layer. Adopting a product is a decision about which part of the harness becomes opaque to its builder.
+
+### 9.5 Future work
+
+The framework is intended to support quantitative follow-up work, of which four directions are most immediate.
+
+1. **Attribution of performance variance to primitives.** Zhang et al. [4] show that the harness can account for more performance variance than the choice of model, but not which part of the harness accounts for it. Holding the model fixed and varying the implementation of one primitive at a time on a standard benchmark would decompose that variance by primitive, and would test whether the disclosure schema of §9.4 captures the factors that matter.
+2. **Inter-rater agreement.** Independent coders, given only the definitions and boundary rules, could assign the components catalogued in the supplement. Their agreement would measure whether the primitives are as mutually exclusive in practice as they are in definition.
+3. **Coverage across domains.** Extending the decomposition to a larger and more varied corpus of harnesses, including browser, voice and framework-based agents, would turn the absence of a sixth primitive into a measured rate.
+4. **Necessity.** Disabling one primitive at a time in the constructed agent and measuring task success would complement the sufficiency argument of §5 with evidence that each primitive is necessary.
 
 ---
 
