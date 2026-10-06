@@ -1301,10 +1301,10 @@ def cached(working_memory):                              # performance: cache ev
 **C.6 Evaluation (+38 lines), outside the harness.** Four cases, each graded by a shell command on the state the agent leaves, with a regression flag against the previous run. Run on the artifact, reducing the step limit from 20 to 1 left three cases passing and flagged the fourth:
 
 ```
-pass  count      1 steps    3.7s     9439 tokens
-FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
-pass  rename     1 steps    3.6s     9440 tokens
-pass  remember   1 steps    4.0s     9520 tokens
+pass  count      1 steps    3.4s    10654 tokens
+FAIL  fix        1 steps    4.6s    10623 tokens  kept /tmp/eval-fix-effj187m  REGRESSED: it passed last time
+pass  rename     1 steps    3.5s    10654 tokens
+pass  remember   1 steps    4.1s    10700 tokens
 3/4 passed
 exit 1
 ```
