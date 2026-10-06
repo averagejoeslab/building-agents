@@ -299,7 +299,7 @@ The harness reported my first run as interrupted, so I checked the file before r
 
 The model was told the command was interrupted and may or may not have run, and it did what that wording asks: it looked, found the file, and didn't run the command again. If `flag.txt` hadn't been there, the same sentence would have led it to run the command once. It's the model's call, made with the facts.
 
-**You press ESC while it's saying something.** ESC needs a terminal, so these two runs are in chat mode, typed at the prompt. I asked for something long and pressed ESC a few seconds after the answer started to appear, then `/q`:
+**You press ESC while it's saying something.** ESC needs a terminal, so these two runs are in chat mode, typed at the prompt, each in a fresh folder. I asked for something long and pressed ESC a few seconds after the answer started to appear, then `/q`:
 
 ```
 > without running anything, work out whether 1000003 is prime, then explain how you know in about 400 words.
@@ -350,7 +350,7 @@ jq -c '{role, content: (if (.content|type)=="string" then .content[:50] else [.c
 {"role":"assistant","content":[{"type":"text","end":"-division check in the sandbox. Do you want me to?"}]}
 ```
 
-The model's first message has both of its blocks: the thinking it did before it started writing, finished and signed, and the text as far as it got. The text ends two words later than the screen does ("so none of them", where the screen stopped at "so none"): those two words had arrived when ESC was pressed, so they were in the message, but the stream had already stopped being shown.
+The model's first message has both of its blocks: the thinking it did before it started writing, finished and signed, and the text as far as it got. The text ends two words later than the screen does ("so none of them", where the screen stopped at "so none"): they were the piece of the stream that arrived just as ESC was pressed. The SDK had already added it to the message when `unless_esc()` saw ESC and chose not to show it.
 
 **You press ESC while it's doing something.** A command that prints a line a second, `y` to the guard, ESC three and a half seconds later, and `/q`:
 
