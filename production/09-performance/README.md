@@ -6,7 +6,9 @@ Lesson 8 made the agent keep going when something fails. A run that finishes but
 
 Performance is how fast the agent responds and how much each task costs. Those two are one subject because they come from the same place. Time is spent waiting: on the model to read a request, on the model to write a reply, on a command to finish. Tokens are spent on every request: the more the model reads, the more it costs and the longer it takes. So performance isn't one mechanism. It's a few small ones, spread over the primitives where the time and the tokens go.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on context, the model interface and output**. Context decides what the request holds (Lesson 4), the model interface sends it and brings the reply back (Lesson 1), and output runs what the reply asks for (Lesson 2). Everything below happens inside those three. The loop that connects them, the person's input and the sandbox are left as they are.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on context, the model interface and output**. Context decides what the request holds (Lesson 4), the model interface sends it and brings the response back (Lesson 1), and output runs what the response asks for (Lesson 2). Everything below happens inside those three. The loop that connects them, the person's input and the sandbox are left as they are.
+
+One thing you might expect here isn't new. *Streaming*, getting the response piece by piece as the model writes it, has been there since Lesson 1: `call()` has streamed every response from the start, Lesson 2's `show()` prints the text as it's written, and Lesson 6 stops reading the stream the moment you press ESC. A reply that takes eight seconds to write starts appearing after half a second, and that's the biggest thing you can do for how fast an agent *feels*. quark already does it. This lesson is about what's left: the tokens resent on every call, the tokens that didn't need sending, the model a plain job goes to, and the commands waiting on each other.
 
 The mechanism, first in context, because it's where most of the tokens go. Remember what the loop does (Lesson 3): every pass sends the *whole* request again, the instructions, the tools and every message so far. Nothing is remembered on the model's side between calls, so a task of twenty steps makes the model read the same opening twenty times, and each time the conversation is a little longer. The cost of a task isn't the sum of what was said; it's the sum of everything resent.
 
@@ -16,44 +18,34 @@ The mechanism, first in context, because it's where most of the tokens go. Remem
 - *There's a minimum.* A prefix shorter than a minimum, from 512 to 4,096 tokens depending on the model (512 for this course's Sonnet 5.5, 4,096 for Haiku 4.5), isn't cached, and nothing tells you. quark's system prompt is about nine thousand tokens, mostly the copy of its own code, so it qualifies.
 - *The cache belongs to one model.* Switch models and you start again.
 
-The system prompt has been marked since Lesson 4. What's new is the other end: the conversation. A second mark on the last message means each call pays full price only for what's new since the previous call: the last reply and the last result.
+The system prompt has been marked since Lesson 4. What's new is the other end: the conversation. A second mark on the last message means each call pays full price only for what's new since the previous call: the last response and the last result.
 
 Context has a second, plainer lever: send less. A command that prints a whole file puts the whole file in the working memory, and from then on it's resent on every call, cached or not. So the harness caps what one tool result may contribute. It keeps the start and the end, which is where headers and errors usually are, and says how much it cut.
 
-Then the model interface, where the time goes while you wait. Two things. The first is *streaming*. Lesson 1's `model_interface.py` streamed so that a long reply wouldn't hit a timeout. It also changes what a person experiences. A reply that takes eight seconds to write arrives all at once after eight seconds, or arrives word by word starting after half a second. The total time is the same and the wait feels completely different. Receiving the reply as a stream is the model interface; printing each piece as it arrives, for the person, is output. The second is *which model a kind of request goes to*. Not every request needs the biggest model. Summarizing a working memory to make room (Lesson 4's compaction) is a plain task that a smaller, faster, cheaper model does well, so that one request always goes to one. That's a fixed setting of the request, like `max_tokens`, and it belongs to the model interface, as Lesson 8's backup model does. Deciding the model while the harness runs, per task or per step, is a different thing: that's routing, which Lesson 3 put in control flow, and the fuller example below shows it.
+Then the model interface: *which model a kind of request goes to*. Not every request needs the biggest model. Summarizing a working memory to make room (Lesson 4's compaction) is a plain job that a smaller, faster, cheaper model does well, so that one request always goes to one. That's a fixed setting of the request, like `max_tokens`, and it belongs to the model interface, as Lesson 8's backup model does. Deciding the model while the harness runs, per task or per step, is a different thing: that's routing, which Lesson 3 put in control flow, and the fuller example below shows it.
 
-Last, output, where the time goes while a command runs. When the model needs three things, it can ask for all three in one reply: the response has three `tool_use` blocks. The harness has been handling them one at a time, in order. But the model asked for them together, in one reply, before seeing any result, so it has already decided that none of them needs another's answer. Nothing stops the harness running them at the same time, and then the wait is the slowest command and not the sum of all of them. Two details. Every result must still go back, in order, each with the id of the request it answers, because the API checks that. And the questions Lesson 6's gate asks a person are asked first, one at a time, before anything starts, because you can't have three prompts talking over each other.
+Last, output, where the time goes while a command runs. When the model needs three things, it can ask for all three in one response: the response has three `tool_use` blocks. The harness has been handling them one at a time, in order. But the model asked for them together, in one response, before seeing any result, so it has already decided that none of them needs another's answer. Nothing stops the harness running them at the same time, and then the wait is the slowest command and not the sum of all of them. Three details. Every result must still go back, in order, each with the id of the request it answers, because the API checks that. The questions Lesson 6's gate asks a person are asked first, one at a time, before anything starts, because you can't have three prompts talking over each other. And one ESC has to stop all of them, not just the first.
 
 Nothing here makes the model smarter or the answer better. It makes the same work cheaper and sooner, and the one thing it has to be careful about is not making it different.
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else. In `# ── model interface ──`, `call()` streams, shows text as it arrives when asked to, and takes a list of models:
+[`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else: 372 lines, 16 more than Lesson 8's. In `# ── model interface ──`, `call()` takes a list of models, which is Lesson 8's list unless you say otherwise:
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
 class Down(Exception): pass
-def call(models=MODELS, live=False, **request):          # resilience: retries, then a backup model, then give up cleanly
-    for model in models:
-        try:
-            with client.messages.stream(model=model, **request) as stream:   # performance: streamed, shown as it arrives
-                shown = False
-                for event in stream:
-                    if ESC.is_set(): break               # guardrails: with a stream, ESC stops it mid-thought or mid-sentence
-                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta": print(event.delta.text, end="", flush=True); shown = True
-                if shown: print()
-                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
-        except (APIConnectionError, APIStatusError) as e:
-            if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
-            trace(event="model_failed", model=model, error=type(e).__name__)
-    raise Down()
+def call(each=lambda event: None, models=MODELS, **request):   # model interface: the response streams back, and each piece goes to each()
+    for model in models:                                 # resilience: retries, then a backup model, then give up cleanly
 ```
 
-`live=True` prints each piece of text as it arrives, so the loop no longer prints text blocks itself. The stream also makes Lesson 6's interrupt immediate: `call()` checks `ESC` at every piece that arrives and stops reading the moment you press it, mid-thought or mid-sentence, and hands back what had arrived so far, `stream.current_message_snapshot`. `models=FAST` sends a request to the small model; only compaction asks for it:
+The rest of `call()` is Lesson 8's: the same stream, the same stop on ESC, the same retries. `models=FAST` sends a request to the small model, and only compaction asks for it:
 
 ```python
     summary = call(models=FAST, max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
 ```
+
+There's one model in `FAST`, so there's no backup for the summary: if the small model is down, `call()` raises `Down` as it would for the main call, and the work so far is in the episode.
 
 In `# ── context ──`, two ways to send less, and to pay less for what's sent again:
 
@@ -70,24 +62,11 @@ def cached(working_memory):                              # performance: cache ev
     return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
 ```
 
-**`trim()`** keeps the first and last 10,000 characters of a result over `MAX_RESULT`, and says how much it cut. **`cached()`** puts a `cache_control` mark on the last block of the last message, on a copy, so the next call reads everything up to there from the cache. The system prompt has carried its own mark since Lesson 4. The main call now sends the marked copy, streamed live:
+**`trim()`** keeps the first and last 10,000 characters of a result over `MAX_RESULT`, and says how much it cut. **`cached()`** puts a `cache_control` mark on the last block of the last message, on a copy, so the next call reads everything up to there from the cache. The system prompt has carried its own mark since Lesson 4. The main call now sends the marked copy:
 
 ```python
-        with listening():
-            response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
+            response = call(unless_esc, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
 ```
-
-A stream cut short leaves partial blocks: a sentence half written, a thought with no signature yet. The loop keeps the ones the API will accept back:
-
-```python
-        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]   # performance: a stream cut by ESC leaves partial blocks; keep the whole ones
-```
-
-```python
-    if output: add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
-```
-
-Text that was said, up to where you stopped it, stays in working memory and the episode. Thinking that wasn't finished is dropped, because the API only takes back thinking it signed. If nothing at all had arrived, there's no assistant message to keep, and only the interrupt goes in. Lesson 6's interrupt branch prints the text it kept; here it was already printed as it arrived, so that print goes.
 
 One line of the system prompt changes too. Lesson 4 asked for one command per response; now the model is told what the harness will do with several:
 
@@ -95,7 +74,11 @@ One line of the system prompt changes too. Lesson 4 asked for one command per re
 Prefer focused actions to keep results small. Commands that don't depend on each other can go in the same response: they run at the same time.
 ```
 
-In `# ── output ──`, running one command becomes a function, so several can run at once. It keeps Lesson 6's way of running a command, so ESC still stops it and keeps what it printed:
+In `# ── output ──`, running one command becomes a function, so several can run at once. It's Lesson 8's way of running a command, moved: in the box, with a time limit, stopped by ESC with what it had printed kept, and now trimmed:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+```
 
 ```python
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
@@ -112,7 +95,7 @@ def execute(cmd):                                        # performance: one comm
     return trim(done.stdout) or f"(exit {done.returncode})"
 ```
 
-And in the loop, the tool requests are handled in two passes. The first decides each one in order, asking the guard's questions one at a time, before anything starts. Then everything allowed runs at once in a thread pool, inside `listening()`, so one ESC stops every command that's running, and the second pass prints the results and sends them back in the order they were asked for, each with its request's id:
+And in the loop, the tool requests are handled in two passes. The first decides each one in order, asking the guard's questions one at a time, before anything starts. Then everything allowed runs at once in a thread pool, inside `listening()`, so one ESC reaches every command that's running: `kill -9 -1` in the box stops them all at once. The second pass prints the results and sends them back in the order they were asked for, each with its request's id:
 
 ```python
     refused, pending = {}, {}
@@ -121,7 +104,7 @@ And in the loop, the tool requests are handled in two passes. The first decides 
             cmd = block.input.get("cmd")
             print(f"$ {cmd}")
             if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
-                refused[block.id] = "your request was cut off at the token limit, so it was not run. Send it again, shorter."
+                refused[block.id] = "[your doing was cut off before it was fully formed — it never reached the world]"
             elif (no := guard(cmd)):
                 trace(event="refused", cmd=cmd, why=no)
                 refused[block.id] = no
@@ -135,10 +118,12 @@ And in the loop, the tool requests are handled in two passes. The first decides 
         if block.type == "tool_use":
             text = refused.get(block.id) or outputs[block.id]
             print(f"[{text}]" if block.id in refused else text)
-            input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused else {})})  # input: from the world
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused and not text.startswith("[your doing") else {})})  # input: from the world
 ```
 
-Everything else is unchanged. The guard still decides before anything runs, the box still holds every command, the trace still records each call and command, and resilience's backup model and resume work through the same `call()` and episode.
+Lesson 8 had one more case in that loop: after ESC, a command that hadn't started yet got `[your doing never reached the world]`. Here there's no "yet": everything allowed starts together, so ESC finds them all running, and each one gets what it had printed and `[your doing stopped before done]`.
+
+Everything else is unchanged. The guard still decides before anything runs, the box still holds every command, the trace still records each call and command, and resilience's backup model, resume and kept partials work through the same `call()` and episode.
 
 ## Run it
 
@@ -160,21 +145,21 @@ allow `sleep 3; echo types ok`? [y/N] types ok
 $ sleep 3; echo tests ok
 allow `sleep 3; echo tests ok`? [y/N] tests ok
 
-Lint, types and tests all passed.
-[wall: 14.6s]
+Lint, types, and tests all passed.
+[wall: 14.4s]
 ```
 
-The trace shows the model asked for all three in one reply, and Lesson 8 ran them one after another:
+The trace shows the model asked for all three in one response, and Lesson 8 ran them one after another (each line shortened to the fields that matter here):
 
 ```
-{"event":"model","seconds":2.35,"input_tokens":145,"cache_read":0,"cache_write":8438}
-{"event":"tool","seconds":3.09,"cmd":"sleep 3; echo lint ok"}
-{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo types ok"}
-{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo tests ok"}
-{"event":"model","seconds":1.12,"input_tokens":407,"cache_read":8438,"cache_write":0}
+{"event":"model","seconds":1.97,"input_tokens":145,"cache_read":0,"cache_write":8709}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo lint ok"}
+{"event":"tool","seconds":3.08,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.08,"cmd":"sleep 3; echo tests ok"}
+{"event":"model","seconds":1.22,"input_tokens":407,"cache_read":8709,"cache_write":0}
 ```
 
-Three seconds each, nine in total. Now the same task with this lesson's `quark.py`:
+Three seconds each, nine in total. Now the same task with this lesson's `quark.py`, and its trace shortened the same way:
 
 ```
 $ sleep 3; echo lint ok
@@ -186,19 +171,19 @@ types ok
 
 tests ok
 
-Lint, types, and tests all passed.
-[wall: 8.0s]
+Lint, types and tests all passed.
+[wall: 8.1s]
 ```
 
 ```
-{"event":"model","seconds":1.73,"input_tokens":4,"cache_read":0,"cache_write":9130}
-{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo lint ok"}
-{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo tests ok"}
-{"event":"tool","seconds":3.13,"cmd":"sleep 3; echo types ok"}
-{"event":"model","seconds":1.24,"input_tokens":2,"cache_read":9130,"cache_write":264}
+{"event":"model","seconds":1.96,"input_tokens":4,"cache_read":0,"cache_write":9209}
+{"event":"tool","seconds":3.18,"cmd":"sleep 3; echo tests ok"}
+{"event":"tool","seconds":3.19,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.24,"cmd":"sleep 3; echo lint ok"}
+{"event":"model","seconds":1.08,"input_tokens":2,"cache_read":9209,"cache_write":264}
 ```
 
-All three questions come first, then the three commands run together: three seconds of waiting instead of nine, 8.0 seconds against 14.6 for the whole run. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
+All three questions come first (piped `y`s answer them, so the answers don't show), then the three commands run together: three seconds of waiting instead of nine, 8.1 seconds against 14.4 for the whole run. The trace lists them in the order they finished, `tests` first, but the results went back to the model in the order it asked. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
 
 **Caching.** A task of three steps, in a folder holding a copy of `lessons/`, one command per step:
 
@@ -207,19 +192,19 @@ Find the quark.py files under lessons/ and count the lines in each. Then grep th
 ```
 
 ```
-$ find lessons/ -name quark.py -exec wc -l {} +
-allow `find lessons/ -name quark.py -exec wc -l {} +`? [y/N]    46 lessons/03-control-flow/quark.py
-  234 lessons/04-context/quark.py
-   33 lessons/02-input-and-output/quark.py
-    9 lessons/01-model-interface/quark.py
-  322 total
+$ find lessons -name quark.py -exec wc -l {} +
+allow `find lessons -name quark.py -exec wc -l {} +`? [y/N]    51 lessons/03-control-flow/quark.py
+  239 lessons/04-context/quark.py
+   38 lessons/02-input-and-output/quark.py
+   12 lessons/01-model-interface/quark.py
+  340 total
 
 $ grep -nE "^\s*(import|from) " lessons/04-context/quark.py
 allow `grep -nE "^\s*(import|from) " lessons/04-context/quark.py`? [y/N] 1:import subprocess, sys, os, re, glob, json, datetime
 2:from anthropic import Anthropic, BadRequestError
 
-The longest file is `lessons/04-context/quark.py` at 234 lines, and its imports show an agent that calls the Anthropic API and handles its errors, runs shell commands with `subprocess`, and uses `json`, `glob`, `re` and `datetime` to read and write files, such as episode logs and skill files.
-[wall: 7.9s]
+The longest file is `lessons/04-context/quark.py` (239 lines), and its imports show a program that uses the standard library (subprocess, os, re, glob, json, datetime) to run commands, read files, match patterns and keep episode logs, with the `anthropic` SDK as its only external dependency for model calls and handling "prompt too long" errors.
+[wall: 6.8s]
 ```
 
 ```
@@ -227,12 +212,12 @@ jq -c 'select(.event=="model") | {seconds,input_tokens,output_tokens,cache_read,
 ```
 
 ```
-{"seconds":1.9,"input_tokens":4,"output_tokens":69,"cache_read":0,"cache_write":9118}
-{"seconds":1.74,"input_tokens":2,"output_tokens":75,"cache_read":9118,"cache_write":155}
-{"seconds":2.19,"input_tokens":2,"output_tokens":105,"cache_read":9273,"cache_write":125}
+{"seconds":1.51,"input_tokens":4,"output_tokens":67,"cache_read":0,"cache_write":9197}
+{"seconds":1.42,"input_tokens":2,"output_tokens":75,"cache_read":9197,"cache_write":153}
+{"seconds":1.89,"input_tokens":2,"output_tokens":115,"cache_read":9350,"cache_write":125}
 ```
 
-`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 9,100 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last reply and its result, 155 and 125 tokens. The harness resent about 9,300 tokens each time and paid full price for a handful of them.
+`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 9,200 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last response and its result, 153 and 125 tokens. The harness resent about 9,300 tokens each time and paid full price for a handful of them.
 
 **Trimming.** A command that prints a lot. The folder has a copy of `docs/`, and the task is:
 
@@ -240,59 +225,27 @@ jq -c 'select(.event=="model") | {seconds,input_tokens,output_tokens,cache_read,
 cat docs/the-model.md, then tell me in one sentence what its first heading says.
 ```
 
-The file is over 25,000 characters, more than `MAX_RESULT`. The output printed 20,000 of them, so here is its first line, the lines around the cut (each cut to 100 characters), and the answer:
+The file is over 25,000 characters, more than `MAX_RESULT`. `cat` is on the guard's safe list, so nothing is asked. The output printed 20,000 of them, so here is its first line, the lines around the cut (each cut to 100 characters), and the answer:
 
 ```
 $ cat docs/the-model.md
 ...
 - **Attention variants.** Plain multi-head attention (MHA) is legacy at this 
 [... 5435 characters cut ...]
-oops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width="720
+oops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width=
 ...
-The first heading is "The model: what the harness wraps," and it introduces the model as the first of an agent's two primitives (TokensOut = Model(TokensIn)), the thing the harness wraps.
+The first heading, "The model: what the harness wraps", introduces the model as the first of an agent's two primitives (TokensOut = Model(TokensIn)), which is the thing the harness wraps.
 ```
 
 ```
-{"event":"model","seconds":1.54,"input_tokens":4,"cache_read":0,"cache_write":9088}
-{"event":"tool","seconds":0.11,"chars":25435}
-{"event":"model","seconds":2.16,"input_tokens":2,"cache_read":9088,"cache_write":6533}
+{"event":"model","seconds":1.8,"input_tokens":4,"cache_read":0,"cache_write":9167}
+{"event":"tool","seconds":0.09,"chars":25435}
+{"event":"model","seconds":2.06,"input_tokens":2,"cache_read":9167,"cache_write":6533}
 ```
 
-The trace's `chars` is the length before trimming, 25,435. The second call wrote 6,533 tokens to the cache, which is what the trimmed result came to: the 5,435 characters that were cut are characters that every later call would otherwise have resent.
+(The trace is shortened as before.) The trace's `chars` is the length before trimming, 25,435. The second call wrote 6,533 tokens to the cache, which is what the trimmed result came to: the 5,435 characters that were cut are characters that every later call would otherwise have resent.
 
-**The interrupt, now immediate.** These ran in a real terminal, driven by a script, in chat mode ending with `/q`. First I asked for a 600-word essay with no commands and pressed ESC nine seconds in. The essay's middle is cut here, at the `...`:
-
-```
-> Without using any commands, write a 600-word essay about why agent harnesses matter.
-# Why Agent Harnesses Matter
-
-A language model on its own can only produce text. It can describe how to fix a bug, plan a trip, or analyze a spreadsheet, but it cannot touch anything. An agent harness is the code that changes this. It wraps the model in a loop of observing, thinking, and acting, and it connects the model's words to real tools and real consequences. The model supplies the judgment. The harness supplies nearly everything else, and the quality of that "everything else" often decides whether an agent is useful, safe, or a liability.
-...
-**Memory and continuity are engineering problems.** Models have finite context windows and no inherent persistence. A harness decides what happens when working memory fills up: whether the conversation is summarized, whether the originals are preserved, and whether the agent can recover them later. It can log every message to disk so a crashed session can be resumed. It can give the agent stores for facts, skills, and past episodes, so lessons outlast a single conversation. Without this infrastructure, every
-You interrupted me, so I stopped. I'd covered capability, safety, and memory, and I was partway through the memory section. I still owed you the sections on observability and human oversight, plus a conclusion, so the essay is under 600 words as it stands.
-
-Do you want me to finish it from where I stopped, restart it shorter, or change direction? I'll still use no commands.
-
-> /q
-```
-
-The stream stopped mid-sentence ("Without this infrastructure, every"), the text so far stayed in working memory, and the model knew exactly where it had stopped. Next, ESC 0.8 seconds after a question, while it was still thinking:
-
-```
-> Think carefully, then tell me the 30th prime number.
-Noted: you interrupted me mid-answer, so here is the answer in full.
-
-The 30th prime is **113**.
-
-Here are the primes in order, in groups of ten:
-- 1st to 10th: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29
-- 11th to 20th: 31, 37, 41, 43, 47, 53, 59, 61, 67, 71
-- 21st to 30th: 73, 79, 83, 89, 97, 101, 103, 107, 109, **113**
-
-> /q
-```
-
-Nothing had been said yet, so only the interrupt went in, and the model answered anyway. Last, ESC four seconds into two commands running at once, both approved with `y`:
+**One ESC, every command.** This ran in a real terminal, driven by a script, in chat mode ending with `/q`: two commands that print a line a second for nine seconds, both approved with `y`, and ESC four seconds after the second `y`:
 
 ```
 > Run these two as separate commands, at the same time: for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done   and   for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done
@@ -314,16 +267,24 @@ b4
 b5
 
 [your doing stopped before done]
-You interrupted me, so I stopped both commands. They had been running in parallel, and each got through 5 of its 9 iterations (a1–a5 and b1–b5). Neither loop finished.
+You interrupted me, so I stopped both commands. They ran in parallel and each got through 5 of its 9 iterations. The first printed a1–a5 and the second printed b1–b5. Neither finished.
 
-Should I run them again from the start, or leave it?
+Should I rerun them to completion, or do something else?
 
 > /q
 ```
 
-One ESC stopped both, and each kept what it had printed: five lines apiece.
+The trace, cut to those three lines and their fields that matter:
 
-Two things from this layer don't show in pasted text. **Streaming** is the text appearing as it's written, and a transcript can't show when it appeared; the fuller example below measures it. And **compaction on the fast model** only runs when working memory is full, which none of these runs got near.
+```
+{"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done","seconds":4.22,"exit":137,"chars":48}
+{"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done","seconds":4.22,"exit":137,"chars":48}
+{"event":"interrupted","during":"acting"}
+```
+
+One ESC stopped both, at the same moment: 4.22 seconds each, exit 137, the code for a process killed by `kill -9`. Each kept what it had printed, five lines apiece, and the model knew how far each had got. Run one after the other, as in Lesson 8, the same ESC would have stopped `a` at its fifth line and `b` would never have started.
+
+One thing from this layer doesn't show here. **Compaction on the fast model** only runs when working memory is full, which none of these runs got near.
 
 ## Going further
 
@@ -332,7 +293,7 @@ Two things from this layer don't show in pasted text. **Streaming** is the text 
 - **What goes in the request.** Cutting a tool result to its start and end, as quark does. Clearing *old* tool results once the model has acted on them. Summarizing, as in Lesson 4. Or not loading things up front at all: put a short list of what's available in the request, and let the model fetch the one it needs (that's how the skills in Lesson 4's fuller example work). The cheapest token is the one that was never sent.
 - **How much comes back.** Output tokens cost more than input tokens and take longer to produce, so a short answer is faster and cheaper than a long one. `max_tokens` is a cap and not a goal; the instruction "be brief" does more. A lower thinking effort for simple tasks saves the time spent thinking before the first word.
 - **Which model, and when.** quark sends one request, the summary, to a faster model. The fuller example sends a whole task to one by asking a small model how hard it is. You could instead switch by step (a cheap model for reading files, a strong one for deciding what to change), at the price of the cache restarting each time you switch. Deciding per task or per step is routing, so that part is control flow.
-- **How the reply arrives.** Streamed to the person, as in quark. Or streamed so a tool can start as soon as the block that asks for it is complete, before the model has finished writing the rest of its reply. Or not streamed at all, when nobody is waiting.
+- **How the reply arrives.** Streamed to the person, as quark has done since Lesson 1. Or streamed so a tool can start as soon as the block that asks for it is complete, before the model has finished writing the rest of its reply. Or not streamed at all, when nobody is waiting.
 - **How many at once.** Tools at the same time, as in quark, with a cap on how many so that twenty requests don't start twenty heavy processes. Whole model calls in parallel is a different thing, a way of arranging the work, and that's control flow (Lesson 3's parallelization workflows). For work nobody is waiting on, there's the batch interface: many requests handed over together, answered within a day, at about half the price.
 - **When the work is done.** A cache can be warmed before it's needed: send the long opening of a task while the person is still typing the question, and the first real call finds it ready.
 
@@ -519,9 +480,9 @@ The router called this `deep` and sent it to `claude-opus-5-5`, which is more mo
 
 ## What to take away
 
-**The rule:** don't resend what hasn't changed, don't send what isn't needed, and don't wait for things one at a time that could be waiting together. Mark the stable start of the request, and the end of the conversation, so the model only reads what's new. Cut what a tool returns to the part that matters. Show the reply as it's written. Send the small jobs to the small model. And when the model has asked for several things at once, run them at once.
+**The rule:** don't resend what hasn't changed, don't send what isn't needed, and don't wait for things one at a time that could be waiting together. Mark the stable start of the request, and the end of the conversation, so the model only reads what's new. Cut what a tool returns to the part that matters. Send the small jobs to the small model. And when the model has asked for several things at once, run them at once.
 
-Notice what Performance never does. It sits in context, the model interface and output, and it leaves the other primitives alone. Control flow is the same loop with the same stops: the number of calls and steps is exactly what it was, and the loop doesn't know that some of them were cheaper. Input is untouched: the person's task is read the way it always was. And inside each of the three it changes how, not what: context still decides what the request holds, only marked so that it can be reused, the model interface still sends a request and gets a reply, only streamed, and output still shows the reply and runs what it asks for, only sooner and together.
+Notice what Performance never does. It sits in context, the model interface and output, and it leaves the other primitives alone. Control flow is the same loop with the same stops: the number of calls and steps is exactly what it was, and the loop doesn't know that some of them were cheaper. Input is untouched: the person's task is read the way it always was. And inside each of the three it changes how, not what: context still decides what the request holds, only marked so that it can be reused, the model interface still sends a request and gets a response, only to a smaller model when the job is a summary, and output still runs what the response asks for, only together, and stopped together.
 
 **What's missing:** performance makes a run faster and cheaper, and it doesn't tell you the run was *as good*. Every saving here is a bet. A trimmed result might have cut the line that mattered, a summary from the small model might have lost a fact, the router might send a hard task to a weak model, and parallel commands can quietly depend on each other in a way the model didn't notice. Nothing in the harness would show it. The trace would show a faster, cheaper run, and you'd have no way to know whether it did the job. What's missing is a way to measure whether the agent still does its job, on tasks with known answers, every time you change anything, this lesson's changes included. That's evaluation.
 

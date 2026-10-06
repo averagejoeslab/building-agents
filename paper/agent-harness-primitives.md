@@ -325,7 +325,7 @@ The second part of the artifact tests this corollary one layer at a time, on the
 | Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting at once, the model being informed | +62 |
 | Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage`, exit codes, refusals and interruptions already present; appends one JSON record per event, each naming the episode of the same session | +14 |
 | Resilience | model interface, output | where the environment can fail | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed or truncated ones; the partial work of an interrupted response or command kept rather than lost; resumption from the episode that context already keeps, marking interrupted commands as *may or may not have run* | +31 |
-| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) | +16 |
+| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); a fixed small model for summaries (model interface); concurrent tool execution (output) | +17 |
 | Evaluation | outside the harness | it treats the agent as a black box | an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run | +38 |
 
 Several entries require qualification.
@@ -1262,7 +1262,7 @@ if resumed:                                              # resilience: pick up w
             if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"   # resilience: ...
 ```
 
-**C.5 Performance (+16 lines net), in context, the model interface and output.** A small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response, each stopped by the same interrupt.
+**C.5 Performance (+17 lines net), in context, the model interface and output.** A small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response, each stopped by the same interrupt.
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
@@ -1271,6 +1271,7 @@ def call(each=lambda event: None, models=MODELS, **request):   # model interface
     for model in models:                                 # resilience: retries, then a backup mo ...
 # ...
 def execute(cmd):                                        # performance: one command in the box, ...
+    if ESC.is_set(): return "[your doing never reached the world]"   # guardrails: after ESC, no ...
     start = time.time()
     doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh" ...
     while True:

@@ -34,6 +34,7 @@ def sandbox():                                           # sandboxing: one locke
     atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
+    if ESC.is_set(): return "[your doing never reached the world]"   # guardrails: after ESC, nothing else starts
     start = time.time()
     doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
     while True:
@@ -356,7 +357,7 @@ while True:
     for block in output:
         if block.type == "tool_use":
             text = refused.get(block.id) or outputs[block.id]
-            print(f"[{text}]" if block.id in refused else text)
+            print(text if block.id in outputs or text.startswith("[") else f"[{text}]")
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused and not text.startswith("[your doing") else {})})  # input: from the world
 
     if ESC.is_set():                                     # guardrails: ESC while it acted: stop there
