@@ -321,7 +321,7 @@ The step-2 harness is placed inside a loop. After each call, the model's \passth
 
 Asked which step's \passthrough{\lstinline!quark.py!} is longest, the agent executed one \passthrough{\lstinline!find!} command that counted each file's lines with \passthrough{\lstinline!wc -l!}, and answered from its output that the step-4 file, at 239 lines, is the longest. The run required two calls, and the second was possible only because the first call's result was returned.
 
-The system is now an agent: the model determines the next step. The same four components arranged differently yield a single call, a chatbot or a workflow (§3.4); the artifact's second example for this step is an evaluator--optimizer workflow in which code determines the order of calls.
+The system is now an agent: the model determines the next step. The same four components arranged differently yield a single call, a chatbot or a workflow (§3.4); the artifact's minimal illustration for this step shows both: a fixed workflow of draft, review and rewrite, in which code determines the order of calls, beside the agent loop.
 
 The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and \passthrough{\lstinline!messages!} grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 

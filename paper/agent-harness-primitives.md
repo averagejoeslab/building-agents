@@ -1530,15 +1530,16 @@ def evaluate(names):                                     # evaluation: run every
     return 1 if failed else 0
 
 if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
-```
-
-Run on the artifact, reducing the step limit from 20 to 1 left three cases passing and flagged the fourth:
 
 ```
-pass  count      1 steps    3.4s    10654 tokens
-FAIL  fix        1 steps    4.6s    10623 tokens  kept /tmp/eval-fix-effj187m  REGRESSED: it passed last time
-pass  rename     1 steps    3.5s    10654 tokens
-pass  remember   1 steps    4.1s    10700 tokens
+
+Run on the artifact, reducing the step limit from 20 to 1 left three cases passing and flagged the fourth, and both model graders agreed with the check:
+
+```
+pass  count      1 steps    6.4s    13409 tokens  jev 0.97  llm pass
+FAIL  fix        1 steps    6.1s    13381 tokens  jev 0.02  llm fail  kept /tmp/eval-fix-d1y0lovx  REGRESSED: it passed last time
+pass  rename     1 steps    6.4s    13410 tokens  jev 0.97  llm pass
+pass  remember   1 steps    6.4s    13455 tokens  jev 0.94  llm pass
 3/4 passed
 exit 1
 ```
