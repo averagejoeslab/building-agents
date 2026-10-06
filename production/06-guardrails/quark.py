@@ -4,10 +4,18 @@ from anthropic import Anthropic, BadRequestError
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):            # model interface: the response streams back, and each piece goes to each()
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream:
+            if each(event): return stream.current_message_snapshot   # guardrails: told to stop, so stop reading
+        return stream.get_final_message()
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def show(event):                                         # output: text, shown as it's written
+    if event.type == "text": print(event.text, end="", flush=True)
+    if event.type == "content_block_stop" and event.content_block.type == "text": print()
 
 IMAGE, TIMEOUT = "python:3.13-slim", 30
 box = f"quark-{os.getpid()}"
@@ -213,7 +221,8 @@ def watch(stop):
             if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
             while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)   # an arrow key, not ESC
 @contextlib.contextmanager
-def listening():                                         # input: watch the keyboard only while quark thinks or acts
+def listening():                                         # input: watch the keyboard only while quark thinks, says or acts
+    ESC.clear()
     if not sys.stdin.isatty(): yield; return
     attrs, stop = termios.tcgetattr(sys.stdin), threading.Event()
     tty.setcbreak(sys.stdin); watcher = threading.Thread(target=watch, args=(stop,), daemon=True); watcher.start()
@@ -232,6 +241,9 @@ def guard(cmd):                                          # guardrails: deny, all
     if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
     answer = read(f"allow `{cmd}`? [y/N] ")
     return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {answer}")
+def unless_esc(event):                                   # guardrails: show the response, unless ESC says stop
+    if ESC.is_set(): return True
+    show(event)
 
 sandbox()
 working_memory, drop, steps, spent = [], 0, 0, 0
@@ -248,27 +260,24 @@ while True:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
         with listening():
-            response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+            response = call(unless_esc, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
         output = response.content
         steps += 1
-        spent += response.usage.input_tokens + response.usage.output_tokens + response.usage.cache_read_input_tokens + response.usage.cache_creation_input_tokens
+        spent += response.usage.input_tokens + response.usage.output_tokens + (response.usage.cache_read_input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0)
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
         continue
 
-    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
-    if ESC.is_set():                                     # guardrails: ESC while it thought or said; keep what it said, run nothing
-        for block in output:
-            if block.type == "text": print(block.text)
-        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in output if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
-        ESC.clear()
+    if response.stop_reason is None:                     # guardrails: ESC stopped it while it thought or said
+        print()
+        add(working_memory, {"role": "user", "content": SAYING})
         continue
 
+    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             if ESC.is_set():                             # guardrails: after ESC, nothing else starts
@@ -278,21 +287,20 @@ while True:
                 print(f"[{no}]")
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
-            with listening():                            # guardrails: ESC stops the command and keeps what it printed
+            with listening():                            # guardrails: ESC stops the command
                 doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
                 while True:
                     try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
                     except subprocess.TimeoutExpired:
                         if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
             done.returncode = doing.returncode
-            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+            if ESC.is_set(): done.stdout = "[your doing stopped before done]"
             elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
-    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+    if ESC.is_set():                                     # guardrails: ESC while it acted: stop there
         add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
-        ESC.clear()
         continue
     if input:
         add(working_memory, {"role": "user", "content": input})
