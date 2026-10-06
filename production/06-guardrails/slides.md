@@ -54,50 +54,114 @@ Guardrails are rules about what the harness is allowed to do, checked before it 
 - **Limits before each call:** count the steps and tokens; past the limit, stop
 - **An interrupt:** ESC stops it at once, thinking, saying or acting, tells the model, and hands the run back
 
-<!-- The rules are plain code: a list of programs safe to run unasked, and patterns that must never run. Every tool request needs a result (Lesson 2), so a refusal fills that slot. Lesson 3 said a loop with no clear end is a bill with no clear end; this is the clear end. ESC is quark's own key. Ctrl-C isn't special: it's how you kill any program. /q is the graceful way out, as it has been since Lesson 2. In this lesson an interrupt is a stop and nothing more: whatever was cut short is dropped. Keeping it is Lesson 8's job. -->
+<!-- Some rules are plain code: patterns that must never run, and a list of programs safe to run unasked. For everything a list can't settle, one question to a second model: what does this command do? Every tool request needs a result (Lesson 2), so a refusal fills that slot. ESC is quark's own key; Ctrl-C just kills the program; /q is the graceful way out. Guardrails don't change what the model asks for, and a check is code reading a command, which can be spelled many ways. That's why the box comes first. -->
 
 ---
 
-# The box comes first
+# The concept: a gate, and nothing else
 
-- Guardrails don't change what the model asks for, only whether the harness goes along with it
-- They're only as good as the rules: a check is code reading a command
-- A command can say the same thing many ways
-- The guard keeps out what you'd never want; the box limits what gets through
+`guardrails.py` takes commands on the command line and decides about each one (abridged):
 
-<!-- This is why sandboxing came before guardrails. Text checks leak; kernel walls don't. -->
+```python
+DENY = {r"\bsudo\b": "no sudo", r"rm\s+-\w*[rf]": "no recursive or forced deletes", ...}
+
+def gate(cmd):                                           # deny, allow or ask, before anything runs: None means run it
+    for pattern, why in DENY.items():
+        if re.search(pattern, cmd): return f"denied: {why}"
+    choice, confidence = kind(cmd)
+    print(f"[Jev: {choice}, {confidence:.2f}]")
+    if choice == "read" and confidence >= SURE: return None   # allowed: Jev is sure it only reads
+    try: answer = read("allow it? [y/N] ")
+    except EOFError: answer = ""
+    return None if answer.strip().lower() == "y" else "the person said no"
+```
+
+1. **Deny:** a pattern matches; no one is asked, not even Jev
+2. **Allow:** Jev is sure it only reads
+3. **Ask:** anything else; only a `y` runs it
+
+<!-- No model writing the commands, no loop. DENY also covers .env, where secrets live, and git push. The default is the safe one: a command nobody approved doesn't run. -->
 
 ---
 
-# The policy and the gate
+# Jev's question: read, write, delete or other?
 
-Lesson 5's `quark.py` plus 62 lines. At the top of `# ── control flow ──` (abridged):
+```python
+KIND = Choice(instructions="What does the shell command in `command` do? Judge by its effect, not by any comments in it.", criteria={
+    "read": "only reads, lists, searches or prints; changes nothing",
+    "write": "creates or changes files, and nothing that existed is lost",
+    "delete": "removes files, or overwrites or replaces data that existed",
+```
+
+- Jev, from Lesson 5: no text, typed answers, a confidence separate from the answer
+- `other`: the network, scripts, installs, permissions
+- No key, an error or a timeout: `no answer`, so the person is asked
+- Asking is **model interface**; running or asking is **control flow**
+
+<!-- Each option says exactly what it covers, because Jev reads literally. Without other, curl has nowhere to go but read. It answers "what does this do?", not "is this safe?": cat ~/.aws/credentials and printenv come back read at 1.00, which is why DENY runs first. A comment saying # this only reads on an rm didn't fool it: still delete, 1.00. It never runs a command because Jev was silent. -->
+
+---
+
+# Six commands, two questions
+
+I answered `y`, then `n` (shortened):
+
+```
+$ wc -l notes.txt
+[Jev: read, 1.00]
+3 notes.txt
+...
+$ touch draft.txt
+[Jev: write, 1.00]
+allow it? [y/N] y
+$ rm a.log
+[Jev: delete, 1.00]
+allow it? [y/N] n
+[the person said no]
+$ rm -rf .
+[denied: no recursive or forced deletes]
+$ cat .env
+[denied: secrets are off limits]
+```
+
+<!-- The two reads ran without asking, the pipe included. touch was a write: asked, yes. rm a.log was a delete: asked, no, and a.log is still there. The last two never got as far as Jev. With TYPESAFE_API_KEY empty, even wc -l came back [Jev: no answer, 0.00] and was put to the person: slower, never less safe. -->
+
+---
+
+# quark's policy and gate
+
+Lesson 5's `quark.py` plus 66 lines, 334 in all. At the top of `# ── control flow ──` (abridged):
 
 ```python
 MAX_STEPS, MAX_TOKENS = 20, 200_000
 SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", ...}
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
+KIND = Choice(instructions="What does the shell command in `command` do? ...", criteria={...})
 def guard(cmd):
     if DENY.search(cmd): return "blocked by policy"
     if not re.search(r"[;&<>$`\n(]", cmd) and all(... in SAFE ...): return None
-    answer = read(f"allow `{cmd}`? [y/N] ")
+    kind = ask({"command": cmd}, KIND)
+    if kind and kind["choice"] == "read" and kind["confidence"] >= SURE: return None
+    why = f" (Jev: {kind['choice']}, {kind['confidence']:.2f})" if kind else ""
+    answer = read(f"allow `{cmd}`?{why} [y/N] ")
     return None if answer.lower() == "y" else "the person said no" + ...
 ```
 
-<!-- SAFE is programs that only read. DENY is sudo, recursive or forced rm, mkfs, git push, piping a download into a shell, and anything mentioning .env. They're data, so changing the policy is changing a line. The checks and limits are all in control flow. The interrupt reaches two more places: hearing ESC is input, and stopping a response halfway takes one line in Lesson 1's call(). -->
+<!-- KIND is the concept's question, word for word. The checks, limits and Jev's question are all in control flow. The interrupt reaches two more places: hearing ESC is input, and stopping a response halfway takes one line in Lesson 1's call(). -->
 
 ---
 
-# `guard()`: deny, allow, or ask
+# `guard()`: deny, safe list, Jev, or ask
 
 It returns `None` if the command may run, or the reason it may not:
 
 1. Matches `DENY`: refused outright, and no one is asked
-2. Only safe programs: it runs. No `; & < > $`, backtick, newline or `(`, and every piece between pipes starts with a `SAFE` program
-3. Anything else goes to the person with Lesson 2's `read()`; a `y` lets it run
-4. Any other answer is a no, and what they typed goes back to the model
+2. Only safe programs: no `; & < > $`, backtick, newline or `(`, every pipe piece checked
+3. Otherwise Jev, through Lesson 5's `ask()`: a sure `read` runs
+4. Anything else goes to the person, with Jev's answer as the reason
+5. Anything but `y` is a no, and what they typed goes back to the model
 
-<!-- cat notes.txt | sh isn't safe just because it starts with cat. "no, use git status instead" is an instruction, not just a refusal. Ctrl-D, or /q, counts as a plain no. The default is the safe one: a command nobody approved doesn't run. -->
+<!-- cat notes.txt | sh isn't safe just because it starts with cat. find, which isn't on the list, or ls -A; cat notes.txt, which has a semicolon, can run unasked if Jev is sure. If Jev didn't answer, the question has no reason in it. "no, use git status instead" is an instruction, not just a refusal. Ctrl-D, or /q, counts as a plain no. -->
 
 ---
 
@@ -122,7 +186,7 @@ At the top of the loop, and where each call is counted (abridged):
 
 In a one-shot run, a limit is the end. In a chat it hands back to you, and the counts start again after each new input.
 
-<!-- The call now keeps the whole response, not just its content, so the count can read usage. The two cache counts can come back empty, hence the or 0. The with listening(): and unless_esc in place of show are the interrupt, coming up. Resetting after each input means one long chat doesn't use up a budget meant for one request. -->
+<!-- The call now keeps the whole response, not just its content, so the count can read usage. The two cache counts can come back empty, hence the or 0. The with listening(): and unless_esc in place of show are the interrupt, coming up. -->
 
 ---
 
@@ -144,7 +208,7 @@ In the output loop, between printing the command and running it in the box (abri
 - `continue` skips the run: the command never starts, and the model's next turn still makes sense
 - The `ESC` check above the gate: once you've pressed ESC, nothing else starts
 
-<!-- A command that passes the gate runs in Lesson 5's box, under its time limit, as before. Lesson 4's mechanics() puts quark's own file in its system prompt, so the model can read the policy it's under. That's self-knowledge, not this layer, and it saves the model asking for things that will be refused. -->
+<!-- A command that passes the gate goes on to Lesson 5's network question and runs in the box, as before. Lesson 4's mechanics() puts quark's own file in its system prompt, so the model can read the policy it's under. That's self-knowledge, not this layer. -->
 
 ---
 
@@ -168,7 +232,7 @@ def listening():
 - `watch()` reads one key at a time in a thread; an ESC on its own sets `ESC`
 - quark listens only while it thinks, says or acts, never while `read()` waits for you
 
-<!-- Arrow keys also start with the ESC byte, but more bytes follow at once, so those are read and ignored. listening() clears any earlier ESC, puts the terminal into a mode where keys arrive one at a time without Enter, starts the thread, and puts everything back afterwards. With no terminal (a pipe, a script, an evaluation) there's no keyboard to watch and it does nothing. -->
+<!-- Arrow keys also start with the ESC byte, but more bytes follow at once, so those are read and ignored. listening() clears any earlier ESC, puts the terminal into a mode where keys arrive one at a time without Enter, starts the thread, and puts everything back afterwards. With no terminal (a pipe, a script, an evaluation) it does nothing. -->
 
 ---
 
@@ -189,7 +253,7 @@ def unless_esc(event):
         continue
 ```
 
-<!-- Until you press ESC, unless_esc is show(). After, the next piece that arrives ends the call: quark stops reading, the connection closes, the model stops writing. What comes back has no stop_reason, because it never finished. What it had said is on your screen, but the response is dropped whole, before working memory or the episode, along with any command it was asking for. The model is told only that it was interrupted. -->
+<!-- Until you press ESC, unless_esc is show(). After, the next piece that arrives ends the call: quark stops reading, the connection closes, the model stops writing. What comes back has no stop_reason, because it never finished. The response is dropped whole, before working memory or the episode, along with any command it was asking for. The model is told only that it was interrupted. -->
 
 ---
 
@@ -204,115 +268,116 @@ The command now starts with `Popen`, and quark waits a tenth of a second at a ti
                     try: done = ...(doing.communicate(timeout=0.1)[0]); break
                     except subprocess.TimeoutExpired:
                         if ESC.is_set(): subprocess.run([..., "kill -9 -1"], ...)
-            done.returncode = doing.returncode
+            ...
             if ESC.is_set(): done.stdout = "[your doing stopped before done]"
 ```
 
 - Every command in the box stops; the box itself survives
 - What it had printed is dropped; the model gets `DOING`
 
-<!-- The process every container runs first can't be killed that way, so the box lives on and the next command has somewhere to run. Commands still waiting in the same response get [your doing never reached the world]. After the loop, if ESC is set, the results go back with the DOING message, and the loop goes around for the model to answer it. Dropping what was cut short keeps the interrupt to a stop. The cost: the model knows it was interrupted, but not how far it had got. -->
+<!-- The process every container runs first can't be killed that way, so the next command has somewhere to run. Commands still waiting in the same response get [your doing never reached the world]. Dropping what was cut short keeps the interrupt to a stop. The cost: the model knows it was interrupted, but not how far it had got. -->
 
 ---
 
-# Safe commands run; anything else waits for you
+# Safe runs; a delete waits for you
 
-`wc` is on the safe list, so nothing was asked:
-
-```
-$ wc -l notes.txt
-3 notes.txt
-
-notes.txt has 3 lines.
-```
-
-`rm` isn't, so the harness stopped at the prompt (I piped in `y`; shortened):
+`wc -l notes.txt` is on the safe list, so it just ran. Then: delete the `.log` files. I typed `y` (shortened):
 
 ```
-$ rm a.log b.log && ls -A
-allow `rm a.log b.log && ls -A`? [y/N] .env
+$ ls -la *.log; ls -A
+-rw-r--r-- 1 root root 4 Oct  6 23:18 a.log
+-rw-r--r-- 1 root root 4 Oct  6 23:18 b.log
+...
+$ rm a.log b.log; ls -A
+allow `rm a.log b.log; ls -A`? (Jev: delete, 1.00) [y/N] y
+.env
 .quark
 notes.txt
 ```
 
-<!-- In the second run the model looked first with ls -la, which is safe, so it ran without asking. Then rm waited for its answer: nothing was deleted until it came. -->
+<!-- Both commands had a semicolon, so neither was on the safe list, and both went to Jev. The first only lists, and it ran without a question, so Jev was sure it only reads. The second was a delete at 1.00, so nothing was deleted until I answered. -->
 
 ---
 
 # A no with a reason; a deny that asks no one
 
-Answers piped in: `no, put it in a folder called drafts`, then `y` (shortened):
+I answered `no, put it in a folder called drafts`, then `y` (shortened):
 
 ```
 $ touch notes2.txt && ls -l notes2.txt
-allow `touch notes2.txt && ls -l notes2.txt`? [y/N] [the person said no: no, put it in a folder called drafts]
+allow `touch notes2.txt && ls -l notes2.txt`? (Jev: write, 1.00) [y/N] no, put it in a folder called drafts
+[the person said no: no, put it in a folder called drafts]
 $ mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt
 ```
 
-Then: print `.env`, then `rm -rf .`:
+Then: print `.env`, then `rm -rf .` (shortened):
 
 ```
 $ cat .env
 [blocked by policy]
 ```
 
-<!-- The model took the reason as an instruction and asked again. In the deny run it said: "I managed nothing: the policy blocked cat .env, and I didn't try rm -rf . because the same policy forbids it." It can read its own harness, so it expected more of the same, and it didn't try to get around the block. The folder, .env included, is all still there. -->
+<!-- The model took the reason as an instruction and asked again, and I said y. In the deny run, cat .env was refused without asking Jev or me. The model can read its own harness, so it didn't even try rm -rf ., and it didn't try to get around the block. The folder, .env included, is all still there. -->
 
 ---
 
-# A limit stops the run before the next call
+# A read off the list; a limit
 
-`MAX_STEPS` lowered to 2 in a copy, asking for three commands, one at a time:
+`find` isn't in `SAFE`, nothing was on stdin, and nothing was asked:
 
 ```
-$ date
-Tue Oct  6 20:31:57 UTC 2026
+$ find . -name "*.txt" -type f
+./drafts/notes2.txt
+./notes.txt
+```
 
+With no Jev, the same read was put to the person, and got a no. With `MAX_STEPS` lowered to 2 in a copy (shortened):
+
+```
 $ pwd
-/tmp/g6
+/tmp/d06/q
 
-[stopped: 2 steps, 15041 tokens]
+[stopped: 2 steps, 16953 tokens]
 ```
 
-`MAX_TOKENS` works the same way, but at 200,000 you'll rarely reach it.
-
-<!-- The check is at the top of the loop, so the run ends before spending another call. -->
+<!-- Jev was sure find only reads. With TYPESAFE_API_KEY empty the question was just allow `find . -name "*.txt"`? [y/N], with no reason in it, and with no one to say yes the read didn't run. The step limit run asked for date, pwd and whoami, one per step; it stopped before the third call. MAX_TOKENS works the same way, but at 200,000 you'll rarely reach it. -->
 
 ---
 
 # ESC while it acts: the count stops partway
 
-Count to ten, one a second, `y`, then ESC four and a half seconds later (shortened):
+Count to ten, one a second; ESC four and a half seconds after the command appeared (shortened):
 
 ```
 $ for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done
-allow `for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done`? [y/N] y
 [your doing stopped before done]
 ```
 
-> You interrupted the count, so it stopped before it finished. The command never returned any output, so I can't say how far it got.
+> You interrupted the count, so I stopped it. The command didn't finish, and I don't know how far it got because the output was cut off.
 
-<!-- ESC needs a terminal: these three ran in a pseudo-terminal driven by a script, so the key presses are exact, in chat mode, ending with /q. You don't see the numbers it printed, because quark shows a command's output when the command is done, and this one never was. The model got only the note, so it couldn't tell how far the count got. Then the run handed back to me. -->
+- It ran without asking: Jev was sure it only prints
+
+<!-- ESC needs a terminal: these three ran in a pseudo-terminal driven by a script, so the key presses are exact, in chat mode. The loop isn't on the safe list, but it only prints and Jev was sure of that, so it ran without asking. You don't see the numbers it printed, because quark shows a command's output when it's done, and this one never was. -->
 
 ---
 
-# ESC while it says: the fable stops mid-sentence
+# ESC while it says: cut off mid-word
 
 ESC a second after its first full stop (shortened):
 
 ```
 > Tell me the fable of the tortoise and the hare in about 400 words
-# The Tortoise and the Hare
+Here is the fable of the tortoise and the hare.
 ...
-I see I was cut off mid-story. Here is the whole fable.
-
-**The Tortoise and the Hare**
-...
+The hare burst out laughing. "You
 ```
 
-It stopped at "…a tortoise, who had been plodding past with a leaf on his back". None of it was kept, so the model told the whole fable again from the top.
+> I see you interrupted me, so I'll stop there. I hadn't finished the fable, which was meant to run about 400 words. Do you want me to start again from the beginning, pick up where I left off, ...
 
-<!-- The story stopped the moment the next piece of the stream arrived. The model got [other self interrupted what you were saying — acknowledge]. It knew it had been cut off, but not where. ESC stopped the response, not the request, and the run only came back to me after the retelling. -->
+- It went on to offer to "pick up where I left off", and it can't
+- None of what it said was kept: it knows it was cut off, not where
+
+<!-- The story stopped the moment the next piece of the stream arrived. The model got [other self interrupted what you were saying — acknowledge]. -->
 
 ---
 
@@ -324,21 +389,21 @@ ESC 0.6 seconds after asking, before it said a word. The blank line is the whole
 > Make a file called hello.txt containing the word hello.
 
 $ echo hello > hello.txt && cat hello.txt
-allow `echo hello > hello.txt && cat hello.txt`? [y/N] /q
+allow `echo hello > hello.txt && cat hello.txt`? (Jev: delete, 0.85) [y/N] /q
 [the person said no]
 ```
 
+- Jev: a delete, at 0.85, because `>` replaces what was there
 - Nothing reached the folder: there's no `hello.txt`
-- The model is told it was interrupted, not what it was in the middle of
 - Keeping what was cut short is Lesson 8's job
 
-<!-- The model went straight back to the request, and the guard put the command to me. /q at that question is a plain no. Both of these last two runs show what the interrupt doesn't do: the model picks the request up again, because it doesn't know where it stopped. -->
+<!-- The model went straight back to the request, and the guard put the command to me. /q at that question is a plain no. Jev wasn't sure, but it didn't need to be: anything but a sure read is put to the person. The model is told it was interrupted, not what it was in the middle of. -->
 
 ---
 
-# Going further: what else guardrails can be
+# Other things we could do
 
-- **How a command is judged:** text patterns, a shell parser, per-tool rules, or a second model call
+- **How a command is judged:** text patterns, a shell parser, per-tool rules, or a second model
 - **What the answers are:** allow once, for the session, always, or with these arguments
 - **Who gets asked:** the terminal, someone on Slack or Telegram, a second agent, or nobody
 - **What counts as too much:** steps, tokens, dollars, wall-clock time, or repeating
@@ -346,85 +411,22 @@ allow `echo hello > hello.txt && cat hello.txt`? [y/N] /q
 
 As a product alone: **Open Policy Agent**, **NeMo Guardrails**, **Guardrails AI**.
 
-<!-- After an interrupt: stop, or hand back to the person with the work so far intact. Policy services like Open Policy Agent decide allowed or not as data, not code; NeMo Guardrails and Guardrails AI wrap checks around what goes into and out of a model. If you're using one for what a tool may run, it's this layer. Asking too often trains people to hit y; asking too rarely is no guardrail. A run with nobody to ask has to fail closed. Also: what the model is told (a bare refusal, a reason, or the rule itself), and what you do about it afterwards. -->
-
----
-
-# `guardrails.py`: finer answers, more limits
-
-Built on Lesson 3's `control_flow.py`, with no system prompt:
-
-- **Jev decides what only reads,** in place of a hand-written list
-- **Judged per piece:** `cd /tmp && rm x` is judged by `cd` *and* `rm`
-- **Always:** `a` at the prompt adds those programs to `ALLOWED` for the rest of the run
-- **A spending limit** in dollars, from each response's `usage`
-- **A repeat limit:** the same command `MAX_REPEATS` times stops the run
-
-<!-- Jev is the decision model from Lesson 5: it writes no text, it answers typed questions. Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. -->
-
----
-
-# Asking Jev: read, write, delete or other?
-
-`DENIED` wins first; then (abridged):
-
-```python
-def kind(cmd):
-    try:
-        answer = jev.system_one({"command": cmd}, KIND).answers["kind"]
-        return answer.choice, answer.confidence
-    except Exception as e:
-        return f"no answer ({type(e).__name__})", 0.0
-```
-
-```python
-    choice, confidence = kind(cmd)
-    if choice == "read" and confidence >= SURE:
-        print(f"[Jev: read, {confidence:.2f}]")
-        return "allow", ""
-```
-
-- Anything else, or no answer, asks the person, with Jev's answer as the reason
-
-<!-- SURE is 0.9. Asking Jev is a model-interface act, a second model; running or asking is control flow. It answers "what does this do?", not "is this safe?": cat ~/.aws/credentials came back read at 1.00, which is why DENIED runs first. If Jev is silent (no key, a timeout), the person is asked: it never runs because Jev was silent. -->
-
----
-
-# Two questions covered five commands
-
-I answered `a` to `mkdir` and to the first `touch` (shortened):
-
-```
-$ mkdir /tmp/gdemo
-allow `mkdir /tmp/gdemo`? (Jev: write, 0.99) [y]es, [a]lways, or say why not: 
-$ cat .env
-[blocked by policy: secrets files are off limits]
-$ touch /tmp/gdemo/a.txt
-allow `touch /tmp/gdemo/a.txt`? (Jev: write, 1.00) [y]es, [a]lways, or say why not: 
-$ touch /tmp/gdemo/b.txt
-
-$ ls /tmp/gdemo
-[Jev: read, 1.00]
-a.txt
-b.txt
-```
-
-<!-- cat .env was denied without asking Jev at all. The second touch didn't ask, because touch was by then allowed. Jev called ls a read at 1.00, so it just ran. -->
+<!-- Ideas worth knowing: a reason on every deny pattern, so the model knows what to try instead; judge each piece of a command split on && || ; and pipes; an "always" answer that allows a program for the rest of the run; ask whenever there's a $ or a backtick; a limit in dollars, which is a ceiling on starting another call, not on the bill; a repeat limit; and stop when stop_reason is "refusal". Asking too often trains people to hit y; asking too rarely is no guardrail. -->
 
 ---
 
 # The rule: decide before the harness does it
 
-**The rule:** check each tool request where control flow turns it into a command, and the run where it goes around again. Say no in a way the model can read, and give the person a way in.
+**The rule:** check each tool request where control flow turns it into a command, and the run where it goes around again. Let a second model settle what a list can't, only to spare the person a question. Say no in a way the model can read.
 
 What guardrails never do, from inside control flow:
 
-- **Model interface:** one line, so a response can be stopped; otherwise as before
+- **Model interface:** one line, so a response can be stopped; Jev through `ask()`
 - **Output:** an allowed command runs in the box exactly as before
 - **Context:** a refusal is an ordinary tool result in the result's slot
 - **Input:** Lesson 2's `read()`, plus a watcher that hears ESC while quark works
 
-<!-- Decide what the harness is willing to do before it does it. Guardrails read usage and the tool request off the response and nothing more. -->
+<!-- Decide what the harness is willing to do before it does it. Never let Jev skip the deny list. Give the person a way in. Guardrails read usage and the tool request off the response and nothing more. -->
 
 ---
 

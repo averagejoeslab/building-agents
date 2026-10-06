@@ -112,13 +112,11 @@ AGENTS = {"lesson 3": [sys.executable, LESSON_3, "agent", INPUT],
 # Two judges, one question (abridged)
 
 ```python
-QUESTION = "Did the agent complete the task in `request`? Judge by `files before` and `files after`."
-
 def judges(state):
-    try: jev_says = round(jev.system_one(state, {"done": DONE}).model_dump()["answers"]["done"]["noul"], 2)
+    try: jev_says = round(jev.system_one(state, {"done": DONE})...["noul"], 2)
     except Exception: jev_says = None
     llm = client.messages.create(model="claude-sonnet-5-5", ..., messages=[...])
-    return jev_says, next(b.text for b in llm.content if b.type == "text").strip().upper().startswith("PASS")
+    return jev_says, next(...).strip().upper().startswith("PASS")
 ```
 
 - Same state for both: the request, the files before, the files after
@@ -189,7 +187,7 @@ CASES = [
 def judges(input, before, after):
     state = {"request": input, "files before": before, "files after": after}
     jev_says = ask(state, DONE)
-    llm = call(max_tokens=1024, messages=[{"role": "user", "content": "Did the agent complete ..." + json.dumps(state)}])
+    llm = call(max_tokens=1024, messages=[...])
     return jev_says and round(jev_says["noul"], 2), next(...).strip().upper().startswith("PASS")
 ```
 
@@ -251,6 +249,8 @@ exit 0
 ---
 
 # A change that looks harmless
+
+<style scoped>pre { white-space: pre-wrap; }</style>
 
 `MAX_STEPS` from 20 to 1, to cap what a run can spend:
 
