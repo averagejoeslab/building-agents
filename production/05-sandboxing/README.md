@@ -165,6 +165,7 @@ The fuller example, [`sandboxing.py`](./sandboxing.py), shows more of that list.
 ```python
 import subprocess, sys, os, uuid, atexit
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -212,7 +213,7 @@ def review():
     changed = docker("exec", box, "find", ".", "-type", "f", "-newer", "/tmp/start").stdout.split()
     if not changed: return print("[the box changed no files; discarded]")
     print("[files changed in the box:]\n" + "\n".join(changed))
-    try: answer = input("copy them to ./sandbox-out? [y/N] ").strip().lower()
+    try: answer = read("copy them to ./sandbox-out? [y/N] ").strip().lower()
     except EOFError: answer = ""
     if answer == "y":
         os.makedirs("sandbox-out", exist_ok=True)
@@ -223,29 +224,29 @@ def review():
     else:
         print("[discarded]")
 
-task = " ".join(sys.argv[1:]) or input("> ")
-messages = [{"role": "user", "content": task}]
+input = " ".join(sys.argv[1:]) or read("> ")
+messages = [{"role": "user", "content": input}]
 start()
 
 for step in range(1, MAX_STEPS + 1):
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-    messages.append({"role": "assistant", "content": reply.content})
-    if reply.stop_reason == "refusal":
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    messages.append({"role": "assistant", "content": output.content})
+    if output.stop_reason == "refusal":
         print("[stopped: the model declined]")
         break
-    results = []
-    for block in reply.content:
+    input = []
+    for block in output.content:
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             out = run_in_box(block.input["cmd"])
             print(out)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
-    if not results:
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
+    if not input:
         print(f"[done in {step} steps]")
         break
-    messages.append({"role": "user", "content": results})
+    messages.append({"role": "user", "content": input})
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")
 

@@ -1,5 +1,6 @@
 import subprocess, sys, os, json, time, random, signal
 from anthropic import Anthropic, APIConnectionError, APIStatusError
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic(max_retries=0, timeout=120)   # the SDK's own retries are off: this file does them, where you can see them
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -54,9 +55,9 @@ def run(cmd):
     if len(out) > MAX_OUT: out, note = out[:MAX_OUT], f"\n[output cut at {MAX_OUT} characters]" + note
     return (out + note).strip() or "(no output)", p.returncode != 0
 
-def save(task, messages):
+def save(messages):
     os.makedirs(".quark", exist_ok=True)
-    with open(CHECKPOINT + ".tmp", "w") as f: json.dump({"task": task, "messages": messages}, f, default=lambda b: b.model_dump(exclude_none=True))
+    with open(CHECKPOINT + ".tmp", "w") as f: json.dump({"messages": messages}, f, default=lambda b: b.model_dump(exclude_none=True))
     os.replace(CHECKPOINT + ".tmp", CHECKPOINT)   # all of the old file or all of the new one, never half
 
 def resume():
@@ -67,45 +68,45 @@ def resume():
         # The model asked for commands and the harness died before the answers were saved. Some may have run. Say so, don't guess.
         lost = [b for b in messages[-1]["content"] if b["type"] == "tool_use"]
         messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": f"interrupted: the harness stopped while this was pending, so it may or may not have run. Check before repeating it: {b['input'].get('cmd')}", "is_error": True} for b in lost]})
-    print(f"[resuming: {saved['task'][:60]!r}, {len(messages)} messages]")
-    return saved["task"], messages
+    print(f"[resuming: {messages[0]['content'][:60]!r}, {len(messages)} messages]")
+    return messages
 
 if sys.argv[1:] == ["resume"]:
-    task, messages = resume()
+    messages = resume()
 else:
-    task = " ".join(sys.argv[1:]) or input("> ")
-    messages = [{"role": "user", "content": task}]
+    input = " ".join(sys.argv[1:]) or read("> ")
+    messages = [{"role": "user", "content": input}]
 
-save(task, messages)
+save(messages)
 for step in range(1, MAX_STEPS + 1):
     try:
-        model, reply = ask(max_tokens=16384, tools=tools, messages=messages)
+        model, output = ask(max_tokens=16384, tools=tools, messages=messages)
     except Down:
         sys.exit(f"[no model answered. Everything so far is saved (step {step}); run `resilience.py resume` to pick it up]")
     if model != MODELS[0]: print(f"[answered by the backup, {model}]")
-    messages.append({"role": "assistant", "content": reply.content})
-    save(task, messages)
-    if reply.stop_reason == "refusal":
+    messages.append({"role": "assistant", "content": output.content})
+    save(messages)
+    if output.stop_reason == "refusal":
         print("[stopped: the model declined]")
         break
-    results = []
-    for block in reply.content:
+    input = []
+    for block in output.content:
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             cmd = block.input.get("cmd")
             print(f"$ {cmd}")
-            if not cmd or (reply.stop_reason == "max_tokens" and block is reply.content[-1]):
+            if not cmd or (output.stop_reason == "max_tokens" and block is output.content[-1]):
                 out, failed = "your request was cut off at the token limit, so it was not run. Send it again, shorter.", True
             else:
                 out, failed = run(cmd)
             print(out)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
-    if not results:
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
+    if not input:
         print(f"[done in {step} steps]")
         break
-    messages.append({"role": "user", "content": results})
-    save(task, messages)
+    messages.append({"role": "user", "content": input})
+    save(messages)
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")
     sys.exit()   # keep the checkpoint

@@ -1,5 +1,6 @@
 import subprocess, sys, re, collections
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -28,7 +29,7 @@ def verdict(cmd):
     return "allow", ""
 
 def ask(cmd, why):
-    try: answer = input(f"allow `{cmd}`? ({why}) [y]es, [a]lways, or say why not: ").strip()
+    try: answer = read(f"allow `{cmd}`? ({why}) [y]es, [a]lways, or say why not: ").strip()
     except EOFError: answer = ""
     if answer.lower() in ("y", "yes"): return None
     if answer.lower() in ("a", "always"):
@@ -44,8 +45,8 @@ def guard(cmd):
 def cost(u):
     return (u.input_tokens * PRICE["input"] + u.output_tokens * PRICE["output"] + u.cache_read_input_tokens * PRICE["cache_read"] + u.cache_creation_input_tokens * PRICE["cache_write"]) / 1_000_000
 
-task = " ".join(sys.argv[1:]) or input("> ")
-messages = [{"role": "user", "content": task}]
+input = " ".join(sys.argv[1:]) or read("> ")
+messages = [{"role": "user", "content": input}]
 spent, asked = 0.0, collections.Counter()
 
 for step in range(1, MAX_STEPS + 1):
@@ -55,16 +56,16 @@ for step in range(1, MAX_STEPS + 1):
     if asked and max(asked.values()) >= MAX_REPEATS:
         print(f"[stopped: asked for the same command {MAX_REPEATS} times]")
         break
-    results, replied = [], False
+    input, replied = [], False
     try:
-        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+        output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
         replied = True
-        messages.append({"role": "assistant", "content": reply.content})
-        spent += cost(reply.usage)
-        if reply.stop_reason == "refusal":
+        messages.append({"role": "assistant", "content": output.content})
+        spent += cost(output.usage)
+        if output.stop_reason == "refusal":
             print("[stopped: the model declined]")
             break
-        for block in reply.content:
+        for block in output.content:
             if block.type == "text":
                 print(block.text)
             if block.type == "tool_use":
@@ -73,26 +74,26 @@ for step in range(1, MAX_STEPS + 1):
                 asked[cmd] += 1
                 if (no := guard(cmd)):
                     print(f"[{no}]")
-                    results.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+                    input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                     continue
                 done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 print(done.stdout)
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     except KeyboardInterrupt:
         print("\n[interrupted]")
         if replied:
-            answered = {r["tool_use_id"] for r in results}
-            results += [{"type": "tool_result", "tool_use_id": b.id, "content": "interrupted by the person", "is_error": True} for b in reply.content if b.type == "tool_use" and b.id not in answered]
-        try: say = input("what now? (blank to stop) > ").strip()
+            answered = {r["tool_use_id"] for r in input}
+            input += [{"type": "tool_result", "tool_use_id": b.id, "content": "interrupted by the person", "is_error": True} for b in output.content if b.type == "tool_use" and b.id not in answered]
+        try: say = read("what now? (blank to stop) > ").strip()
         except EOFError: say = ""
         if not say:
             print("[stopped: interrupted]")
             break
-        messages.append({"role": "user", "content": results + [{"type": "text", "text": say}] if replied else say})
+        messages.append({"role": "user", "content": input + [{"type": "text", "text": say}] if replied else say})
         continue
-    if not results:
+    if not input:
         print(f"[done in {step} steps, ${spent:.4f}]")
         break
-    messages.append({"role": "user", "content": results})
+    messages.append({"role": "user", "content": input})
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")

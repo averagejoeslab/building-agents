@@ -12,5 +12,5 @@ def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
             continue
     raise RuntimeError("no model answered")
 
-reply = call([{"role": "user", "content": "What's in this directory?"}])
-print(reply.model_dump_json(indent=2))
+output = call([{"role": "user", "content": "What's in this directory?"}])
+print(output.model_dump_json(indent=2))

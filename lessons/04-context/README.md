@@ -479,6 +479,7 @@ It can be a product on its own. Memory layers like [Mem0](https://github.com/mem
 ```python
 import subprocess, sys, os, json, glob, datetime
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
@@ -512,27 +513,27 @@ def fit(working_memory):
 def add(working_memory, message):
     working_memory.append(message); remember(message)
 
-task = " ".join(sys.argv[1:]) or input("> ")
+input = " ".join(sys.argv[1:]) or read("> ")
 chat = len(sys.argv) < 2
 working_memory = []
-add(working_memory, {"role": "user", "content": task})
+add(working_memory, {"role": "user", "content": input})
 
 while True:
     working_memory = fit(working_memory)
-    reply = client.messages.create(model=MODEL, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
-    results = []
-    for block in reply.content:
+    output = client.messages.create(model=MODEL, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+    input = []
+    for block in output.content:
         if block.type == "text": print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": trim(done.stdout) or f"(exit {done.returncode})"})
-    add(working_memory, {"role": "assistant", "content": reply.content})
-    if results:
-        add(working_memory, {"role": "user", "content": results}); continue
-    if not chat or (task := input("\n> ")) == "/q": break
-    add(working_memory, {"role": "user", "content": task})
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": trim(done.stdout) or f"(exit {done.returncode})"})
+    add(working_memory, {"role": "assistant", "content": output.content})
+    if input:
+        add(working_memory, {"role": "user", "content": input}); continue
+    if not chat or (input := read("\n> ")) == "/q": break
+    add(working_memory, {"role": "user", "content": input})
 ```
 
 - **When it fits.** quark waits for the API to refuse. `fit()` counts tokens before every call, and past `LIMIT`, a budget you choose, it summarizes everything before your latest message and keeps the rest as it is. It costs a count per call, and it keeps every request smaller and cheaper than the model's limit.

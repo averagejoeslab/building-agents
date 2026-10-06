@@ -130,33 +130,34 @@ Here's control flow that does more of that, in [`control_flow.py`](./control_flo
 ```python
 import subprocess, sys
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 MAX_STEPS = 10
 
-task = " ".join(sys.argv[1:]) or input("> ")
-messages = [{"role": "user", "content": task}]
+input = " ".join(sys.argv[1:]) or read("> ")
+messages = [{"role": "user", "content": input}]
 
 for step in range(1, MAX_STEPS + 1):
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-    messages.append({"role": "assistant", "content": reply.content})
-    if reply.stop_reason == "refusal":
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    messages.append({"role": "assistant", "content": output.content})
+    if output.stop_reason == "refusal":
         print("[stopped: the model declined]")
         break
-    results = []
-    for block in reply.content:
+    input = []
+    for block in output.content:
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-    if not results:
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+    if not input:
         print(f"[done in {step} steps]")
         break
-    messages.append({"role": "user", "content": results})
+    messages.append({"role": "user", "content": input})
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")
 ```
@@ -207,23 +208,24 @@ Two things to keep straight when you read it. The article's building block, the 
 ```python
 import sys
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 
 def ask(prompt):
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, messages=[{"role": "user", "content": prompt}])
-    return next(b.text for b in reply.content if b.type == "text")
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, messages=[{"role": "user", "content": prompt}])
+    return next(b.text for b in output.content if b.type == "text")
 
-task = " ".join(sys.argv[1:]) or input("> ")
-draft = ask(f"Do this task. Reply with only the result.\n\n{task}")
+input = " ".join(sys.argv[1:]) or read("> ")
+draft = ask(f"Do this task. Reply with only the result.\n\n{input}")
 for round in range(1, 4):
     print(f"--- draft {round} ---\n{draft}\n")
-    verdict = ask(f"Task:\n{task}\n\nDraft:\n{draft}\n\nCheck the draft against every requirement in the task. If it meets all of them, reply with only PASS. Otherwise list what to fix.")
+    verdict = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nCheck the draft against every requirement in the task. If it meets all of them, reply with only PASS. Otherwise list what to fix.")
     if verdict.strip() == "PASS":
         print("[evaluator: pass]")
         break
     print(f"--- evaluator ---\n{verdict}\n")
-    draft = ask(f"Task:\n{task}\n\nDraft:\n{draft}\n\nFeedback:\n{verdict}\n\nRewrite the draft to fix everything in the feedback. Reply with only the new draft.")
+    draft = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nFeedback:\n{verdict}\n\nRewrite the draft to fix everything in the feedback. Reply with only the new draft.")
 else:
     print("[stopped: 3 rounds without a pass]")
 ```

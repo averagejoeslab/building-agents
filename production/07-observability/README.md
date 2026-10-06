@@ -145,6 +145,7 @@ import subprocess, sys, os, json, time, uuid, datetime
 from collections import defaultdict
 from contextlib import contextmanager
 from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -189,23 +190,23 @@ if sys.argv[1:2] == ["report"]:
     for spans in runs.values(): print(row(spans))
     sys.exit()
 
-task = " ".join(sys.argv[1:]) or input("> ")
-messages = [{"role": "user", "content": task}]
+input = " ".join(sys.argv[1:]) or read("> ")
+messages = [{"role": "user", "content": input}]
 
-with span("run", task=task) as run:
+with span("run", task=input) as run:
     for step in range(1, MAX_STEPS + 1):
         with span("model", run["span"], step=step) as m:
-            reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-            u = reply.usage
-            m.update(stop_reason=reply.stop_reason, input=u.input_tokens, output=u.output_tokens, cache_read=u.cache_read_input_tokens, cache_write=u.cache_creation_input_tokens)
+            output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+            u = output.usage
+            m.update(stop_reason=output.stop_reason, input=u.input_tokens, output=u.output_tokens, cache_read=u.cache_read_input_tokens, cache_write=u.cache_creation_input_tokens)
             m["cost"] = cost(m)
         print(f"[step {step}: model {m['seconds']}s, {m['input'] + m['cache_read'] + m['cache_write']} tokens in, {m['output']} out, ${m['cost']:.4f}]")
-        messages.append({"role": "assistant", "content": reply.content})
-        if reply.stop_reason == "refusal":
+        messages.append({"role": "assistant", "content": output.content})
+        if output.stop_reason == "refusal":
             run["status"] = "declined"
             break
-        results = []
-        for block in reply.content:
+        input = []
+        for block in output.content:
             if block.type == "text":
                 print(block.text)
             if block.type == "tool_use":
@@ -215,11 +216,11 @@ with span("run", task=task) as run:
                     t.update(exit=done.returncode, chars=len(done.stdout))
                 print(done.stdout)
                 print(f"[step {step}: tool {t['seconds']}s, exit {t['exit']}]")
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-        if not results:
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+        if not input:
             run["status"] = "done"
             break
-        messages.append({"role": "user", "content": results})
+        messages.append({"role": "user", "content": input})
     else:
         run["status"] = "step limit"
 
