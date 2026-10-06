@@ -155,17 +155,21 @@ trace(event="start", input=input)
 ```
 $ wc -l * 2>/dev/null | sort -rn | head -5
 allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
-$ ls
-big.txt
-small.txt
+$ ls -la
+total 36
+drwxr-xr-x 3 root root  4096 Oct  6 20:30 .
+drwxr-xr-x 3 root root    60 Oct  6 20:30 ..
+drwxr-xr-x 3 root root  4096 Oct  6 20:30 .quark
+-rw-r--r-- 1 root root 23893 Oct  6 20:30 big.txt
+-rw-r--r-- 1 root root     8 Oct  6 20:30 small.txt
 
 $ wc -l big.txt small.txt
  5000 big.txt
     2 small.txt
  5002 total
-
-`big.txt` has the most lines, at 5,000 (`small.txt` has 2).
 ```
+
+(shortened: the one-sentence answer names `big.txt`, at 5,000 lines)
 
 <!-- A scratch folder with a two-line small.txt and a 5,000-line big.txt. The first command wasn't on the safe list (2> redirects, and sort isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. -->
 
@@ -177,16 +181,16 @@ $ wc -l big.txt small.txt
 
 | event | seconds | stop_reason | in | out | cache_read | cache_write |
 |---|---|---|---|---|---|---|
-| model | 1.69 | tool_use | 95 | 70 | 0 | 7665 |
-| model | 1.53 | tool_use | 180 | 81 | 7665 | 0 |
-| tool `ls` | 0.09 | exit 0 | | | | |
-| model | 1.36 | tool_use | 276 | 59 | 7665 | 0 |
-| tool `wc -l big.txt small.txt` | 0.11 | exit 0 | | | | |
-| model | 1.24 | end_turn | 363 | 31 | 7665 | 0 |
+| model | 1.37 | tool_use | 95 | 70 | 0 | 7770 |
+| model | 1.66 | tool_use | 180 | 51 | 7770 | 0 |
+| tool `ls -la` | 0.12 | exit 0 | | | | |
+| model | 1.94 | tool_use | 397 | 93 | 7770 | 0 |
+| tool `wc -l big.txt small.txt` | 0.09 | exit 0 | | | | |
+| model | 1.74 | end_turn | 518 | 34 | 7770 | 0 |
 
 The trace's fields as a table; the `start` line and the `refused` line are left out.
 
-<!-- Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Point at the cache columns: the first call wrote the 7,665-token system prompt to the cache, and every call after read it back instead of paying again. -->
+<!-- Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Point at the cache columns: the first call wrote the 7,770-token system prompt to the cache, and every call after read it back instead of paying again. -->
 
 ---
 
@@ -195,10 +199,10 @@ The trace's fields as a table; the `start` line and the `refused` line are left 
 Add up one run's model calls, by its episode, with `jq`:
 
 ```
-{"calls":4,"input":914,"output":241,"cache_read":22995,"cache_write":7665,"seconds":5.82}
+{"calls":4,"input":1190,"output":248,"cache_read":23310,"cache_write":7770,"seconds":6.710000000000001}
 ```
 
-The whole run: four calls, 5.82 seconds, and most of what it read came from the cache.
+The whole run: four calls, about 6.7 seconds of model time, and most of what it read came from the cache.
 
 <!-- The jq query in the README selects the model events with this episode and sums each column. You don't need a tool built for traces to get this; you need one line per event. -->
 
@@ -232,12 +236,12 @@ jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces
 | event | cmd | seconds | exit / why |
 |---|---|---|---|
 | refused | `wc -l * 2>/dev/null \| sort -rn \| head -5` | | the person said no |
-| tool | `ls /nonexistent` | 0.1 | 2 |
-| tool | `sleep 60` | 5.09 | 137 |
+| tool | `ls /nonexistent` | 0.12 | 2 |
+| tool | `sleep 60` | 5.1 | 137 |
 
 The trace's fields as a table, across both runs.
 
-<!-- A refusal, a failure (exit 2) and a kill (exit 137, after 5.09 seconds). Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
+<!-- A refusal, a failure (exit 2) and a kill (exit 137, after 5.1 seconds). Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
 
 ---
 
@@ -247,17 +251,18 @@ In a terminal: `sleep 30`, `y` to the guard, ESC three seconds later. The trace,
 
 ```
 {"event":"start"}
-{"event":"model","seconds":2.31}
-{"event":"tool","cmd":"sleep 30","seconds":3.24,"exit":137}
+{"event":"model","seconds":1.72}
+{"event":"tool","cmd":"sleep 30","seconds":3.23,"exit":137}
 {"event":"interrupted","during":"acting"}
-{"event":"model","seconds":1.81}
+{"event":"model","seconds":2.01}
 ```
 
-- Stopped at 3.24 seconds: `exit` 137, the box's kill
+- Stopped at 3.23 seconds: `exit` 137, the box's kill
 - The next line says why: you interrupted it while it was acting
 - Then one more call, for the model to acknowledge it
+- The model said it "didn't get an exit status": the trace knows more about that command than the model does
 
-<!-- The terminal showed "[your doing stopped before done]" and the model offered to retry. Without the interrupted line, this would look exactly like a timeout kill: same exit code. The during field says whether quark was saying or doing something when you pressed ESC. -->
+<!-- The terminal showed "[your doing stopped before done]" and the model offered to run it again. Since Lesson 6, a stopped command's result is just that one line, so the model never sees the exit code. Without the interrupted line, this would look exactly like a timeout kill: same exit code. The during field says whether quark was saying or doing something when you pressed ESC. -->
 
 ---
 
@@ -350,6 +355,7 @@ It will faithfully record that:
 
 - the API dropped a call halfway through a long run
 - the model was cut off in the middle of a command
+- you pressed ESC, and everything it had said or printed up to then was thrown away
 - the process died and took the work with it
 
 It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
