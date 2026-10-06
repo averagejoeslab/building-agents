@@ -30,7 +30,8 @@ This file is for the people and agents who **build** this repo. Everything a **r
 ## The course: invariants
 
 **Order and structure.**
-- Lessons 1–4 are the primitives, built outward from the model: 1 model interface, 2 input and output, 3 control flow, 4 context. Lessons 5–10 are the production layers in `production/`.
+- Lessons 1–4 are the primitives, built outward from the model: 1 model interface, 2 input and output, 3 control flow, 4 context. Lessons 5–10 are the production layers in `production/`, in this order (Chase's decision): 5 sandboxing, 6 guardrails, 7 observability, 8 resilience, 9 performance, 10 evaluation. Containment first, then the gate, then the record of both, then recovery, cost, and measurement.
+- Lesson 5's `quark.py` starts from Lesson 4's `quark.py`; each later one is the previous plus its layer.
 - Each lesson's `quark.py` is the previous lesson's `quark.py` plus that lesson's primitive (or layer) and nothing else. Diff consecutive files to check.
 - Each module isolates its primitive: a module's new code belongs to its primitive only.
 - Every lesson README has the same layout:
@@ -65,6 +66,14 @@ This file is for the people and agents who **build** this repo. Everything a **r
 - **The full system prompt stays:** Self Model, Memory, World Model, Other Selves Model, Body Operations (with Acts/Observes), Mechanics. Chase wanted the long versions kept.
 - `mechanics()` shows the model its own file with `system()` redacted.
 
+**The production layers' design decisions.**
+- **Sandboxing:** one container per run, started at the top of control flow; the working folder is mounted at the same path, so Lesson 4's `.quark/` memories work through the box. No fallback to the host if Docker fails.
+- **Guardrails:** `guard()` asks through Lesson 2's `read()` (so a blank Enter re-asks, Ctrl-D is no). Limits are per person-turn.
+- **Observability:** each trace record carries `episode`, linking the operator's record (trace) to the model's (episode). Records start, model, tool, refused, stopped, too_long, and (from Lesson 8) model_failed.
+- **Resilience:** the backup model lives in Lesson 1's `call()`. There is no save file: `unfinished()` reads the newest episode back into working memory and continues in that same file. Unanswered tool requests get the "may or may not have run" result. Listed as built on model interface and output; the read-back is context's record, and the paper says so (§6).
+- **Performance:** `call(models=..., live=...)` streams; text is printed live, so the loop no longer prints text blocks. One prompt line changes (parallel commands). Compaction uses `FAST`.
+- **Evaluation:** its section sits before `# ── input ──` so `--eval` is caught before anything is read. Cases run the real file in a temp folder, with `y` answered fifty times.
+
 **Fuller examples** (`model_interface.py`, `input_output.py`, `control_flow.py`, `workflow.py`, `context.py`) are standalone files showing what else a primitive can be. They don't follow the `quark.py` lineage and still use names like `task` and `reply`. Whether to rename them to `input`/`output` is an open decision for Chase.
 
 ## Real output only
@@ -75,7 +84,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
   ```bash
   python3 - <<'PY'
   import re, glob, os
-  for r in sorted(glob.glob("lessons/*/README.md")):
+  for r in sorted(glob.glob("lessons/*/README.md") + glob.glob("production/*/README.md")):
       files = {f: open(f).read().splitlines() for f in glob.glob(os.path.dirname(r) + "/*.py")}
       for b in re.findall(r"```python\n(.*?)```", open(r).read(), re.S):
           lines = b.rstrip("\n").splitlines()
@@ -83,7 +92,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
           print(r, os.path.basename(best), [l for l in lines if l not in files[best]][:3])
   PY
   ```
-- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (86 of code, 148 of prompt), and the 1,949 total in Lesson 4's demo.
+- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (86 of code, 148 of prompt), and the 1,949 total in Lesson 4's demo. Production `quark.py`: 244, 267, 279, 308, 332, 370 (net +10, +23, +12, +29, +24, +38), quoted in each production README and in the paper's §6 table and Appendix C.
   - They appear in the lesson READMEs (including demo output) and the top-level README.
   - In the paper: the abstract, §5 headings, §5.5, §6, the conclusion, Appendix A/B, and `paper/arxiv/METADATA.txt`.
   - If a `quark.py` changes length, re-run the demos and update every one of them.
@@ -102,7 +111,8 @@ This file is for the people and agents who **build** this repo. Everything a **r
 ## The proof: quark at work
 
 - [`docs/quark-at-work/`](./docs/quark-at-work/) holds the current proof: the terminal transcript of each of the ten runs of the 234-line Lesson 4 `quark.py` (`run-*.txt`), and its memory stores after the last run (`stores/`: `memory/memory.md`, `skills/`, `episodes/`). The folder is `stores/`, not `.quark/`, because `.gitignore` ignores every `.quark/`.
-- [`docs/quark-at-work/earlier-version/`](./docs/quark-at-work/earlier-version/) holds the four runs of the earlier 48-line harness that wrote the production lessons and the first slide decks. The paper's §8 and Appendix D are about these; keep them consistent.
+- The paper's §8 (case study) and Appendix D are about the ten current runs; keep them consistent with the transcripts and stores.
+- [`docs/quark-at-work/earlier-version/`](./docs/quark-at-work/earlier-version/) holds the four runs of the earlier 48-line harness that wrote the first versions of the production lessons and slide decks. The README mentions them briefly; the paper no longer does.
 - **Running quark for new proof:**
   - Start from empty stores: move the repo's `.quark/` aside.
   - Move `.env` out of the repo.
@@ -154,15 +164,28 @@ This file is for the people and agents who **build** this repo. Everything a **r
   - [ ] **The study's evidence.** Spot-check the Codex and opencode file:line evidence in the supplement against the pinned commits, and the Claude Code doc links.
   - [ ] **The whole paper,** read end to end by Chase.
 
+## Slides
+
+- **Purpose:** a presenter teaches the lesson to a room. Clear and concise, the fewest slides that carry the ideas: about 12–22 per deck. The README is the full text; the deck isn't.
+- **Shape:** the lesson's own order. Title; the problem; the idea and what it's built on; the mechanism; the code this lesson adds; one or two telling runs; going further on one slide plus the fuller example; the rule, what it never does, what's missing, next.
+- **Rules:** one `#` heading per slide; at most 5 bullets; a speaker note on most slides; code copied exactly from the source (a line shortened to fit must be on a slide that says "(abridged)"); run output exact, cut only with "(shortened)"; never shrink text below 0.8em with `<style scoped>`; nothing on a slide that isn't in the lesson.
+- **Render and check:**
+  ```bash
+  export CHROME_PATH=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)   # or any Chrome
+  npx @marp-team/marp-cli <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files
+  python3 tools/deckcheck.py <dir>
+  ```
+  The checker reports code lines not in the source, numbers not in the lesson, text off the page, and text under 9pt. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without running off the page: the 9pt check is what catches it. Then look at the pages.
+
 ## Artifacts and who they're for
 
 | Path | For | Purpose |
 |---|---|---|
 | `README.md` | readers | Entry point: thesis, lesson tables, setup, how to present the slides, the paper, the proof, citation, license. |
 | `lessons/01–04/` | learners | The primitives. Each README is the lesson; `quark.py` is the lineage; other `.py` files are fuller examples. |
-| `lessons/*/slides.md`, `production/*/slides.md` | presenters | Marp decks for teaching each lesson in a workshop or video. Lessons 1–4: rebuilt by quark from each lesson's README and code (runs 2a–2d). Lessons 5–10: written by the earlier quark from memory, corrected by hand. |
-| `lessons/*/slides.pdf`, `production/*/slides.pdf` | presenters | Each deck rendered by Marp, so it opens and presents straight from GitHub. Regenerate after any `slides.md` change: `CHROME_PATH=<chromium> npx @marp-team/marp-cli <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files`. Then check every page fits: no word below y=482pt or right of x=901pt in `pdftotext -bbox` (page number excepted). A slide that overflows needs a `<style scoped>` block (smaller font), never changed text. |
-| `production/05–10/` | learners | The production layers, written by quark (run 3). |
+| `lessons/*/slides.md`, `production/*/slides.md` | presenters | Marp decks for teaching each lesson in a workshop or video, rewritten to be presented: concise, with speaker notes in `<!-- -->` comments. See "Slides" below. |
+| `lessons/*/slides.pdf`, `production/*/slides.pdf` | presenters | Each deck rendered by Marp, so it opens and presents straight from GitHub. Regenerate after any `slides.md` change, then run the checker (see "Slides" below). |
+| `production/05–10/` | learners | The production layers, each on the previous lesson's `quark.py`. First written by the earlier quark; rebuilt on the current harness by Claude Code, keeping much of that text. The fuller examples (`sandboxing.py` and the rest) are standalone and unchanged, so their recorded runs still stand. |
 | `docs/the-model.md`, `assets/*.svg` | learners | Optional deep dive on what's inside the model; the SVGs illustrate it. |
 | `docs/quark-at-work/` | readers checking the proof | Transcripts and memory stores from the ten current runs; `earlier-version/` has the earlier four. |
 | `paper/agent-harness-primitives.md`, `paper/latex/main.pdf` | paper readers | The paper, in Markdown and typeset. |
@@ -171,15 +194,10 @@ This file is for the people and agents who **build** this repo. Everything a **r
 | `paper/latex/*` (sources), `paper/arxiv/`, `paper/arxiv-source.zip` | creators | Build inputs and the arXiv upload. |
 | `pyproject.toml`, `.env.example`, `.gitignore` | learners and creators | Setup. |
 | `AGENTS.md`, `CLAUDE.md` | creators | This file, and the pointer to it. |
+| `tools/deckcheck.py` | creators | Checks a deck against its lesson and its rendered PDF. |
 
 ## Work still to do
 
-- **Move the production lessons onto the current Lesson 4 harness.**
-  - Lessons 5–10 build on the earlier 48-line `quark.py`, before episodic and procedural memory.
-  - When done, update the README's production note, the paper (§6, §9.3 limitations, Appendix C) and the lessons' line counts.
-- **Decide the order of the production lessons.** Chase proposed sandboxing, guardrails, resilience, performance, evaluation, observability. quark (run 5) recommended keeping the current order: every later `quark.py` carries Lesson 5's `trace()`, Lesson 10 reads the trace file, and Lesson 7 is the first to need Docker. Reordering means rewriting each layer's `quark.py` and the "What's missing" chain.
-- **Slide legibility.** Marp shrinks a code block until its longest line fits, and the overflow check doesn't catch a block shrunk past reading. Some slides have code at about 6pt (Lesson 4, slides 94 and 97). Holding to one idea per slide also made the decks long (50–110 slides), with some single-sentence slides; consider trimming them.
-- **Paper §8 is about the earlier runs.** Decide whether the paper should also report the current ten runs (memory at work), or stay as is.
 - **Decide on the fuller examples' naming** (`task`/`reply` vs `input`/`output`); see above.
 - **Terminal polish belongs in a production lesson, not in the primitives.** Candidates:
   - a "thinking…" indicator;
