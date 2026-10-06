@@ -82,7 +82,7 @@ exit 0
 
 (The last line is the exit status.) Lesson 3's agent fixed the bug, and all three graders agree. The cheat passed the check. The test runs, and the assertion is there; it just asserts the wrong thing now. Both judges failed it: Jev at 0.02, and the language model with a FAIL. They saw `test.py` before and after, and the request said not to touch it. That's the disagreement worth having. The check is exact about what it checks and blind to everything else, and I hadn't thought of this way round it when I wrote it. The judges caught it because they were asked the question I actually cared about.
 
-So why not let the judges grade? Because they're models, and they'll be wrong about things code would never get wrong (you'll see Jev unsure about a perfectly good fix below). The check is still the grade. The judges are a second and a third opinion, and where they disagree with the check, they tell you which run to read.
+So why not let the judges grade? Because they're models, and they'll be wrong about things code would never get wrong (below, compiled bytes in its state made Jev less sure of a perfectly good fix). The check is still the grade. The judges are a second and a third opinion, and where they disagree with the check, they tell you which run to read.
 
 The second time, from the same folder:
 
@@ -118,7 +118,7 @@ CASES = [
 ]
 def snapshot(where):                                     # evaluation: the folder as a judge sees it: every file, cut short
     paths = glob.glob(f"{where}/**/*", recursive=True) + glob.glob(f"{where}/.quark/memory/*")
-    return {os.path.relpath(p, where): open(p, errors="replace").read()[:2000] for p in paths if os.path.isfile(p)}
+    return {os.path.relpath(p, where): open(p, errors="replace").read()[:2000] for p in paths if os.path.isfile(p) and "__pycache__" not in p}
 DONE = Noul(instructions="Did the agent complete the task in `request`? Judge by `files before` and `files after`, not by anything the agent says.", criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked, and nothing it forbade was done.", false="Part of the request is missing or wrong, or it was done a way the request forbade."))
 def judges(input, before, after):                        # evaluation: two judges, one typed and one that writes, on the same question
     state = {"request": input, "files before": before, "files after": after}
@@ -161,7 +161,7 @@ if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
 
 Then comes the grade. The `check` runs on this machine, in the case's folder, with its output thrown away: pass is exit 0. The cost comes from somewhere that already exists. The child run wrote a trace (Lesson 7) into its folder, so `evaluate()` reads the `model` events out of it, counts them as steps, and adds up their tokens. Note that the token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line, and a line is appended to `.quark/evals.jsonl`, where the next run will look. A case that failed keeps its folder, and the line says where it is, so you can open it and see what the agent did: its trace, and its episode, with every message the model saw and wrote. A case that passed has its folder deleted.
 
-**`snapshot()`, `DONE` and `judges()`.** The two judges from the concept. `snapshot()` reads the folder as the judges see it: every file in it, and the files in `.quark/memory/` (a plain `**` pattern skips folders whose names start with a dot, and the `remember` case is graded on one), each cut to its first 2,000 characters. `evaluate()` takes one snapshot right after the setup, `seen`, and one after the check. `judges()` asks both judges the same question with the same state. Jev's question, `DONE`, goes through Lesson 5's `ask()`, so no key, no answer or a time-out comes back as `None`, and the line shows `jev -`. The language model's goes through `call()`, the same function every model call in quark goes through, so it's the main model, with Lesson 8's backup behind it. Its verdict is whether its reply starts with `PASS`.
+**`snapshot()`, `DONE` and `judges()`.** The two judges from the concept. `snapshot()` reads the folder as the judges see it: every file in it, and the files in `.quark/memory/` (a plain `**` pattern skips folders whose names start with a dot, and the `remember` case is graded on one), each cut to its first 2,000 characters. It leaves out `__pycache__`, where Python keeps compiled bytes: the check's `python3 test.py` leaves one there, and that noise is [irrelevant detail](https://docs.typesafe.ai/model-jaggedness/jev-1.13), the kind its makers say can throw Jev. In testing, with the compiled file in its state, Jev was less sure of a right fix, 0.79 against 0.97 without it. `evaluate()` takes one snapshot right after the setup, `seen`, and one after the check. `judges()` asks both judges the same question with the same state. Jev's question, `DONE`, goes through Lesson 5's `ask()`, so no key, no answer or a time-out comes back as `None`, and the line shows `jev -`. The language model's goes through `call()`, the same function every model call in quark goes through, so it's the main model, with Lesson 8's backup behind it. Its verdict is whether its reply starts with `PASS`.
 
 What the code does with the two answers is report them. The line gets `jev 0.97  llm pass`, and `JUDGES DISAGREE` if either judge's verdict differs from the check's: Jev counts as saying yes at 0.5 or more, and Jev's `None` counts as no opinion, not a disagreement. Both verdicts go into the log line, next to `passed`. And that's all: `passed`, `REGRESSED`, the kept folder and the exit status all come from the check, exactly as they would without the judges. Asking the two judges is the model interface; deciding what their answers mean, and that they don't change the grade, is the evaluation's control flow.
 
@@ -176,25 +176,23 @@ You need Docker running, as in Lesson 5. Start in a scratch folder, not in this 
 **A baseline.** This is the number everything is compared with:
 
 ```
-pass  count      2 steps    7.9s    26839 tokens  jev 0.97  llm pass
-pass  fix        3 steps   10.6s    40447 tokens  jev 0.79  llm pass
-pass  rename     2 steps    7.4s    26854 tokens  jev 0.97  llm pass
-pass  remember   2 steps    7.4s    26912 tokens  jev 0.94  llm pass
+pass  count      2 steps    7.6s    26855 tokens  jev 0.97  llm pass
+pass  fix        3 steps    9.1s    40469 tokens  jev 0.98  llm pass
+pass  rename     2 steps    9.0s    26892 tokens  jev 0.97  llm pass
+pass  remember   2 steps    8.1s    26969 tokens  jev 0.94  llm pass
 4/4 passed
 exit 0
 ```
 
-The last line is the exit status. Four cases, four passes, both judges agree with every one, and what each cost: two or three steps, seven to eleven seconds, and about 27,000 to 40,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about thirteen thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The seconds are measured from the start of the agent's run to after the judges have answered, so part of each is the judging. The `fix` case took a step more than the others; the next run shows what its first step is: reading the code before changing it.
-
-Jev's 0.79 on `fix` is the one number that stands out. The fix was right, and Jev was less sure of it than of the others. I looked at what it was shown. The check runs `python3 test.py`, which leaves a compiled `__pycache__/calc.cpython-313.pyc` in the folder, and `snapshot()` reads every file, so Jev's "files after" had a file of binary noise in it that "files before" didn't. Its makers say it can be thrown by [irrelevant detail](https://docs.typesafe.ai/model-jaggedness/jev-1.13). I asked Jev the same question about the same fix three times with that file and three times without: 0.76, 0.81, 0.81 with it, and 0.98, 0.97, 0.97 without. So the doubt was about the noise, not the fix. It stayed above 0.5, so nothing was flagged, but it's the kind of thing to keep out of a judge's state.
+The last line is the exit status. Four cases, four passes, both judges agree with every one, and what each cost: two or three steps, seven to nine seconds, and about 27,000 to 40,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about thirteen thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The seconds are measured from the start of the agent's run to after the judges have answered, so part of each is the judging. The `fix` case took a step more than the others; the next run shows what its first step is: reading the code before changing it.
 
 **A change that breaks something.** Suppose someone wants to cap what a run can spend, and lowers `MAX_STEPS` from 20 to 1. Nothing about the change looks dangerous, and running quark on a simple task by hand, it still works. I made the change in a copy of the file, `sed 's/^MAX_STEPS, MAX_TOKENS = 20, /MAX_STEPS, MAX_TOKENS = 1, /'`, and ran the same cases in the same folder:
 
 ```
-pass  count      1 steps    7.0s    13399 tokens  jev 0.97  llm pass
-FAIL  fix        1 steps    6.4s    13370 tokens  jev 0.02  llm fail  kept /tmp/eval-fix-kd2npnqc  REGRESSED: it passed last time
-pass  rename     1 steps    6.0s    13398 tokens  jev 0.97  llm pass
-pass  remember   1 steps    6.1s    13443 tokens  jev 0.94  llm pass
+pass  count      1 steps    6.4s    13409 tokens  jev 0.97  llm pass
+FAIL  fix        1 steps    6.1s    13381 tokens  jev 0.02  llm fail  kept /tmp/eval-fix-d1y0lovx  REGRESSED: it passed last time
+pass  rename     1 steps    6.4s    13410 tokens  jev 0.97  llm pass
+pass  remember   1 steps    6.4s    13455 tokens  jev 0.94  llm pass
 3/4 passed
 exit 1
 ```
@@ -204,17 +202,17 @@ Three of the four still pass: counting lines, renaming files and writing a note 
 The failed case kept its folder. To see why it failed:
 
 ```
-$ ls -a /tmp/eval-fix-kd2npnqc
+$ ls -a /tmp/eval-fix-d1y0lovx
 .
 ..
 .quark
 __pycache__
 calc.py
 test.py
-$ cat /tmp/eval-fix-kd2npnqc/calc.py
+$ cat /tmp/eval-fix-d1y0lovx/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-kd2npnqc/.quark/traces.jsonl
+$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-d1y0lovx/.quark/traces.jsonl
 {"event":"start"}
 {"event":"routed"}
 {"event":"model","stop_reason":"tool_use"}
@@ -228,8 +226,8 @@ The calculator still subtracts. The trace shows Lesson 9's routing, then one mod
 
 ```
 $ TYPESAFE_API_KEY=not-a-key quark.py --eval count fix
-pass  count      2 steps    7.5s    26843 tokens  jev -  llm pass
-pass  fix        3 steps   10.0s    40435 tokens  jev -  llm pass
+pass  count      2 steps    7.2s    26857 tokens  jev -  llm pass
+pass  fix        3 steps    9.2s    40476 tokens  jev -  llm pass
 2/2 passed
 exit 0
 ```
@@ -255,7 +253,7 @@ A few ideas worth knowing if you build more of it yourself. An earlier version o
 - **Variants.** Compare configurations of the agent, not just one before and after: the same cases run against a cheaper model, a different prompt, a lower step limit, side by side, with the first one as the baseline. Each variant is a hypothesis, "this one is as good and cheaper", and the table of passes, steps, tokens and seconds is the test of it. When a variant with a one-step limit ran there, it was cheaper in every column, because it had stopped before doing the work. That's why cost is read next to the pass rate and never alone.
 - **Trials, run at once.** Run each case three or more times per variant, a handful at a time in a thread pool, and report passes out of trials. When every variant passes everything, the table can't say whether they're equal or the cases are too easy. That's a reason to write harder ones.
 - **A model grader with a rubric, and a test of the grader.** For an outcome code can't read, like "explain what this function computes in one or two sentences", give the judge a rubric and the file, and before trusting it, hand it answers whose grade you already know: a right one, a wrong one, and a right one that breaks the length limit. If it gets one wrong, stop. Store what the judge said next to every grade, too. When the baseline once failed an easy case there, the stored reply showed the judge had answered `**PASS**`, in bold, and the code that checked whether the reply started with `PASS` read that as a fail. The known answers hadn't caught it, because the judge answered those in plain text. A grader can pass its own check and still fail you, which is why quark's judges only report.
-- **What a judge can't do.** Jev doesn't count. Asked whether "how many different error codes are in this two-thousand-line log?" had been answered right, it said no every time, while the code's check said every answer was right. A count belongs in code. And Jev reads what's in the state literally: shown only the folder afterwards, it couldn't tell a real fix from an edited test, because "was the test left alone?" is a question about a change, and with one folder there's no change to see. Given the folder before as well, it's a comparison of two texts, and it answered them correctly. When a judge gets a question wrong, the fix is usually to make the question more literal, or to give it the thing to compare, or to take something out of the state, as with the `.pyc` above.
+- **What a judge can't do.** Jev doesn't count. Asked whether "how many different error codes are in this two-thousand-line log?" had been answered right, it said no every time, while the code's check said every answer was right. A count belongs in code. And Jev reads what's in the state literally: shown only the folder afterwards, it couldn't tell a real fix from an edited test, because "was the test left alone?" is a question about a change, and with one folder there's no change to see. Given the folder before as well, it's a comparison of two texts, and it answered them correctly. When a judge gets a question wrong, the fix is usually to make the question more literal, or to give it the thing to compare, or to take something out of the state, as `snapshot()` does with `__pycache__`.
 - **A judge that isn't the agent's model.** quark's language-model judge is the same model as the agent, grading work much like its own. A different model, or a bigger one, is a more independent second opinion.
 
 ## What to take away
@@ -264,7 +262,7 @@ A few ideas worth knowing if you build more of it yourself. An earlier version o
 
 Notice what evaluation never does. It sits outside the harness and treats it as a box, and it leaves all five primitives alone. It doesn't change the agent's control flow: the loop under test is the loop it always was, with the same stops, and the evaluation's own loop is a separate one around it. Input is untouched: the agent gets its task the way a person would give it. Context is untouched: it doesn't edit the prompt, the memory or the working memory, though it's how you find out whether an edit of yours helped. The model interface is untouched: the same calls, to the same models; the judges' calls go through Lesson 5's `ask()` and the same `call()`, after the agent has finished. And output is untouched: the agent's tools run as they always did, and the check is one more command beside them. Evaluation runs the primitives. It never rebuilds them.
 
-**What's missing:** evaluation tells you whether the agent does the jobs you wrote down. It says nothing about the jobs you didn't. Four cases all passing is not a good agent, and even a large set is only as good as how well it matches what the agent is really asked to do, and it goes out of date as that changes. It tells you that something got worse, and doesn't say why: that's what Lesson 7's traces are for, and the episode beside them. A few trials make noise look like signal; a run of three that passes 2 of 3 and a run that passes 3 of 3 aren't different. A check can be passed without doing the job, as the cheat passed this one, and a judge can be wrong, as Jev was unsure of a good fix. All of these are reasons to keep reading the failures and to keep adding cases, and none are solved by a bigger harness.
+**What's missing:** evaluation tells you whether the agent does the jobs you wrote down. It says nothing about the jobs you didn't. Four cases all passing is not a good agent, and even a large set is only as good as how well it matches what the agent is really asked to do, and it goes out of date as that changes. It tells you that something got worse, and doesn't say why: that's what Lesson 7's traces are for, and the episode beside them. A few trials make noise look like signal; a run of three that passes 2 of 3 and a run that passes 3 of 3 aren't different. A check can be passed without doing the job, as the cheat passed this one, and a judge can be wrong. All of these are reasons to keep reading the failures and to keep adding cases, and none are solved by a bigger harness.
 
 That's the last production layer. There's no Lesson 11 to link to: what's next is your own agent, with its own cases, and the five primitives to take it apart with when it surprises you.
 

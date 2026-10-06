@@ -192,7 +192,7 @@ def judges(input, before, after):
 ```
 
 - Jev through Lesson 5's `ask()`; the language model through `call()`, the main model
-- `snapshot()`: every file, plus `.quark/memory/`, each cut to 2,000 characters
+- `snapshot()`: every file but `__pycache__`, plus `.quark/memory/`, cut to 2,000 characters
 - Printed as `jev 0.97  llm pass`; `JUDGES DISAGREE` if either differs from the check
 - The grade, `REGRESSED` and the exit status still come from the check
 
@@ -221,10 +221,10 @@ def judges(input, before, after):
 # A baseline: what normal looks like
 
 ```
-pass  count      2 steps    7.9s    26839 tokens  jev 0.97  llm pass
-pass  fix        3 steps   10.6s    40447 tokens  jev 0.79  llm pass
-pass  rename     2 steps    7.4s    26854 tokens  jev 0.97  llm pass
-pass  remember   2 steps    7.4s    26912 tokens  jev 0.94  llm pass
+pass  count      2 steps    7.6s    26855 tokens  jev 0.97  llm pass
+pass  fix        3 steps    9.1s    40469 tokens  jev 0.98  llm pass
+pass  rename     2 steps    9.0s    26892 tokens  jev 0.97  llm pass
+pass  remember   2 steps    8.1s    26969 tokens  jev 0.94  llm pass
 4/4 passed
 exit 0
 ```
@@ -237,14 +237,14 @@ exit 0
 
 ---
 
-# Why was Jev unsure of a good fix?
+# Keep noise out of a judge's state
 
-- The check ran `python3 test.py`, which left `__pycache__/calc.cpython-313.pyc`
-- `snapshot()` reads every file, so "files after" had binary noise in it
-- Same question, same fix, three times each: **0.76, 0.81, 0.81** with it, **0.98, 0.97, 0.97** without
-- The doubt was about the noise, not the fix: keep irrelevant detail out of a judge's state
+- The check runs `python3 test.py`, which leaves compiled bytes in `__pycache__`
+- That's irrelevant detail, and it can throw Jev
+- In testing, with it in the state, Jev was less sure of a right fix: 0.79 against 0.97
+- So `snapshot()` skips any path with `__pycache__` in it
 
-<!-- Jev's makers warn that irrelevant detail can throw it. It stayed above 0.5, so nothing was flagged, but it's exactly the kind of thing that would make a disagreement for no reason. -->
+<!-- Jev's makers warn about irrelevant detail. The fix was to leave it out of what the judges see, not to change the question. -->
 
 ---
 
@@ -253,15 +253,15 @@ exit 0
 `MAX_STEPS` from 20 to 1, to cap what a run can spend:
 
 ```
-pass  count      1 steps    7.0s    13399 tokens  jev 0.97  llm pass
-FAIL  fix        1 steps    6.4s    13370 tokens  jev 0.02  llm fail  ...
-pass  rename     1 steps    6.0s    13398 tokens  jev 0.97  llm pass
-pass  remember   1 steps    6.1s    13443 tokens  jev 0.94  llm pass
+pass  count      1 steps    6.4s    13409 tokens  jev 0.97  llm pass
+FAIL  fix        1 steps    6.1s    13381 tokens  jev 0.02  llm fail  ...
+pass  rename     1 steps    6.4s    13410 tokens  jev 0.97  llm pass
+pass  remember   1 steps    6.4s    13455 tokens  jev 0.94  llm pass
 3/4 passed
 exit 1
 ```
 
-- The `fix` line ends: `kept /tmp/eval-fix-kd2npnqc  REGRESSED: it passed last time`
+- The `fix` line ends: `kept /tmp/eval-fix-d1y0lovx  REGRESSED: it passed last time`
 - `fix` can't be done in one step; the other three can
 - Both judges agree with all four grades
 
@@ -272,7 +272,7 @@ exit 1
 # The failed case kept its folder (shortened)
 
 ```
-$ cat /tmp/eval-fix-kd2npnqc/calc.py
+$ cat /tmp/eval-fix-d1y0lovx/calc.py
 def add(a, b):
     return a - b
 ```
