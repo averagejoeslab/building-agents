@@ -155,7 +155,7 @@ The decks it wrote:
 | [Control flow](./lessons/03-control-flow/slides.md) | 50 |
 | [Context](./lessons/04-context/slides.md) | 62 |
 
-We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
+We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. A later read of every slide found nothing invented in these four decks, but 22 slides were tightened by hand: shortened code now says it's shortened, a few lines that put something under the wrong primitive were corrected, and wording that simplified the code too far was fixed. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
 
 **Run 3: write the six production lessons.**
 

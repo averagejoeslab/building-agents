@@ -204,7 +204,7 @@ The prompt carries `cache_control: ephemeral`.
 
 A cache hit needs an **identical** prompt.
 
-A timestamp would change it every call.
+A timestamp would change it every second.
 
 ---
 
@@ -298,13 +298,13 @@ The oldest turns are dropped **unsummarized**.
 
 ---
 
-# Compaction is the other primitives
+# Compaction reuses the other primitives
 
 The summary is one more call through Lesson 1's interface.
 
 Looping again is Lesson 3.
 
-Only what working memory holds is new.
+What's new is only the decision about what working memory holds: context.
 
 ---
 
@@ -449,10 +449,10 @@ A later session greps `episodes.jsonl` and recalls 327.
 
 ```python
 def trim(text):
-    # if over KEEP: first half + "[... N characters cut ...]" + last half
+    # over KEEP: first KEEP//2 chars + "[... N characters cut ...]" + last KEEP//2
 ```
 
-Applied to each tool result before it enters working memory.
+Keeps the start and end, cuts the middle, before a tool result enters working memory.
 
 ---
 

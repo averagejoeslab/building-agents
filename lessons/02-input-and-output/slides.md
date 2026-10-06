@@ -234,7 +234,7 @@ Anything on the command line can run.
 
 **Run this somewhere disposable.**
 
-No confirmation, from here on.
+Nothing asks before a command runs.
 
 ---
 
@@ -347,25 +347,26 @@ Two tools: `bash` and `read_file`.
 
 ---
 
-# Richer input: Telegram
+# Richer input and output: Telegram
 
 ```python
 def telegram(method, **params): ...   # urllib POST
-async def receive(): ...              # long-poll getUpdates
-async def send(chat, text): ...       # sendMessage
+async def receive(): ...              # input: long-poll getUpdates
+async def send(chat, text): ...       # output: sendMessage
 ```
 
-`receive()` takes **one** message and stops.
+`receive()` takes **one** message and stops. Repeating is control flow.
 
-Repeating is control flow.
+`send()` posts the words and each result back to the chat.
 
 ---
 
 # Richer output: time limit
 
 ```python
-# async bash: create_subprocess_shell, wait_for 30s
-→ ("stopped after 30 seconds", True)
+except asyncio.TimeoutError:
+    proc.kill()
+    return "stopped after 30 seconds", True
 ```
 
 A hung command is killed and reported as an error.
@@ -374,19 +375,24 @@ A hung command is killed and reported as an error.
 
 # Richer output: errors as results
 
-`execute(block, cut_off)` returns a tool result with `is_error`.
+`execute(block, cut_off)` always returns a tool result.
 
+Marked `is_error`:
 - cut off: "cut off before it was finished, so it was not run"
 - unknown tool: "no tool named X"
-- empty output: "(no output)"
+- a file that can't be read, or a timeout
+
+A non-zero exit code is added to the output.
 
 ---
 
 # Richer output: concurrent tools
 
 ```python
-await asyncio.gather(*[execute(b, ...) for b in tool_blocks])
+results = await asyncio.gather(*(execute(b, ...) for b in calls))
 ```
+
+(shortened)
 
 Three 2-second tasks take **2 seconds**, not 6.
 
@@ -394,7 +400,7 @@ Three 2-second tasks take **2 seconds**, not 6.
 
 # Demo
 
-One Telegram message asks for three things.
+One message asks for three things. (For the README's run, Telegram was a stand-in that prints each message.)
 
 Three concurrent bash calls.
 
@@ -406,7 +412,7 @@ The model still never sees the results.
 
 **Rule:** input gathers what goes to the model. Output handles what comes back. A tool is the model asking and the harness acting.
 
-They never get the request to the model, decide when to call, or present input.
+They never get the request to the model (model interface), decide when to call or send a result back (control flow), or decide how it's presented in the request (context).
 
 ---
 

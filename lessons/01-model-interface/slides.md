@@ -102,13 +102,13 @@ Those four live on the harness side.
 # Quark's version: the whole file
 
 ```python
-client = Anthropic()
+from anthropic import Anthropic
 
+client = Anthropic()
 reply = client.messages.create(
     model="claude-sonnet-5-5",
     max_tokens=16384,
-    messages=[{"role": "user",
-               "content": "What's in this directory?"}],
+    messages=[{"role": "user", "content": "What's in this directory?"}],
 )
 print(reply.model_dump_json(indent=2))
 ```
@@ -178,7 +178,7 @@ Why the model stopped.
 - `input_tokens` = **TokensIn**
 - `output_tokens` = **TokensOut**, including thinking tokens
 
-This is where cost shows up.
+Both sides of the function, counted.
 
 ---
 
@@ -243,7 +243,7 @@ for model in MODELS:
 raise RuntimeError("no model answered")
 ```
 
-If one model is down, try the next.
+If every retry on one model fails, try the next.
 
 ---
 
@@ -277,7 +277,7 @@ Raw thinking is never returned.
 
 The only visible difference: the thinking block now has text.
 
-Everything else changed underneath.
+The rest only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
 
 ---
 

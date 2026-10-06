@@ -49,9 +49,9 @@ They all sit inside it.
 # The path, with a loop
 
 ```
-person/world → input → request → model interface
-     ↑                                  ↓
-     └──── tool result ←── output ←── response
+person/world → input → request → model interface → response → output → person/world
+                 ↑                                                │
+                 └────────────────── tool result ─────────────────┘
 ```
 
 ---
@@ -133,7 +133,9 @@ A loop with no clear end is a bill with no clear end.
 
 # Quark's version: `quark.py`
 
-Same as Lesson 2, wrapped in `while True:`.
+Lesson 2's code inside `while True:`,
+
+plus a `messages` list, the appends that grow it, and a `chat` flag.
 
 30 lines.
 
@@ -188,7 +190,7 @@ if results:
     continue
 ```
 
-This one line is the **agent loop**.
+These three lines are the **agent loop**.
 
 ---
 
@@ -226,7 +228,7 @@ uv run lessons/03-control-flow/quark.py \
 
 # What happened
 
-1. Call 1: the model runs `find | wc -l | sort`
+1. Call 1: the model asks for `find … -name "quark.py" -exec wc -l {} + | sort -n`; output runs it
 2. The result goes back
 3. Call 2: the answer is `04-context/quark.py`, 48 lines
 
@@ -267,7 +269,7 @@ If it never stops asking, quark never stops.
 
 A person, a program, or no one.
 
-And concurrency: one call, or several.
+And what runs at the same time: one call, or several.
 
 ---
 
@@ -346,7 +348,7 @@ Five patterns.
 
 # Workflow patterns
 
-- **Prompt chaining**: fixed sequence, code checks between steps
+- **Prompt chaining**: fixed sequence, with checks in code between steps if you want
 - **Routing**: one call classifies, code picks the path
 - **Parallelization**: split independent parts, or vote on one question
 - **Orchestrator-workers**: one call breaks the task down, workers do the pieces
@@ -383,14 +385,18 @@ draft = ask(f"Do this task. Reply with only the result.\n\n{task}")
 
 ```python
 for round in range(1, 4):
-    verdict = ask(task + draft + "Check ... reply with only PASS "
-                  "or list what to fix.")
+    print(f"--- draft {round} ---\n{draft}\n")
+    verdict = ask(f"Task: … Draft: … reply with only PASS. Otherwise list what to fix.")
     if verdict.strip() == "PASS":
+        print("[evaluator: pass]")
         break
-    draft = ask(task + draft + verdict + "Rewrite...")
+    print(f"--- evaluator ---\n{verdict}\n")
+    draft = ask(f"Task: … Draft: … Feedback: … Rewrite the draft …")
 else:
     print("[stopped: 3 rounds without a pass]")
 ```
+
+(prompts shortened)
 
 ---
 
@@ -432,7 +438,7 @@ Every word exactly five letters, at least 8 words.
 
 The same pieces, arranged differently, give a single call, a chatbot, an agent, or a workflow.
 
-It never does model interface, input, output, or context.
+It never does model interface, input, output, or context. The growing `messages` list and `workflow.py`'s prompts are context.
 
 ---
 
