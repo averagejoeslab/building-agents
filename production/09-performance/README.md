@@ -31,13 +31,13 @@ Nothing here makes the model smarter or the answer better. It makes the same wor
 Here are three of those ideas with nothing around them, in [`performance.py`](./performance.py): a model picked for the request, the same request sent twice so the second reads its start from the cache, and three commands run one at a time and then all at once:
 
 ```python
-import subprocess, sys, time
+import subprocess, sys, os, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
 from typesafe_sdk import TypeSafeClient, Choice
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5)                          # Jev: a second model that answers typed questions and writes no text
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev: a second model that answers typed questions and writes no text
 
 SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
 TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
@@ -255,7 +255,7 @@ mkdir -p /tmp/demo && cd /tmp/demo
 uv run --project /path/to/building-agents /path/to/building-agents/production/09-performance/quark.py "..."
 ```
 
-I'll write that as `quark.py`. Where the guard might ask, I piped in `y`s. The `[wall: …]` line at the end of a run is from my shell's clock, not from quark. Each trace below is shortened: the `ts` and `episode` fields are cut from every line.
+I'll write that as `quark.py`. Where the guard might ask, I piped in `y`s. The `[wall: …]` line at the end of a run is from my shell's clock, not from quark. Each trace below is shortened: I left out the `start` line, and the `ts`, `episode`, `stop_reason` and `output_tokens` fields of every line.
 
 **Running at the same time.** Three slow commands that don't depend on each other; `sleep 3` stands in for a lint, a type check and a test run. First Lesson 8's `quark.py`, as a baseline:
 
@@ -280,12 +280,11 @@ Lint, types and tests all passed.
 The guard asked about each one (Jev thought each only reads, but not with the 0.9 it takes to skip the question). Lesson 8's trace shows the model asked for all three in one response, and they ran one after another:
 
 ```
-{"event":"start","input":"Run these three commands as three separate commands: 'sleep 3; echo lint ok', 'sleep 3; echo types ok', 'sleep 3; echo tests ok'. Then say what passed, in one line.","resumed":false}
-{"event":"model","seconds":1.74,"stop_reason":"tool_use","input_tokens":145,"output_tokens":170,"cache_read":0,"cache_write":10391}
+{"event":"model","seconds":1.74,"input_tokens":145,"cache_read":0,"cache_write":10391}
 {"event":"tool","cmd":"sleep 3; echo lint ok","seconds":3.1,"exit":0,"chars":8,"failed":0.03}
 {"event":"tool","cmd":"sleep 3; echo types ok","seconds":3.08,"exit":0,"chars":9,"failed":0.02}
 {"event":"tool","cmd":"sleep 3; echo tests ok","seconds":3.09,"exit":0,"chars":9,"failed":0.02}
-{"event":"model","seconds":0.93,"stop_reason":"end_turn","input_tokens":407,"output_tokens":14,"cache_read":10391,"cache_write":0}
+{"event":"model","seconds":0.93,"input_tokens":407,"cache_read":10391,"cache_write":0}
 ```
 
 Three seconds each, nine in total. Now the same task with this lesson's `quark.py`:
@@ -305,13 +304,12 @@ Lint, types and tests all passed.
 ```
 
 ```
-{"event":"start","input":"Run these three commands as three separate commands: 'sleep 3; echo lint ok', 'sleep 3; echo types ok', 'sleep 3; echo tests ok'. Then say what passed, in one line.","resumed":false}
 {"event":"routed","to":"claude-sonnet-5-5","size":"work","confidence":0.51}
-{"event":"model","seconds":1.8,"stop_reason":"tool_use","input_tokens":4,"output_tokens":170,"cache_read":0,"cache_write":11342}
+{"event":"model","seconds":1.8,"input_tokens":4,"cache_read":0,"cache_write":11342}
 {"event":"tool","cmd":"sleep 3; echo lint ok","seconds":3.1,"exit":0,"chars":8,"failed":0.03}
 {"event":"tool","cmd":"sleep 3; echo types ok","seconds":3.11,"exit":0,"chars":9,"failed":0.02}
 {"event":"tool","cmd":"sleep 3; echo tests ok","seconds":3.11,"exit":0,"chars":9,"failed":0.02}
-{"event":"model","seconds":1.47,"stop_reason":"end_turn","input_tokens":2,"output_tokens":14,"cache_read":11342,"cache_write":264}
+{"event":"model","seconds":1.47,"input_tokens":2,"cache_read":11342,"cache_write":264}
 ```
 
 All three questions come first (the piped `y`s answer them, so the answers don't show), then the three commands run together: three seconds of waiting instead of nine, 10.6 seconds against 16.5 for the whole run. The rest of each run is the model, and Jev's questions about each command (the guard's, the network's, and whether it failed). The results went back to the model in the order it asked. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: with a mark on the newest message, the first call wrote the whole request to the cache instead of paying full price for its end, and the second read all of that back and paid full price for only 2.
@@ -358,13 +356,12 @@ That reading is based only on the imports and how they match my own harness; I d
 ````
 
 ```
-{"event":"start","input":"Find the quark.py files under lessons/ and count the lines in each. Then grep the import lines of the longest one. Then say in one sentence what those imports tell you. One command per step.","resumed":false}
 {"event":"routed","to":"claude-opus-5-5","size":"work","confidence":0.83}
-{"event":"model","seconds":2.04,"stop_reason":"tool_use","input_tokens":4,"output_tokens":72,"cache_read":0,"cache_write":11330}
+{"event":"model","seconds":2.04,"input_tokens":4,"cache_read":0,"cache_write":11330}
 {"event":"tool","cmd":"find lessons/ -name quark.py | xargs wc -l | sort -n","seconds":0.1,"exit":0,"chars":170,"failed":0.03}
-{"event":"model","seconds":1.84,"stop_reason":"tool_use","input_tokens":2,"output_tokens":75,"cache_read":11330,"cache_write":158}
+{"event":"model","seconds":1.84,"input_tokens":2,"cache_read":11330,"cache_write":158}
 {"event":"tool","cmd":"grep -nE \"^\\s*(import|from) \" lessons/04-context/quark.py","seconds":0.09,"exit":0,"chars":106,"failed":0.03}
-{"event":"model","seconds":5.08,"stop_reason":"end_turn","input_tokens":2,"output_tokens":423,"cache_read":11488,"cache_write":125}
+{"event":"model","seconds":5.08,"input_tokens":2,"cache_read":11488,"cache_write":125}
 ```
 
 This time Jev was sure enough, `work` at 0.83, so the turn went to `claude-opus-5-5`. Neither command was on the guard's safe list, and Jev was sure both only read, so nothing was asked. `input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote 11,330 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last response and its result, 158 and 125 tokens. The harness resent over eleven thousand tokens each time and paid full price for a handful of them.
@@ -390,11 +387,10 @@ The first heading says a modern LLM is a probabilistic next-token predictor that
 ```
 
 ```
-{"event":"start","input":"cat docs/the-model.md, then tell me in one sentence what its first heading says.","resumed":false}
 {"event":"routed","to":"claude-haiku-4-5","size":"lookup","confidence":0.89}
-{"event":"model","seconds":0.88,"stop_reason":"tool_use","input_tokens":3,"output_tokens":59,"cache_read":0,"cache_write":9051}
+{"event":"model","seconds":0.88,"input_tokens":3,"cache_read":0,"cache_write":9051}
 {"event":"tool","cmd":"cat docs/the-model.md","seconds":0.11,"exit":0,"chars":25435,"failed":0.03}
-{"event":"model","seconds":0.83,"stop_reason":"end_turn","input_tokens":6,"output_tokens":35,"cache_read":9051,"cache_write":4936}
+{"event":"model","seconds":0.83,"input_tokens":6,"cache_read":9051,"cache_write":4936}
 ```
 
 The trace's `chars` is the length before trimming, 25,435. The second call wrote 4,936 tokens to the cache, which is what the trimmed result came to; the 5,435 characters that were cut are characters that every later call would otherwise have resent. Jev called the request a `lookup`, 0.89, so it went to Haiku, and Haiku's answer is not quite right: the first heading is "The model: what the harness wraps", and what it describes is the paragraph under the *second* heading. Remember that one at the end of the lesson.
@@ -425,13 +421,12 @@ Do you want me to run both again from the start, or leave it?
 ```
 
 ```
-{"event":"start","input":"Run these two as separate commands, at the same time: for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done   and   for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done","resumed":false}
 {"event":"routed","to":"claude-sonnet-5-5","size":"lookup","confidence":0.35}
-{"event":"model","seconds":2.11,"stop_reason":"tool_use","input_tokens":4,"output_tokens":163,"cache_read":0,"cache_write":11363}
+{"event":"model","seconds":2.11,"input_tokens":4,"cache_read":0,"cache_write":11363}
 {"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done","seconds":3.93,"exit":137,"chars":45,"failed":0.66}
 {"event":"tool","cmd":"for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done","seconds":3.93,"exit":137,"chars":45,"failed":0.72}
 {"event":"interrupted","during":"acting"}
-{"event":"model","seconds":2.01,"stop_reason":"end_turn","input_tokens":4,"output_tokens":92,"cache_read":11363,"cache_write":284}
+{"event":"model","seconds":2.01,"input_tokens":4,"cache_read":11363,"cache_write":284}
 ```
 
 One ESC stopped both, at the same moment: 3.93 seconds each, exit 137, the code for a process killed by `kill -9`. Each kept what it had printed, four lines apiece, and the model knew how far each had got. Run one after the other, as in Lesson 8, the same ESC would have stopped `a` at its fourth line and `b` would never have started. (Jev's `failed`, 0.66 and 0.72, is its read of a result that ends in `[your doing stopped before done]`.)
@@ -481,15 +476,14 @@ As you asked, I haven't changed anything and haven't timed it.
 The second answer is shortened (I cut its code). The trace has a `routed` line for each turn:
 
 ```
-{"event":"start","input":"how many lines is slow.py?","resumed":false}
 {"event":"routed","to":"claude-haiku-4-5","size":"lookup","confidence":1.0}
-{"event":"model","seconds":0.93,"stop_reason":"tool_use","input_tokens":3,"output_tokens":69,"cache_read":0,"cache_write":9038}
+{"event":"model","seconds":0.93,"input_tokens":3,"cache_read":0,"cache_write":9038}
 {"event":"tool","cmd":"wc -l slow.py","seconds":0.1,"exit":0,"chars":10,"failed":0.02}
-{"event":"model","seconds":0.45,"stop_reason":"end_turn","input_tokens":6,"output_tokens":13,"cache_read":9038,"cache_write":84}
+{"event":"model","seconds":0.45,"input_tokens":6,"cache_read":9038,"cache_write":84}
 {"event":"routed","to":"claude-opus-5-5","size":"work","confidence":0.9}
-{"event":"model","seconds":1.72,"stop_reason":"tool_use","input_tokens":4,"output_tokens":55,"cache_read":0,"cache_write":11427}
+{"event":"model","seconds":1.72,"input_tokens":4,"cache_read":0,"cache_write":11427}
 {"event":"tool","cmd":"cat -n slow.py","seconds":0.08,"exit":0,"chars":248,"failed":0.04}
-{"event":"model","seconds":8.53,"stop_reason":"end_turn","input_tokens":2,"output_tokens":748,"cache_read":11427,"cache_write":171}
+{"event":"model","seconds":8.53,"input_tokens":2,"cache_read":11427,"cache_write":171}
 ```
 
 The first turn was a `lookup` at 1.00, so it went to `claude-haiku-4-5`: under a second for each call. The second was `work` at 0.90, so `claude-opus-5-5`, which read the file and explained the list rebuilt on every pass. Look at its first call: `cache_read` 0 and `cache_write` 11,427. The system prompt was the same as in the first turn, but the first turn's cache was Haiku's, and Opus has its own. Switching models costs a full write, which is why quark switches only when a new turn starts, never in the middle of one.

@@ -1,10 +1,10 @@
-import subprocess, sys, time
+import subprocess, sys, os, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
 from typesafe_sdk import TypeSafeClient, Choice
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5)                          # Jev: a second model that answers typed questions and writes no text
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev: a second model that answers typed questions and writes no text
 
 SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
 TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
