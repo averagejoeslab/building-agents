@@ -23,7 +23,7 @@ We separate an agent into two components. The **model** is treated as a fixed fu
 
 Each primitive is defined both positively, by what it does, and negatively, by what it never does, so that the five are mutually exclusive.
 
-The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 82 lines of Python and a 152-line system prompt, containing nothing outside the five.
+The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 86 lines of Python and a 148-line system prompt, containing nothing outside the five.
 
 Two results follow.
 
@@ -281,7 +281,7 @@ The system is now an agent: the model determines the next step. The same four co
 
 The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and `messages` grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 
-### 5.4 Step 4: context (234 lines: 82 of code and a 152-line system prompt)
+### 5.4 Step 4: context (234 lines: 86 of code and a 148-line system prompt)
 
 The final primitive adds the context section of the harness. The step-3 `messages` list is renamed `working_memory`, and every append becomes a call to `add()`. The section has eight components.
 
@@ -303,7 +303,7 @@ Six runs demonstrate the result (Appendix B.5). Asked what it is, the agent desc
 | 1 | Model interface | 9 lines | Both ends are stubs; the model identifies `ls` as the next action and cannot execute it. |
 | 2 | Input and output | 33 lines | A tool executes, but its result never reaches the model. |
 | 3 | Control flow | 46 lines | The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. |
-| 4 | Context | 234 lines (82 of code) | None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. |
+| 4 | Context | 234 lines (86 of code) | None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. |
 
 At each step the remaining deficiency is the next primitive, and no step requires a component outside the five. Each step's file differs from the previous one only by the code of the primitive it adds, under a section heading named for that primitive; the four files appear in full in Appendix A.
 
@@ -322,7 +322,7 @@ The second part of the artifact tests this corollary one layer at a time. The la
 | Layer | Resides in | Rationale | Mechanism | Lines added |
 |----|----|------|------------|----|
 | Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage` and exit codes already present; appends one JSON record per event | +12 |
-| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool; refusals returned as readable tool results; step, token, cost and repetition limits; interruption | +26 |
+| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits and handling of interruption) | +26 |
 | Sandboxing | output | where a tool executes was always output's decision | commands executed via `docker exec` in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits | +13 |
 | Resilience | model interface, output, context | where the environment can fail, and what must be replayed | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; per-step persistence and resumption, marking interrupted commands as *may or may not have run* | +53 |
 | Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) | +47 |
@@ -336,7 +336,7 @@ Several entries require qualification.
 
 **Layers are not mutually independent.** An earlier formulation of the corollary stated that each layer leaves the other primitives unchanged. The production harnesses show this to be too strong. In Codex, the approval policy and the sandbox policy are mutually dependent: (i) the approval requirement is computed from the sandbox setting; (ii) an approval alters how the command executes; and (iii) a sandbox denial triggers a further approval. Claude Code is similar: its sandbox can substitute for a permission prompt, and the model can request to leave the sandbox, which routes the request back through the guardrails. Each element still resides in one primitive. The primitives remain disjoint; the layers do not remain independent.
 
-**Evaluation is the exception that confirms the rule.** It resides in none of the five because it is external to the agent, yet it is constructed from them: an outer **control-flow** loop, the task supplied as **input**, the check executed as **output**, and a model grader reached through the **model interface**. It is a second harness wrapped around the first. In the artifact it detected an apparently harmless change: reducing the step limit from 20 to 1 left three of four cases passing and flagged the fourth as `REGRESSED` (Appendix C.6). In the production harnesses, evaluation is likewise external: Codex and opencode ship only engineering tests against mocked or recorded model responses, and Claude Code's `claude plugin eval` grades plugins and skills by running the real agent.
+**Evaluation is the exception that confirms the rule.** It resides in none of the five because it is external to the agent, yet it is constructed from them: an outer **control-flow** loop, the task supplied as **input**, the check executed as **output**, and, in the artifact's fuller example, a model grader reached through the **model interface**. It is a second harness wrapped around the first. In the artifact it detected an apparently harmless change: reducing the step limit from 20 to 1 left three of four cases passing and flagged the fourth as `REGRESSED` (Appendix C.6). In the production harnesses, evaluation is likewise external: Codex and opencode ship only engineering tests against mocked or recorded model responses, and Claude Code's `claude plugin eval` grades plugins and skills by running the real agent.
 
 Each production harness can therefore be read under the same five headings as the base harness it extends. The layers strengthen the primitives without extending them. The corollary is supported by cases rather than proven; §9 states the conditions under which it would be refuted.
 
@@ -436,6 +436,8 @@ An earlier version of the base harness was used for substantive work on the comp
 3. wrote the six production lessons, one session per lesson, each building its `quark.py` from the preceding one, executing its code, and including the actual output;
 4. in a further new session, wrote slide decks for the six production lessons, again from memory.
 
+This account concerns those original runs. The decks for the four primitive lessons were subsequently regenerated, again by quark, from each lesson's text and code rather than from memory, so that they match the final harness of §5; the figures below for the primitive decks describe the original versions.
+
 The arrangement itself instantiates the decomposition. The script that ran one quark session per lesson, halting if a lesson produced no `quark.py`, is control flow at a higher level: a workflow around an agent.
 
 The failures are the instructive part of the study, and each is attributable to a primitive.
@@ -517,7 +519,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 82 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 
@@ -700,7 +702,7 @@ while True:
 
 ### A.4 Plus context: the finished harness (234 lines)
 
-The system prompt (the text of `system()`) accounts for 152 of the 234 lines.
+The system prompt (the text of `system()`) accounts for 148 of the 234 lines.
 
 ````python
 import subprocess, sys, os, re, glob, json, datetime
@@ -1208,7 +1210,7 @@ pass  remember   1 steps    3.1s     6778 tokens
 
 ## Appendix D. Case-study evidence
 
-**D.1 The silent stop and the crash.** The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson. The last response hit the cap partway through a tool request:
+**D.1 The silent stop and the crash.** The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson (the last four of eight lines, followed by the end of the traceback). The traceback refers to the 48-line version of `lessons/04-context/quark.py` that was then current. The last response hit the cap partway through a tool request:
 
 ```
 [trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=3642 thinking=2498
@@ -1220,13 +1222,13 @@ pass  remember   1 steps    3.1s     6778 tokens
 KeyError: 'cmd'
 ```
 
-**D.2 The agent that killed itself.** The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained `08-resilience/quark.py`, so the pattern matched quark too:
+**D.2 Self-termination.** The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained `08-resilience/quark.py`, so the pattern matched quark too:
 
 ```
 (yes y | uv run --project $R $R/production/08-resilience/quark.py "Run 'sleep 20; echo first > first.txt' as one command, ..." > out1.txt 2>&1 &) ; ... ; pkill -9 -f 08-resilience/quark.py; ...
 ```
 
-**D.3 Fabrication from memory.** The two decks written from memory were checked slide by slide against the lessons:
+**D.3 Fabrication from memory.** The two sets of decks written from memory were checked slide by slide against the lessons:
 
 - **The four primitive decks:** 22 slides tightened, none invented.
 - **The six production decks:** 47 slides corrected and 5 removed.

@@ -45,7 +45,7 @@ This supplement belongs to *[Agent = Harness(Model): Five Mechanistic Primitives
 - **From a person:** `Op::TurnInput` with text, image, audio, skill and mention (`protocol/src/protocol.rs:565`, `protocol/src/user_input.rs`).
 - **Mid-turn:** steering and the inter-agent mailbox (`core/src/session/input_queue.rs:125–229`).
 - **From the world:** tool results (`core/src/tools/parallel.rs:125–296`).
-- **A person's `!cmd`:** recorded into history (`core/src/tasks/user_shell.rs:438–449`). This is input by §4's "a person acting directly" rule.
+- **A person's `!cmd`:** recorded into history (`core/src/tasks/user_shell.rs:438–449`). This is input by the rule on direct actions by a person (§4).
 
 ### Context
 - **Request assembly:** `build_prompt` (`turn.rs:1572–1601`).
@@ -90,7 +90,7 @@ This supplement belongs to *[Agent = Harness(Model): Five Mechanistic Primitives
   - An approval changes how the command runs, and a sandbox denial triggers a new approval (`core/src/tools/orchestrator.rs:228–560`).
   - Each piece has one home; the layers read each other. The paper's §6 changed because of this.
 - **Guardian:** an LLM reviewer for approvals, so control flow plus a model-interface call, a nested harness.
-- **`request_user_input`:** the answer is returned to the model, so it is input. Approvals are consumed by the harness, so they're control flow.
+- **`request_user_input`:** the answer is returned to the model, so it is input. Approvals are consumed by the harness, so they are control flow.
 - **Code mode:** model-written JavaScript that calls tools without calling the model, so output, by §4's rule on programs the model writes.
 - **Plan mode:** a template (context), a disabled tool (output), and a blocking question (control flow). It is a bundle, not a part.
 - **Turn diffs:** shown to the user, never sent to the model (`core/src/turn_diff_tracker.rs`; `rollout/src/policy.rs:203`), so output.
@@ -155,7 +155,7 @@ This supplement belongs to *[Agent = Harness(Model): Five Mechanistic Primitives
 | Evaluation | absent. Engineering tests use recorded model responses (`packages/http-recorder`) |
 
 ### Hard cases
-- **Client/server:** transport and hosting, out of scope by §2.2. What crosses it is input or output.
+- **Client/server:** transport and hosting, out of scope by §2.4. What crosses it is input or output.
 - **Revert:** restoring files at a person's request is the weakest fit. It is assigned as resilience over output, and discussed in the paper's §9.2.
 - **GitLab Duo Workflow as a "model":** a remote agent loop behind the model interface (`llm.ts:119–206`). Read as a nested harness.
 - **A retry that spans tools:** tools run inside the streamed call, so retrying the stream may re-send a request after some tools already ran (`processor.ts:674–688`). This is a design hazard, not a new primitive.

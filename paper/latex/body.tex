@@ -325,7 +325,7 @@ The system is now an agent: the model determines the next step. The same four co
 
 The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and \passthrough{\lstinline!messages!} grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 
-\subsection{Step 4: context (234 lines: 82 of code and a 152-line system prompt)}
+\subsection{Step 4: context (234 lines: 86 of code and a 148-line system prompt)}
 
 The final primitive adds the context section of the harness. The step-3 \passthrough{\lstinline!messages!} list is renamed \passthrough{\lstinline!working\_memory!}, and every append becomes a call to \passthrough{\lstinline!add()!}. The section has eight components.
 
@@ -376,7 +376,7 @@ Remaining deficiency
 1 & Model interface & 9 lines & Both ends are stubs; the model identifies \passthrough{\lstinline!ls!} as the next action and cannot execute it. \\
 2 & Input and output & 33 lines & A tool executes, but its result never reaches the model. \\
 3 & Control flow & 46 lines & The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. \\
-4 & Context & 234 lines (82 of code) & None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. \\
+4 & Context & 234 lines (86 of code) & None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. \\
 \end{longtable}
 }
 
@@ -418,7 +418,7 @@ Lines added
 \bottomrule\noalign{}
 \endlastfoot
 Observability & control flow & the only primitive with visibility of the whole sequence & reads the clock, \passthrough{\lstinline!usage!} and exit codes already present; appends one JSON record per event & +12 \\
-Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool; refusals returned as readable tool results; step, token, cost and repetition limits; interruption & +26 \\
+Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits and handling of interruption) & +26 \\
 Sandboxing & output & where a tool executes was always output's decision & commands executed via \passthrough{\lstinline!docker exec!} in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits & +13 \\
 Resilience & model interface, output, context & where the environment can fail, and what must be replayed & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; per-step persistence and resumption, marking interrupted commands as \emph{may or may not have run} & +53 \\
 Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) & +47 \\
@@ -434,7 +434,7 @@ Several entries require qualification.
 
 \textbf{Layers are not mutually independent.} An earlier formulation of the corollary stated that each layer leaves the other primitives unchanged. The production harnesses show this to be too strong. In Codex, the approval policy and the sandbox policy are mutually dependent: (i) the approval requirement is computed from the sandbox setting; (ii) an approval alters how the command executes; and (iii) a sandbox denial triggers a further approval. Claude Code is similar: its sandbox can substitute for a permission prompt, and the model can request to leave the sandbox, which routes the request back through the guardrails. Each element still resides in one primitive. The primitives remain disjoint; the layers do not remain independent.
 
-\textbf{Evaluation is the exception that confirms the rule.} It resides in none of the five because it is external to the agent, yet it is constructed from them: an outer \textbf{control-flow} loop, the task supplied as \textbf{input}, the check executed as \textbf{output}, and a model grader reached through the \textbf{model interface}. It is a second harness wrapped around the first. In the artifact it detected an apparently harmless change: reducing the step limit from 20 to 1 left three of four cases passing and flagged the fourth as \passthrough{\lstinline!REGRESSED!} (Appendix C.6). In the production harnesses, evaluation is likewise external: Codex and opencode ship only engineering tests against mocked or recorded model responses, and Claude Code's \passthrough{\lstinline!claude plugin eval!} grades plugins and skills by running the real agent.
+\textbf{Evaluation is the exception that confirms the rule.} It resides in none of the five because it is external to the agent, yet it is constructed from them: an outer \textbf{control-flow} loop, the task supplied as \textbf{input}, the check executed as \textbf{output}, and, in the artifact's fuller example, a model grader reached through the \textbf{model interface}. It is a second harness wrapped around the first. In the artifact it detected an apparently harmless change: reducing the step limit from 20 to 1 left three of four cases passing and flagged the fourth as \passthrough{\lstinline!REGRESSED!} (Appendix C.6). In the production harnesses, evaluation is likewise external: Codex and opencode ship only engineering tests against mocked or recorded model responses, and Claude Code's \passthrough{\lstinline!claude plugin eval!} grades plugins and skills by running the real agent.
 
 Each production harness can therefore be read under the same five headings as the base harness it extends. The layers strengthen the primitives without extending them. The corollary is supported by cases rather than proven; §9 states the conditions under which it would be refuted.
 
@@ -623,6 +623,8 @@ An earlier version of the base harness was used for substantive work on the comp
   in a further new session, wrote slide decks for the six production lessons, again from memory.
 \end{enumerate}
 
+This account concerns those original runs. The decks for the four primitive lessons were subsequently regenerated, again by quark, from each lesson's text and code rather than from memory, so that they match the final harness of §5; the figures below for the primitive decks describe the original versions.
+
 The arrangement itself instantiates the decomposition. The script that ran one quark session per lesson, halting if a lesson produced no \passthrough{\lstinline!quark.py!}, is control flow at a higher level: a workflow around an agent.
 
 The failures are the instructive part of the study, and each is attributable to a primitive.
@@ -732,7 +734,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 82 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 

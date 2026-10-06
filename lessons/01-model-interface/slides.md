@@ -15,288 +15,522 @@ style: |
 
 # Model interface
 
-### Building agents by building their harness
-Lesson 1 of 4
+### A hands-on course in building agents by building their harness
+Lesson 1
 
-<!-- Welcome. Over four lessons we build a harness, one primitive at a time. We start at the model. -->
-
----
-
-# The question we keep asking
-
-**What is it, and by what mechanistic primitives does it work?**
-
-Ask it again on each answer, until the answers diverge.
-
-<!-- No definitions. We show the mechanism. -->
-
----
-
-# An agent, as an equation
-
-```
-TokensOut = Model(TokensIn)
-
-Agent = Harness(Model)
-```
-
-The model predicts tokens. The **harness is everything else**.
-
----
-
-# Five harness primitives
-
-- **Control flow**: when to call, and whether to go again
-- **Input**: what is gathered from the person or world
-- **Context**: what the request holds, and how it is presented
-- **Model interface**: how the harness talks to the model
-- **Output**: what happens with what comes back
-
-Claude Code, Cursor and Codex have the same five, with different choices.
-
----
-
-# Today: the model interface
-
-The thinnest primitive. It is the **parentheses** in `Harness(Model)`.
+<!-- Welcome. We start at the model, with the primitive that calls it. -->
 
 ---
 
 # The model is a function
 
-Tokens in, tokens out.
+```
+TokensOut = Model(TokensIn)
+```
 
-The **model interface** is how the harness calls that function.
+The **model interface** is how the harness calls it.
 
 ---
 
 # A request goes out
 
-The request is the tokens in.
-
-Like any API call: model name, messages, settings.
+It sends tokens to the model as a **request**.
 
 ---
 
 # A response comes back
 
-The response is the tokens out.
+The model returns tokens as a **response**.
 
-Nothing reaches the model without this boundary, so it comes first.
-
----
-
-# What it is *not*
-
-The model interface never decides:
-
-- **when** to call (control flow)
-- **what** goes in (input)
-- **how** it is presented (context)
-- **what to do** with the response (output)
-
-Those four live on the harness side.
+Just like any other API endpoint.
 
 ---
 
-# Quark's version: the whole file
+# The thinnest of the five primitives
+
+That's because of **where it sits**.
+
+---
+
+# Four primitives live on the harness's side
+
+- **Control flow** decides when to call
+- **Input** gathers what goes in
+- **Context** decides how it's presented in the request
+- **Output** handles the response
+
+---
+
+# The model interface is the boundary
+
+The model interface is the boundary between the harness and the model.
+
+---
+
+# The parentheses
+
+```
+Agent = Harness(Model)
+```
+
+In **Agent = Harness(Model)**, it's the parentheses.
+
+---
+
+# It comes first
+
+Nothing reaches the model without it, so it comes first.
+
+---
+
+# The worked example
+
+The call at the center of quark, with nothing around it.
+
+It's the whole of `quark.py`: nine lines.
+
+---
+
+# `quark.py`
 
 ```python
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
-reply = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    messages=[{"role": "user", "content": "What's in this directory?"}],
-)
-print(reply.model_dump_json(indent=2))
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+print(output.model_dump_json(indent=2))
 ```
 
-Nine lines in all.
+<!-- Source: lessons/01-model-interface/quark.py -->
 
 ---
 
-# Line by line: the client
+# `client`: where the request goes
 
 ```python
 client = Anthropic()
 ```
 
-Reads `ANTHROPIC_API_KEY`.
+Anthropic's hosted API, through the official SDK.
 
-Talks to the hosted API through the SDK.
+The official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
 ---
 
-# Line by line: the request
+# `call()`: the model interface, all of it
 
 ```python
-client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    messages=[...],
-)
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
 ```
 
-`max_tokens` caps the output. The model stops there, even mid-sentence.
+It sends a request to `MODEL` and returns the response.
+
+---
+
+# `call()` is the one place
+
+Every later lesson calls the model through this one function.
+
+So the primitive stays in one place.
+
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; }
+</style>
+
+# `messages`: the tokens in
+
+```python
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+```
+
+A list of messages, each with a `role` and `content`.
+
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; }
+</style>
+
+# `max_tokens`: the cap on tokens out
+
+```python
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+```
+
+The model stops there, even mid-sentence.
+
+---
+
+# `output`: the response
+
+```python
+print(output.model_dump_json(indent=2))
+```
+
+The tokens out, plus details about how they were produced.
+
+The `print` shows all of it.
+
+---
+
+# The section heading
+
+```python
+# ── model interface ─────────────────────────────────────────────────────────
+```
+
+It will stay at the top of `quark.py` through every lesson.
+
+Each lesson adds a section of its own.
 
 ---
 
 # Run it
 
+From the root of the repo:
+
 ```bash
 uv run lessons/01-model-interface/quark.py
 ```
 
-We get the whole response back as JSON.
+---
+
+# One run
+
+Here's one run: the whole response comes back as JSON.
+
+Yours will be worded differently: the model's output varies from run to run.
+
+The long `signature` is shortened in the lesson, and here.
 
 ---
 
-# Response field: `content`
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# Field: `content`
+
+(The reply's `text` is shortened here.)
+
+```json
+  "content": [
+    {
+      "signature": "CAQSzwUKEAgSGAI4AUIIdGhpbmtpbmcSDKlrwMSNM6lBxU18bRoMn4edTKN1RKRgwt8dIjBD...",
+      "thinking": "",
+      "type": "thinking"
+    },
+    {
+      "citations": null,
+      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments ha...",
+      "type": "text"
+    }
+  ],
+```
+
+---
+
+# `content`: the tokens out
 
 A list of blocks.
 
-The model thinks first, so:
-
-1. `thinking`: empty text plus an encrypted `signature`
-2. `text`: the answer
+This model thinks before it answers, so the first block is its `thinking` and the second is the `text` of its reply.
 
 ---
 
-# Response field: `stop_reason`
+# `content`: the thinking block
 
-Why the model stopped.
+By default the thinking text comes back empty, with only a `signature`.
 
-- `end_turn`: it finished
-- `max_tokens`: we cut it off
-
----
-
-# Response field: `usage`
-
-- `input_tokens` = **TokensIn**
-- `output_tokens` = **TokensOut**, including thinking tokens
-
-Both sides of the function, counted.
+A `signature`: an encrypted copy of the reasoning that only the API can read.
 
 ---
 
-# What the model said
+# Field: `stop_reason`
 
-It can't see the directory.
+```json
+  "stop_reason": "end_turn",
+```
 
-It knows the right step is `ls`, but it can't take it.
+Why it stopped.
 
----
-
-# Going further: what a model interface can be
-
-- **Where** the request goes: hosted API, local model, gateway
-- **How** it travels: SDK, raw HTTP, multi-provider layer
-- **Which** model: one, or a fallback
-- **How** the response arrives: whole or streamed
-- **How many** at once: single or batch
-- **Failure**: retry, rate-limit wait, timeout
-- **Settings**: max tokens, thinking effort, thinking summary
+- `end_turn` means it finished
+- `max_tokens` would mean it hit the cap
 
 ---
 
-# Gateways are this primitive alone
+# Field: `usage`
 
-LiteLLM and OpenRouter are the model interface and nothing else.
+```json
+    "input_tokens": 15,
+    "output_tokens": 242,
+    "output_tokens_details": {
+      "thinking_tokens": 41
+    },
+```
 
-Using one **hands off** your model interface.
+`usage` counts both sides.
 
 ---
 
-# A richer example: `model_interface.py`
+# `usage`: both sides
 
-Same primitive, built for the real world.
+- `input_tokens` is TokensIn
+- `output_tokens` is TokensOut, thinking included
+
+---
+
+# Read the `text`
+
+The model knows the right next step is `ls`.
+
+It just can't take it.
+
+---
+
+# Going further
+
+**What else a model interface can be.**
+
+The mechanism is always a request out and a response back, but it holds more in other harnesses than it does here.
+
+---
+
+# What else it can be: the request
+
+- **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
+- **How it travels.** An official SDK, raw HTTP, or a layer that speaks several providers' formats so the rest of the harness doesn't have to.
+- **Which model answers.** One model, or a backup that takes over when the first is unavailable.
+
+---
+
+# What else it can be: the response and the rest
+
+- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out.
+- **How many go at once.** One request, or a batch of them.
+- **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
+- **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.
+
+---
+
+# A product on its own
+
+Gateways like **LiteLLM** and **OpenRouter** are this primitive and nothing else.
+
+A harness sends them one request format, and they handle where it goes, which provider and model answer, backups when one is down, retries and rate limits.
+
+---
+
+# Using a gateway
+
+A harness that uses a gateway has handed off its model interface.
+
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# `model_interface.py`
+
+A model interface that does more of that.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(timeout=120, max_retries=3)
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+
+def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
+    for model in MODELS:
+        try:
+            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:
+                return stream.get_final_message()
+        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError):
+            continue
+    raise RuntimeError("no model answered")
+
+reply = call([{"role": "user", "content": "What's in this directory?"}])
+print(reply.model_dump_json(indent=2))
+```
+
+---
+
+# Failure: `timeout` and `max_retries`
 
 ```python
 client = anthropic.Anthropic(timeout=120, max_retries=3)
+```
+
+- `timeout=120` gives up on a request that takes longer than two minutes.
+- `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
+
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# Which model answers: the next one
+
+```python
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
 ```
 
----
-
-# Timeout and retries
-
 ```python
-anthropic.Anthropic(timeout=120, max_retries=3)
+        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError):
+            continue
+    raise RuntimeError("no model answered")
 ```
 
-- Give up after two minutes
-- The SDK retries with backoff
+If every retry fails, `call` moves on to the next model in `MODELS`.
 
 ---
 
-# Fallback model
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# How the response arrives: `stream`
 
 ```python
-for model in MODELS:
-    try: ...
-    except (anthropic.APIConnectionError, anthropic.RateLimitError,
-            anthropic.InternalServerError):
-        continue
-raise RuntimeError("no model answered")
+            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:
+                return stream.get_final_message()
 ```
 
-If every retry on one model fails, try the next.
+`stream` receives the response as it's produced, so a long one can't time out.
+
+`get_final_message()` hands back the whole response once it's done.
 
 ---
 
-# Streaming
+# Streaming prints nothing
+
+Nothing is printed along the way.
+
+Showing it to a person would be **output**.
+
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# The request's settings
 
 ```python
-with client.messages.stream(...) as stream:
-    return stream.get_final_message()
+def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
 ```
 
-Streaming avoids timeouts on long responses.
-
-Nothing is printed. Printing is **output**, not model interface.
+`max_tokens`, `effort` (how much the model thinks first) and `thinking` are arguments the caller can set.
 
 ---
 
-# Settings as arguments
+# `thinking="summarized"`
 
-```python
-def call(messages, max_tokens=16384,
-         effort="high", thinking="summarized"):
-```
+`"summarized"` asks for a readable summary of the model's thinking instead of the empty default.
 
-With `"summarized"`, the thinking block holds a readable summary.
-
-Raw thinking is never returned.
+The raw thinking itself is never returned.
 
 ---
 
-# Run the richer version
+# Run it the same way
 
-The only visible difference: the thinking block now has text.
+```bash
+uv run lessons/01-model-interface/model_interface.py
+```
 
-The rest only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
+---
+
+<style scoped>
+pre code { white-space: pre-wrap; font-size: 0.7em; }
+</style>
+
+# One run: the `thinking` block
+
+```json
+  "content": [
+    {
+      "signature": "CAQS0AUKEAgSGAI4AUIIdGhpbmtpbmcSDJo1AOU3Q8nzeKwLQRoMqA3M2GGFMP3dZLX+IjCE...",
+      "thinking": "I don't actually have access to this user's file system, so I can't see what's in their directory—I should explain that and suggest they paste the listing or output here instead.\n\n",
+      "type": "thinking"
+    },
+```
+
+The `signature` is shortened here too.
+
+---
+
+# One difference
+
+It looks like the first response (its `signature` shortened too), with one difference: the `thinking` block has text.
+
+That's the summary `display: "summarized"` asked for.
+
+---
+
+# The rest shows when something goes wrong
+
+What this version adds only shows when something goes wrong:
+
+- a dropped connection
+- a rate limit
+- a model that's down
 
 ---
 
 # What to take away
 
-**Rule:** the model interface sends tokens as a request and gets tokens back as a response.
+**The rule:** the model interface sends tokens to the model as a request and gets tokens back as a response.
 
-It never decides when to call, what goes in, how it is presented, or what to do with the response.
+---
+
+# What the model interface never does
+
+- When to call is **control flow**
+- Gathering what goes in, from a person or the world, is **input**
+- How it's presented in the request is **context**
+- What happens to the response is **output**
+
+---
+
+# It only gets the request there
+
+The model interface only gets the request there and the response back.
 
 ---
 
 # What's missing
 
-Both ends are stubs:
+**Both ends of the path are stubs.**
 
-- the input is a hardcoded string
-- the output just dumps the whole response
+```
+"What's in this directory?" ─► request ─► model interface ─► response ─► print(...)
+      input (a stub)                                                     output (a stub)
+```
 
-The model said what to do, but nothing could do it.
+---
+
+# The two stubs
+
+The input is a hardcoded string no one typed.
+
+The output dumps the whole response without handling any of it.
+
+---
+
+# The model said what to do
+
+The model said what to do, and nothing could do it.
+
+Making both ends real is input and output.
 
 ---
 
@@ -304,4 +538,4 @@ The model said what to do, but nothing could do it.
 
 # Next: Input and output
 
-Lesson 2 gives the model real input and real output.
+Lesson 2
