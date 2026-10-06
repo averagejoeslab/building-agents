@@ -13,12 +13,13 @@ The mechanism is a few checks, each at a place the loop already passes through:
 - **A gate before each tool.** The model has asked for a command; before it runs, the harness looks at it and picks one of three: *allow* it, *ask* a person first, or *deny* it. The rules are plain code: a list of programs that are safe to run unasked, and patterns that must never run.
 - **A refusal the model can read.** A command that doesn't run still has to be answered, because every tool request needs a result (Lesson 2). So the refusal goes back in that slot, marked as an error, saying why. If the person said no and gave a reason, the reason goes back too.
 - **Limits before each call.** At the top of the loop, before spending another model call, check how many steps the run has taken and how many tokens it has used. Past the limit, stop. Lesson 3 said a loop with no clear end is a bill with no clear end; this is the clear end.
+- **An interrupt.** You can break in while quark works. Press ESC and it stops what it's doing, keeps what it had done so far, tells the model it was interrupted, and hands the run back to you. That's quark's own key for it. Ctrl-C isn't special: it's how you kill any program, quark included. And `/q` is the graceful way out, as it has been since Lesson 2.
 
 Guardrails don't make the model behave. They don't change what it asks for, only whether the harness goes along with it. And they're only as good as the rules: a check is code reading a command, and a command can say the same thing many ways. That's why the box comes first. The guard keeps out what you'd never want; the box limits what gets through.
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 5's `quark.py` plus the guardrails, and nothing else: 23 lines, all in `# ── control flow ──`.
+[`quark.py`](./quark.py) is Lesson 5's `quark.py` plus the guardrails, and nothing else: 59 lines. The checks and limits are in `# ── control flow ──`; the interrupt also needs a way to hear ESC, which is input from a person, so part of it is in `# ── input ──`.
 
 At the top of the section, the policy and the gate:
 
@@ -57,10 +58,11 @@ The counts start at zero alongside working memory:
 working_memory, drop, steps, spent = [], 0, 0, 0
 ```
 
-Each call is counted. The call now keeps the whole `response`, not just its `content`, so the count can read `usage`:
+Each call is counted. The call now keeps the whole `response`, not just its `content`, so the count can read `usage` (the `with listening():` around it is the interrupt, below):
 
 ```python
-        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+        with listening():
+            response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
         output = response.content
         steps += 1
         spent += response.usage.input_tokens + response.usage.output_tokens + response.usage.cache_read_input_tokens + response.usage.cache_creation_input_tokens
@@ -76,15 +78,84 @@ And in the output loop, the gate, between printing the command and running it in
 
 ```python
             print(f"$ {block.input['cmd']}")
+            if ESC.is_set():                             # guardrails: after ESC, nothing else starts
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your doing never reached the world]"})
+                continue
             if (no := guard(block.input["cmd"])):
                 print(f"[{no}]")
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
 ```
 
-If `guard()` returns a reason, it's printed and becomes the tool's result, marked `"is_error": True`, and `continue` skips the run. The command is never started, and the model's next turn still makes sense.
+If `guard()` returns a reason, it's printed and becomes the tool's result, marked `"is_error": True`, and `continue` skips the run. The command is never started, and the model's next turn still makes sense. (The `ESC` check above it is the interrupt: once you've pressed ESC, nothing else starts.)
 
-Nothing else changed. A command that passes the gate runs in Lesson 5's box exactly as before. And because Lesson 4's `mechanics()` puts quark's own file in its system prompt, the model can read the policy it's under: that's self-knowledge, not this layer, and it saves the model asking for things that will be refused.
+### The interrupt
+
+ESC is input from a person, so quark has to be listening for it. In `# ── input ──`, after `read()`:
+
+```python
+ESC = threading.Event()                                  # input: a person pressing ESC while quark works
+SAYING = "[other self interrupted what you were saying — acknowledge]"
+DOING = "[other self interrupted what you were doing — acknowledge]"
+```
+
+```python
+def watch(stop):
+    while not stop.is_set():
+        if select.select([sys.stdin], [], [], 0.1)[0] and os.read(sys.stdin.fileno(), 1) == b"\x1b":
+            if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
+            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)   # an arrow key, not ESC
+@contextlib.contextmanager
+def listening():                                         # input: watch the keyboard only while quark thinks or acts
+    if not sys.stdin.isatty(): yield; return
+    attrs, stop = termios.tcgetattr(sys.stdin), threading.Event()
+    tty.setcbreak(sys.stdin); watcher = threading.Thread(target=watch, args=(stop,), daemon=True); watcher.start()
+    try: yield
+    finally: stop.set(); watcher.join(0.2); termios.tcsetattr(sys.stdin, termios.TCSADRAIN, attrs)
+```
+
+**`watch()`** runs in a thread and reads the keyboard one key at a time. An ESC on its own sets `ESC`. Arrow keys also start with the ESC byte, but more bytes follow at once, so those are read and ignored. **`listening()`** turns the watcher on for as long as something is in its `with` block: it puts the terminal into a mode where keys arrive one at a time without Enter, starts the thread, and puts everything back afterwards. quark only listens while it thinks or acts, never while `read()` is waiting for you, so typing an answer works as it always did. When the input isn't a terminal (a pipe, a script, an evaluation), there's no keyboard to watch and it does nothing.
+
+The call to the model is wrapped in it (shown above). This lesson's call waits for the whole response, so ESC during thinking or saying takes effect when the response arrives. Lesson 9 streams the response, and there ESC stops it mid-sentence. What happens then, right after the response is written to the episode:
+
+```python
+    if ESC.is_set():                                     # guardrails: ESC while it thought or said; keep what it said, run nothing
+        for block in output:
+            if block.type == "text": print(block.text)
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in output if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
+        ESC.clear()
+        continue
+```
+
+What was said is kept: it's already in working memory and the episode. Every command it asked for gets a result saying it never reached the world, because the API needs an answer to each, and the model learns the truth. Then the interrupt itself goes in as a message, and the loop goes around: the model's next turn acknowledges it, and the run hands back to you.
+
+A command is run so it can be stopped. In place of Lesson 5's `subprocess.run`, the command starts with `Popen` and quark waits for it a tenth of a second at a time:
+
+```python
+            with listening():                            # guardrails: ESC stops the command and keeps what it printed
+                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+                while True:
+                    try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
+                    except subprocess.TimeoutExpired:
+                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
+            done.returncode = doing.returncode
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+            elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+            print(done.stdout)
+```
+
+On ESC, `kill -9 -1` inside the box stops every command running there. The box itself survives, because the process every container runs first can't be killed that way, so the next command has somewhere to run. What the command had printed so far is kept, with a note that it stopped before it was done. After the loop:
+
+```python
+    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+        add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
+        ESC.clear()
+        continue
+```
+
+The results so far go back to the model, partial output and all, with the interrupt message, and the loop goes around for the model to acknowledge it.
+
+Nothing else changed. A command that passes the gate runs in Lesson 5's box, under its time limit, as before. And because Lesson 4's `mechanics()` puts quark's own file in its system prompt, the model can read the policy it's under: that's self-knowledge, not this layer, and it saves the model asking for things that will be refused.
 
 ## Run it
 
@@ -104,63 +175,89 @@ notes.txt has 3 lines.
 `wc` is safe, so nothing was asked. Now one that deletes things. I piped `y` in as the answer, so you don't see it echoed after the prompt; in a terminal you'd type it:
 
 ```
-$ ls -la
-total 24
-drwxr-xr-x 3 root root 4096 Oct  6 18:04 .
-drwxrwxrwt 3 root root   60 Oct  6 18:04 ..
--rw-r--r-- 1 root root   15 Oct  6 18:04 .env
-drwxr-xr-x 3 root root 4096 Oct  6 18:04 .quark
--rw-r--r-- 1 root root    4 Oct  6 18:04 a.log
--rw-r--r-- 1 root root    4 Oct  6 18:04 b.log
--rw-r--r-- 1 root root   14 Oct  6 18:04 notes.txt
+$ ls -la; find . -maxdepth 1 -name '*.log'
+allow `ls -la; find . -maxdepth 1 -name '*.log'`? [y/N] total 24
+drwxr-xr-x 3 root root 4096 Oct  6 19:15 .
+drwxrwxrwt 3 root root   60 Oct  6 19:15 ..
+-rw-r--r-- 1 root root   15 Oct  6 19:15 .env
+drwxr-xr-x 3 root root 4096 Oct  6 19:15 .quark
+-rw-r--r-- 1 root root    4 Oct  6 19:15 a.log
+-rw-r--r-- 1 root root    4 Oct  6 19:15 b.log
+-rw-r--r-- 1 root root   14 Oct  6 19:15 notes.txt
+./b.log
+./a.log
 
-$ rm ./*.log; ls -A
-allow `rm ./*.log; ls -A`? [y/N] .env
+$ rm a.log b.log; ls -A
+allow `rm a.log b.log; ls -A`? [y/N] .env
 .quark
 notes.txt
 
 I deleted `a.log` and `b.log`. What's left is `notes.txt`, a hidden `.env` file, and the `.quark` memory folder.
 ```
 
-`ls -la` ran unasked. `rm` isn't on the safe list, so the harness stopped at the prompt, and nothing was deleted until the answer came. Now a refusal with a reason. The answers piped in were `no, put it in a folder called drafts`, then `y`:
+This time the model looked first with `ls -la; find ...`, and because that chains two commands with `;`, the guard asked. Then `rm` waited for its answer too: nothing was deleted until it came. Now a refusal with a reason. The answers piped in were `no, put it in a folder called drafts`, then `y`:
 
 ```
 $ touch notes2.txt && ls -l notes2.txt
 allow `touch notes2.txt && ls -l notes2.txt`? [y/N] [the person said no: no, put it in a folder called drafts]
 $ mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt
-allow `mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt`? [y/N] -rw-rw-rw- 1 root root 0 Oct  6 18:04 drafts/notes2.txt
+allow `mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt`? [y/N] -rw-rw-rw- 1 root root 0 Oct  6 19:15 drafts/notes2.txt
 
-I created the empty file `notes2.txt` inside a new `drafts` folder, as you asked, and it worked without any errors.
+I created the empty file `notes2.txt` inside a new `drafts` folder (`drafts/notes2.txt`), and it worked with no errors.
 ```
 
 The model took the reason as an instruction and asked again. Last, the deny list, which doesn't ask anyone:
 
 ```
-I'll run both commands as you wrote them. The harness has its own policy checks, so they may be blocked.
 $ cat .env
 [blocked by policy]
-$ rm -rf .
-[blocked by policy]
-I didn't manage to do either one: the harness's policy blocked both `cat .env` and `rm -rf .`, so nothing was printed or deleted. I also didn't try to get around the block.
+I managed to do nothing from your request. Policy blocked `cat .env`, and I didn't try `rm -rf .` because the same policy forbids it. I also didn't try to get around either block.
 ```
 
-Both were refused before they ran. The model knew to expect it, because it can read its own harness, and it didn't try to get around the block. The folder, `.env` included, is all still there.
+`cat .env` was refused before it ran. The model knew to expect it, because it can read its own harness: it didn't even try `rm -rf .`, since the same policy forbids it, and it didn't try to get around the block. The folder, `.env` included, is all still there.
 
 To see the step limit, I lowered `MAX_STEPS` to 2 in a copy and asked for three commands, one at a time:
 
 ```
 $ date
-Tue Oct  6 18:05:11 UTC 2026
+Tue Oct  6 19:15:44 UTC 2026
 
 $ pwd
 /tmp/g6
 
-[stopped: 2 steps, 12799 tokens]
+[stopped: 2 steps, 14843 tokens]
 ```
 
 `MAX_TOKENS` works the same way, but at 200,000 you'll rarely reach it.
 
-> `quark.py` has no interrupt. Ctrl-C stops the program, but doesn't hand the run back to you. The fuller example below does that properly.
+Now the interrupt. ESC needs a terminal, so these two were run in a real one (a pseudo-terminal driven by a script, so the key presses are exact), in chat mode, ending with `/q`. First, ESC while it acts. I asked it to count to ten, a second at a time, said `y`, and pressed ESC four and a half seconds later:
+
+```
+> Count to 10 in the shell, one number a second, as one command: for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done
+$ for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done
+allow `for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done`? [y/N] y
+1
+2
+3
+4
+5
+
+[your doing stopped before done]
+You interrupted the count, so it stopped after 5 and never reached 10. Do you want me to run it again from the start, or leave it there?
+
+> /q
+```
+
+The count stopped at 5, and the 5 lines it had printed went back to the model with the note that it stopped before it was done. The model said where it got to, and the run handed back to me. Next, ESC while it thinks: I pressed it 0.6 seconds after asking for a file to be made:
+
+```
+> Make a file called notes.txt containing the word hello.
+I stopped. My command never ran, so `notes.txt` doesn't exist yet. Should I go ahead and create it with "hello", or did you want something different?
+
+> /q
+```
+
+The response arrived after I'd pressed ESC, asking to run a command. The command was never run, and the model, told so, said exactly that: `notes.txt` doesn't exist. Nothing reached the folder.
 
 ## Going further
 
@@ -169,7 +266,7 @@ $ pwd
 - **What the answers are.** Allow, ask or deny, or something finer: allow *this* command once, allow this program for the session, allow it always, or allow it only with these arguments. Rules can be written by the person ahead of time instead of answered one at a time.
 - **Who gets asked.** The person at the terminal, someone on Slack or Telegram who taps *approve*, a second agent, or nobody, in a run that has to fail closed and stop when it reaches something it can't decide. Asking too often trains people to hit `y`; asking too rarely is no guardrail.
 - **What counts as too much.** Steps, tokens, dollars, wall-clock time, or *repeating*: the same command asked for again and again is a loop whatever the counts say.
-- **How a run is interrupted.** Ctrl-C, a key like ESC that stops the current step but not the session, a message that arrives mid-run, a kill switch someone else holds. And what happens after: stop, or hand back to the person with the work so far intact.
+- **How a run is interrupted.** A key like quark's ESC that stops the current step but not the session, a message that arrives mid-run, a kill switch someone else holds. And what happens after: stop, or hand back to the person with the work so far intact.
 - **What the model is told.** A bare refusal, or a reason, or the rule itself, so it can plan around it.
 - **What you do about it afterwards.** Nothing, a line in the trace, or an alert.
 
@@ -236,41 +333,27 @@ for step in range(1, MAX_STEPS + 1):
     if asked and max(asked.values()) >= MAX_REPEATS:
         print(f"[stopped: asked for the same command {MAX_REPEATS} times]")
         break
-    input, replied = [], False
-    try:
-        output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-        replied = True
-        messages.append({"role": "assistant", "content": output.content})
-        spent += cost(output.usage)
-        if output.stop_reason == "refusal":
-            print("[stopped: the model declined]")
-            break
-        for block in output.content:
-            if block.type == "text":
-                print(block.text)
-            if block.type == "tool_use":
-                cmd = block.input["cmd"]
-                print(f"$ {cmd}")
-                asked[cmd] += 1
-                if (no := guard(cmd)):
-                    print(f"[{no}]")
-                    input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
-                    continue
-                done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                print(done.stdout)
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-    except KeyboardInterrupt:
-        print("\n[interrupted]")
-        if replied:
-            answered = {r["tool_use_id"] for r in input}
-            input += [{"type": "tool_result", "tool_use_id": b.id, "content": "interrupted by the person", "is_error": True} for b in output.content if b.type == "tool_use" and b.id not in answered]
-        try: say = read("what now? (blank to stop) > ").strip()
-        except EOFError: say = ""
-        if not say:
-            print("[stopped: interrupted]")
-            break
-        messages.append({"role": "user", "content": input + [{"type": "text", "text": say}] if replied else say})
-        continue
+    input = []
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    messages.append({"role": "assistant", "content": output.content})
+    spent += cost(output.usage)
+    if output.stop_reason == "refusal":
+        print("[stopped: the model declined]")
+        break
+    for block in output.content:
+        if block.type == "text":
+            print(block.text)
+        if block.type == "tool_use":
+            cmd = block.input["cmd"]
+            print(f"$ {cmd}")
+            asked[cmd] += 1
+            if (no := guard(cmd)):
+                print(f"[{no}]")
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+                continue
+            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            print(done.stdout)
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:
         print(f"[done in {step} steps, ${spent:.4f}]")
         break
@@ -284,7 +367,6 @@ else:
 - **A reason in the refusal.** Both a policy denial and a person's no go back as errors with the reason, so the model can change course.
 - **A spending limit.** `cost()` turns each response's `usage` into dollars at `PRICE`, example rates, so use your provider's. When `spent` passes `MAX_DOLLARS`, the run stops. Tokens are what you can count; dollars are what you care about.
 - **A repeat limit.** `asked` counts every command the model has requested. If one comes up `MAX_REPEATS` times, the run stops, because a model going round in circles is spending your money without getting anywhere.
-- **An interrupt.** Ctrl-C raises `KeyboardInterrupt` wherever the program is: waiting on the model, waiting on a person, or in the middle of a command (`subprocess.run` kills the command). The `except` answers every tool request that didn't get a result with "interrupted by the person", because the API needs an answer for each, then asks `what now?`. Say something and it goes to the model with the work so far, so you can redirect it. Leave it blank and the run stops.
 
 Try the gate, with *always*:
 
@@ -349,24 +431,11 @@ root
 
 The check happens before a call, so the run can end a little over: $0.0041 against $0.004. A limit like this is a ceiling on starting another call, not on the bill.
 
-And the interrupt. I asked it to run `sleep 30`, answered `y`, and sent Ctrl-C a few seconds in. Since I can't press a key in a script, I sent the same signal with `timeout -s INT 7`, which is why the exit code at the end is 124 (that's `timeout`'s, not the agent's):
-
-```
-$ sleep 30
-allow `sleep 30`? (sleep isn't on the allowed list) [y]es, [a]lways, or say why not: 
-[interrupted]
-what now? (blank to stop) > Hello!
-[done in 2 steps, $0.0034]
-exit 124
-```
-
-The `sleep` was killed and the run came back to `what now?`. I answered `skip the sleep, just say hello` (piped in, so it isn't echoed), the message went to the model along with the "interrupted" result, and it answered `Hello!` instead.
-
 ## What to take away
 
 **The rule:** decide what the harness is willing to do before it does it. Check each tool request at the point where control flow turns it into a command, and check the run itself at the point where control flow chooses to go around again. Say no in a way the model can read, and give the person a way in.
 
-Notice what Guardrails never does. It sits inside control flow, deciding whether the next step happens, and leaves the other primitives alone. The model interface sends and receives as before; guardrails read `usage` and the tool request off the response and nothing more. When a command is allowed, output runs it in the box exactly as before. A refusal is an ordinary tool result in the slot the result would have filled, so context holds it the way it holds any result. And input is Lesson 2's `read()`, asking a person for a decision.
+Notice what Guardrails never does. It sits inside control flow, deciding whether the next step happens, and leaves the other primitives alone. The model interface sends and receives as before; guardrails read `usage` and the tool request off the response and nothing more. When a command is allowed, output runs it in the box exactly as before. A refusal is an ordinary tool result in the slot the result would have filled, so context holds it the way it holds any result. And input is Lesson 2's `read()`, asking a person for a decision, plus a watcher that hears ESC while quark works.
 
 **What's missing:** you can stop a run now, but you can't see one. How long did each step take? How many tokens, and what did that cost? Which command did the guard refuse, and which did the box kill? The terminal scrolled past. The episode has every message, but it's written for the model: no timings, no token counts, no exit codes. The person running quark needs a record of their own.
 

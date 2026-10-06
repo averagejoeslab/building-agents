@@ -74,23 +74,23 @@ You need Docker running, as in Lesson 5. Start in a scratch folder, not in this 
 **A baseline.** This is the number everything is compared with:
 
 ```
-pass  count      2 steps    5.1s    18919 tokens
-pass  fix        3 steps    7.2s    28561 tokens
-pass  rename     2 steps    5.4s    18998 tokens
-pass  remember   2 steps    5.0s    18995 tokens
+pass  count      2 steps    4.7s    21100 tokens
+pass  fix        3 steps   11.4s    31825 tokens
+pass  rename     2 steps    5.0s    21131 tokens
+pass  remember   2 steps    4.8s    21176 tokens
 4/4 passed
 exit 0
 ```
 
-The last line is the exit status. Four cases, four passes, and what each one cost: two or three steps, five to seven seconds, and 19,000 to 29,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about eight thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it read the code before changing it. That's what normal looks like for this agent, and now it's written down.
+The last line is the exit status. Four cases, four passes, and what each one cost: two or three steps, five to eleven seconds, and 21,000 to 32,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about nine thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it read the code before changing it. That's what normal looks like for this agent, and now it's written down.
 
 **A change that breaks something.** Suppose someone wants to cap what a run can spend, and lowers `MAX_STEPS` from 20 to 1. Nothing about the change looks dangerous, and running quark on a simple task by hand, it still works. I made the change in a copy of the file, `sed 's/^MAX_STEPS, MAX_TOKENS = 20, /MAX_STEPS, MAX_TOKENS = 1, /'`, and ran the same cases in the same folder:
 
 ```
-pass  count      1 steps    3.7s     9439 tokens
-FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
-pass  rename     1 steps    3.6s     9440 tokens
-pass  remember   1 steps    4.0s     9520 tokens
+pass  count      1 steps    3.4s    10529 tokens
+FAIL  fix        1 steps    3.4s    10499 tokens  kept /tmp/eval-fix-217shuyh  REGRESSED: it passed last time
+pass  rename     1 steps    3.6s    10529 tokens
+pass  remember   1 steps    3.7s    10575 tokens
 3/4 passed
 exit 1
 ```
@@ -100,17 +100,17 @@ Three of the four still pass: counting lines, renaming files and writing a note 
 The failed case kept its folder. To see why it failed:
 
 ```
-$ ls -a /tmp/eval-fix-8ega07z3
+$ ls -a /tmp/eval-fix-217shuyh
 .
 ..
 .quark
 __pycache__
 calc.py
 test.py
-$ cat /tmp/eval-fix-8ega07z3/calc.py
+$ cat /tmp/eval-fix-217shuyh/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-8ega07z3/.quark/traces.jsonl
+$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-217shuyh/.quark/traces.jsonl
 {"event":"start"}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool","cmd":"cat calc.py test.py"}

@@ -70,7 +70,7 @@ You need the ones your agent needs, built in whatever way fits.
 - The call is wrapped in `try`, to catch "prompt is too long"
 - The new section, context, has eight components
 
-<!-- Everything outside the context section is Lesson 3's, with those two changes in the loop. quark's own version also lets you interrupt it with ESC and retries the summary if the network fails; those are hardening, so they're left out here. -->
+<!-- Everything outside the context section is Lesson 3's, with those two changes in the loop. quark's own version also lets you interrupt it with ESC and retries the summary if the network fails; those are hardening, so they're left out here: ESC comes back in Lesson 6, the retries in Lesson 8. -->
 
 ---
 

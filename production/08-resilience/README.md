@@ -94,6 +94,9 @@ And in the output loop, a cut-off request is never run:
 ```python
             cmd = block.input.get("cmd")
             print(f"$ {cmd}")
+            if ESC.is_set():                             # guardrails: after ESC, nothing else starts
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": "[your doing never reached the world]"})
+                continue
             if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):   # resilience: never run half a command
                 print("[cut off, not run]")
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": "your request was cut off at the token limit, so it was not run. Send it again, shorter.", "is_error": True})
@@ -168,13 +171,13 @@ You don't see the failures in the output: the run looks like any other. The trac
 ```
 {"event":"start"}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":5.22,"stop_reason":"tool_use"}
-{"event":"tool","seconds":0.14}
+{"event":"model","seconds":4.96,"stop_reason":"tool_use"}
+{"event":"tool","seconds":0.12}
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":4.35,"stop_reason":"end_turn"}
+{"event":"model","seconds":4.47,"stop_reason":"end_turn"}
 ```
 
-Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked; the stand-in's log shows ten requests for two calls. The `seconds` of the two `model` events, 5.22 and 4.35, are the backoff. Every call tries the preferred model again from scratch: a few seconds a call while it's down, and quark is back on it the moment it recovers.
+Both calls had four failed requests to `claude-sonnet-5-5` (the first try and the SDK's three retries), then one to `claude-opus-5-5` that worked; the stand-in's log shows ten requests for two calls. The `seconds` of the two `model` events, 4.96 and 4.47, are the backoff. Every call tries the preferred model again from scratch: a few seconds a call while it's down, and quark is back on it the moment it recovers.
 
 **Nothing answers.** Now the stand-in fails every request, for every model:
 
@@ -190,14 +193,14 @@ episodes
 traces.jsonl
 
 .quark/episodes:
-2026-10-06T18-07-55.jsonl
+2026-10-06T19-17-14.jsonl
 ```
 
 It tried both models, gave up and said so. There's no save file: the episode is the record. Then the API comes back (no `ANTHROPIC_BASE_URL`) and I run `quark.py` again with no input, answering `y` when asked, and `/q` when it finished:
 
 ```
-unfinished session: 'How many bytes is notes.txt? Answer in one line.'. pick it up? [y/N] $ stat -c %s notes.txt
-6
+unfinished session: 'How many bytes is notes.txt? Answer in one line.'. pick it up? [y/N] $ wc -c notes.txt
+6 notes.txt
 
 notes.txt is 6 bytes.
 
@@ -254,13 +257,14 @@ pid
 The episode was written when the model asked for the command, before it ran. `flag.txt` isn't there, and then it is: the harness was killed, but its container wasn't (`atexit` can't run after `kill -9`), so the command finished in it. (I removed the leftover container with `docker rm -f` afterwards.) That's exactly the case the "interrupted" result is for: the command did run, and the harness doesn't know. Now `quark.py` again, answering `y` to resume, `y` to the guard, and `/q` at the end:
 
 ```
-unfinished session: 'Run exactly this one command: sleep 15 && echo finished > fl'. pick it up? [y/N] $ ls -l flag.txt; cat flag.txt
-allow `ls -l flag.txt; cat flag.txt`? [y/N] -rw-rw-rw- 1 root root 9 Oct  6 18:09 flag.txt
-finished
+unfinished session: 'Run exactly this one command: sleep 15 && echo finished > fl'. pick it up? [y/N] $ cat flag.txt; ls -l flag.txt; date
+allow `cat flag.txt; ls -l flag.txt; date`? [y/N] finished
+-rw-rw-rw- 1 root root 9 Oct  6 19:17 flag.txt
+Tue Oct  6 19:17:59 UTC 2026
 
 `flag.txt` contains `finished`.
 
-The first run of the command was interrupted, and I wasn't sure it had completed. I checked the file before running it again. The file already existed and held that text, so I didn't repeat the command.
+The harness reported my first run as interrupted, so I didn't re-run the command. I checked the file instead, and it already existed with that content. The command had completed.
 
 >
 ```
