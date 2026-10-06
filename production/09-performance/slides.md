@@ -136,8 +136,9 @@ The main call sends the marked copy, streamed live:
 - Thinking that wasn't finished is dropped: the API only takes back thinking it signed
 
 ```python
-        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]
-    if output: add(working_memory, {"role": "assistant", "content": output})
+output = [b for b in response.content
+          if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]
+if output: add(working_memory, {"role": "assistant", "content": output})
 ```
 
 <!-- The stream makes Lesson 6's interrupt immediate. A stream cut short leaves partial blocks: a sentence half written, a thought with no signature yet. The loop keeps the ones the API will accept back. If nothing at all had arrived, there's no assistant message to keep, and only the interrupt goes in. Lesson 6's interrupt branch printed the text it kept; here it was already printed as it arrived, so that print goes. -->
