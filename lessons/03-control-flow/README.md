@@ -4,6 +4,8 @@
 
 Control flow is how information flows between the other four primitives. They all sit inside it: it decides what runs, in what order, and whether to go again.
 
+In Lesson 2, the `301` sat in `input` and nothing sent it. Sending it back is control flow's job.
+
 Here's the path one pass takes, with the pieces from Lessons 1 and 2:
 
 ```
@@ -25,9 +27,103 @@ There's no correct one. They differ in who decides what happens next: in a workf
 
 Whatever the shape, control flow does two things. It **sequences** the other primitives, passing what one produced to the next. And it **terminates**: it decides when to stop, or when to hand back to a person. A loop with no clear way to end is a bill with no clear way to end.
 
-## The worked example
+## The concept
 
-Here's Lesson 2's input, model interface and output inside quark's loop. It's the whole of [`quark.py`](./quark.py):
+Here's the idea with nothing around it: who decides the next step. The same file runs it both ways, in [`control_flow.py`](./control_flow.py):
+
+```python
+import subprocess, sys
+from anthropic import Anthropic
+
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+def call(messages, **request):
+    return client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, messages=messages, **request).content
+
+def ask(prompt):
+    return "".join(block.text for block in call([{"role": "user", "content": prompt}]) if block.type == "text")
+
+def workflow(input):                                     # your code decides the next step: draft, review, rewrite, stop
+    draft = ask(f"Do this task. Reply with only the result.\n\n{input}")
+    print(f"--- draft ---\n{draft}\n")
+    review = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nCheck the draft against every requirement in the task. List what to fix, or say it's fine.")
+    print(f"--- review ---\n{review}\n")
+    output = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nReview:\n{review}\n\nRewrite the draft to fix everything in the review. Reply with only the new draft.")
+    print(f"--- final ---\n{output}")
+
+def agent(input):                                        # the model decides the next step: ask for a tool, or stop
+    messages = [{"role": "user", "content": input}]
+    while True:
+        output = call(messages, tools=tools)
+        messages.append({"role": "assistant", "content": output})
+        input = []
+        for block in output:
+            if block.type == "text": print(block.text)
+            if block.type == "tool_use":
+                print(f"$ {block.input['cmd']}")
+                done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+                print(done.stdout)
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+        if not input: break                              # no tool request: the model is done
+        messages.append({"role": "user", "content": input})
+
+mode, input = sys.argv[1], " ".join(sys.argv[2:])
+workflow(input) if mode == "workflow" else agent(input)
+```
+
+`call()` and `ask()` are the model interface, cut down to one line each. The two functions below them are the two answers to who decides.
+
+**`workflow()`** is your code deciding. It calls the model three times, always in the same order: draft, review, rewrite. Then it stops. The model writes every word, but it never chooses what happens next. There are no tools, and nothing the model says can add a step or skip one.
+
+**`agent()`** is the model deciding. It calls the model, runs any tools it asked for, sends the results back, and calls again. The model chooses each next step by asking for a tool, and it chooses when to stop by not asking. Your code only says "go again while there's something to send back."
+
+Run both from the root of the repo:
+
+```bash
+uv run lessons/03-control-flow/control_flow.py workflow "write one sentence about agent harnesses in which every word has exactly five letters, at least eight words long"
+uv run lessons/03-control-flow/control_flow.py agent "which folder in lessons has the most files? answer in one English sentence"
+```
+
+Here's the workflow:
+
+```
+--- draft ---
+Agent tools guide model steps while small loops check every state.
+
+--- review ---
+The draft meets every requirement, so nothing needs fixing.
+
+- **One sentence:** It is a single sentence with one closing period.
+- **Length:** It has 11 words, which clears the minimum of eight.
+- **Five letters per word:** Agent, tools, guide, model, steps, while, small, loops, check, every and state each have exactly five letters.
+- **Topic:** It describes what an agent harness does, with tooling that guides the model's steps and loops that check state. The word "harness" has seven letters, so it can't appear. The sentence conveys the idea without it.
+
+--- final ---
+Agent tools guide model steps while small loops check every state.
+```
+
+The draft was already right, and the review said so. The rewrite ran anyway, because the code said it would. That's a workflow: predictable, and it does what you laid out even when it isn't needed.
+
+Here's the agent:
+
+```
+$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5
+10 02-input-and-output/
+9 03-control-flow/
+7 04-context/
+7 01-model-interface/
+
+The `02-input-and-output` folder in `lessons` has the most files, with 10.
+```
+
+(The folders held more files when this ran, and the count includes Python's `__pycache__`, so your numbers will differ.)
+
+Two calls. The first asked for a command; nobody told it which. Its result went back, and the second call answered and asked for nothing, so the loop ended. I didn't plan those steps. The model did.
+
+## quark's implementation
+
+quark is an agent, so its loop is `agent()` with Lesson 2's pieces around it: streaming, the one tool, and `read()` for a person. It adds one thing the concept doesn't have, a chat mode, so the loop can hand back to you instead of ending. Here's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
@@ -93,11 +189,11 @@ Everything above `# ── control flow ──` is Lesson 2's, with one addition
 
 **No input from the world** is termination. The model decides it's done by not asking for a tool. quark doesn't count steps or look for a magic word.
 
-**`chat`** gives one loop two modes. With input on the command line, quark runs until the model stops asking for tools, then exits. With none, it's a chat: when the model's turn ends, it hands back to you with `> `, `read()` gathers your next input, and `/q` (or Ctrl-D) quits.
+**`chat`** gives one loop two modes. With input on the command line, quark runs until the model stops asking for tools, then exits. With none, it's a chat: when the model's turn ends, it hands back to you with `> `, `read()` gathers your next input, and `/q` (or Ctrl-D) quits. (`input := read(...)` reads your next input and checks it for `/q` in the same step.)
 
 Notice what the loop doesn't have: a step limit. quark trusts the model to finish. That's a choice, and if the model never stops asking, quark never stops.
 
-## Run it
+### Run it
 
 From the root of the repo:
 
@@ -120,9 +216,9 @@ The longest one is `./lessons/04-context/quark.py`, at 239 lines.
 
 That's two calls. The first asked for a command. Its result went back, and the second call answered from what it found. Run it with no input to chat with it instead.
 
-## Going further
+## Other things we could do
 
-**What else control flow can be:** quark runs one agent loop with no limit, but this primitive holds more in other harnesses.
+quark runs one agent loop with no limit, but this primitive holds more in other harnesses.
 - **Its shape.** A single call, a chat loop, a workflow, an agent loop, agents that hand tasks to other agents, a loop that wakes on a message or a schedule.
 - **When it stops.** When the model stops asking, after a number of steps, at a spending limit, when the model declines, when a person says stop.
 - **Who it hands back to.** A person, another program, or no one: it runs until the task is done.
@@ -130,153 +226,29 @@ That's two calls. The first asked for a command. Its result went back, and the s
 
 It can be a product on its own. [LangGraph](https://github.com/langchain-ai/langgraph) is built around this primitive: you lay out the steps and the paths between them as a graph, and it runs them.
 
-Here's control flow that does more of that, in [`control_flow.py`](./control_flow.py):
+Two ways to stop that quark leaves out are worth knowing.
 
-```python
-import subprocess, sys
-from anthropic import Anthropic
-read = input                                             # a person's input; the name input is for whatever comes in
+- **A step limit.** Count the calls, and stop after, say, ten, even if the model is still asking. It's the simplest guard against a loop that never ends: if the model keeps asking for tools, you still get a bill with an end. When it hits the limit, say so, so whoever reads the output knows the task may not be done.
+- **Stopping when the model declines.** The API tells you why a response ended in `stop_reason`. If it's `"refusal"`, the model has declined, and going around again won't help. Stop, and say that's why.
 
-client = Anthropic()
-tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-MAX_STEPS = 10
-
-input = " ".join(sys.argv[1:]) or read("> ")
-messages = [{"role": "user", "content": input}]
-
-for step in range(1, MAX_STEPS + 1):
-    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-    messages.append({"role": "assistant", "content": output.content})
-    if output.stop_reason == "refusal":
-        print("[stopped: the model declined]")
-        break
-    input = []
-    for block in output.content:
-        if block.type == "text":
-            print(block.text)
-        if block.type == "tool_use":
-            print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-            print(done.stdout)
-            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-    if not input:
-        print(f"[done in {step} steps]")
-        break
-    messages.append({"role": "user", "content": input})
-else:
-    print(f"[stopped: hit the {MAX_STEPS}-step limit]")
-```
-
-- **When it stops.** The loop runs at most `MAX_STEPS` calls. It also stops when the model is done, or when it declines with a `refusal`, and it says which.
-- **Who it hands back to.** No one. There's no chat mode; it runs the task and exits.
-
-Run it:
-
-```bash
-uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the most files? answer in one English sentence"
-```
-
-Here's one run:
-
-```
-$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5
-7 02-input-and-output/
-6 03-control-flow/
-5 04-context/
-5 01-model-interface/
-
-The `02-input-and-output` folder in `lessons` has the most files, with 7.
-[done in 2 steps]
-```
-
-Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, and an input that asks for the git version, the same harness stops after the first command, before the model sees its result:
-
-```
-$ git --version
-git version 2.43.0
-
-[stopped: hit the 1-step limit]
-```
+A loop that stops in more than one way should always say which way it stopped. "Done", "out of steps" and "declined" look the same from outside if it doesn't.
 
 Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) names the workflows that come up most:
-- **Prompt chaining.** A fixed sequence of calls, each working on the last one's output, with checks in code between them if you want.
+- **Prompt chaining.** A fixed sequence of calls, each working on the last one's output, with checks in code between them if you want. That's `workflow()` above.
 - **Routing.** One call sorts the input, and your code sends it down the path built for that kind.
 - **Parallelization.** Calls run at the same time, either splitting a task into independent parts or asking the same thing several times and combining the answers.
 - **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
 - **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
 
-Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike the backup model in Lesson 1's `model_interface.py`, which only steps in when the first is down and belongs to the model interface.
+The evaluator–optimizer is the one `workflow()` is closest to. Make the review answer with only `PASS` when the draft is fine, stop when it does, and otherwise rewrite and review again, up to a few rounds. Then the rewrite only runs when it's needed. It's still a workflow: the loop is in your code, and the model only fills in the draft and the verdict.
 
-`quark.py` and `control_flow.py` are both agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
-
-```python
-import sys
-from anthropic import Anthropic
-read = input                                             # a person's input; the name input is for whatever comes in
-
-client = Anthropic()
-
-def ask(prompt):
-    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, messages=[{"role": "user", "content": prompt}])
-    return next(b.text for b in output.content if b.type == "text")
-
-input = " ".join(sys.argv[1:]) or read("> ")
-draft = ask(f"Do this task. Reply with only the result.\n\n{input}")
-for round in range(1, 4):
-    print(f"--- draft {round} ---\n{draft}\n")
-    verdict = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nCheck the draft against every requirement in the task. If it meets all of them, reply with only PASS. Otherwise list what to fix.")
-    if verdict.strip() == "PASS":
-        print("[evaluator: pass]")
-        break
-    print(f"--- evaluator ---\n{verdict}\n")
-    draft = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\nFeedback:\n{verdict}\n\nRewrite the draft to fix everything in the feedback. Reply with only the new draft.")
-else:
-    print("[stopped: 3 rounds without a pass]")
-```
-
-- **Who decides.** Your code. There are no tools and no loop the model steers: the order is always draft, judge, rewrite, judge.
-- **When it stops.** When the judging call replies `PASS`, or after three rounds.
-- **The prompts.** Each call gets one prompt built from the task and the last draft. That's the simplest possible context; the point here is the order of the calls.
-
-Run it:
-
-```bash
-uv run lessons/03-control-flow/workflow.py "write one sentence about agent harnesses in which every word has exactly five letters, at least eight words long"
-```
-
-Here's one run:
-
-```
---- draft 1 ---
-Agent rigs wrap model calls while tools guide small tasks.
-
---- evaluator ---
-**Fails.** Two words are not five letters long:
-
-- "rigs" has 4 letters.
-- "wrap" has 4 letters.
-
-The other words (Agent, model, calls, while, tools, guide, small, tasks) are all five letters, and the sentence is long enough (10 words).
-
-**Fix:** Replace "rigs" and "wrap" with five-letter words. For example:
-
-"Agent frame holds model parts while tools guide small tasks."
-
-Every word in this version has exactly five letters (Agent, frame, holds, model, parts, while, tools, guide, small, tasks), and it has 10 words.
-
---- draft 2 ---
-Agent frame holds model parts while tools guide small tasks.
-
-[evaluator: pass]
-```
-
-The first draft missed, the judging call said exactly why, and the rewrite passed. Every step was one your code laid out in advance.
+Two things to keep straight when you read the article. Its building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike a backup model that only steps in when the first is down, which belongs to the model interface.
 
 ## What to take away
 
 **The rule:** control flow sequences the other four primitives and decides when to stop. Arranged differently, the same four pieces are a single call, a chatbot, an agent, or a workflow.
 
-Notice what control flow never does. Getting the request to the model and the response back is the model interface. Gathering what goes in is input, and handling the response is output. What each request holds, including that growing `messages` list and the prompts in `workflow.py`, is context. Control flow only decides what runs, in what order, and when to stop.
+Notice what control flow never does. Getting the request to the model and the response back is the model interface. Gathering what goes in is input, and handling the response is output. What each request holds, including that growing `messages` list and the prompts in `workflow()`, is context. Control flow only decides what runs, in what order, and when to stop.
 
 **What's missing:** this is an agent, but it knows nothing. Not where it is, not what day it is, not who it is, not what you told it yesterday. And `messages` grows every pass; in a long session it will outgrow what the model can read. Something has to decide what the model sees. That's context.
 

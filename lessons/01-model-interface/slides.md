@@ -47,7 +47,90 @@ Lesson 1
 
 ---
 
-# The whole of quark.py: one call (abridged)
+<style scoped>
+pre { font-size: 0.8em; }
+</style>
+
+# The concept (abridged)
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+request = {
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 16384,
+    "messages": [{"role": "user", "content": "What's in this directory?"}],
+}
+output = client.messages.create(**request)
+
+for block in output.content:
+    print(f"[{block.type}]", getattr(block, "text", ""))
+print("stop_reason:", output.stop_reason)
+print("tokens in:", output.usage.input_tokens)
+print("tokens out:", output.usage.output_tokens)
+```
+
+<!-- Here's the idea with nothing around it: model_interface.py. On the slide I've cut the comment on the create line. A request goes out, the whole response comes back at once, and we print three things from it. That's the whole primitive. -->
+
+---
+
+# What's in it
+
+- **`client = Anthropic()`**: where the request goes, Anthropic's hosted API through the official SDK
+- **`request`**: the `model`, the tokens in as `messages` (each with a `role` and `content`), and `max_tokens`
+- **`max_tokens`**: caps the tokens out, even mid-sentence
+- **`client.messages.create(...)`**: sends it and waits; the whole response comes back at once
+- **`output`**: the response, the tokens out plus how they were produced
+
+<!-- The SDK reads your key from ANTHROPIC_API_KEY. The rest of the file prints three of the response's details: content, stop_reason and usage. -->
+
+---
+
+# Run it
+
+```bash
+uv run lessons/01-model-interface/model_interface.py
+```
+
+```
+[thinking] 
+stop_reason: end_turn
+tokens in: 15
+tokens out: 239
+```
+
+One real run (shortened: the `text` line is on the next slides)
+
+<!-- Run it from the root of the repo. I've cut the reply itself; it starts: I can't see your directory. Yours will be worded differently; the model's output varies from run to run. -->
+
+---
+
+# Three fields matter
+
+- **`content`**: the tokens out, as a list of blocks: first its `thinking`, then the `text` of its reply
+- The thinking printed empty: by default it comes back with no text
+- **`stop_reason`**: `end_turn` means it finished; `max_tokens` means it hit the cap
+- **`usage`**: `input_tokens` 15 is TokensIn, `output_tokens` 239 is TokensOut, thinking included
+
+<!-- This model thinks before it answers, so the first block is thinking. usage counts both sides of the function. -->
+
+---
+
+# It knows the next step. It can't take it.
+
+The `text` block, in part:
+
+> To see what's in a directory yourself, you can use:
+>
+> **macOS/Linux:** `ls` (basic), `ls -la` (includes hidden files and details)
+
+<!-- Read the text. The model knows the right next step is ls. It just can't take it. Hold on to that; it's what the next lesson fixes. -->
+
+---
+
+# quark.py: the same call, streamed (abridged)
 
 ```python
 from anthropic import Anthropic
@@ -66,34 +149,34 @@ print(output.model_dump_json(indent=2))
 
 The `messages` list holds one `user` message: "What's in this directory?"
 
-<!-- This is the call at the center of quark, with nothing around it. Twelve lines. Two things are cut on the slide: the comment on the def line, and the messages list, which is one user message asking what's in this directory. -->
+<!-- Here's how quark does it. It's the whole of quark.py, twelve lines: the same request, but the response streams back. Two things are cut on the slide: the comment on the def line, and the messages list, which is one user message asking what's in this directory. -->
 
 ---
 
 # One function, one place
 
-- **`client = Anthropic()`**: where the request goes, Anthropic's hosted API through the official SDK
+- **`client = Anthropic()`**: the same as before
+- **`MODEL`**: the model that answers, taken out of the request so every call sends the same one
 - **`call()`**: the model interface, all of it. Every later lesson calls the model through it
-- **`messages=[...]`**: the tokens in, each with a `role` and `content`
-- **`max_tokens`**: caps the tokens out, even mid-sentence
-- **`output`**: the response, printed whole
+- **`messages=[...]`** and **`max_tokens`**: the request, passed through untouched
+- **`output`**: the same kind of response `create()` returned, printed whole
 
-<!-- The SDK reads your key from ANTHROPIC_API_KEY. The section heading, model interface, stays at the top of quark.py through every lesson; each lesson adds a section of its own. -->
+<!-- The section heading, model interface, stays at the top of quark.py through every lesson; each lesson adds a section of its own. -->
 
 ---
 
-# The response streams back
+# quark's choice: the response streams back
 
 - **`client.messages.stream(...)`**: the response arrives piece by piece, as it's produced
 - A long response that arrives all at once can time out while you wait; one that streams can't
 - **`for event in stream: each(event)`**: each piece goes to `each()` as it arrives; here, `each` ignores them
 - **`stream.get_final_message()`**: the whole response, put back together
 
-<!-- So call hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2. -->
+<!-- This is what quark adds over the concept. The request is the same. So call hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2. -->
 
 ---
 
-# Run it
+# Run quark.py
 
 ```bash
 uv run lessons/01-model-interface/quark.py
@@ -106,51 +189,34 @@ uv run lessons/01-model-interface/quark.py
       "thinking": "",
       "type": "thinking"
     },
-    {
-      "type": "text"
-    }
-  ],
-  "stop_reason": "end_turn",
 ```
 
-One real run (shortened)
+One real run (shortened): the whole response is printed; here, its `thinking` block
 
-<!-- Run it from the root of the repo. I've cut this down to the fields that matter. Yours will be worded differently; the model's output varies from run to run. -->
-
----
-
-# Three fields matter
-
-- **`content`**: the tokens out, as a list of blocks: first its `thinking`, then the `text` of its reply
-- Thinking comes back empty by default, with only a `signature`, an encrypted copy only the API can read
-- **`stop_reason`**: `end_turn` means it finished; `max_tokens` means it hit the cap
-- **`usage`**: `input_tokens` 15 is TokensIn, `output_tokens` 240 is TokensOut, thinking included
-
-<!-- This model thinks before it answers, so the first block is thinking. usage counts both sides of the function. -->
+<!-- The print shows everything; I've cut it down to the thinking block, and its long signature line too. Here you can see why the thinking was empty: it comes back with no text, only a signature, an encrypted copy of the reasoning that only the API can read. -->
 
 ---
 
-# It knows the next step. It can't take it.
-
-The `text` block, in part:
-
-> I can't see your directory. I don't have access to your file system in this conversation...
->
-> **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)
-
-<!-- Read the text. The model knows the right next step is ls. It just can't take it. Hold on to that; it's what the next lesson fixes. -->
-
----
-
-# What else a model interface can be
+# Other things we could do
 
 - **Where the request goes, and how:** hosted API, your own machine, a gateway; SDK or raw HTTP
 - **Which model answers:** one model, or a backup when the first is unavailable
-- **How the response arrives:** all at once, or streamed so it can't time out
+- **How the response arrives:** all at once like `model_interface.py`, or streamed like `quark.py`
 - **When a request fails:** retry, wait out a rate limit, give up after a timeout
 - **Settings and volume:** tokens out, how much it thinks, one request or a batch
 
-<!-- The mechanism is always a request out and a response back, but in other harnesses it holds more than it does here. -->
+<!-- The mechanism is always a request out and a response back, but a model interface can hold more than quark's does. -->
+
+---
+
+# A few worth knowing
+
+- **Timeouts and retries:** the SDK does both; a brief hiccup costs a few seconds, not the run
+- **A backup model:** if every retry fails, send the same request to the next model
+- Catch only "try again later": dropped connections, rate limits, server errors, `OverloadedError`
+- **Effort and thinking:** how much it thinks first, and a readable summary of that thinking
+
+<!-- A request that's wrong in itself, like one that's too long, would fail on the backup too, so it should be raised, not passed along. Lesson 8 adds the backup to quark. The raw thinking itself is never returned. -->
 
 ---
 
@@ -162,53 +228,6 @@ The `text` block, in part:
 - A harness that uses one has handed off its model interface
 
 <!-- It can hold enough to be a product on its own. -->
-
----
-
-# model_interface.py does more (abridged)
-
-```python
-client = anthropic.Anthropic(timeout=120, max_retries=3)
-MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
-
-def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
-    for model in MODELS:
-        try:
-            with client.messages.stream(model=model, ...) as stream:
-                return stream.get_final_message()
-        except (anthropic.APIConnectionError, ...):
-            continue
-    raise RuntimeError("no model answered")
-```
-
-<!-- timeout=120 gives up when the API goes two minutes without sending anything. max_retries=3 has the SDK retry dropped connections, rate limits and server errors. If every retry fails, call moves on to the next model in MODELS. It streams, and get_final_message hands back the whole response once it's done. The stream line also passes effort and thinking settings; I've cut them here. -->
-
----
-
-# What it adds, mechanism by mechanism
-
-- **When a request fails:** `timeout=120`, and `max_retries=3` retries with longer waits
-- **Which model answers:** if every retry fails, the next model in `MODELS`
-- **How the response arrives:** it streams, like `quark.py`; `get_final_message()` hands back the whole response
-- **Settings:** `max_tokens`, `effort` and `thinking` are arguments; `"summarized"` asks for a summary of the thinking
-
-<!-- There's no each() here: nothing looks at the pieces along the way. The raw thinking itself is never returned. -->
-
----
-
-# Its run: the thinking now has text
-
-```bash
-uv run lessons/01-model-interface/model_interface.py
-```
-
-The `thinking` block, in part:
-
-> I don't actually have access to their file system or any tools here, so I can't see what's in a directory...
-
-The rest only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
-
-<!-- It looks like the first response, with one difference: the thinking block has text. That's the summary display summarized asked for. -->
 
 ---
 

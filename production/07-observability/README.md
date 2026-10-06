@@ -8,24 +8,138 @@ Observability is a record of what the harness did, kept as it does it: every cal
 
 You might think Lesson 4 already did this. Every message is in the episode. But the episode is written **for the model**: it's what working memory would have been, so the model can search its own past. It has no timings, no token counts, no exit codes, and it shouldn't, because none of that helps the model think. The trace is written **for you**, the person running quark. Same run, two records, two readers. The paper calls this the rule of who reads it: a record for the model is context; a record for the operator is observability.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on control flow**, and everything it does stays inside it. Control flow is the one primitive that sees the whole sequence. The model interface only knows about one call, and output only knows about one tool, but the loop is where a call, the tool it asked for, the guard's decision and the call after that all happen, in order. So it's the one place a record of the run can be made.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on control flow**. Control flow is the one primitive that sees the whole sequence. The model interface only knows about one call, and output only knows about one tool, but the loop is where a call, the tool it asked for, the guard's decision and the call after that all happen, in order. So it's the one place a record of the run can be made.
 
 The mechanism is small. Each time around the loop there are things that already exist: the clock, the `usage` that came back with the response, the exit code of the command that ran, the reason a command was refused. Observability reads them off and writes them down.
 
 - **A trace.** One line appended to a file for each thing that happened, in the order it happened. Each line is a JSON object, so you can search it afterwards with the tools you already have.
 - **Timing.** Read the clock before and after a model call or a tool, and keep the difference.
 - **Token accounting.** Every response says how many tokens went in and came out, and how many were read from or written to the prompt cache. Tokens times your provider's price is cost. The price isn't in the response; you keep the rates yourself.
+- **A second opinion on failure.** The exit code is how a command says it failed, and it's a rough signal. `grep` exits 1 when it finds nothing, which is an answer, not a failure. A pipe exits with its last stage, so `ls missing.txt | head -1` exits 0 even though `ls` failed. So next to each exit code, the record keeps Jev's answer to one question: did this command fail?
 
 Observability only watches. It never changes what's sent, what runs, or when the loop stops. If a trace line fails to describe what happened, you've got a wrong record, not a wrong agent.
 
-## The worked example
+## The concept
 
-[`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace, and nothing else: 14 lines. `time` joins the imports, and at the top of `# ── control flow ──` there's the function that writes the record:
+Here's the idea with nothing around it: run a few commands and one model call, and write down each one as it happens. It's in [`observability.py`](./observability.py):
+
+```python
+import subprocess, os, json, time, datetime
+from anthropic import Anthropic
+from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
+
+client = Anthropic()
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, asked one question about each command
+FAILED = Noul(instructions="Does `result` show that the command failed or hit an error?",
+    criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.",
+                          false="The command worked, even if it found nothing or printed a warning."))
+
+def trace(**event):                                      # one JSON line per event, appended, for whoever runs the agent
+    with open("traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), **event}) + "\n")
+
+def failed(cmd, result):                                 # Jev's probability that the command failed; None if it can't answer
+    try: return round(jev.system_one({"command": cmd, "result": result}, {"q": FAILED}).nouls["q"].noul, 2)
+    except Exception: return None
+
+seen = []
+for cmd in ["wc -l notes.txt", "grep -n TODO notes.txt", "ls missing.txt | head -1", "sleep 2"]:
+    start = time.time()
+    done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout), failed=failed(cmd, done.stdout))
+    seen.append(f"$ {cmd}\n{done.stdout}(exit {done.returncode})")
+
+start = time.time()
+response = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, messages=[{"role": "user", "content": "Which of these commands failed? One sentence.\n\n" + "\n\n".join(seen)}])
+trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens)
+print("".join(block.text for block in response.content if block.type == "text"))
+```
+
+There's no agent loop here. The four commands are fixed, and the model is called once at the end to say which of them failed. That's enough to have something to watch.
+
+**`trace()`** is the whole layer. It appends one JSON object to `traces.jsonl`: the time, and whatever you pass it. A file that only ever gets appended to is the simplest log there is, and each line stands on its own, so a run that crashes halfway still leaves everything before the crash.
+
+**The clock.** `start = time.time()` before each command and before the model call, and the difference goes in the line as `seconds`.
+
+**What's already there.** A command leaves its exit code and what it printed; the trace keeps the code and how many characters. A response comes back with `stop_reason` and `usage`; the trace keeps the token counts. None of this is computed. It's read off and written down.
+
+**`failed()`** asks [Jev](../05-sandboxing/#asking-jev), the decision model from Lesson 5, one yes/no question about each command's result: does `result` show that the command failed or hit an error? The criteria say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning. Jev answers with the probability of yes, and that goes in the line as `failed`, next to `exit`. If Jev can't answer (no key, a wrong key, a time-out), `failed()` returns `None` and the line says `null`.
+
+Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability's: it's written down, and that's all. It isn't sent to the main model, and it doesn't change what runs next.
+
+Run it in a scratch folder, since it writes `traces.jsonl` where you start it:
+
+```bash
+mkdir -p /tmp/demo7 && cd /tmp/demo7 && printf 'buy milk\ncall Sam\nfix the bike\n' > notes.txt
+uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/observability.py
+```
+
+It prints only the model's answer:
+
+```
+`ls missing.txt` is the one that actually failed (the file doesn't exist), though the pipe into `head` masked it with exit 0, while `grep` exiting 1 just means no TODO matches were found, not a real error.
+```
+
+Everything else is in `traces.jsonl`:
+
+```
+{"ts": "2026-10-06T23:18:22", "event": "tool", "cmd": "wc -l notes.txt", "seconds": 0.0, "exit": 0, "chars": 12, "failed": 0.02}
+{"ts": "2026-10-06T23:18:22", "event": "tool", "cmd": "grep -n TODO notes.txt", "seconds": 0.0, "exit": 1, "chars": 0, "failed": 0.06}
+{"ts": "2026-10-06T23:18:23", "event": "tool", "cmd": "ls missing.txt | head -1", "seconds": 0.0, "exit": 0, "chars": 59, "failed": 0.98}
+{"ts": "2026-10-06T23:18:25", "event": "tool", "cmd": "sleep 2", "seconds": 2.0, "exit": 0, "chars": 0, "failed": 0.03}
+{"ts": "2026-10-06T23:18:27", "event": "model", "seconds": 2.39, "stop_reason": "end_turn", "input_tokens": 129, "output_tokens": 194}
+```
+
+Five lines, one per thing that happened. The `sleep` took its 2 seconds and the model call 2.39, and the model's call cost 129 tokens in and 194 out. Look at the two middle lines. The `grep` exited 1 and Jev gave it 0.06: it found nothing, and that's not a failure. The `ls` exited 0 and Jev gave it 0.98: it failed, and the pipe hid it. The exit code and Jev disagree on both, and Jev is right on both.
+
+Because each line is one JSON object, you can ask the file questions with `jq`. Here's every command that either signal calls a failure, with Jev counted only when it's at least 0.9 sure:
+
+```bash
+jq -c 'select(.event=="tool" and (.exit != 0 or .failed >= 0.9)) | {cmd, exit, failed}' traces.jsonl
+```
+
+```
+{"cmd":"grep -n TODO notes.txt","exit":1,"failed":0.06}
+{"cmd":"ls missing.txt | head -1","exit":0,"failed":0.98}
+```
+
+One false alarm from the exit code, one real failure only Jev saw. That's why Jev's answer sits next to the exit code and doesn't replace it: you get both, and a person reading the trace decides.
+
+Without Jev, nothing else changes. Here's the same run with a wrong key on purpose, in a fresh folder with the same `notes.txt`:
+
+```bash
+TYPESAFE_API_KEY=not-a-key uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/observability.py
+jq -c 'select(.event=="tool") | {cmd, exit, failed}' traces.jsonl
+```
+
+```
+`ls missing.txt` actually failed (the file doesn't exist), but the pipe to `head` masked it with exit 0, while `grep` exiting 1 only means no TODO matches were found, not a real error.
+{"cmd":"wc -l notes.txt","exit":0,"failed":null}
+{"cmd":"grep -n TODO notes.txt","exit":1,"failed":null}
+{"cmd":"ls missing.txt | head -1","exit":0,"failed":null}
+{"cmd":"sleep 2","exit":0,"failed":null}
+```
+
+The record is just missing an opinion. The model's answer never depended on Jev: Jev's answer only ever goes in the trace.
+
+## quark's implementation
+
+[`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace and Jev's question, and nothing else: 18 lines, 352 in all. `time` joins the imports, and Jev's yes/no question type joins Lesson 5's import from `typesafe_sdk`:
+
+```python
+import subprocess, sys, os, re, glob, json, datetime, atexit, termios, tty, threading, select, contextlib, time
+from typesafe_sdk import TypeSafeClient, Choice, Noul, NoulCriteria
+```
+
+At the top of `# ── control flow ──`, the function that writes the record, and the question:
 
 ```python
 def trace(**event):                                      # observability: one line per step, for whoever runs quark
     os.makedirs(".quark", exist_ok=True)
     with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "episode": EPISODE, **event}) + "\n")
+FAILED = Noul(instructions="Does `result` show that the command failed or hit an error?", criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.", false="The command worked, even if it found nothing or printed a warning."))
+def failed(cmd, result):                                 # observability: Jev's second opinion on whether a tool failed, beside its exit code
+    judged = ask({"command": cmd, "result": result[-4000:]}, FAILED)
+    return judged and round(judged["noul"], 2)
 ```
 
 Then one call wherever something happens. Each is a single line next to code that was already there:
@@ -37,131 +151,145 @@ trace(event="start", input=input)
         trace(event="too_long", drop=drop)
         trace(event="interrupted", during="saying")
                 trace(event="refused", cmd=block.input["cmd"], why=no)
-            trace(event="tool", cmd=block.input["cmd"], seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
+            trace(event="tool", cmd=block.input["cmd"], seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout), failed=failed(block.input["cmd"], done.stdout))
         trace(event="interrupted", during="acting")
 ```
 
-**`trace()`** appends one JSON object to `.quark/traces.jsonl`: the time, the **episode** this run is being written to, and whatever else you pass it. A file that only ever gets appended to is the simplest log there is, and each line stands on its own, so a run that crashes halfway still leaves everything before the crash. The `episode` field ties the two records together: from any trace line you can open the messages of the same run.
+And `start = time.time()` before the model call and before each command, two more lines.
+
+**`trace()`** is the concept's, with two differences. It writes to `.quark/traces.jsonl`, next to Lesson 4's memory. And every line carries the **episode** this run is being written to. That field ties the two records together: from any trace line you can open the messages of the same run.
 
 **The start** marks where a run begins and what came in.
 
-**Each model call** is timed (`start = time.time()` before the call) and records the `stop_reason` and the four token counts from `response.usage`: new input, output, read from the cache, and written to it. That's everything you need to work out cost, and the cache counts show whether Lesson 4's `cache_control` on the system prompt is doing anything.
+**Each model call** records the `stop_reason` and the four token counts from `response.usage`: new input, output, read from the cache, and written to it. That's everything you need to work out cost, and the cache counts show whether Lesson 4's `cache_control` on the system prompt is doing anything.
 
-**Each tool** records the command, how long it took, its exit code and how many characters it printed. A failed command is a line with a non-zero `exit`; one the box killed is `137`.
+**Each tool** records the command, how long it took, its exit code, how many characters it printed, and `failed`. One thing about the clock: it starts before Lesson 5's question about whether the command needs the network, so a tool's `seconds` include that question (and your answer, if you're asked).
 
 **Each refusal** records the command the guard wouldn't run, and why. **Each interrupt** records that you pressed ESC, and whether quark was saying or doing something at the time. **Each limit** records the steps and tokens it stopped at. **Each compaction** records that the API said the prompt was too long.
 
-Nothing else changed. The request is built by the same code, the same commands run in the same box, and the loop stops for the same reasons.
+**`failed()`** is the concept's question, asked through Lesson 5's `ask()`, which already handles the key, the time-out and the errors and returns `None` for all of them. It sends the command and the last 4,000 characters of what it printed, since the end of the output is usually where an error is. `judged and round(...)` gives the probability, or `None` when there's no answer. Asking Jev is model interface, as it was in Lessons 5 and 6. What quark does with the answer is observability's, in control flow: it goes in the tool's line, beside `exit`. Unlike Lessons 5 and 6, there's no `SURE` here, because nothing is decided. The trace keeps the probability as it came, sure or not, and the person reading it decides.
 
-## Run it
+Nothing else changed. The request is built by the same code, the same commands run in the same box, and the loop stops for the same reasons. The model never sees `failed`: its tool result is what the command printed, as before.
 
-In a scratch folder with a two-line `small.txt` and a 5,000-line `big.txt`. This time nothing is piped in, so there's no one to answer the guard:
+### Run it
+
+You need Docker running, as in Lessons 5 and 6. Start in a scratch folder with a two-line `small.txt` and a 5,000-line `big.txt`. This time nothing is piped in, so there's no one to answer the guard:
 
 ```bash
+mkdir /tmp/demo && cd /tmp/demo && printf 'one\ntwo\n' > small.txt && seq 1 5000 | sed 's/^/line /' > big.txt
 uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/quark.py "which file in this folder has the most lines? answer in one sentence" < /dev/null
 ```
 
 ```
-$ wc -l * 2>/dev/null | sort -rn | head -5
-allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
-$ ls -la
-total 36
-drwxr-xr-x 3 root root  4096 Oct  6 20:30 .
-drwxr-xr-x 3 root root    60 Oct  6 20:30 ..
-drwxr-xr-x 3 root root  4096 Oct  6 20:30 .quark
--rw-r--r-- 1 root root 23893 Oct  6 20:30 big.txt
--rw-r--r-- 1 root root     8 Oct  6 20:30 small.txt
+$ wc -l * .[!.]* 2>/dev/null | sort -n | tail -5
+      0 .quark
+      2 small.txt
+   5000 big.txt
+   5002 total
 
-$ wc -l big.txt small.txt
- 5000 big.txt
-    2 small.txt
- 5002 total
-
-`big.txt` has the most lines, at 5,000, compared with 2 in `small.txt`.
+`big.txt` has the most lines, at 5,000.
 ```
 
-The first command wasn't on the safe list (`2>` redirects, and `sort` isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. Here's what the person running it sees afterwards, in `.quark/traces.jsonl`:
+The command wasn't on the guard's safe list (`2>` redirects, and `sort` isn't a reader it knows), but Jev was sure it only reads, so it ran without asking. Here's what the person running it sees afterwards, in `.quark/traces.jsonl`:
 
 ```
-{"ts": "2026-10-06T20:30:11", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
-{"ts": "2026-10-06T20:30:13", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.37, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 70, "cache_read": 0, "cache_write": 7770}
-{"ts": "2026-10-06T20:30:13", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "refused", "cmd": "wc -l * 2>/dev/null | sort -rn | head -5", "why": "the person said no"}
-{"ts": "2026-10-06T20:30:14", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.66, "stop_reason": "tool_use", "input_tokens": 180, "output_tokens": 51, "cache_read": 7770, "cache_write": 0}
-{"ts": "2026-10-06T20:30:14", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "tool", "cmd": "ls -la", "seconds": 0.12, "exit": 0, "chars": 249}
-{"ts": "2026-10-06T20:30:16", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.94, "stop_reason": "tool_use", "input_tokens": 397, "output_tokens": 93, "cache_read": 7770, "cache_write": 0}
-{"ts": "2026-10-06T20:30:16", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "tool", "cmd": "wc -l big.txt small.txt", "seconds": 0.09, "exit": 0, "chars": 42}
-{"ts": "2026-10-06T20:30:18", "episode": ".quark/episodes/2026-10-06T20-30-11.jsonl", "event": "model", "seconds": 1.74, "stop_reason": "end_turn", "input_tokens": 518, "output_tokens": 34, "cache_read": 7770, "cache_write": 0}
+{"ts": "2026-10-06T23:18:50", "episode": ".quark/episodes/2026-10-06T23-18-50.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
+{"ts": "2026-10-06T23:18:52", "episode": ".quark/episodes/2026-10-06T23-18-50.jsonl", "event": "model", "seconds": 1.41, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 76, "cache_read": 0, "cache_write": 8941}
+{"ts": "2026-10-06T23:18:53", "episode": ".quark/episodes/2026-10-06T23-18-50.jsonl", "event": "tool", "cmd": "wc -l * .[!.]* 2>/dev/null | sort -n | tail -5", "seconds": 0.26, "exit": 0, "chars": 63, "failed": 0.08}
+{"ts": "2026-10-06T23:18:54", "episode": ".quark/episodes/2026-10-06T23-18-50.jsonl", "event": "model", "seconds": 0.99, "stop_reason": "end_turn", "input_tokens": 206, "output_tokens": 20, "cache_read": 8941, "cache_write": 0}
 ```
 
-Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Read the cache columns: the first call wrote the 7,770-token system prompt to the cache, and every call after that read it back instead of paying for it again.
+Every step is there: two calls, the one command between them, how long each took, and Jev's 0.08 that the command failed. Read the cache columns: the first call wrote the 8,941-token system prompt to the cache, and the second read it back instead of paying for it again.
 
-Because it's one JSON object per line, you can ask the file questions with `jq`. Add up one run, by its episode:
+Add up one run, by its episode:
 
 ```bash
-jq -c -s --arg e ".quark/episodes/2026-10-06T20-30-11.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
+jq -c -s --arg e ".quark/episodes/2026-10-06T23-18-50.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
 ```
 
 ```
-{"calls":4,"input":1190,"output":248,"cache_read":23310,"cache_write":7770,"seconds":6.710000000000001}
+{"calls":2,"input":301,"output":96,"cache_read":8941,"cache_write":8941,"seconds":2.4}
 ```
 
-Now a run where things go wrong: a command that fails, and one the box kills. This uses a copy with the sandbox's `TIMEOUT` lowered to 5, `y` piped in for the guard, and the input "run ls /nonexistent, then run sleep 60 as a separate command, then say what happened in one sentence":
+Now a run where things go wrong. This uses a copy of `quark.py` with the sandbox's `TIMEOUT` lowered to 5 and `y` piped in for the guard, in a fresh scratch folder with `small.txt`:
+
+```bash
+yes y | head -50 | uv run --project /path/to/building-agents /path/to/copy/quark.py "run ls /nonexistent | head -1, then run grep TODO small.txt, then run sleep 60, each as a separate command, then say what happened in one sentence"
+```
 
 ```
-$ ls /nonexistent
+$ ls /nonexistent | head -1
 ls: cannot access '/nonexistent': No such file or directory
 
+$ grep TODO small.txt
+
 $ sleep 60
-allow `sleep 60`? [y/N] 
+allow `sleep 60`? (Jev: other, 0.81) [y/N] 
 (killed: ran over 5 seconds or out of memory)
-`ls /nonexistent` failed because the path doesn't exist, and `sleep 60` was killed after the sandbox's 5-second time limit.
+The `ls /nonexistent | head -1` command printed an error because the path doesn't exist, `grep TODO small.txt` printed nothing and exited 1 (either no TODO lines or no such file), and `sleep 60` was killed at the 5-second sandbox timeout.
 ```
 
-The agent told you what happened, this time. Without the trace, you'd only know if you were watching. Here's everything that didn't go to plan, across both runs:
+The agent told you what happened, this time. Without the trace, you'd only know if you were watching. Here are the exit codes and Jev's answers side by side:
 
 ```bash
-jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces.jsonl
+jq -c 'select(.event=="tool") | {cmd, exit, failed}' .quark/traces.jsonl
 ```
 
 ```
-{"ts":"2026-10-06T20:30:13","episode":".quark/episodes/2026-10-06T20-30-11.jsonl","event":"refused","cmd":"wc -l * 2>/dev/null | sort -rn | head -5","why":"the person said no"}
-{"ts":"2026-10-06T20:30:32","episode":".quark/episodes/2026-10-06T20-30-30.jsonl","event":"tool","cmd":"ls /nonexistent","seconds":0.12,"exit":2,"chars":60}
-{"ts":"2026-10-06T20:30:37","episode":".quark/episodes/2026-10-06T20-30-30.jsonl","event":"tool","cmd":"sleep 60","seconds":5.1,"exit":137,"chars":46}
+{"cmd":"ls /nonexistent | head -1","exit":0,"failed":0.98}
+{"cmd":"grep TODO small.txt","exit":1,"failed":0.04}
+{"cmd":"sleep 60","exit":137,"failed":0.97}
 ```
 
-A refusal, a failure (`exit` 2) and a kill (`exit` 137, after 5.1 seconds). Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
+The same split as the concept's: the pipe hid the `ls` failure behind exit 0, and only Jev saw it; the `grep` that found nothing exited 1, and only the exit code called it a failure. They agree on the kill (`exit` 137). And here's everything that didn't go to plan, by either signal, with the guard's refusals in the same query:
+
+```bash
+jq -c 'select((.event=="tool" and (.exit!=0 or .failed>=0.9)) or .event=="refused")' .quark/traces.jsonl
+```
+
+```
+{"ts":"2026-10-06T23:19:10","episode":".quark/episodes/2026-10-06T23-19-07.jsonl","event":"tool","cmd":"ls /nonexistent | head -1","seconds":0.58,"exit":0,"chars":60,"failed":0.98}
+{"ts":"2026-10-06T23:19:11","episode":".quark/episodes/2026-10-06T23-19-07.jsonl","event":"tool","cmd":"grep TODO small.txt","seconds":0.26,"exit":1,"chars":0,"failed":0.04}
+{"ts":"2026-10-06T23:19:16","episode":".quark/episodes/2026-10-06T23-19-07.jsonl","event":"tool","cmd":"sleep 60","seconds":5.23,"exit":137,"chars":46,"failed":0.97}
+```
+
+Nothing was refused this time, since you said yes. Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
 
 And when you break in. In a terminal, I asked for `sleep 30`, said `y`, and pressed ESC three seconds later:
 
 ```
 > run sleep 30 as one command
 $ sleep 30
-allow `sleep 30`? [y/N] y
+allow `sleep 30`? (Jev: other, 0.83) [y/N] y
 [your doing stopped before done]
-You interrupted me, so `sleep 30` was stopped before it finished. I didn't get an exit status. Do you want me to run it again?
+You interrupted me, so `sleep 30` was stopped before it finished. It didn't complete.
 
-The sandbox kills any command that runs past 30 seconds. A bare `sleep 30` would probably hit that limit and be killed (exit 137). If you want it to complete, I can run `sleep 25` instead.
+The sandbox also kills any command that runs 30 seconds or longer. So `sleep 30` might have been killed by that limit even without the interruption. Do you want me to run it again, or run a shorter one such as `sleep 25`?
 
 > /q
 ```
 
-The trace of that run, with only the fields that matter here:
+The trace of that run, without the time and episode:
+
+```bash
+jq -c 'del(.ts, .episode)' .quark/traces.jsonl
+```
 
 ```
-{"event":"start"}
-{"event":"model","seconds":1.72}
-{"event":"tool","cmd":"sleep 30","seconds":3.23,"exit":137}
+{"event":"start","input":"run sleep 30 as one command"}
+{"event":"model","seconds":1.81,"stop_reason":"tool_use","input_tokens":86,"output_tokens":109,"cache_read":0,"cache_write":8941}
+{"event":"tool","cmd":"sleep 30","seconds":3.16,"exit":137,"chars":32,"failed":0.62}
 {"event":"interrupted","during":"acting"}
-{"event":"model","seconds":2.01}
+{"event":"model","seconds":1.91,"stop_reason":"end_turn","input_tokens":233,"output_tokens":108,"cache_read":8941,"cache_write":0}
 ```
 
-The command was stopped at 3.23 seconds (`exit` 137: ESC's `kill -9 -1` inside the box, which looks the same as a time-out in the trace), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it. Its answer says it "didn't get an exit status": since Lesson 6, a stopped command's result is just `[your doing stopped before done]`, so the trace knows more about that command than the model does.
+The command was stopped at 3.16 seconds (`exit` 137: ESC's `kill -9 -1` inside the box, which looks the same as a time-out in the exit code), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it. Jev's 0.62 is the in-between case: all it was shown was `[your doing stopped before done]`, which is neither a crash nor a success, and it said so by not being sure. The trace knows more about that command than the model or Jev does.
 
 > The trace file only grows. Delete or rotate it when it gets big.
 
-## Going further
+## Other things we could do
 
-**What else observability can be:** quark records one line per event: a flat log, in a file, afterwards. These are the choices you make when you build it.
+quark records one line per event: a flat log, in a file, read afterwards. These are the choices you make when you build it.
 - **What's recorded.** Events as they happen, or *spans*, which have a start, a duration and a parent, so a run becomes a tree. Or everything: the full request and response of every call. That's the most useful record when something goes wrong, and the biggest, and it will contain whatever the model saw, so decide what to redact.
 - **Where it goes.** A file, the terminal, a database, or a collector that speaks a standard like OpenTelemetry.
 - **When you see it.** After the fact, as a live line per step, or on a dashboard that alerts you.
@@ -171,242 +299,19 @@ The command was stopped at 3.23 seconds (`exit` 137: ESC's `kill -9 -1` inside t
 
 It can be a product on its own. Tracing platforms like [Langfuse](https://github.com/langfuse/langfuse) and LangSmith are this layer: you send them the spans and they store them, price them and show them as a tree.
 
-Here's observability that does more of that, in [`observability.py`](./observability.py). It's built on Lesson 3's `control_flow.py`, so it has the step limit, and it has no system prompt, so its requests are just the task. It also asks a second model one question about every tool result:
+A few ideas worth knowing if you build more of it yourself:
 
-```python
-import subprocess, sys, os, json, time, uuid, datetime
-from collections import defaultdict
-from contextlib import contextmanager
-from anthropic import Anthropic
-from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
-read = input                                             # a person's input; the name input is for whatever comes in
-
-client = Anthropic()
-jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, asked one question about each tool result
-tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-MAX_STEPS = 10
-LOG = ".quark/spans.jsonl"
-PRICE = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75}  # dollars per million tokens: example rates, use your provider's
-RUN, SPANS = uuid.uuid4().hex[:8], []
-SURE = 0.9                                               # count a tool as failed when Jev is this sure
-ERROR = {"error": Noul(instructions="Does `result` show that the command failed or hit an error?",
-    criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.",
-                          false="The command worked, even if it found nothing or printed a warning."))}
-
-@contextmanager
-def span(kind, parent=None, **attrs):
-    s = {"run": RUN, "span": uuid.uuid4().hex[:6], "parent": parent, "kind": kind, "start": datetime.datetime.now().isoformat(timespec="seconds"), **attrs}
-    began = time.time()
-    try:
-        yield s
-    except BaseException as e:
-        s["error"] = f"{type(e).__name__}: {e}"
-        raise
-    finally:
-        s["seconds"] = round(time.time() - began, 2)
-        SPANS.append(s)
-        os.makedirs(os.path.dirname(LOG), exist_ok=True)
-        with open(LOG, "a") as f: f.write(json.dumps(s) + "\n")
-
-def failed(cmd, result):
-    try:
-        return round(jev.system_one({"command": cmd, "result": result}, ERROR).nouls["error"].noul, 2)
-    except Exception:
-        return None                                      # no verdict: the span just says so
-
-def cost(usage):
-    return round(sum(usage[k] * PRICE[k] for k in PRICE) / 1_000_000, 6)
-
-def row(spans):
-    run = next((s for s in spans if s["kind"] == "run"), {})
-    calls = [s for s in spans if s["kind"] == "model" and "cost" in s]
-    ran = [s for s in spans if s["kind"] == "tool"]
-    sent = sum(c["input"] + c["cache_read"] + c["cache_write"] for c in calls)
-    problems = sum(t.get("exit") != 0 for t in ran) + sum("error" in s for s in spans)
-    flagged = sum((s.get("failed") or 0) >= SURE for s in spans if s["kind"] == "jev")
-    return f"{spans[0]['run']}  {run.get('status', 'crashed'):<10} {len(calls):>5} {len(ran):>5} {problems:>5} {flagged:>4} {sum(s['seconds'] for s in calls + ran):>6.1f}s {sent:>8} {sum(c['output'] for c in calls):>6} {sum(c['cache_read'] for c in calls) / max(sent, 1):>6.0%} ${sum(c['cost'] for c in calls):>8.4f}  {run.get('task', '')[:40]}"
-
-HEADER = "run       status     calls tools  prob.  jev   time     in    out  cached     cost  task"
-
-if sys.argv[1:2] == ["report"]:
-    runs = defaultdict(list)
-    for line in open(LOG):
-        runs[json.loads(line)["run"]].append(json.loads(line))
-    print(HEADER)
-    for spans in runs.values(): print(row(spans))
-    sys.exit()
-
-input = " ".join(sys.argv[1:]) or read("> ")
-messages = [{"role": "user", "content": input}]
-
-with span("run", task=input) as run:
-    for step in range(1, MAX_STEPS + 1):
-        with span("model", run["span"], step=step) as m:
-            output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-            u = output.usage
-            m.update(stop_reason=output.stop_reason, input=u.input_tokens, output=u.output_tokens, cache_read=u.cache_read_input_tokens, cache_write=u.cache_creation_input_tokens)
-            m["cost"] = cost(m)
-        print(f"[step {step}: model {m['seconds']}s, {m['input'] + m['cache_read'] + m['cache_write']} tokens in, {m['output']} out, ${m['cost']:.4f}]")
-        messages.append({"role": "assistant", "content": output.content})
-        if output.stop_reason == "refusal":
-            run["status"] = "declined"
-            break
-        input = []
-        for block in output.content:
-            if block.type == "text":
-                print(block.text)
-            if block.type == "tool_use":
-                print(f"$ {block.input['cmd']}")
-                with span("tool", run["span"], step=step, cmd=block.input["cmd"]) as t:
-                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-                    t.update(exit=done.returncode, chars=len(done.stdout))
-                result = done.stdout or f"(exit {done.returncode})"
-                with span("jev", t["span"], step=step) as j:     # its own span, so the tool's seconds stay the tool's
-                    j["failed"] = failed(block.input["cmd"], result)
-                print(done.stdout)
-                print(f"[step {step}: tool {t['seconds']}s, exit {t['exit']}, Jev: failed {j['failed']}]")
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
-        if not input:
-            run["status"] = "done"
-            break
-        messages.append({"role": "user", "content": input})
-    else:
-        run["status"] = "step limit"
-
-print(HEADER)
-print(row(SPANS))
-```
-
-- **Spans.** `span()` wraps a piece of work and writes one record when it's over: an id, the `parent` it belongs to, when it `start`ed and how many `seconds` it took. The run is the parent of every model call and tool, so the file is a tree, not just a list. If the work raises, the span records the `error` and lets the exception carry on, so a crash is in the trace and still crashes.
-- **Cost.** `cost()` multiplies the four token counts by `PRICE`. The rates there are examples; the API doesn't tell you what you pay, so put in your provider's. Each model span carries its cost, and so each task has one.
-- **A live line.** After every model call and tool, it prints one line: the step, how long it took, tokens in and out, cost, exit code, and what Jev said. You see where the time and money go while it runs.
-- **A summary.** When the run ends, `row()` turns its spans into one line: how it ended (`done`, `step limit`, `declined`, or `crashed` if no run span was written), calls, tools, problems, how many tools Jev called failed, time, tokens, how much was read from the cache, cost.
-- **A report.** `observability.py report` reads the whole log and prints that same line for every run. This is the part that works across runs. A trace of one run tells you what happened; a table of every run tells you what's normal.
-
-### A second opinion on every tool
-
-The exit code is how a command says it failed, and it's a rough signal. `grep` exits 1 when it finds nothing, which is an answer, not a failure. A pipe exits with its last stage, so `ls /nonexistent | head -1` exits 0 even though `ls` failed. So I ask [Jev](../05-sandboxing/#asking-jev), the small decision model from Lesson 5 (it needs `TYPESAFE_API_KEY`), one yes/no question about each tool's result: does `result` show that the command failed or hit an error? The criteria say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning. Jev answers with the probability of yes.
-
-`failed()` asks it. The answer goes in a span of its own, kind `jev`, whose parent is the tool's span, so the tool's `seconds` stay the tool's. The live line shows it next to the exit code, and the summary gets a `jev` column next to `prob.`: the tools Jev was at least `SURE` (0.9) sure had failed. Next to the exit code, not instead of it. If Jev doesn't answer (it's down, it times out, the key is wrong), the span says `None` and nothing is counted.
-
-Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability's, inside control flow: it's written down and counted, and that's all. It never goes to the model doing the work, and it never changes what runs next. A probability isn't a fact, either. Jev reads only what the command printed, so it can be fooled by output that looks like an error, and it isn't sure about the in-between cases, as you'll see.
-
-Try it on a task with a failure and a slow step:
-
-```bash
-uv run production/07-observability/observability.py "run ls /nonexistent, then run sleep 3 as a separate command, then say what happened in one sentence"
-```
-
-Here's one run:
-
-```
-[step 1: model 2.76s, 397 tokens in, 233 out, $0.0047]
-$ ls /nonexistent
-ls: cannot access '/nonexistent': No such file or directory
-
-[step 1: tool 0.0s, exit 2, Jev: failed 0.98]
-$ sleep 3
-
-[step 1: tool 3.0s, exit 0, Jev: failed 0.02]
-[step 2: model 0.97s, 712 tokens in, 52 out, $0.0029]
-`ls /nonexistent` failed because that directory doesn't exist, and the separate `sleep 3` command then ran and exited successfully (exit 0).
-run       status     calls tools  prob.  jev   time     in    out  cached     cost  task
-6dae6b62  done           2     2     1    1    6.7s     1109    285     0% $  0.0076  run ls /nonexistent, then run sleep 3 as
-```
-
-The `prob.` column is 1: one tool exited non-zero. The `jev` column is 1 too: Jev was 0.98 sure `ls` failed and 0.02 sure `sleep` did. Of the 6.7 seconds, 3.0 were the `sleep`. (Jev's own time, about a fifth to half a second a question here, is in its spans, not in `time`.) `cached` is 0% because this agent has no system prompt to cache; quark's does, as you saw above.
-
-Here's where the two disagree:
-
-```bash
-uv run production/07-observability/observability.py "run grep -rn FIXME production/07-observability, then run ls /nonexistent | head -1, each as a separate command, then say what happened in one sentence"
-```
-
-```
-[step 1: model 1.5s, 412 tokens in, 118 out, $0.0030]
-$ grep -rn FIXME production/07-observability
-
-[step 1: tool 0.0s, exit 1, Jev: failed 0.76]
-$ ls /nonexistent | head -1
-ls: cannot access '/nonexistent': No such file or directory
-
-[step 1: tool 0.0s, exit 0, Jev: failed 0.97]
-[step 2: model 1.11s, 612 tokens in, 62 out, $0.0028]
-The grep for FIXME in `production/07-observability` found no matches (exit code 1), and `ls /nonexistent` failed with "No such file or directory" because that path doesn't exist.
-run       status     calls tools  prob.  jev   time     in    out  cached     cost  task
-c0808f2d  done           2     2     1    1    2.6s     1024    180     0% $  0.0058  run grep -rn FIXME production/07-observa
-```
-
-Both columns say 1, but they're counting different tools. The exit code counts the `grep` that found nothing, which wasn't a problem. Jev counts the `ls` whose error the pipe hid behind exit 0, which was. Jev wasn't clean on the `grep`, though: 0.76 that it failed. "Exit 1, nothing printed" looks like a failure more often than not, and only `SURE` keeps it out of the count. That's why the answer sits beside the exit code.
-
-If Jev can't answer, the run goes on as if it weren't there. Here the key is wrong on purpose:
-
-```bash
-TYPESAFE_API_KEY=not-a-key uv run production/07-observability/observability.py "run ls /nonexistent and say what happened in one sentence"
-```
-
-```
-[step 1: model 0.92s, 382 tokens in, 55 out, $0.0020]
-$ ls /nonexistent
-ls: cannot access '/nonexistent': No such file or directory
-
-[step 1: tool 0.0s, exit 2, Jev: failed None]
-[step 2: model 0.97s, 464 tokens in, 38 out, $0.0020]
-The `ls /nonexistent` command failed with "No such file or directory" because that path doesn't exist on the system.
-run       status     calls tools  prob.  jev   time     in    out  cached     cost  task
-79a51a22  done           2     1     1    0    1.9s      846     93     0% $  0.0039  run ls /nonexistent and say what happene
-```
-
-After a few runs, ask for the report (I took this one before the run with the wrong key, so that run isn't in it):
-
-```bash
-uv run production/07-observability/observability.py report
-```
-
-```
-run       status     calls tools  prob.  jev   time     in    out  cached     cost  task
-0348969a  done           2     1     0    0    2.2s      948    111     0% $  0.0045  which quark.py in the lessons folder is 
-ff40e40a  done           4     3     0    0    7.4s     5613    397     0% $  0.0228  read the file docs/the-models.md and tel
-6dae6b62  done           2     2     1    1    6.7s     1109    285     0% $  0.0076  run ls /nonexistent, then run sleep 3 as
-c0808f2d  done           2     2     1    1    2.6s     1024    180     0% $  0.0058  run grep -rn FIXME production/07-observa
-```
-
-One line per run. The run that went looking for a file with the wrong name took four calls and cost about five times the first. The spans are in `.quark/spans.jsonl`, and the slowest tool in the log is one query away:
-
-```bash
-jq -s -c 'map(select(.kind=="tool")) | sort_by(-.seconds) | .[0] | {run, step, seconds, exit, cmd}' .quark/spans.jsonl
-```
-
-```
-{"run":"6dae6b62","step":1,"seconds":3.0,"exit":0,"cmd":"sleep 3"}
-```
-
-So is every exit code next to Jev's answer, by joining each `jev` span to its parent tool:
-
-```bash
-jq -s -c '(map(select(.kind=="tool")) | INDEX(.span)) as $t | .[] | select(.kind=="jev") | {exit: $t[.parent].exit, failed, cmd: $t[.parent].cmd[:40]}' .quark/spans.jsonl
-```
-
-```
-{"exit":0,"failed":0.03,"cmd":"find . -path '*lessons*' -name 'quark.py"}
-{"exit":0,"failed":0.63,"cmd":"grep -m1 -n '^#' docs/the-models.md || ("}
-{"exit":0,"failed":0.08,"cmd":"find . -iname '*.md' -not -path './.venv"}
-{"exit":0,"failed":0.03,"cmd":"grep -m1 -n '^#' docs/the-model.md"}
-{"exit":2,"failed":0.98,"cmd":"ls /nonexistent"}
-{"exit":0,"failed":0.02,"cmd":"sleep 3"}
-{"exit":1,"failed":0.76,"cmd":"grep -rn FIXME production/07-observabili"}
-{"exit":0,"failed":0.97,"cmd":"ls /nonexistent | head -1"}
-```
-
-The 0.63 is the in-between case: that command's `grep` failed on the missing file, printed its error, and the `||` went on to search for the right one and exit 0. Part of it failed and the whole of it worked, and Jev said so by not being sure.
-
-The costs are computed at the example rates in `PRICE`, so they show you which run was expensive, not what you were billed. Jev's questions aren't in them.
+- **Spans with parents.** Wrap each piece of work so that one record is written when it's over, with an id, the id of the work it belongs to, when it started and how long it took. The run is the parent of every model call and tool, so the log is a tree, not just a list. If the work raises an exception, record the error in the span and let the exception carry on: a crash is in the trace, and still crashes.
+- **Jev's answer in a span of its own.** Make the question a child of the tool's span, and the tool's time stays the tool's: Jev's fifth of a second to half a second goes in its own record.
+- **Cost.** Multiply the four token counts by your provider's rates per million tokens and keep the result on each model call. The API doesn't tell you what you pay, so the rates are yours to keep up to date, and a cost worked out from example rates tells you which run was expensive, not what you were billed. Jev's questions cost separately.
+- **A live line.** After every model call and tool, print one line: the step, how long it took, tokens in and out, cost, the exit code and Jev's answer. You see where the time and money go while it runs.
+- **A summary, and a report.** When a run ends, turn its records into one line: how it ended (done, out of steps, declined, or crashed if the run never wrote its end), calls, tools, failures by exit code, failures Jev was sure of, time, tokens, how much came from the cache, cost. Then print that line for every run in the log. A trace of one run tells you what happened; a table of every run tells you what's normal.
 
 ## What to take away
 
-**The rule:** record what the harness does as it does it: each model call, each tool, each refusal, how long it took and what it cost, in a log you can search afterwards. Do it where control flow already sees the whole sequence, read from what's already there rather than changing it, and keep it apart from what the model remembers.
+**The rule:** record what the harness does as it does it: each model call, each tool, each refusal, how long it took and what it cost, in a log you can search afterwards. Do it where control flow already sees the whole sequence, read from what's already there rather than changing it, and keep it apart from what the model remembers. Where a signal like the exit code is rough, keep a second opinion beside it, not instead of it.
 
-Notice what observability never does. It sits inside control flow's loop, but it never decides what runs next or when to stop. The model interface sends and receives exactly as before; observability only reads `usage` off the response. It gathers no input, and it puts nothing in front of the model: the trace is not in the request, which is what makes it observability and not context. Output runs tools the way it always did, only with a clock around them.
+Notice what observability never does. It sits inside control flow's loop, but it never decides what runs next or when to stop. The model interface sends and receives exactly as before; observability only reads `usage` off the response, and its one question to Jev goes through Lesson 5's `ask()`, with the answer going only into the trace. It gathers no input, and it puts nothing in front of the model: the trace is not in the request, which is what makes it observability and not context. Output runs tools the way it always did, only with a clock around them.
 
 **What's missing:** it watches, and that's all it does. It will faithfully record that the API dropped a call halfway through a long run, that the model was cut off in the middle of a command, that you pressed ESC and everything it had said or printed up to then was thrown away, or that the process died and took the work with it. It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
 

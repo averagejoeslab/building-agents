@@ -22,25 +22,28 @@ Lesson 8
 
 # Everything so far assumed the other side answers
 
-Lesson 7 can tell you exactly where a run broke. Over a long run, this is what breaks first:
+Over a long run, this is what breaks first:
 
 - the API drops a call, or the model is overloaded
+- a command fails because something else had a file locked
 - a response is cut off in the middle of a command
 - the process dies halfway through, and the work goes with it
-- or you stop it yourself, with Lesson 6's ESC, and what it had already done goes with it
+- or you stop it with ESC, and what it had already done goes with it
 
-<!-- So far every call assumed the thing on the other side answers, and answers sensibly. That's the assumption that fails first. This lesson is about not breaking, or breaking somewhere you can start again from. -->
+<!-- Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Two jobs: get through the failures that pass, and leave a state you can pick up from when one doesn't, so the hour of work before it isn't lost. -->
 
 ---
 
-# Keep going, or stop somewhere you can start again
+# Built on the model interface and output
 
-- **Get through the failures that pass**
-- **Leave a state you can pick up from** when one doesn't, so the hour before it isn't lost
+- The **model interface** is a service across a network: slow, busy or gone
+- **Output** runs the model's words: a command can fail, a request can arrive broken
+- Both are where work is in flight when you press ESC
+- To pick a run back up, it **reads context's own record**: Lesson 4's episode
 
-Built on the **model interface** and **output**, where the harness reaches out and the world gets to say no, and where work is in flight when you press ESC. To pick a run back up it **reads context's own record**: Lesson 4's episode.
+A production layer: hardening, not a new primitive.
 
-<!-- No new primitive. The model interface is a service across a network: slow, busy or gone. Output runs the model's words, so what it's handed can be broken. A response half streamed, a command half run: that's what ESC catches. And the episode already holds every message, written before any tool runs, so there's no save file of its own. -->
+<!-- These are the two places the harness reaches out of itself and the world gets to say no. The episode already holds every message, written before any tool runs, so resilience needs no save file of its own. -->
 
 ---
 
@@ -52,23 +55,22 @@ Built on the **model interface** and **output**, where the harness reaches out a
 | "slow down" (429) | a request the API won't accept (400) |
 | any 5xx, and "overloaded" (529) | a model that doesn't exist (404) |
 
-The SDK already retries the left column, with backoff and jitter (`max_retries`). What it can't do is choose a different model: that's what quark adds.
+The SDK already retries the left column, with backoff and jitter (`max_retries`). What it can't do is choose a different model.
 
-<!-- On the left, nothing is wrong with the request: send it again a moment later. On the right, retrying only delays the error. Backoff is one second, two, four; jitter is so a thousand clients that failed together don't all come back together. When nothing answers, stop with a message, not a stack trace. -->
+<!-- On the left, nothing is wrong with the request: send it again a moment later. On the right, retrying only delays the error. Backoff is one second, two, four; jitter is so a thousand clients that failed together don't all come back together. When nothing answers, stop with a sentence, not a stack trace. -->
 
 ---
 
-# Every request gets an answer the model can read
+# A failed command: ask what kind of failure
 
-A command can fail in ways the harness doesn't see coming:
+An exit code doesn't say whether to try again. Exit 1 can be a typo, a failing test, a lock held for a second, or a script that did half its work.
 
-- it hangs (Lesson 5's sandbox already puts a time limit on that)
-- it prints bytes that aren't text
-- the request arrives cut off by the token limit, half a command
+- Ask Jev: **transient**, **permanent** or **partial**?
+- Sure it's transient, and sure the command only reads: **one more try**
+- Sure it's partial: warn the model to **check before repeating it**
+- Anything else, or no answer: the failure goes back as it is
 
-*This was cut off before it was whole, and it never reached the world* is something the model can act on. A crash isn't.
-
-<!-- This is the rule Lesson 2 started with: every request gets an answer the model can read. -->
+<!-- Jev is the decision model from Lesson 5: a choice and a confidence in a fraction of a second. A read is safe to run twice; a write never is, unless doing it twice is the same as doing it once. Asking is a model-interface act; the retry or the warning is output's. -->
 
 ---
 
@@ -81,139 +83,173 @@ Lesson 6 stops at once by throwing the partials away. But the words were written
 - A tool request it had begun: `[your doing never reached the world]`
 - A stopped command keeps what it printed, then `[your doing stopped before done]`
 
-<!-- Dropping them leaves the model's record out of step with what happened: the same failure as losing a run to a crash, only smaller. So resilience keeps the partials, the way upstream quark does. A thinking block's signature comes at its end, and the API won't take thinking back without one. -->
+<!-- Dropping them leaves the model's record out of step with what happened: the same failure as losing a run to a crash, only smaller. A thinking block's signature comes at its end, and the API won't take thinking back without one. -->
 
 ---
 
-# The trap: a command that may already have run
+# The concept: a call with somewhere else to go
 
-- The episode has the model's request on disk *before* the command runs
-- If the harness died mid-command, the record ends with a request and no result
-- The API won't accept that, and the harness can't just run it again: it might have been `git push`
-- So the missing result becomes an error: *interrupted; may or may not have run; check before repeating it*
-- The model, which knows what the command was for, looks and decides
-
-<!-- This is why it isn't just "load the file." The harness can't know whether it ran, so it says so. It's not a guess made by the harness. -->
-
----
-
-# `call()` grows a backup
-
-Lesson 7's `quark.py` plus 31 lines. `client = Anthropic(timeout=300, max_retries=3)`, a list of `MODELS`, and `class Down`; then (abridged):
+`resilience.py`, `call()` (abridged):
 
 ```python
+client = Anthropic(max_retries=2)
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+
+def call(input):
+    for model in MODELS:
+        try:
+            response = client.messages.create(model=model, ...)
+            return f"[{model}] " + ...
+        except (APIConnectionError, APIStatusError) as e:
+            if ... e.status_code < 500 and e.status_code != 429: raise
+            print(f"[{model}: {type(e).__name__}, after the SDK's retries]")
+    return "[no model answered]"
+```
+
+<!-- The SDK tries each call three times with backoff; call() moves to the next model when what's left is transient. A bad key or a bad request fails the same way on every model, so it's raised. The test is on the status code so 529, overloaded, isn't missed. With Sonnet down through the flaky.py stand-in, three requests failed and Opus answered. -->
+
+---
+
+# The concept: judge a failed command
+
+`run()` (abridged):
+
+```python
+for attempt in (1, 2):
+    done = subprocess.run(cmd, shell=True, ...)
+    if not done.returncode: return "[done]"
+    try: answers = jev.system_one({"command": cmd, "result": ...},
+                                  {"failure": FAILURE, "kind": KIND}).choices
+    except Exception: return "[exit ... Jev: no answer, so no second try]"
+    why, kind = answers["failure"], answers["kind"]
+    if attempt == 2 or not (sure(why, "transient") and sure(kind, "read")): break
+    print("[a failure that passes: trying once more]"); time.sleep(1)
+```
+
+<!-- Two questions in one call: FAILURE, the kind of failure, and KIND, whether the command only reads. sure() means that choice at a confidence of at least SURE, 0.9. A sure partial adds the warning. No key, an error or a time-out means no second try. -->
+
+---
+
+# The concept: a locked database
+
+`hold.py` holds `shop.db`'s write lock, and stops when Jev answers:
+
+```
+OperationalError (SQLITE_BUSY): database is locked
+[exit 1. Jev: transient 1.00, read 0.94]
+[a failure that passes: trying once more]
+(42,)
+[done]
+```
+
+- A typo in the query: `permanent 1.00`, no second try
+- `migrate.py`, failing at its fourth table: `partial 0.91`, and the warning
+- No key: `Jev: no answer, so no second try`
+
+<!-- The first try waited SQLite's five seconds for the lock and failed. Jev was sure it would pass and sure the select only reads, so it ran once more and got the count. migrate.py had written three files before it failed: the warning was true. -->
+
+---
+
+# quark: `call()` grows a backup
+
+Lesson 7's `quark.py` plus 43 lines, 395 in all (abridged):
+
+```python
+client = Anthropic(timeout=300, max_retries=3)
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+class Down(Exception): pass
 def call(each=lambda event: None, **request):
     for model in MODELS:
         try:
             with client.messages.stream(model=model, **request) as stream:
-                for event in stream:
-                    if each(event): return stream.current_message_snapshot
-                return stream.get_final_message()
+                ...
         except (APIConnectionError, APIStatusError) as e:
             if ... e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
 ```
 
-<!-- The stream from Lesson 1 is unchanged; it's now inside a loop over MODELS. A transient failure after the SDK's retries is traced and the next model is tried. Everything else is raised, including "prompt is too long", which compaction is waiting for. The test is on the status code so 529 isn't missed. timeout=300 is five minutes, because a reply of 16,000 tokens takes minutes to write. -->
+<!-- The concept's loop, around Lesson 1's stream. Everything else is raised, including "prompt is too long", which compaction is waiting for. timeout=300 is five minutes, because a reply of 16,000 tokens takes minutes to write. If every model fails, Down ends the run with a sentence. -->
 
 ---
 
-# `unfinished()` reads the last episode back
+# quark: Jev's question
 
-In `# ── context ──`, after `add()` (abridged):
-
-```python
-def unfinished():
-    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
-    if not episodes: return None
-    messages = [json.loads(line) for line in open(episodes[-1])]
-    last = messages[-1]
-    if last["role"] == "assistant" and not any(... "tool_use" ...): return None
-    if read(f"unfinished session: ... pick it up? [y/N] ").lower() != "y": return None
-    return episodes[-1], messages
-```
-
-In `# ── input ──`, it's asked before anything else is read:
+After Lesson 5's `ask()` (abridged):
 
 ```python
-resumed = None if sys.argv[1:] else unfinished()   # resilience: a new task on the command line starts fresh
-input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
+FAILURE = Choice(instructions="... What kind of failure is it?", criteria=...)
+def failure(cmd, result):
+    why = ask({"command": cmd, "result": result[-4000:]}, FAILURE)
+    return why["choice"] if why and why["confidence"] >= SURE else None
+def reads(cmd):
+    kind = ask({"command": cmd}, KIND)
+    return bool(kind and kind["choice"] == "read" and kind["confidence"] >= SURE)
 ```
 
-<!-- If the newest episode ends with the model's answer and no tool request, that session finished. Otherwise it shows you the input that opened it and asks, with Lesson 2's read(). -->
+- `failure()`: the kind of failure, only when Jev is sure
+- `reads()`: Lesson 6's `KIND` again, yes only to a sure `read`
+
+<!-- FAILURE is the concept's question, word for word. ask() already turns no key, an error or a time-out into None. reads() needs no new question: the guard already asks KIND before every command that isn't on its safe list. -->
 
 ---
 
-# A resumed session continues in its own episode
+# quark: one more try
 
-In `# ── control flow ──` (abridged):
-
-```python
-if resumed:
-    EPISODE, working_memory = resumed
-    if working_memory[-1]["role"] == "assistant":
-        add(working_memory, {"role": "user", "content": [...]})
-else:
-    add(working_memory, {"role": "user", "content": input})
-trace(event="start", input=input, resumed=bool(resumed))
-```
-
-Each unanswered request gets: *"interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it."*
-
-<!-- EPISODE points at the old file, so everything from here is appended to the same session. The interrupted results go through add(), so the episode records them too. -->
-
----
-
-# ESC: keep what it had said and printed
-
-While it thinks or says (abridged):
+The command now runs in a loop of at most two tries (abridged):
 
 ```python
-    if response.stop_reason is None:
-        trace(event="interrupted", during="saying")
-        print()
-        kept = [b for b in output if (b.type != "text" or b.text)
-                and (b.type != "thinking" or b.signature)]
-        if kept: add(working_memory, {"role": "assistant", "content": kept})
-        add(working_memory, {"role": "user", "content": [...] + [...SAYING]})
-        continue
-```
-
-While it acts, Lesson 6's `=` becomes `+=` (abridged):
-
-```python
-            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
-```
-
-<!-- output is what had arrived when the stream stopped. Every block is kept unless it's empty text or thinking with no signature. Then your interruption, and an answer for each tool request it had begun. The += is one character, and the model sees what its command did before you stopped it. -->
-
----
-
-# Stop with a sentence, and never run half a command
-
-```python
-    except Down:
-        sys.exit("[the model isn't answering. ...]")
+for attempt in (1, 2):
+    ...
+    trace(event="tool", ..., failed=failed(cmd, done.stdout))
+    why = failure(cmd, done.stdout) if done.returncode and not ESC.is_set() else None
+    if attempt == 2 or why != "transient" or not reads(cmd): break
+    print("[a failure that passes: trying once more]"); time.sleep(1)
 ...
-            cmd = block.input.get("cmd")
-            print(f"$ {cmd}")
-            ...
-            if not cmd or (response.stop_reason == "max_tokens" and ...):
-                print("[cut off, not run]")
-                input.append({"type": "tool_result", ..., "content": "[... cut off ...]"})
-                continue
+if why == "partial": done.stdout += "\n(it may have partly run: ...)"
 ```
 
-(abridged) The model is told *"your doing was cut off before it was fully formed — it never reached the world"*.
+<!-- A command you stopped with ESC isn't asked about. The model only sees the second try's result; the trace gets a tool line for each try. Asking Jev is model interface; another try or a line on the result is output's. -->
 
-<!-- block.input.get means a request with no command is answered, not a KeyError. Cut off means max_tokens and the last block. Everything else is unchanged: ESC stops things exactly as in Lesson 6; this layer only decides what's kept. -->
+---
+
+# Picking up an unfinished session
+
+In `# ── input ──` (abridged):
+
+```python
+resumed = None if sys.argv[1:] else unfinished()
+```
+
+- `unfinished()` reads the newest episode; if it ends mid-task, it asks: *pick it up? [y/N]*
+- `EPISODE` points at the old file, so the session continues in it
+- A request with no result gets: *"interrupted: ... it may or may not have run. Check before repeating it."*
+- The harness doesn't run it again: it might have been `git push`
+
+<!-- If the newest episode ends with the model's answer and no tool request, that session finished. A new task on the command line starts fresh, so it's never swallowed by an old one. The API won't accept a tool request with no result, and the harness can't know whether it ran, so it says so. The model, which knows what the command was for, looks and decides. -->
+
+---
+
+# ESC, `Down`, and half a command
+
+While it thinks or says, what it had produced is kept (abridged):
+
+```python
+kept = [b for b in output if (b.type != "text" or b.text)
+        and (b.type != "thinking" or b.signature)]
+```
+
+- While it acts, Lesson 6's `=` becomes `+=`: a stopped command keeps what it printed
+- `except Down:` ends the run with a sentence: *run quark again to pick it up*
+- No `cmd`, or cut off by `max_tokens`: `[cut off, not run]`, and the model is told it *never reached the world*
+
+<!-- Every block is kept unless it's empty text or thinking with no signature. Then your interruption, and an answer for each tool request it had begun. block.input.get("cmd") means a request with no command is answered, not a KeyError. -->
 
 ---
 
 # Run it: the preferred model is down
 
-A stand-in for the API answers "529 overloaded" to every request for `claude-sonnet-5-5`, and forwards the rest:
+`flaky.py` answers "529 overloaded" to every request for `claude-sonnet-5-5`:
 
 ```
 $ wc -c notes.txt
@@ -226,20 +262,22 @@ The output looks like any other run. The trace doesn't (shortened):
 
 ```
 {"event":"model_failed","model":"claude-sonnet-5-5","error":"OverloadedError"}
-{"event":"model","seconds":5.27,"stop_reason":"tool_use"}
+{"event":"model","seconds":4.91,"stop_reason":"tool_use"}
 ```
 
-<!-- The stand-in, flaky.py, is about 30 lines of standard-library Python, reached through ANTHROPIC_BASE_URL. Both calls had four failed requests to Sonnet, the first try and three retries, then one to Opus that worked: ten requests for two calls. The seconds, 5.27 and 4.65, are mostly the backoff. -->
+<!-- Both calls had four failed requests to Sonnet, the first try and three retries, then one to Opus that worked: ten requests for two calls. The seconds, 4.91 and 4.26, are mostly the backoff. Every call tries the preferred model again from scratch. -->
 
 ---
 
 # Run it: nothing answers, then the API comes back
 
-Every request fails, for every model. quark stops with:
+Every request fails, for every model:
 
-> [the model isn't answering. Everything so far is in the episode; run quark again to pick it up]
+```
+[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]
+```
 
-Run `quark.py` again with no input and answer `y` (shortened):
+Run `quark.py` again with no input, and answer `y` to *unfinished session: 'How many bytes is notes.txt? Answer in one line.'. pick it up?* (shortened):
 
 ```
 6 notes.txt
@@ -247,50 +285,60 @@ Run `quark.py` again with no input and answer `y` (shortened):
 notes.txt is 6 bytes.
 ```
 
-```
-{"event":"start","input":"","resumed":true}
-```
-
-<!-- It tried both models, gave up and said so. There's no save file: the episode is the record. The second run picked the session up from its episode, and finished in it: that one file now holds all four messages. -->
+<!-- It tried both models, four requests each, and said so. There's no save file: the episode is the record. The second run picked the session up and finished in it: that one file now holds all four messages, and the trace marks the second start as resumed. -->
 
 ---
 
 # Run it: killed mid-command, then resumed
 
-`sleep 15 && echo finished > flag.txt`, killed with `kill -9` on its PID twelve seconds in. The container wasn't, so the command finished. Resumed (shortened):
+`sleep 15 && echo finished > flag.txt`, killed with `kill -9` on its PID eight seconds in. The container wasn't, so the command finished. Resumed (shortened):
 
 ```
--rw-rw-rw- 1 root root 9 Oct  6 20:33 flag.txt
-Tue Oct  6 20:33:44 UTC 2026
-
-`flag.txt` contains `finished`.
+$ ls -l flag.txt; cat flag.txt
+-rw-rw-rw- 1 root root 9 Oct  6 23:21 flag.txt
+finished
 ```
 
-> The harness reported my first run as interrupted, so I checked the file before running the command again. It was already there with that content, which means the command had completed. I didn't run it a second time.
+> The harness said my first run was interrupted, so I checked the file before running the command again. The file already existed with that content, which means the command had finished. I didn't run it a second time.
 
-<!-- atexit can't run after kill -9, so the box kept going: the command did run, and the harness didn't know. That's exactly the case the interrupted result is for. The model ran cat flag.txt; ls -l flag.txt; date, and didn't repeat the command. Kill by PID, not pkill, which matches on names and can match far more than you meant. -->
+<!-- atexit can't run after kill -9, so the box kept going: the command did run, and the harness didn't know. That's exactly the case the interrupted result is for. Kill by PID, not pkill, which matches on names and can match far more than you meant. -->
+
+---
+
+# Run it: a failure that passes
+
+The locked `shop.db`, through quark:
+
+```
+$ python3 -m sqlite3 shop.db "select count(*) from orders"
+[a failure that passes: trying once more]
+(42,)
+
+There are 42 orders in shop.db.
+```
+
+```
+{"event":"tool","seconds":5.4,"exit":1,"failed":0.99}
+{"event":"tool","seconds":0.32,"exit":0,"failed":0.03}
+```
+
+<!-- No question from the guard: Jev was sure the select only reads. The first try's database-is-locked never reached the screen or the model: Jev was sure it was transient, reads() was sure, and quark tried once more. The trace has both tries. migrate.py through quark came back partial, with the warning, and the model didn't run it again. -->
 
 ---
 
 # Run it: ESC, and the model knows how far it got
 
-While saying, the second answer picks up where the first stopped (shortened):
+While saying, the screen stopped at (shortened):
 
-```
-The same trick works for any prime where 10⁶ ≡ 1: the remainder is always 4, so none
-Sorry, I was cut off partway through. Here is where things stand.
-```
+> ... Likewise 19 × 52631 = 999,989, which leaves
 
-While doing, a line a second, ESC after three and a half (shortened):
+After ESC (shortened):
 
-```
-step 4
+> Understood, I'll stop there. ... The hand checks I did cover 2, 3, 5, 7, 11, 13, 17, 19 and 37, and none of them divides it.
 
-[your doing stopped before done]
-You interrupted the command, so it stopped after step 4. Steps 5 through 10 never ran.
-```
+While doing, a line a second, ESC after about three: the model saw `step 1` to `step 3` and `[your doing stopped before done]`.
 
-<!-- In the first, the second answer knew it had ruled out 2, 3, 5, 7, 11, 13, 37 and 101, because that text was in working memory; the episode shows the signed thinking and the text kept. In Lesson 6 it would have been told only that you interrupted it. In the second, it saw step 1 to step 4: the result held the output and the note, where Lesson 6 gave only the note. -->
+<!-- The episode shows the signed thinking and the text kept, which ends a little later than the screen: "which leaves 14." So the second answer counts 19 among the primes it checked. In Lesson 6 it would have been told only that you interrupted it. In the second, the result held step 1 to step 3 and the note, where Lesson 6 gave only the note. -->
 
 ---
 
@@ -307,82 +355,21 @@ $ None
 
 - Each request arrived with no `cmd` at all, so the line says `$ None`
 - Each was answered with the cut-off result; none of them ran
-- After the eighth, the model stopped and said what was happening, with nothing half-written on disk
+- After the tenth, the model stopped and said what was happening, with nothing half-written on disk
 
-<!-- Every response hit the limit while the model was writing its command. It said seven tries; there were eight. With the real limit of 16,384, the same rule catches the rare command that's too long to finish. -->
+<!-- Every response hit the limit while the model was writing its command. Its guess about the 400-token limit came from its own file, which it reads as its mechanics. With the real limit of 16,384, the same rule catches the rare command that's too long to finish. -->
 
 ---
 
-# What else resilience can be
+# Other things we could do
 
 - **Waiting and the backup:** backoff with a cap, `Retry-After`, a limiter; another model, provider or region
-- **Remembering a failure:** a *circuit breaker* leaves a failed model alone for a minute
-- **A broken stream:** keep what arrived, as ESC does; time out on *silence*, not the whole reply
-- **What's kept when stopped:** unsigned thinking as plain text, a half-written command as text
-- **Tools, state, restarts:** kill the process group, cap output; save every step; restart by hand or by a supervisor
+- **Remembering a failure:** a *bench* or *circuit breaker* leaves a failed model alone for a minute
+- **Commands:** kill the whole process group, cap output, a hand-written list of reads
+- **State:** a checkpoint file written whole or not at all; restart by hand or by a supervisor
+- **Products:** gateways (LiteLLM, OpenRouter); durable execution (Temporal), checkpointing (LangGraph)
 
-<!-- quark has one retry setting, one backup model and one file. A switch of model pays full price for the prompt once, since the cache is per model. Retrying a read is usually safe; retrying a write never is, unless doing it twice is the same as doing it once. A hard kill can't be caught, which is why the file is written before the work. -->
-
----
-
-# Products, and a fuller example
-
-Gateways like LiteLLM and OpenRouter handle retries, fallbacks and rate limits. Durable execution (Temporal) and checkpointing (LangGraph) pick a crashed process up at its step.
-
-`resilience.py`, built on Lesson 3's loop, does the retries itself, in plain sight:
-
-- `retryable()` sorts failures; `pause()` honors `retry-after`, else backs off with jitter
-- `ask()` benches a model that gave up for `BENCH` seconds
-- `run()` kills the whole process group and caps output
-- `failure()` asks Jev if a failed command is worth one more try
-- `save()` checkpoints every step; `resilience.py resume` picks it up
-
-<!-- The client has max_retries=0, so its retries are the only ones. The checkpoint is written before the first request, after each reply and after each set of results, so it always ends at a point the API will accept. -->
-
----
-
-# The preferred model down, with a circuit breaker
-
-```
-[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.8s]
-[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.3s]
-[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 3.5s]
-[claude-sonnet-5-5: OverloadedError, giving up on it for 60s]
-[answered by the backup, claude-opus-5-5]
-$ wc -c notes.txt
-6 notes.txt
-[answered by the backup, claude-opus-5-5]
-notes.txt is 6 bytes.
-[done in 2 steps]
-```
-
-Waits grow with jitter: 0.8, 1.3, 3.5. The second call skipped the benched model: six requests, where quark sent ten.
-
-<!-- The doubling would give 1, 2, 4, each multiplied by a number between a half and one. The stand-in's log shows four requests to the first model, two to the second. -->
-
----
-
-# Asking Jev about a failed command
-
-```python
-kind = failure(cmd, out) if failed else None
-if kind == "transient" and reads(cmd):
-    time.sleep(BASE)
-    out, failed = run(cmd)
-elif kind in ("partial", "unsure") and not reads(cmd):
-    out += "\n(it may have partly run: check before repeating it)"
-```
-
-```
-$ curl -sSf http://127.0.0.1:8115/status
-[Jev: transient, confidence 0.87]
-[trying once more in 1s]
-ok
-```
-
-(abridged, and the run shortened) Jev says if a retry is worth it; hand-written `reads()` says if it's safe.
-
-<!-- Jev is the small decision model from Lesson 5: a choice and a confidence in a fraction of a second. Under SURE, or no answer at all, and nothing is retried. Asking is a model-interface act; the retry or the warning is output's. The service answered 503 once, then ok; the model only saw ok. migrate.py, which failed at its fourth table, came back as partial, 0.85, with the warning added. -->
+<!-- quark has one retry setting, one backup model, one question for a failed command, and no file of its own. A switch of model pays full price for the prompt once, since the cache is per model. A hand-written list of reads is stricter than Jev, but the line is drawn by code you can read. And Jev can only judge what a command printed: a curl -sf that hides its error gave it nothing to go on. -->
 
 ---
 
@@ -391,23 +378,23 @@ ok
 Assume the call can fail, and make failure something the harness handles instead of something that ends the run.
 
 - Retry what passes, a bounded number of times; have somewhere else to go
-- Stop with a sentence when everywhere is out
+- Run a failed command again only when it's sure to pass and sure to only read
 - Answer every tool request, even a broken one, with a result the model can read
 - When you stop it, keep what it had already said and done
 - Keep a record written before each step, so what was in flight is reported as *unknown*
 
-<!-- Not guessed at, and not lost. -->
+<!-- Stop with a sentence when everywhere is out. What was in flight is not guessed at, and not lost. -->
 
 ---
 
 # What resilience never does
 
 - **Context:** it reads the record context already keeps; it adds no store of its own
-- **Control flow:** same loop, same stops; a retry is inside one call, and the only new way out is `Down`
+- **Control flow:** same loop, same stops; a retry is inside one call or one command, and the only new way out is `Down`
 - **Input:** untouched, apart from one question at startup, asked with the same `read()`
-- **What the model sees:** only what it's told about its own work: the interrupted and cut-off results, and the partials ESC used to throw away
+- **What the model sees:** only what it's told about its own work: interrupted, cut off, partial, and the partials ESC used to throw away
 
-<!-- It sits in the model interface and output. The system prompt doesn't tell the model that the harness retries or that it may have been resumed: that would be a decision about context, and this layer doesn't make it. -->
+<!-- It sits in the model interface and output, and its question to Jev goes through Lesson 5's ask(). The system prompt doesn't tell the model that the harness retries or that it may have been resumed: that would be a decision about context, and this layer doesn't make it. -->
 
 ---
 

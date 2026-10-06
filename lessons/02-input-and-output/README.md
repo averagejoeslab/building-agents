@@ -16,11 +16,11 @@ Here's where they sit around Lesson 1's call:
 person or world ─► input ─► request ─► model interface ─► response ─► output ─► person or world
 ```
 
-In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes each end real on its own, then puts them together.
+In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes each end real on its own, in a small file of its own: [`input.py`](./input.py) for input, [`output.py`](./output.py) for output. Then it puts them together, the way quark does.
 
 ## Input
 
-Here's Lesson 1's harness with real input. The output is still Lesson 1's stub. It's the whole of [`input.py`](./input.py):
+Here's input with nothing around it: Lesson 1's call, with real input going in. The output is still Lesson 1's stub. The request also describes one tool, so the model can ask for it. It's the whole of [`input.py`](./input.py):
 
 ```python
 import sys
@@ -114,7 +114,7 @@ The input went in, and the model answered it the only way it can: with a `tool_u
 
 ## Output
 
-Here's Lesson 1's harness with real output. The input is still Lesson 1's hardcoded question. It's the whole of [`output.py`](./output.py):
+Here's output with nothing around it: Lesson 1's call, with real output coming out. The input is still Lesson 1's hardcoded question. It's the whole of [`output.py`](./output.py):
 
 ```python
 import subprocess
@@ -148,7 +148,7 @@ for block in output:                                     # output: run tool requ
 
 **`show()`** is output that shows text as it's written. Lesson 1's `call()` hands each piece of the streaming response to `each()`; here `call(show, ...)` makes that `show`. Each piece of text is printed the moment it arrives, so you watch the words appear instead of waiting for the whole response, and when a text block ends, `show()` ends the line. Every other piece, like thinking or a tool request being written, it lets pass.
 
-**`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` stays at Lesson 1's 16384, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
+**`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` stays at Lesson 1's 16384, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. quark checks for that in Lesson 8.
 
 **`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. `errors="replace"` turns any bytes that aren't valid text into `�`, so a command that prints half a character can't crash the harness. The command and what it printed go to the person, so they can see what ran.
 
@@ -191,7 +191,7 @@ The model asked for `ls -la`, and output ran it. The listing went to the screen,
 
 ## Together
 
-Here's [`input.py`](./input.py) and [`output.py`](./output.py) in one file: input's `read()` and `input` going in, output's tool and handling coming out. It's the whole of [`quark.py`](./quark.py):
+Here's how quark does it: [`input.py`](./input.py) and [`output.py`](./output.py) in one file, input's `read()` and `input` going in, output's tool and handling coming out, plus the one piece that joins them. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
@@ -238,6 +238,8 @@ Lesson 1's dump is gone, because output now handles the response. And there's on
 
 **`input = []`** is input again, this time from the world. Once output runs a tool, what the tool printed is something the model should know about. Each `tool_result` puts it in the shape the model reads, naming the `tool_use_id` it answers, and a command that prints nothing still reports its exit code. It's the same name as the input from a person, on purpose: input is whatever comes in, from a person or from the world. That's the exchange: the model asks, output acts, input brings back what happened.
 
+### Run it
+
 From the root of the repo:
 
 ```bash
@@ -257,14 +259,14 @@ It's the same input as `input.py`, and the model asked for the same `wc -l READM
 
 Notice what never happens: the model never sees the 301. It's sitting in `input`, and nothing sends it.
 
-## Going further
+## Other things we could do
 
-**What else input and output can be:** quark gathers input from a terminal and runs one tool on the same machine, but these primitives hold more in other harnesses.
+quark gathers input from a terminal and runs one tool on the same machine. Input and output can hold a lot more than that in other harnesses.
 
 Input:
 - **Where a person's input comes from.** Command-line arguments, a prompt, a pipe, a chat app, a webhook, a schedule.
 - **What it can be.** Text, images, files.
-- **What happens to bad input.** A blank message can be asked for again instead of sent.
+- **What happens to bad input.** quark gives a fresh prompt for a blank line; a harness can also refuse or cut down input that's too long, or a file it can't read, before it's sent.
 - **What comes back from the world.** What a tool printed, its exit code, and whether it failed.
 
 Output:
@@ -278,105 +280,17 @@ Output:
 
 Some of this is a product on its own. [MCP](https://modelcontextprotocol.io) servers package tools behind one protocol, so a harness can run tools someone else built without writing them. That part of MCP is output you plug in.
 
-Here's input and output that do more of that, in [`input_output.py`](./input_output.py). The input is a Telegram chat, and the output goes back to that chat and to a tool executor that runs every tool request at once:
+A few of these are worth picturing in a real harness.
 
-```python
-import asyncio, json, os, pathlib, urllib.request
-from anthropic import AsyncAnthropic
+**A chat app as both ends.** Swap the terminal for a Telegram bot and nothing else about the model changes. Input asks Telegram for new messages and waits until one arrives, then hands back its text and which chat it came from. Output posts the model's words, and each tool's result, back to that same chat. You'd want this when the person isn't sitting at your machine: they message the agent from their phone. Taking one message is still input; answering message after message would be control flow.
 
-client = AsyncAnthropic()
-BOT = f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}"
-tools = [
-    {"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}},
-    {"name": "read_file", "description": "Read a text file", "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
-]
+**Several tools, routed by name.** Instead of one `bash` that can do anything, you could give the model a `bash` and a `read_file`, and keep a table from each tool's name to the code that runs it. A request for a tool that isn't in the table gets an error back instead of crashing the harness. Narrow tools are easier for the model to use well and easier for you to limit.
 
-def telegram(method, **params):
-    request = urllib.request.Request(f"{BOT}/{method}", data=json.dumps(params).encode(), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)["result"]
+**Every request at once.** A response can ask for more than one tool. Run them one after another and three commands that each take two seconds take six. Start them all together and wait for all of them, with something like `asyncio.gather`, and they take two. Each result still has to name the request it answers.
 
-async def receive():
-    offset = 0
-    while True:
-        for update in await asyncio.to_thread(telegram, "getUpdates", offset=offset, timeout=50):
-            offset = update["update_id"] + 1
-            if text := update.get("message", {}).get("text"):
-                await asyncio.to_thread(telegram, "getUpdates", offset=offset, timeout=0)
-                return update["message"]["chat"]["id"], text
+**A request that was cut off.** If the response hit `max_tokens`, its last tool request may be half-written. Output can check `stop_reason == "max_tokens"` and send back "cut off before it was finished, so it was not run" instead of running it.
 
-async def send(chat, text):
-    await asyncio.to_thread(telegram, "sendMessage", chat_id=chat, text=text[:4000])
-
-async def bash(cmd):
-    proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-    try:
-        out, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
-    except asyncio.TimeoutError:
-        proc.kill()
-        return "stopped after 30 seconds", True
-    return out.decode(errors="replace") + (f"\n(exit {proc.returncode})" if proc.returncode else ""), False
-
-async def read_file(path):
-    try:
-        return await asyncio.to_thread(pathlib.Path(path).read_text), False
-    except OSError as e:
-        return str(e), True
-
-executors = {"bash": lambda args: bash(args["cmd"]), "read_file": lambda args: read_file(args["path"])}
-
-async def execute(block, cut_off):
-    if cut_off:
-        out, failed = "cut off before it was finished, so it was not run", True
-    elif block.name not in executors:
-        out, failed = f"no tool named {block.name}", True
-    else:
-        out, failed = await executors[block.name](block.input)
-    return {"type": "tool_result", "tool_use_id": block.id, "content": out or "(no output)", "is_error": failed}
-
-async def main():
-    chat, input = await receive()
-    output = await client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}])
-    if words := "\n".join(b.text for b in output.content if b.type == "text"):
-        await send(chat, words)
-    calls = [b for b in output.content if b.type == "tool_use"]
-    input = await asyncio.gather(*(execute(b, output.stop_reason == "max_tokens" and b is output.content[-1]) for b in calls))
-    for call, result in zip(calls, input):
-        await send(chat, f"→ {call.name} {json.dumps(call.input)}\n{result['content']}")
-
-asyncio.run(main())
-```
-
-- **Where a person's input comes from.** `receive()` asks Telegram for new messages and waits until one arrives, then hands back its text and which chat it came from. It takes one message and stops; answering message after message would be control flow.
-- **Where output goes.** `send()` posts the model's words, and each tool's result, back to the chat the message came from.
-- **Which tools exist.** Two, `bash` and `read_file`. `executors` maps each tool's name to the code that runs it, and a request for a tool that isn't there gets an error back instead of crashing the harness.
-- **How tool requests run.** `asyncio.gather` starts every request in the response at once and waits for all of them. Three commands that each take two seconds finish in two seconds, not six.
-- **When not to run.** If the response hit `max_tokens`, its last tool request may be incomplete, so it isn't run.
-- **What happens when a tool fails or hangs.** `bash` is stopped after 30 seconds. Failures come back as results with `is_error` set, and a non-zero exit code is added to the output.
-
-To run it, make a bot by messaging [@BotFather](https://t.me/BotFather) on Telegram, put its token in `.env` as `TELEGRAM_BOT_TOKEN=...`, then:
-
-```bash
-uv run lessons/02-input-and-output/input_output.py
-```
-
-Send your bot a message. Here's one run. For this run, Telegram was swapped for a stand-in that prints each message, labeled by which way it went; the model and the tools were real:
-
-```
-[telegram → bot] check the python3 version, the git version and the first line of pyproject.toml, all three at once
-[bot → telegram] → bash {"cmd": "python3 --version"}
-Python 3.13.14
-
-
-[bot → telegram] → bash {"cmd": "git --version"}
-git version 2.43.0
-
-
-[bot → telegram] → bash {"cmd": "head -n 1 pyproject.toml"}
-[project]
-```
-
-One message asked for three things, the model asked for three tools in one response, and the executor ran them together. The results went to the chat. As with `quark.py`, the model never sees them.
+**A tool that hangs or fails.** A command that never ends would hang the harness forever. Output can stop it after, say, 30 seconds and say so. And a failure, a timeout, a missing file, a non-zero exit code, can come back as a result marked `is_error`, so the model knows it didn't work.
 
 ## What to take away
 

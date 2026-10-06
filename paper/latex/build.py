@@ -14,7 +14,7 @@ KEYS = {1: "sumers2024cognitive", 2: "jin2026agentprimitives", 3: "schluntz2024b
         5: "fan2026empirical", 6: "litellm", 7: "openrouter", 8: "mem0", 9: "langgraph", 10: "mcp",
         11: "langfuse", 12: "langsmith", 13: "opa", 14: "nemo", 15: "e2b", 16: "daytona", 17: "modal",
         18: "temporal", 19: "braintrust", 20: "promptfoo", 21: "inspect", 22: "codex", 23: "opencode",
-        24: "claudecode", 25: "course"}
+        24: "claudecode", 25: "course", 26: "typesafe"}
 
 def cites(m):
     nums = []

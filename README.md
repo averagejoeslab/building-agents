@@ -51,7 +51,7 @@ The lessons go the other way and build it back up, one primitive at a time, in a
 
 The course is **the primitives**, Lessons 1–4: they build a working harness, and they're the part to learn first. **The production layers**, Lessons 5–10, come after. They harden that harness for running unattended, and every one of them folds back into the primitives you already built.
 
-The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each primitive lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
+The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Every lesson shows its idea on its own first, in a small file you can run, then what quark adds to it and why, with runs, then the other things it could be, in words.
 
 ### The primitives
 
@@ -74,20 +74,20 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
-| 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
+| 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage, and a way out it can lend for one command | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
 | 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to stop it thinking, saying or acting | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
 | 7 | [Observability](./production/07-observability/) | a trace of every step, its time, tokens and outcome, for the person running it | control flow | [slides](./production/07-observability/slides.pdf) · [md](./production/07-observability/slides.md) | 🎥 coming soon |
 | 8 | [Resilience](./production/08-resilience/) | retries, a backup model, keeping what an interrupt cut short, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
-| 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time, a model picked for the size of each request | context, model interface, output, control flow | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
-Each production lesson also has a fuller example that does more of its layer, and each of those asks [Jev](./production/05-sandboxing/#asking-jev), a small model that makes decisions instead of writing text, one question about its job: what a command needs from the box, whether it only reads, whether a tool failed, whether a failure will pass, how big a request is, and whether the agent finished. It's a way to see where a second model fits in a harness, and what it can and can't be trusted with.
+From Lesson 5 on, each layer also asks [Jev](./production/05-sandboxing/#asking-jev), a small model that makes decisions instead of writing text, one question about its job: what a command needs from the box, whether it only reads, whether a tool failed, whether a failure will pass, how big a request is, and whether the agent finished. It's a way to see where a second model fits in a harness, and what it can and can't be trusted with.
 
 ## Setup
 
 Everything you need to run the lessons.
 
-macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key. The production lessons (5–10) also need [Docker](https://docs.docker.com/get-docker/), and their fuller examples ask [Jev](https://docs.typesafe.ai), a small decision model, so they use a TypeSafe key too; without one, they fall back to deciding the old way.
+macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key. The production lessons (5–10) also need [Docker](https://docs.docker.com/get-docker/), and they ask [Jev](https://docs.typesafe.ai), a small decision model, so they use a TypeSafe key too; without one, quark decides the old way.
 
 Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
 
@@ -182,7 +182,7 @@ uv run lessons/04-context/quark.py "Review the paper, paper/agent-harness-primit
 ```
 
 The fact from run 1 came back. quark counted the prompt in `quark.py` again: lines 34 to 181, which is 148 lines, with 86 of code. The paper said 82 and 152, everywhere. We had the split wrong, and quark corrected it. It also found:
-- Two production features the paper credited to a lesson's `quark.py` but which only exist in the fuller example files.
+- Two production features the paper credited to a lesson's `quark.py` but which only existed in the separate, longer example files the lessons had then.
 - A paragraph about the original slide decks that no longer described the current ones.
 - A trace in an appendix shown as if it were complete.
 - Two wrong cross-references in the supplement.
@@ -239,7 +239,7 @@ Later, on today's 239-line `quark.py`, I gave quark one more job. I deleted [`AG
 
 It crashed three times first. Each time, after a dozen to fifty commands of reading, it ran something like `grep … | cut -c1-140` on files full of `─`. `cut` counts bytes, so it split a three-byte character in half, and Lesson 4's `quark.py` couldn't decode the output and died. Adding a warning to the prompt didn't help: the third attempt got one and cut lines by bytes anyway. The fault was the harness's, not the model's. Upstream quark decodes with `errors="replace"`, so a stray byte becomes `�`, and the course now does the same from Lesson 2 on. With that fix, the fourth attempt, with the original prompt, read the README, every lesson, the paper and its build, the decks, the proof and the git history in 40 calls and about five minutes, and wrote the `AGENTS.md` that's in the repo now. It changed no other file.
 
-It also found two mistakes of mine and only described them, as told: the `errors="replace"` change had leaked into the README listings of three fuller examples whose files don't have it, and the arXiv bundle hadn't been rebuilt. Both were real, and both are fixed. I fixed three of its lines by hand: the two bullets that described those mistakes, which were no longer true once they were fixed, and an evaluation timing it got wrong (it said about 25 seconds a case; the lesson shows five to seven).
+It also found two mistakes of mine and only described them, as told: the `errors="replace"` change had leaked into the README listings of three of the longer example files the lessons had then, whose files don't have it, and the arXiv bundle hadn't been rebuilt. Both were real, and both are fixed. I fixed three of its lines by hand: the two bullets that described those mistakes, which were no longer true once they were fixed, and an evaluation timing it got wrong (it said about 25 seconds a case; the lesson shows five to seven).
 
 The transcripts of all four attempts and its memory afterwards are in [`docs/quark-at-work/agents-md/`](./docs/quark-at-work/agents-md/).
 

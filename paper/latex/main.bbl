@@ -1,4 +1,4 @@
-\begin{thebibliography}{25}
+\begin{thebibliography}{26}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -45,6 +45,12 @@ Erik Schluntz and Barry Zhang.
 {Model Context Protocol}.
 \newblock {Model Context Protocol}: Architecture overview.
 \newblock \url{https://modelcontextprotocol.io/docs/learn/architecture}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{TypeSafe AI}(2026)]{typesafe}
+{TypeSafe AI}.
+\newblock {Jev}: A system one decision model.
+\newblock \url{https://docs.typesafe.ai}, 2026.
 \newblock Accessed 2026-10-06.
 
 \bibitem[{OpenAI}(2026)]{codex}
