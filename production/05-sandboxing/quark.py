@@ -236,7 +236,7 @@ while True:
     for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")   # sandboxing: in the box, with a time limit
             if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world

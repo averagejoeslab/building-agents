@@ -245,7 +245,7 @@ with span("run", task=input) as run:
             if block.type == "tool_use":
                 print(f"$ {block.input['cmd']}")
                 with span("tool", run["span"], step=step, cmd=block.input["cmd"]) as t:
-                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
                     t.update(exit=done.returncode, chars=len(done.stdout))
                 print(done.stdout)
                 print(f"[step {step}: tool {t['seconds']}s, exit {t['exit']}]")

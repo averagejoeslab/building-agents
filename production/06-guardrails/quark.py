@@ -288,7 +288,7 @@ while True:
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
             with listening():                            # guardrails: ESC stops the command
-                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")   # sandboxing: in the box, with a time limit
                 while True:
                     try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
                     except subprocess.TimeoutExpired:

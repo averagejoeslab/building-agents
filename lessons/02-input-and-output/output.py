@@ -21,5 +21,5 @@ output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "c
 for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
-        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
         print(done.stdout)

@@ -33,6 +33,6 @@ input = []
 for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
-        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
         print(done.stdout)
         input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world

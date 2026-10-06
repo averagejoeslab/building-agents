@@ -131,7 +131,7 @@ In the output loop, a cut-off request is never run:
                 continue
 ```
 
-`block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run, and the model is told so in the same words as everything else that didn't happen: it never reached the world. The other uses of `block.input["cmd"]` become `cmd`, and `errors="replace"` on the box's output means bytes that aren't valid text become `�`, not a `UnicodeDecodeError` that kills the harness.
+`block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run, and the model is told so in the same words as everything else that didn't happen: it never reached the world. The other uses of `block.input["cmd"]` become `cmd`.
 
 Everything else is unchanged on purpose. ESC still stops the stream and kills the commands exactly as in Lesson 6; this layer only decides what's kept afterwards. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it.
 

@@ -140,7 +140,7 @@ output = call(show, max_tokens=16384, tools=tools, messages=[{"role": "user", "c
 for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
-        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
         print(done.stdout)
 ```
 
@@ -150,7 +150,7 @@ for block in output:                                     # output: run tool requ
 
 **`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` is 16384 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
 
-**`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. The command and what it printed go to the person, so they can see what ran.
+**`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. `errors="replace"` turns any bytes that aren't valid text into `�`, so a command that prints half a character can't crash the harness. The command and what it printed go to the person, so they can see what ran.
 
 From the root of the repo:
 
@@ -229,7 +229,7 @@ input = []
 for block in output:                                     # output: run tool requests
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
-        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
         print(done.stdout)
         input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 ```

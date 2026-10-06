@@ -205,9 +205,9 @@ While it acts, Lesson 6's `=` becomes `+=` (abridged):
                 continue
 ```
 
-(abridged) The model is told *"your doing was cut off before it was fully formed — it never reached the world"*. And `errors="replace"` turns bytes that aren't text into `�`.
+(abridged) The model is told *"your doing was cut off before it was fully formed — it never reached the world"*.
 
-<!-- block.input.get means a request with no command is answered, not a KeyError. Cut off means max_tokens and the last block. Without errors="replace", a UnicodeDecodeError would kill the harness. Everything else is unchanged: ESC stops things exactly as in Lesson 6; this layer only decides what's kept. -->
+<!-- block.input.get means a request with no command is answered, not a KeyError. Cut off means max_tokens and the last block. Everything else is unchanged: ESC stops things exactly as in Lesson 6; this layer only decides what's kept. -->
 
 ---
 
