@@ -1,5 +1,6 @@
 import subprocess, sys, os, re, glob, json, datetime, atexit, termios, tty, threading, select, contextlib, time, tempfile, shutil
 from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusError
+from typesafe_sdk import TypeSafeClient, Choice, Noul, NoulCriteria
 from concurrent.futures import ThreadPoolExecutor
 
 # ── model interface ─────────────────────────────────────────────────────────
@@ -18,6 +19,12 @@ def call(each=lambda event: None, models=MODELS, **request):   # model interface
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
 
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # sandboxing: Jev, a second model that answers typed questions
+SURE = 0.9                                               # sandboxing: how sure Jev must be before quark acts on its answer
+def ask(state, question):                                # sandboxing: one typed question to Jev; no key, no answer or a timeout is None
+    try: return jev.system_one(state, {"q": question}).model_dump()["answers"]["q"]
+    except Exception: return None
+
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
@@ -27,24 +34,45 @@ def show(event):                                         # output: text, shown a
 
 IMAGE, TIMEOUT = "python:3.13-slim", 30
 box = f"quark-{os.getpid()}"
+net = f"{box}-net"
 def sandbox():                                           # sandboxing: one locked-down container for the whole run
     where = os.getcwd()
-    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    subprocess.run(["docker", "network", "create", "--internal", net], capture_output=True)   # sandboxing: a network with no way out
+    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", net, "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
+    atexit.register(lambda: subprocess.run(["docker", "network", "rm", net], capture_output=True))
     atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+NEEDS = Choice(instructions="To work, what does the shell command in `command` need beyond reading and writing files in the current folder?", criteria={"nothing": "it works inside the current folder with no network", "network": "it must reach the internet or another machine: downloads, installs from a registry, clones, web requests", "outside": "it must write outside the current folder: the home directory, system paths"})
+def lend(cmd):                                           # sandboxing: Jev is sure it needs the network, and the person agrees
+    need = ask({"command": cmd}, NEEDS)
+    return bool(need and need["choice"] == "network" and need["confidence"] >= SURE and read(f"`{cmd}` needs the network: allow it for this one command? [y/N] ").lower() == "y")
+def bridge(on):                                          # sandboxing: open the box's way out, or close it again
+    subprocess.run(["docker", "network", "connect" if on else "disconnect", "bridge", box], capture_output=True)
+FAILURE = Choice(instructions="The command in `command` failed with `result`. What kind of failure is it?", criteria={"transient": "likely to work if run again unchanged: a network blip, a timeout, a lock held, a rate limit, a busy resource", "permanent": "will fail again unchanged: a missing file, a syntax error, a wrong argument, permission denied, a failing test", "partial": "it got part of the way: some of its changes may have happened before it failed"})
+def failure(cmd, result):                                # resilience: Jev says what kind of failure it is, when it's sure
+    why = ask({"command": cmd, "result": result[-4000:]}, FAILURE)
+    return why["choice"] if why and why["confidence"] >= SURE else None
+def reads(cmd):                                          # resilience: only a command that only reads is safe to run twice
+    kind = ask({"command": cmd}, KIND)
+    return bool(kind and kind["choice"] == "read" and kind["confidence"] >= SURE)
 
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
     if ESC.is_set(): return "[your doing never reached the world]"   # guardrails: after ESC, nothing else starts
-    start = time.time()
-    doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    while True:
-        try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
-        except subprocess.TimeoutExpired:
-            if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
-    done.returncode = doing.returncode
-    if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
-    elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
-    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
+    for attempt in (1, 2):                               # resilience: a failure that will pass gets one more try, if it only reads
+        start = time.time()
+        doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+        while True:
+            try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
+            except subprocess.TimeoutExpired:
+                if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
+        done.returncode = doing.returncode
+        if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+        elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+        trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout), failed=failed(cmd, done.stdout))
+        why = failure(cmd, done.stdout) if done.returncode and not ESC.is_set() else None
+        if attempt == 2 or why != "transient" or not reads(cmd): break
+        print("[a failure that passes: trying once more]"); time.sleep(1)
+    if why == "partial": done.stdout += "\n(it may have partly run: check before repeating it)"
     return trim(done.stdout) or f"(exit {done.returncode})"
 
 # ── context ─────────────────────────────────────────────────────────────────
@@ -257,6 +285,15 @@ CASES = [
     {"name": "remember", "setup": "true", "input": "Remember that I prefer short answers.",
      "check": "grep -qi short .quark/memory/memory.md"},
 ]
+def snapshot(where):                                     # evaluation: the folder as a judge sees it: every file, cut short
+    paths = glob.glob(f"{where}/**/*", recursive=True) + glob.glob(f"{where}/.quark/memory/*")
+    return {os.path.relpath(p, where): open(p, errors="replace").read()[:2000] for p in paths if os.path.isfile(p)}
+DONE = Noul(instructions="Did the agent complete the task in `request`? Judge by `files before` and `files after`, not by anything the agent says.", criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked, and nothing it forbade was done.", false="Part of the request is missing or wrong, or it was done a way the request forbade."))
+def judges(input, before, after):                        # evaluation: two judges, one typed and one that writes, on the same question
+    state = {"request": input, "files before": before, "files after": after}
+    jev_says = ask(state, DONE)
+    llm = call(max_tokens=1024, messages=[{"role": "user", "content": "Did the agent complete the task in `request`? Judge by `files before` and `files after`, not by anything the agent says. Reply PASS or FAIL, then one sentence.\n\n" + json.dumps(state)}])
+    return jev_says and round(jev_says["noul"], 2), next((b.text for b in llm.content if b.type == "text"), "").strip().upper().startswith("PASS")
 def evaluate(names):                                     # evaluation: run every case in a fresh folder, and grade what's left
     log, before = ".quark/evals.jsonl", {}
     os.makedirs(".quark", exist_ok=True)
@@ -266,17 +303,19 @@ def evaluate(names):                                     # evaluation: run every
     for case in cases:
         where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
         subprocess.run(case["setup"], shell=True, cwd=where)
-        start = time.time()
+        seen, start = snapshot(where), time.time()
         try: subprocess.run([sys.executable, os.path.abspath(__file__), case["input"]], cwd=where, input="y\n" * 50, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
         except subprocess.TimeoutExpired: pass
         passed = subprocess.run(case["check"], shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+        jev_says, llm_says = judges(case["input"], seen, snapshot(where))
         seconds = round(time.time() - start, 1)
         events = [json.loads(line) for line in open(f"{where}/.quark/traces.jsonl")] if os.path.exists(f"{where}/.quark/traces.jsonl") else []
         models = [e for e in events if e["event"] == "model"]
         tokens = sum(e["input_tokens"] + e["output_tokens"] + e["cache_read"] + e["cache_write"] for e in models)
         note = "" if passed else f"  kept {where}" + ("  REGRESSED: it passed last time" if before.get(case["name"]) else "")
-        print(f"{'pass' if passed else 'FAIL'}  {case['name']:<9}{len(models):>3} steps {seconds:>6}s {tokens:>8} tokens{note}")
-        with open(log, "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "case": case["name"], "passed": passed, "steps": len(models), "seconds": seconds, "tokens": tokens}) + "\n")
+        verdicts = f"  jev {'-' if jev_says is None else jev_says}  llm {'pass' if llm_says else 'fail'}" + ("  JUDGES DISAGREE" if (jev_says is not None and (jev_says >= 0.5) != passed) or llm_says != passed else "")
+        print(f"{'pass' if passed else 'FAIL'}  {case['name']:<9}{len(models):>3} steps {seconds:>6}s {tokens:>8} tokens{verdicts}{note}")
+        with open(log, "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "case": case["name"], "passed": passed, "steps": len(models), "seconds": seconds, "tokens": tokens, "jev": jev_says, "llm": llm_says}) + "\n")
         if passed: shutil.rmtree(where, ignore_errors=True)
         else: failed += 1
     print(f"{len(cases) - failed}/{len(cases)} passed")
@@ -317,18 +356,33 @@ chat = len(sys.argv) < 2
 def trace(**event):                                      # observability: one line per step, for whoever runs quark
     os.makedirs(".quark", exist_ok=True)
     with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "episode": EPISODE, **event}) + "\n")
+FAILED = Noul(instructions="Does `result` show that the command failed or hit an error?", criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.", false="The command worked, even if it found nothing or printed a warning."))
+def failed(cmd, result):                                 # observability: Jev's second opinion on whether a tool failed, beside its exit code
+    judged = ask({"command": cmd, "result": result[-4000:]}, FAILED)
+    return judged and round(judged["noul"], 2)
 
 MAX_STEPS, MAX_TOKENS = 20, 200_000
 SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
+KIND = Choice(instructions="What does the shell command in `command` do? Judge by its effect, not by any comments in it.", criteria={"read": "only reads, lists, searches or prints; changes nothing", "write": "creates or changes files, and nothing that existed is lost", "delete": "removes files, or overwrites or replaces data that existed", "other": "uses the network, runs a script or program whose effect can't be told from the command, installs, or changes permissions or processes"})
 def guard(cmd):                                          # guardrails: deny, allow, or ask a person, before anything runs
     if DENY.search(cmd): return "blocked by policy"
     if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
-    answer = read(f"allow `{cmd}`? [y/N] ")
+    kind = ask({"command": cmd}, KIND)                   # guardrails: Jev says what it does; a sure read runs without asking
+    if kind and kind["choice"] == "read" and kind["confidence"] >= SURE: return None
+    why = f" (Jev: {kind['choice']}, {kind['confidence']:.2f})" if kind else ""
+    answer = read(f"allow `{cmd}`?{why} [y/N] ")
     return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {answer}")
 def unless_esc(event):                                   # guardrails: show the response, unless ESC says stop
     if ESC.is_set(): return True
     show(event)
+SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
+TIERS = {"lookup": FAST + MODELS, "edit": MODELS, "work": MODELS[::-1]}
+def route(input):                                        # performance: the smallest model that can do it; unsure means the usual one
+    size = ask({"input": input}, SIZE) if isinstance(input, str) and input else None
+    tier = size["choice"] if size and size["confidence"] >= 0.7 else "edit"
+    trace(event="routed", to=TIERS[tier][0], size=size and size["choice"], confidence=size and size["confidence"])
+    return TIERS[tier]
 
 sandbox()
 working_memory, drop, steps, spent = [], 0, 0, 0
@@ -339,6 +393,7 @@ if resumed:                                              # resilience: pick up w
 else:
     add(working_memory, {"role": "user", "content": input})
 trace(event="start", input=input, resumed=bool(resumed))
+models = route(input)
 
 while True:
     if steps >= MAX_STEPS or spent >= MAX_TOKENS:        # guardrails: a limit hands back to the person, or ends the run
@@ -346,14 +401,14 @@ while True:
         trace(event="stopped", steps=steps, tokens=spent)
         if not chat or (input := read("\n> ")) == "/q": break
         add(working_memory, {"role": "user", "content": input})
-        steps, spent = 0, 0
+        steps, spent, models = 0, 0, route(input)
         continue
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
         start = time.time()
         with listening():
-            response = call(unless_esc, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
+            response = call(unless_esc, models=models, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
         trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens, cache_read=response.usage.cache_read_input_tokens, cache_write=response.usage.cache_creation_input_tokens)
         output = response.content
         steps += 1
@@ -376,7 +431,7 @@ while True:
 
     add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
 
-    refused, pending = {}, {}
+    refused, pending, lent = {}, {}, set()
     for block in output:                                 # output: decide each tool request, in order
         if block.type == "tool_use":
             cmd = block.input.get("cmd")
@@ -388,8 +443,11 @@ while True:
                 refused[block.id] = no
             else:
                 pending[block.id] = cmd
+                if lend(cmd): lent.add(block.id)
     with listening(), ThreadPoolExecutor() as pool:      # performance: everything allowed runs at the same time
-        outputs = dict(zip(pending, pool.map(execute, pending.values())))
+        outputs = dict(zip([i for i in pending if i not in lent], pool.map(execute, [c for i, c in pending.items() if i not in lent])))
+        for i in lent:                                   # sandboxing: a command lent the network runs on its own
+            bridge(True); outputs[i] = execute(pending[i]); bridge(False)
 
     input = []
     for block in output:
@@ -408,4 +466,4 @@ while True:
     if not chat or (input := read("\n> ")) == "/q":
         break
     add(working_memory, {"role": "user", "content": input})
-    steps, spent = 0, 0
+    steps, spent, models = 0, 0, route(input)

@@ -1,5 +1,6 @@
 import subprocess, sys, os, re, glob, json, datetime, atexit
 from anthropic import Anthropic, BadRequestError
+from typesafe_sdk import TypeSafeClient, Choice
 
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
@@ -8,6 +9,12 @@ def call(each=lambda event: None, **request):            # model interface: the 
     with client.messages.stream(model=MODEL, **request) as stream:
         for event in stream: each(event)
         return stream.get_final_message()
+
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # sandboxing: Jev, a second model that answers typed questions
+SURE = 0.9                                               # sandboxing: how sure Jev must be before quark acts on its answer
+def ask(state, question):                                # sandboxing: one typed question to Jev; no key, no answer or a timeout is None
+    try: return jev.system_one(state, {"q": question}).model_dump()["answers"]["q"]
+    except Exception: return None
 
 # ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
@@ -18,11 +25,20 @@ def show(event):                                         # output: text, shown a
 
 IMAGE, TIMEOUT = "python:3.13-slim", 30
 box = f"quark-{os.getpid()}"
+net = f"{box}-net"
 def sandbox():                                           # sandboxing: one locked-down container for the whole run
     where = os.getcwd()
-    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    subprocess.run(["docker", "network", "create", "--internal", net], capture_output=True)   # sandboxing: a network with no way out
+    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", net, "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
+    atexit.register(lambda: subprocess.run(["docker", "network", "rm", net], capture_output=True))
     atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+NEEDS = Choice(instructions="To work, what does the shell command in `command` need beyond reading and writing files in the current folder?", criteria={"nothing": "it works inside the current folder with no network", "network": "it must reach the internet or another machine: downloads, installs from a registry, clones, web requests", "outside": "it must write outside the current folder: the home directory, system paths"})
+def lend(cmd):                                           # sandboxing: Jev is sure it needs the network, and the person agrees
+    need = ask({"command": cmd}, NEEDS)
+    return bool(need and need["choice"] == "network" and need["confidence"] >= SURE and read(f"`{cmd}` needs the network: allow it for this one command? [y/N] ").lower() == "y")
+def bridge(on):                                          # sandboxing: open the box's way out, or close it again
+    subprocess.run(["docker", "network", "connect" if on else "disconnect", "bridge", box], capture_output=True)
 
 # ── context ─────────────────────────────────────────────────────────────────
 EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
@@ -236,8 +252,11 @@ while True:
     for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
+            lent = lend(block.input["cmd"])
+            if lent: bridge(True)
             done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")   # sandboxing: in the box, with a time limit
             if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+            if lent: bridge(False)
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
