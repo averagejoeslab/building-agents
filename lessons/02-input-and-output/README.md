@@ -162,24 +162,23 @@ Here's one run:
 
 ```
 $ ls -la
-total 196
-drwxr-xr-x 11 root root  4096 Oct  6 20:29 .
+total 192
+drwxr-xr-x 11 root root  4096 Oct  6 20:31 .
 drwxr-xr-x  5 root root  4096 Oct  5 14:47 ..
 -rw-r--r--  1 root root   125 Oct  6 20:27 .env
 -rw-r--r--  1 root root   104 Oct  5 22:09 .env.example
-drwxr-xr-x  8 root root  4096 Oct  6 20:29 .git
+drwxr-xr-x  8 root root  4096 Oct  6 20:31 .git
 -rw-r--r--  1 root root   113 Oct  6 03:58 .gitignore
-drwxr-xr-x  3 root root  4096 Oct  6 20:29 .quark
+drwxr-xr-x  5 root root  4096 Oct  6 20:31 .quark
 drwxr-xr-x  4 root root  4096 Oct  5 19:52 .venv
 -rw-r--r--  1 root root 21995 Oct  6 19:22 AGENTS.md
 -rw-r--r--  1 root root   835 Oct  6 05:44 CITATION.cff
 -rw-r--r--  1 root root   316 Oct  6 16:54 CLAUDE.md
 -rw-r--r--  1 root root  1086 Oct  6 03:32 LICENSE
 -rw-r--r--  1 root root 20045 Oct  6 03:32 LICENSE-CONTENT
--rw-r--r--  1 root root 27871 Oct  6 19:22 README.md
+-rw-r--r--  1 root root 28138 Oct  6 20:31 README.md
 drwxr-xr-x  2 root root  4096 Oct  5 19:53 assets
 drwxr-xr-x  3 root root  4096 Oct  5 23:03 docs
--rw-r--r--  1 root root   114 Oct  6 18:26 ithout these, marp waits on stdin and hangs#
 drwxr-xr-x  6 root root  4096 Oct  5 19:49 lessons
 drwxr-xr-x  4 root root  4096 Oct  6 19:23 paper
 drwxr-xr-x  8 root root  4096 Oct  6 18:00 production
