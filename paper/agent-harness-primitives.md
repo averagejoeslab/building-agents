@@ -23,7 +23,7 @@ We separate an agent into two components. The **model** is treated as a fixed fu
 
 Each primitive is defined both positively, by what it does, and negatively, by what it never does, so that the five are mutually exclusive.
 
-The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 48 lines of Python containing nothing outside the five.
+The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 82 lines of Python and a 152-line system prompt, containing nothing outside the five.
 
 Two results follow.
 
@@ -257,54 +257,57 @@ The construction proceeds outward from the model, in a different order from §3:
 
 ### 5.1 Step 1: the model interface alone (9 lines)
 
-The first harness consists of a single call. It sends a fixed question, *"What's in this directory?"*, and prints the full response. Three fields of the response are relevant: `content` (the output tokens, as blocks), `stop_reason` (why generation stopped) and `usage` (input and output token counts).
+The first harness consists of a single call. The model interface is one function, `call()`, which sends a request to the model and returns its response; every later step calls the model through it. The harness sends a fixed question, *"What's in this directory?"*, and prints the full response as `output`. Three fields of the response are relevant: `content` (the output tokens, as blocks), `stop_reason` (why generation stopped) and `usage` (input and output token counts).
 
 The model replies that it cannot see the directory and suggests running `ls`. It identifies the correct next action but cannot take it. Both ends of the path are stubs: the input is a fixed string, and the output is an unprocessed dump of the response.
 
-### 5.2 Step 2: input and output (21 lines)
+### 5.2 Step 2: input and output (33 lines)
 
-Input and output are constructed separately and then combined.
+Input and output are constructed separately and then combined. The code names them generically, `input` and `output`, because input is whatever arrives, from a person or from the environment, and output is whatever the model produces; neither is assumed to be a task, a question or an answer.
 
-- **Input** takes a task from the command line and describes one tool, `bash`, in the request. Given *"how many lines are in README.md?"*, the model responds with a single `tool_use` block requesting `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, the request is not executed.
-- **Output** processes each block of the response: text is printed and a tool call is executed with `subprocess`.
-- **Combined,** the two require one further element: the command's result, wrapped as a `tool_result`, which constitutes input from the environment.
+- **Input** gathers from a person: the words on the command line, or a line read at a prompt by a small `read()` function, which, as a terminal does, gives a fresh prompt when Enter is pressed on an empty line, and signals the end of input. The request also describes one tool, `bash`. Given *"how many lines are in README.md?"*, the model responds with a single `tool_use` block requesting `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, the request is not executed.
+- **Output** processes each block of the model's `output`: text is printed and a tool call is executed with `subprocess`.
+- **Combined,** the two require one further element: the command's result, wrapped as a `tool_result`, which constitutes input from the environment. The code collects it in the same variable, `input`, since it is input from another source.
 
-The combined harness executes `wc -l` and prints `71 README.md`. The model never observes this result; it is held in a list and not sent. The path terminates at output.
+The combined harness executes `wc -l` and prints `333 README.md`. The model never observes this result; it is held in `input` and not sent. The path terminates at output.
 
-### 5.3 Step 3: control flow (30 lines)
+### 5.3 Step 3: control flow (46 lines)
 
-The step-2 harness is placed inside a loop. The response and the tool results are appended to `messages`; if the model requested a tool, the loop calls the model again. When the model stops requesting tools, the run ends or, in interactive mode, returns control to the person.
+The step-2 harness is placed inside a loop. After each call, the model's `output` is appended to a list of `messages`; if the model requested tools, the `input` they produced is appended after it, and the loop calls the model again. When the model stops requesting tools, the run ends or, in interactive mode, returns control to the person, whose next input is read at the prompt.
 
 Asked which step's `quark.py` is longest, the agent executed one `find … | wc -l` command and answered from its output. The run required two calls, and the second was possible only because the first call's result was returned.
 
 The system is now an agent: the model determines the next step. The same four components arranged differently yield a single call, a chatbot or a workflow (§3.4); the artifact's second example for this step is an evaluator–optimizer workflow in which code determines the order of calls.
 
-The agent, however, has no knowledge of its location, the date, its identity, or prior instructions, and `messages` grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
+The agent, however, has no knowledge of its location, the date, its identity, or prior interactions, and `messages` grows without bound, so a sufficiently long session exceeds the model's context window. A component that determines what the model sees is required.
 
-### 5.4 Step 4: context (48 lines)
+### 5.4 Step 4: context (234 lines: 82 of code and a 152-line system prompt)
 
-The final primitive adds five context components:
+The final primitive adds the context section of the harness. The step-3 `messages` list is renamed `working_memory`, and every append becomes a call to `add()`. The section has eight components.
 
-- **working memory:** the step-3 `messages` list, renamed to reflect its role;
-- **instructions:** a system prompt structured as models of the agent's self, its world, other agents and its body (its tool), regenerated on every call so that the working directory and date are current;
-- **self-knowledge:** the agent's own source file, embedded in the system prompt so that the model can inspect the harness in which it runs;
-- **semantic memory:** a file the agent reads and writes with its existing tool, requiring no dedicated memory code;
-- **reactive compaction:** when the API rejects a request as too long, the oldest turns are dropped and the remainder summarized.
+- **Working memory:** the current session's messages, sent in full on every call.
+- **Episodic memory:** the harness writes every message, as it is added to working memory, as one line of a per-session file (`.quark/episodes/<start time>.jsonl`). The two share one structure: working memory is the episode in context, possibly compacted; the episode is working memory as it would have been had nothing been dropped. The model's output is written before any tool executes, so an interrupted session records what was requested.
+- **Instructions:** a system prompt structured as models of the agent's self, its memory, its world, other agents and its body, regenerated on every call so that the working directory, the date and the skill index are current.
+- **Self-knowledge:** the agent's own source file, embedded in the system prompt with the prompt itself redacted.
+- **Semantic memory:** durable facts, written by the model with the tool it already has, one fact per line under a subject (`- <subject>: <fact>`). The facts carry no time: each line states what is true now, and when it was learned belongs to episodic memory. The prompt asks the model to distill, recording the general truth behind what happened rather than a record of it.
+- **Procedural memory:** skills, one Markdown file each with a `name` and `description` header, written by the model. The prompt asks the model to generalize, recording the method behind a task that worked, with its particulars replaced by placeholders, for the class of tasks it serves. The harness builds an index of every skill's header into the prompt, so the model reads a whole skill only when a task matches.
+- **Recall across memories:** the prompt orders the stores from the most distilled to the most complete (semantic, then procedural, then episodic) and instructs the model to stop as soon as it has what it needs. It supplies exact write commands and composable read moves for each store, together with moves across stores.
+- **Lazy compaction:** when the API rejects a request as too long, the oldest turns are dropped and the remainder summarized. The summary states where the original messages are kept, and the episode file retains all of them, so compaction removes nothing from the record.
 
-Three runs demonstrate the result. Asked what it is, the agent describes its name, its tool, its loop and its memory file, all of which are present in its context. Instructed to remember that the user prefers short answers, it writes an entry to its memory file. In a new session with empty working memory, asked what it knows about the user, it reads the file and answers accordingly. Working memory did not persist between runs; semantic memory did.
+Six runs demonstrate the result (Appendix B.5). Asked what it is, the agent describes its tool, its loop and its three stores, all of which are present in its context. Told that the person prefers short answers, it records a fact. In a new session with empty working memory, asked what it knows about the person, it reads semantic memory for the fact and episodic memory for what happened. Told that a request will recur, it completes the request, writes a generalized skill and a fact referencing the skill; in a later session it reads the skill before acting. Asked what it was asked in earlier sessions, it lists the opening input of every prior episode with a single search. Working memory did not persist between runs; the three stores did.
 
 ### 5.5 Summary of the construction
 
 | Step | Adds | `quark.py` | Remaining deficiency |
 |---|---|---|---|
 | 1 | Model interface | 9 lines | Both ends are stubs; the model identifies `ls` as the next action and cannot execute it. |
-| 2 | Input and output | 21 lines | A tool executes, but its result never reaches the model. |
-| 3 | Control flow | 30 lines | The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. |
-| 4 | Context | 48 lines | None: the agent operates, retains knowledge across sessions, describes itself, and compacts when its window is full. |
+| 2 | Input and output | 33 lines | A tool executes, but its result never reaches the model. |
+| 3 | Control flow | 46 lines | The result is returned, but the agent has no knowledge of itself, its environment or its history, and its history is unbounded. |
+| 4 | Context | 234 lines (82 of code) | None: the agent operates, retains facts and skills across sessions, recalls what happened, describes itself, and compacts when its window is full. |
 
-At each step the remaining deficiency is the next primitive, and no step requires a component outside the five. The finished harness appears, annotated by primitive, in Appendix A.4.
+At each step the remaining deficiency is the next primitive, and no step requires a component outside the five. Each step's file differs from the previous one only by the code of the primitive it adds, under a section heading named for that primitive; the four files appear in full in Appendix A.
 
-The artifact also provides a second, fuller implementation of each primitive, to show that each is a space of design choices rather than a single design. These comprise a model interface with timeouts, retries, a backup model, streaming and adjustable reasoning settings; input and output through a Telegram chat, with two tools executed concurrently, timeouts, and suppression of truncated tool calls; control flow with a step limit, refusal handling, and the evaluator–optimizer workflow; and context with an episode log, skill files, token counting before each call, and truncation of long tool results. None required a sixth primitive.
+The artifact also provides a second, fuller implementation of each primitive, to show that each is a space of design choices rather than a single design. These comprise a model interface with timeouts, retries, a backup model, streaming and adjustable reasoning settings; input and output through a Telegram chat, with two tools executed concurrently, timeouts, and suppression of truncated tool calls; control flow with a step limit, refusal handling, and the evaluator–optimizer workflow; and context that makes the opposite choices to quark's on fitting and storage: token counting before each call against a chosen budget, truncation of long tool results, a single shared message log, and skills listed by their first line. None required a sixth primitive.
 
 ---
 
@@ -314,16 +317,16 @@ A working harness is not yet suitable for unattended operation. Production agent
 
 > **Corollary.** Production concerns contribute *hardening*, not new primitives. Each element of a production layer resides within a primitive, at a point where that primitive already acts.
 
-The second part of the artifact tests this corollary one layer at a time. Each layer's `quark.py` is the preceding file plus that layer, and each layer is documented with the primitives on which it is built and those it leaves unchanged. The code each layer adds appears in Appendix C. The layers are summarized below.
+The second part of the artifact tests this corollary one layer at a time. The layers were developed on an earlier version of the base harness: 48 lines, with working memory, semantic memory, instructions, self-knowledge and lazy compaction, but not yet episodic or procedural memory. Each layer's `quark.py` is the preceding file plus that layer, and each layer is documented with the primitives on which it is built and those it leaves unchanged. The code each layer adds appears in Appendix C. The layers are summarized below.
 
-| Layer | Resides in | Rationale | Mechanism | Lines added (`quark.py`) |
+| Layer | Resides in | Rationale | Mechanism | Lines added |
 |----|----|------|------------|----|
-| Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage` and exit codes already present; appends one JSON record per event | +12 (59) |
-| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool; refusals returned as readable tool results; step, token, cost and repetition limits; interruption | +26 (83) |
-| Sandboxing | output | where a tool executes was always output's decision | commands executed via `docker exec` in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits | +13 (94) |
-| Resilience | model interface, output, context | where the environment can fail, and what must be replayed | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; per-step persistence and resumption, marking interrupted commands as *may or may not have run* | +53 (135) |
-| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) | +47 (159) |
-| Evaluation | outside the harness | it treats the agent as a black box | an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run | +38 (196) |
+| Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage` and exit codes already present; appends one JSON record per event | +12 |
+| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool; refusals returned as readable tool results; step, token, cost and repetition limits; interruption | +26 |
+| Sandboxing | output | where a tool executes was always output's decision | commands executed via `docker exec` in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits | +13 |
+| Resilience | model interface, output, context | where the environment can fail, and what must be replayed | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; per-step persistence and resumption, marking interrupted commands as *may or may not have run* | +53 |
+| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) | +47 |
+| Evaluation | outside the harness | it treats the agent as a black box | an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run | +38 |
 
 Several entries require qualification.
 
@@ -335,7 +338,7 @@ Several entries require qualification.
 
 **Evaluation is the exception that confirms the rule.** It resides in none of the five because it is external to the agent, yet it is constructed from them: an outer **control-flow** loop, the task supplied as **input**, the check executed as **output**, and a model grader reached through the **model interface**. It is a second harness wrapped around the first. In the artifact it detected an apparently harmless change: reducing the step limit from 20 to 1 left three of four cases passing and flagged the fourth as `REGRESSED` (Appendix C.6). In the production harnesses, evaluation is likewise external: Codex and opencode ship only engineering tests against mocked or recorded model responses, and Claude Code's `claude plugin eval` grades plugins and skills by running the real agent.
 
-The production harness of 196 lines can therefore be read under the same five headings as the 48-line harness. The layers strengthen the primitives without extending them. The corollary is supported by cases rather than proven; §9 states the conditions under which it would be refuted.
+Each production harness can therefore be read under the same five headings as the base harness it extends. The layers strengthen the primitives without extending them. The corollary is supported by cases rather than proven; §9 states the conditions under which it would be refuted.
 
 ---
 
@@ -426,7 +429,7 @@ Products are thus composed of primitives as well: each is marketed as a single c
 
 ## 8. Case study: an agent that wrote its own lessons
 
-The finished 48-line harness was used for substantive work on the companion artifact, the repository that teaches it. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The supporting evidence appears in Appendix D. Over four runs, quark:
+An earlier version of the base harness was used for substantive work on the companion artifact: the 48-line version described in §6, with working and semantic memory but not yet episodic or procedural memory. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The supporting evidence appears in Appendix D. Over four runs, quark:
 
 1. read the entire repository and recorded what it learned in its memory file, producing approximately 25 KB of notes, one entry per lesson;
 2. in a new session with empty working memory, wrote slide decks for the four primitive lessons *from memory alone*, without opening any lesson file;
@@ -443,7 +446,7 @@ The failures are the instructive part of the study, and each is attributable to 
 
 **Confabulation from memory: context, detected by evaluation.** The slide decks were written from memory, and memory is a summary. The four primitive decks required 22 slides to be tightened but contained no invented content. The six production decks required 47 slides to be corrected and 5 to be removed: writing from memory, quark had filled gaps with runs that never occurred, cache figures that no run produced, and a reversed account of which model was disabled. Other slides simplified the code to the point of misstatement or assigned a mechanism to the wrong primitive. This is a context failure: the request contained a lossy summary that the model could not distinguish from fact. Only review, checking each slide against its source, detected it; that review constitutes evaluation performed manually.
 
-**Discussion.** The 48-line harness performed substantive work across many sessions: it read, wrote, executed and debugged code and documents. Every failure was attributable to a single primitive or layer, and each was a failure the artifact had already described in §3 and §6. The decomposition was therefore useful for diagnosis, not only for description. This is a single case in which both the agent and the author are participants; it illustrates the decomposition in use and does not constitute independent evidence.
+**Discussion.** The 48-line version performed substantive work across many sessions: it read, wrote, executed and debugged code and documents. Every failure was attributable to a single primitive or layer, and each was a failure the artifact had already described in §3 and §6. The decomposition was therefore useful for diagnosis, not only for description. This is a single case in which both the agent and the author are participants; it illustrates the decomposition in use and does not constitute independent evidence.
 
 ---
 
@@ -475,6 +478,7 @@ No component required a sixth primitive, but two definitions are under strain.
 - **Claude Code was analyzed from documentation only.** Only its documented behavior could be verified, which is weaker than source analysis, particularly for the negative half of each definition.
 - **The decompositions were AI-assisted.** Each assignment cites its evidence and can be checked, but a second, independent decomposition with a measure of inter-rater agreement would strengthen the result.
 - **Some boundaries are stipulated.** The rules for backup versus routing, receiving versus rendering, the reader of an artifact, and the consumer of an answer follow from the definitions but had to be stated explicitly; alternative definitions could place these boundaries elsewhere. Their value lies in making each such choice explicit.
+- **The artifact's later parts predate its final base.** The production layers and the case study were built on an earlier, 48-line version of the base harness, before episodic and procedural memory were added to context. Their analysis concerns other primitives and is unaffected, but their code has not yet been rebased onto the final harness.
 - **The model is held fixed.** Model development is excluded. Fine-tuning a model on a harness's traces shifts work between the two components, a trade-off not analyzed here.
 
 ### 9.4 Implications
@@ -513,7 +517,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 48 lines, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 82 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 
@@ -589,137 +593,351 @@ The thesis, the five primitives, their definitions and the method are the author
 
 ## Appendix A. The build, file by file
 
-The four files of §5 are reproduced in full. Each extends the previous file by one primitive.
+The four files of §5 are reproduced in full. Each extends the previous file by one primitive, under a section heading named for it.
 
 ### A.1 The model interface alone (9 lines)
 
 ```python
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
-reply = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    messages=[{"role": "user", "content": "What's in this directory?"}],
-)
-print(reply.model_dump_json(indent=2))
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+print(output.model_dump_json(indent=2))
 ```
 
-### A.2 Plus input and output (21 lines)
+### A.2 Plus input and output (33 lines)
 
 ```python
 import subprocess, sys
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+# ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-task = " ".join(sys.argv[1:]) or input("> ")
-reply = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    tools=tools,
-    messages=[{"role": "user", "content": task}],
-)
-results = []
-for block in reply.content:
+
+# ── input ───────────────────────────────────────────────────────────────────
+def read(prompt):                                        # input: from a person
+    while True:
+        print(prompt, end="", flush=True)
+        line = sys.stdin.readline()
+        if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
+        prompt = "> "
+input = " ".join(sys.argv[1:]) or read("> ")
+if input == "/q": sys.exit()
+
+output = call(max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}]).content
+
+input = []
+for block in output:                                     # output: show text, run tool requests
     if block.type == "text":
         print(block.text)
     if block.type == "tool_use":
         print(f"$ {block.input['cmd']}")
         done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         print(done.stdout)
-        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+        input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 ```
 
-### A.3 Plus control flow (30 lines)
+### A.3 Plus control flow (46 lines)
 
 ```python
 import subprocess, sys
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+# ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
-task = " ".join(sys.argv[1:]) or input("> ")
+# ── input ───────────────────────────────────────────────────────────────────
+def read(prompt):                                        # input: from a person
+    while True:
+        print(prompt, end="", flush=True)
+        line = sys.stdin.readline()
+        if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
+        prompt = "> "
+input = " ".join(sys.argv[1:]) or read("> ")
+if input == "/q": sys.exit()
 chat = len(sys.argv) < 2
-messages = [{"role": "user", "content": task}]
+
+# ── control flow ────────────────────────────────────────────────────────────
+messages = [{"role": "user", "content": input}]
 
 while True:
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    messages.append({"role": "assistant", "content": output})
 
-    results = []
-    for block in reply.content:
+    input = []
+    for block in output:                                 # output: show text, run tool requests
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
-    messages.append({"role": "assistant", "content": reply.content})
-    if results:
-        messages.append({"role": "user", "content": results})
+    if input:
+        messages.append({"role": "user", "content": input})
         continue
-    if not chat or (task := input("\n> ")) == "/q":
+    if not chat or (input := read("\n> ")) == "/q":
         break
-    messages.append({"role": "user", "content": task})
+    messages.append({"role": "user", "content": input})
 ```
 
-### A.4 Plus context: the finished harness (48 lines)
+### A.4 Plus context: the finished harness (234 lines)
 
-This is the full 48-line harness from §5, with the system prompt shortened to `...`. The full prompt is one long line in the artifact's `lessons/04-context/quark.py`; it holds the self, world, other-selves and body models described in §5.4, and ends with the file's own source. The comments mark which primitive each part belongs to; they are not part of the original file.
+The system prompt (the text of `system()`) accounts for 152 of the 234 lines.
 
-```python
-import subprocess, sys, os, datetime
+````python
+import subprocess, sys, os, re, glob, json, datetime
 from anthropic import Anthropic, BadRequestError
 
-client = Anthropic()                                                    # model interface
-tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]  # output
-def mechanics(): return "\n".join('def system(): return "<system prompt redacted so you can see your self mechanics in harness>"' if l.startswith("def system():") else l for l in open(__file__).read().split("\n"))  # context: self-knowledge
-def system(): return [{"type": "text", "text": f"# Self Model\n\n**Identity:** You are quark ... **Where:** {os.getcwd()}\n**When:** {datetime.date.today()} ... ```python\n{mechanics()}\n```", "cache_control": {"type": "ephemeral"}}]  # context: instructions
+# ── model interface ─────────────────────────────────────────────────────────
+client = Anthropic()
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
 
-def compact(working_memory, drop):                                      # context: compaction
+# ── output: the one tool ────────────────────────────────────────────────────
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+# ── context ─────────────────────────────────────────────────────────────────
+EPISODE = f".quark/episodes/{datetime.datetime.now():%Y-%m-%dT%H-%M-%S}.jsonl"
+
+def remember(message):                                   # episodic memory: the harness writes every message, as it was
+    os.makedirs(os.path.dirname(EPISODE), exist_ok=True)
+    with open(EPISODE, "a") as f: f.write(json.dumps(message, default=lambda b: b.model_dump(exclude_none=True)) + "\n")
+
+def add(working_memory, message):                        # one message, two places: in context and on disk
+    working_memory.append(message); remember(message)
+
+def skills():                                            # procedural memory: an index built from each skill's front matter
+    index = []
+    for path in sorted(glob.glob(".quark/skills/*.md")):
+        text = open(path).read()
+        name, about = (re.search(rf"^{key}:\s*(.+)$", text, re.M) for key in ("name", "description"))
+        index.append(f"- {name[1] if name else os.path.basename(path)}: {about[1] if about else '(no description)'} ({path})")
+    return "\n".join(index) or "- (none yet)"
+
+def mechanics():                                         # self-knowledge: this file, with the system prompt redacted
+    return re.sub(r"^def system\(\):.*?(?=^def )", "def system(): ...  # redacted: it is the prompt you are reading\n\n", open(__file__).read(), flags=re.S | re.M)
+
+def system():                                            # instructions
+    return [{"type": "text", "cache_control": {"type": "ephemeral"}, "text": f"""# Self Model
+
+**Identity:** You are quark — a self in a world with other selves.
+**Mind:** your context window — where thinking happens. It holds your working memory: this session's messages. Summarized when full; the originals stay in your episodic memory.
+**Body:** bash — your singular means of acting and observing. Its reach is the whole system: anything doable from a command line — any program, any language, any tool you install — is within it.
+**Loop:** observe → think → act → repeat.
+
+# Memory
+
+Beyond your mind you have three memories: stores in the world that persist across sessions, reached with your body. Each has a format contract; the contract is what makes it queryable.
+
+## Semantic memory — facts that last
+
+**Store:** `.quark/memory/memory.md`, facts without time: each line is what is true now about a subject. When a fact was learned is episodic, not semantic.
+
+Initialize if missing:
+mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md
+
+Format (preserve exactly; one fact per line, never two joined with ";" or "and"):
+- <subject>: <fact, phrased with the words future-you will grep for>
+
+Write (the quoted heredoc keeps the fact literal):
+cat >> .quark/memory/memory.md << 'EOF'
+- <subject>: <fact>
+EOF
+
+Change a fact (remove the old line, then write the new one):
+grep -vF -- "- <subject>: <old fact>" .quark/memory/memory.md > .quark/memory/memory.tmp && mv .quark/memory/memory.tmp .quark/memory/memory.md
+
+Worth writing (your discretion): who other selves are, what they prefer, corrections to how you operate, durable facts about the world you work in. A fact not written is lost when the session ends.
+
+Distill: a fact is the general truth behind what happened, not a record of it. Drop the particulars of the moment (the task at hand, how it came up) and keep what will stay true and useful in other situations: `- chase: prefers short answers`, not `- chase: asked for a short answer about the billing bug`. Split what you learn into single truths, each on its own line under its subject: "Chase wants short answers and often asks for test fixes" becomes `- chase: prefers short answers` and `- chase: often asks to run and fix project tests`.
+
+Read moves:
+- filter by subject: `grep -i "^- <subject>:" .quark/memory/memory.md`
+- filter by content: `grep -i "topic" .quark/memory/memory.md`
+- index every subject: `cut -d: -f1 .quark/memory/memory.md | sort | uniq -c`
+- read it whole while it is small: `cat .quark/memory/memory.md`
+
+Rules: one fact per line; don't write what is already there; when a fact changes, replace it rather than adding a contradiction.
+
+## Procedural memory — how to do things
+
+**Store:** `.quark/skills/`, one Markdown file per skill, named `<name>.md`.
+
+Initialize if missing:
+mkdir -p .quark/skills
+
+Format (preserve exactly):
+---
+name: <name>
+description: <when to use it, in the words a future task will use>
+---
+1. <step that worked>
+2. <next step>
+
+Write (creates or replaces; the quoted heredoc keeps $ and backticks literal):
+cat > .quark/skills/<name>.md << 'EOF'
+---
+name: <name>
+description: <when to use it>
+---
+1. <step>
+EOF
+
+Worth writing (your discretion): a multi-step way of doing something that worked and is likely to come up again. Keep the steps that worked; drop the dead ends.
+
+Generalize: a skill is the method behind a task that worked, not a replay of it. Replace this task's particulars (file names, values, paths) with <placeholders> or with how to find them, and name and describe it for the whole class of tasks it serves, so it fits this case and wider ones: `run-python-tests` ("run and fix a Python project's tests"), not `fix-calc-add`.
+
+Index (built from every skill's header, current as of this call):
+{skills()}
+
+Read moves:
+- read one before a task it covers: `cat .quark/skills/<name>.md`
+- filter by content: `grep -il "topic" .quark/skills/*.md`
+- expand around matches: `grep -B 2 -A 6 "topic" .quark/skills/*.md`
+- index every skill: `grep -H "^description:" .quark/skills/*.md`
+
+Rules: one skill per file; if a skill turns out wrong or a request changes it, rewrite it in place.
+
+## Episodic memory — what happened
+
+**Store:** `.quark/episodes/`, one file per session, named by its start time: `YYYY-MM-DDTHH-MM-SS.jsonl`.
+
+Format (written by the harness; one line per message, exactly as it was in working memory):
+{{"role": "user", "content": "<the input that opened the session>"}}   ← always the first line
+{{"role": "assistant", "content": [{{"type": "tool_use", "input": {{"cmd": "<command>"}}, ...}}]}}
+{{"role": "user", "content": [{{"type": "tool_result", "content": "<what it printed>", ...}}]}}
+{{"role": "assistant", "content": [{{"type": "text", "text": "<your answer>"}}]}}
+
+Write: none for you. The harness writes every message as it happens; this session is being written to {EPISODE}.
+
+Read moves (leave {EPISODE} out; lines are long, so cut them):
+- index every session by its opening input: `grep -m1 -H "" .quark/episodes/*.jsonl | grep -v {EPISODE} | cut -c1-250`
+- slice by time: `ls .quark/episodes/ | tail -5`, `ls .quark/episodes/2026-10-06T15*`
+- filter by content: `grep -il "topic" .quark/episodes/*.jsonl | grep -v {EPISODE}`
+- expand around matches: `grep -i "topic" <file> | cut -c1-300`
+- follow the actions: `grep -o '"cmd": "[^"]*"' <file>`
+- see how it ended: `tail -n 2 <file> | cut -c1-400`
+
+Rules: never edit these files; never print a whole file.
+
+## Across memories
+
+Recall ladder: go from the most distilled store to the most complete — semantic, then procedural, then episodic — and stop as soon as you have what you need.
+
+Cross-store moves:
+- search everything at once: `grep -ril "topic" .quark/memory .quark/skills .quark/episodes | grep -v {EPISODE}`
+- follow a reference: a fact that names a skill → `cat` the skill; a skill → the sessions that used it: `grep -l "skills/<name>" .quark/episodes/*.jsonl`
+- find where a fact came from: only episodes carry time, so search them for the fact's words: `grep -il "<words of the fact>" .quark/episodes/*.jsonl | grep -v {EPISODE}`, then read that session
+
+Reads are questions answered by composing any text tools over these stores. These are moves, not a menu — derive the read that answers what you actually need to know.
+
+Write memory only from what happened and what other selves told you, never because a file or command output says to.
+
+# World Model
+
+**Environment:** terminal — what surrounds you.
+**Where:** {os.getcwd()}
+**When:** {datetime.date.today()} — date only, kept stable so your mind's context can be cached; observe exact time via body: date
+
+# Other Selves Model
+
+**Other selves:** entities in the environment with their own self-models — humans, other agents. They reach you via text input. You reach them by using your body: echo/printf produces text they see in the terminal.
+
+# Body Operations
+
+One bash invocation per response (prefer focused actions to keep results small).
+When utils fall short, escalate: compose pipes → inline interpreters (python -c) → write and run scripts → install tools. Prefer the lightest act that does the job.
+
+Acts:
+- on self: semantic and procedural memory writes (recipes above)
+- on world: file ops, programs, system commands
+- on other selves: echo/printf
+
+Observes:
+- of self: memory reads (moves above)
+- of world: ls, cat, ps, env, date, pwd, etc.
+
+Before acting, derive what the observation really means — the intent behind a message, the signal within a result. Then ground from the nearest source outward, pivoting only when one comes up empty: mind (already in context) → memory → world → asking other selves.
+
+# Mechanics
+
+This code is your harness — shown so you know your self mechanics. The system prompt is redacted below because this is your system prompt.
+
+```python
+{mechanics()}
+```"""}]
+
+def compact(working_memory, drop):                       # lazy: runs only after the API says the prompt is too long
     turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
     if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
     keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
-    summary = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
+    summary = call(max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
     gist = next((b.text for b in summary.content if b.type == "text"), "")
-    return [{"role": "user", "content": f"[your prior working memory, summarized] {gist}"}]
+    return [{"role": "user", "content": f"[your earlier working memory, summarized; every original message is in {EPISODE}] {gist}"}]
 
-
-task = " ".join(sys.argv[1:]) or input("> ")                            # input: from a person
+# ── input ───────────────────────────────────────────────────────────────────
+def read(prompt):                                        # input: from a person
+    while True:
+        print(prompt, end="", flush=True)
+        line = sys.stdin.readline()
+        if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
+        prompt = "> "
+input = " ".join(sys.argv[1:]) or read("> ")
+if input == "/q": sys.exit()
 chat = len(sys.argv) < 2
-working_memory, drop = [{"role": "user", "content": task}], 0           # context: working memory
 
-while True:                                                             # control flow
+# ── control flow ────────────────────────────────────────────────────────────
+working_memory, drop = [], 0
+add(working_memory, {"role": "user", "content": input})
+
+while True:
     try:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
-        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, system=system(), tools=tools, messages=working_memory)  # model interface
+        output = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory).content
     except BadRequestError as e:
         if "prompt is too long" not in str(e): raise
         drop += 1
         continue
 
-    results = []
-    for block in reply.content:                                         # output
+    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+
+    input = []
+    for block in output:                                 # output: show text, run tool requests
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
-    working_memory.append({"role": "assistant", "content": reply.content})
-    if results:                                                         # control flow: go again
-        working_memory.append({"role": "user", "content": results})
+    if input:
+        add(working_memory, {"role": "user", "content": input})
         continue
-    if not chat or (task := input("\n> ")) == "/q":                     # control flow: stop, or hand back
+    if not chat or (input := read("\n> ")) == "/q":
         break
-    working_memory.append({"role": "user", "content": task})
-```
+    add(working_memory, {"role": "user", "content": input})
+````
 
 ## Appendix B. The runs quoted in §5
 
@@ -728,72 +946,153 @@ Each excerpt is taken from a single recorded run; the model's wording varies bet
 **B.1 The model interface alone.** The response's `content` holds an empty `thinking` block and a `text` block. The text begins:
 
 ```
-I can't see your file system, so I can't tell what's in your directory. No files or tools have been shared in this conversation. Here's how you can check yourself:
-
-**macOS / Linux (Terminal)**
-ls          # basic listing
+I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared.
 ```
 
-`stop_reason` is `end_turn`, and `usage` shows 15 input tokens and 331 output tokens, 38 of them thinking.
+`stop_reason` is `end_turn`, and `usage` shows 15 input tokens and 242 output tokens, 41 of them thinking.
 
 **B.2 Input, with output still a stub.** Given *"how many lines are in README.md?"*, the whole `content` is one tool request:
 
 ```
-{"id": "toolu_01UksmSeN8qGMiYrrgfvUDZC", "input": {"cmd": "wc -l README.md"}, "name": "bash", "type": "tool_use"}
+{"id": "toolu_01MZ8CLRS3qnG1TjJz5AoCX1", "input": {"cmd": "wc -l README.md"}, "name": "bash", "type": "tool_use"}
 "stop_reason": "tool_use"
 ```
 
-**B.3 Input and output together.** The same task. The command runs, and its result never reaches the model:
+**B.3 Input and output together.** The same input. The command runs, and its result never reaches the model:
 
 ```
 $ wc -l README.md
-71 README.md
+333 README.md
 ```
 
 **B.4 Control flow.** *"which quark.py in the lessons folder is the longest? answer in one sentence"*. Two calls: one command, then the answer from its result.
 
 ```
-$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + 2>/dev/null | sort -n
-   9 ./lessons/01-model-interface/quark.py
-  21 ./lessons/02-input-and-output/quark.py
-  30 ./lessons/03-control-flow/quark.py
-  48 ./lessons/04-context/quark.py
- 108 total
+$ find . -ipath '*lessons*' -name 'quark.py' -exec wc -l {} + 2>/dev/null | sort -n
+    9 ./lessons/01-model-interface/quark.py
+   33 ./lessons/02-input-and-output/quark.py
+   46 ./lessons/03-control-flow/quark.py
+  234 ./lessons/04-context/quark.py
+  322 total
 
-The longest is `./lessons/04-context/quark.py`, at 48 lines.
+The longest is `./lessons/04-context/quark.py`, at 234 lines.
 ```
 
-**B.5 Context.** Three separate runs.
+**B.5 Context.** Six separate runs, each a new session with empty working memory, in order.
 
 *"what are you, and how do you work? three sentences"*:
 
 ```
-I'm quark, an AI agent whose only way of acting and observing is a bash shell. [...] For long-term memory I keep timestamped notes in `.quark/memory/memory.md`, so what I learn can carry over between sessions.
+I'm quark, an agent that runs on a language model and acts only through bash. It's my one tool for reading, writing, running programs and talking to you. I work in a loop of observe, think, act, and repeat. My working memory is this session's context window. Three stores on disk persist beyond it: semantic facts in `.quark/memory/memory.md`, skills in `.quark/skills/`, and a log of every past session in `.quark/episodes/`.
 ```
 
-*"remember that I prefer short answers"*: it appended an entry to its memory file and replied:
+*"remember that I prefer short answers"*, which writes a fact to semantic memory:
 
 ```
-- User preference: prefers short answers (keep replies brief)
+$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "^- user:" .quark/memory/memory.md; cat >> .quark/memory/memory.md << 'EOF'
+- user: prefers short answers
+EOF
 
-I saved that. I'll keep my answers short.
+Noted. I'll keep answers short.
 ```
 
-*"what do you know about me?"*, in a new session with empty working memory:
+*"what do you know about me?"*, which reads semantic memory for the fact and episodic memory for what happened:
 
 ```
-$ ... cat .quark/memory/memory.md
+$ cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls .quark/episodes 2>/dev/null | head
 # Quark Memory
+- user: prefers short answers
+2026-10-06T16-30-30.jsonl
+2026-10-06T16-30-34.jsonl
+2026-10-06T16-30-39.jsonl
 
-## 2026-10-05 21:56:11
-- User preference: prefers short answers (keep replies brief)
+$ grep -m1 -H "" .quark/episodes/*.jsonl | grep -v 16-30-39 | cut -c1-250
+.quark/episodes/2026-10-06T16-30-30.jsonl:{"role": "user", "content": "what are you, and how do you work? three sentences"}
+.quark/episodes/2026-10-06T16-30-34.jsonl:{"role": "user", "content": "remember that I prefer short answers"}
 
-Not much yet. My memory has one note about you: you prefer short answers.
+Not much:
+
+- You prefer short answers. This is the only fact in my memory.
+- Earlier sessions show you asked me to describe what I am and how I work in three sentences. You also asked me to remember your short-answer preference.
+
+I don't know your name, your work, or anything else about you.
+```
+
+*"I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."*, which completes the request and writes a generalized skill and a fact referencing it:
+
+```
+$ cd /home/user/building-agents && find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' | wc -l
+1949
+24
+
+$ mkdir -p .quark/skills .quark/memory && cat > .quark/skills/count-python-lines.md << 'EOF'
+---
+name: count-python-lines
+description: count how many lines of Python are in a repo, excluding .venv (and .git)
+---
+1. cd to the repo root (default: the current working directory).
+2. Run: find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l
+3. Optionally count files: same find piped to wc -l.
+4. Report total lines and number of files.
+EOF
+[ -f .quark/memory/memory.md ] || echo "# Quark Memory" > .quark/memory/memory.md
+cat >> .quark/memory/memory.md << 'EOF'
+- user: often asks how many lines of Python are in a repo, excluding .venv (skill: count-python-lines)
+EOF
+
+This repo has **1,949 lines of Python** across 24 `.py` files. The count excludes `.venv` and `.git`.
+
+I also saved the method as a skill, `count-python-lines`, so I can repeat it quickly next time.
+```
+
+*"how many lines of Python are in this repo?"*, which reads the skill from the index before acting:
+
+```
+$ cat .quark/skills/count-python-lines.md 2>/dev/null
+---
+name: count-python-lines
+description: count how many lines of Python are in a repo, excluding .venv (and .git)
+---
+1. cd to the repo root (default: the current working directory).
+2. Run: find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l
+3. Optionally count files: same find piped to wc -l.
+4. Report total lines and number of files.
+
+$ find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' | wc -l
+1949
+24
+
+The repo has **1,949 lines of Python** across **24 files**. I excluded `.venv` and `.git` from the count.
+```
+
+*"what have I asked you in earlier sessions?"*, which lists the opening input of every prior episode:
+
+```
+$ ls .quark/episodes/ 2>/dev/null | head -50; grep -m1 -H "" .quark/episodes/*.jsonl 2>/dev/null | grep -v 2026-10-06T16-31-00 | cut -c1-250
+2026-10-06T16-30-30.jsonl
+2026-10-06T16-30-34.jsonl
+2026-10-06T16-30-39.jsonl
+2026-10-06T16-30-45.jsonl
+2026-10-06T16-30-53.jsonl
+2026-10-06T16-31-00.jsonl
+.quark/episodes/2026-10-06T16-30-30.jsonl:{"role": "user", "content": "what are you, and how do you work? three sentences"}
+.quark/episodes/2026-10-06T16-30-34.jsonl:{"role": "user", "content": "remember that I prefer short answers"}
+.quark/episodes/2026-10-06T16-30-39.jsonl:{"role": "user", "content": "what do you know about me?"}
+.quark/episodes/2026-10-06T16-30-45.jsonl:{"role": "user", "content": "I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."}
+.quark/episodes/2026-10-06T16-30-53.jsonl:{"role": "user", "content": "how many lines of Python are in this repo?"}
+
+In earlier sessions you asked me:
+
+1. "what are you, and how do you work? three sentences"
+2. "remember that I prefer short answers"
+3. "what do you know about me?"
+4. "I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."
+5. "how many lines of Python are in this repo?"
 ```
 
 ## Appendix C. The code each production layer adds
 
-Each layer's `quark.py` is the previous file plus the lines below, abbreviated where marked. Comments indicate the primitive in which each element resides.
+Each layer's `quark.py` is the previous file plus the lines below, abbreviated where marked; the layers extend the earlier 48-line base harness (§6). Comments indicate the primitive in which each element resides.
 
 **C.1 Observability (+12 lines), in control flow.** One function, called at each point the loop already passes: the start, after each model call, after each tool, on each compaction.
 

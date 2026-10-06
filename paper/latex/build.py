@@ -26,25 +26,35 @@ def cites(m):
     return r"\cite{" + ",".join(KEYS[n] for n in nums) + "}"
 
 def prep(md):
-    md = re.sub(r"\n---\n", "\n", md)
-    parts = re.split(r"(```.*?```)", md, flags=re.S)
-    md = "".join(x if x.startswith("```") else re.sub(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\](?!\()", cites, x) for x in parts)
-    md = re.sub(r"^(#{2,3}) (?:Appendix [A-Z]\. |[A-Z]\.\d+ |\d+(?:\.\d+)*\.? )", r"\1 ", md, flags=re.M)
     md = re.sub(r"```\ncontrol flow          how information flows.*?```", r"\\input{fig-tree}", md, flags=re.S)
     md = re.sub(r"```\nperson or world ─►.*?```", r"\\input{fig-path}", md, flags=re.S)
-    md = md.replace("](./decomposition-study.md)", "](" + REPO + "paper/decomposition-study.md)")
-    md = md.replace("](../lessons/", "](" + REPO + "lessons/")
-    for k, v in {"✔": r"\ding{51}", "✘": r"\ding{55}", "●": r"$\bullet$", "○": r"$\circ$", "→": r"$\rightarrow$", "≤": r"$\le$"}.items():
-        md = md.replace(k, v)
-    return md
+    # Prose and code are handled apart: code (fenced or inline) is passed through untouched.
+    parts = re.split(r"(````.*?````|```.*?```|`[^`\n]*`)", md, flags=re.S)
+    def prose(x):
+        x = re.sub(r"\n---\n", "\n", x)
+        x = re.sub(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\](?!\()", cites, x)
+        x = re.sub(r"^(#{2,3}) (?:Appendix [A-Z]\. |[A-Z]\.\d+ |\d+(?:\.\d+)*\.? )", r"\1 ", x, flags=re.M)
+        x = x.replace("](./decomposition-study.md)", "](" + REPO + "paper/decomposition-study.md)")
+        x = x.replace("](../lessons/", "](" + REPO + "lessons/")
+        for k, v in {"✔": r"\ding{51}", "✘": r"\ding{55}", "●": r"$\bullet$", "○": r"$\circ$", "→": r"$\rightarrow$", "≤": r"$\le$"}.items():
+            x = x.replace(k, v)
+        return x
+    return "".join(x if x.startswith("`") else prose(x) for x in parts)
 
 def pandoc(md):
     return strip_comments(subprocess.run([PANDOC, "-f", "markdown-auto_identifiers", "-t", "latex", "--listings", "--wrap=preserve", "--shift-heading-level-by=-1"],
                           input=md, capture_output=True, text=True, check=True).stdout)
 
 def strip_comments(tex):
-    # arXiv archives the source, so drop TeX comments pandoc adds (an unescaped % to end of line).
-    return "\n".join(re.sub(r"(?<!\\)%.*$", "", line) for line in tex.split("\n"))
+    # arXiv archives the source, so drop TeX comments pandoc adds (an unescaped % to end of line),
+    # but never inside code listings, where % is literal.
+    out, listing = [], False
+    for line in tex.split("\n"):
+        if line.startswith("\\begin{lstlisting}"): listing = True
+        if not listing and "\\lstinline" not in line: line = re.sub(r"(?<!\\)%.*$", "", line)
+        if line.startswith("\\end{lstlisting}"): listing = False
+        out.append(line)
+    return "\n".join(out)
 
 text = MD.read_text()
 abstract = text.split("## Abstract", 1)[1].split("\n---", 1)[0]

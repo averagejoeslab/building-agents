@@ -8,7 +8,7 @@ This repo has three parts, in the order to read them:
 
 1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four primitives, then six production layers. Start here.
 2. **[The paper](#the-paper).** The course's thesis, written up and tested against Claude Code, OpenAI Codex and opencode.
-3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4, 48 lines long, doing real work on this repo: it wrote the production lessons and every slide deck.
+3. **[quark at work](#quark-at-work).** An earlier, 48-line version of the harness you build in Lesson 4 doing real work on this repo: it wrote the production lessons and every slide deck.
 
 ## What is harness engineering?
 
@@ -66,7 +66,7 @@ Lesson 4's `quark.py` is the finished harness. By then you've built quark, and y
 
 ### The production layers
 
-A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where:
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where. (The production lessons were written on an earlier, 48-line version of Lesson 4's `quark.py`, before episodic and procedural memory; moving them onto the current one is still to do.)
 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
@@ -112,7 +112,7 @@ It's a preprint draft. [`paper/README.md`](./paper/README.md) explains how to bu
 
 ## quark at work
 
-This is the proof. Lesson 4's `quark.py` is 48 lines: the five primitives and nothing else. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
+This is the proof. These runs used an earlier version of Lesson 4's `quark.py`: 48 lines, the five primitives and nothing else, with working and semantic memory but not yet episodic or procedural memory. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
 
 **Run 1: read the repo and remember it.**
 

@@ -13,22 +13,24 @@ Here's the call at the center of [quark](https://github.com/averagejoeslab/quark
 ```python
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
-reply = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    messages=[{"role": "user", "content": "What's in this directory?"}],
-)
-print(reply.model_dump_json(indent=2))
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+print(output.model_dump_json(indent=2))
 ```
 
 **`client = Anthropic()`** is where the request goes: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`.
+**`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson calls the model through this one function, so the primitive stays in one place.
 
-**`client.messages.create(...)`** sends the request and waits for the response. `model` picks which model, and `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
+**`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
-**`reply`** is the response: the tokens out, plus details about how they were produced. The `print` shows all of it.
+**`output`** is the response: the tokens out, plus details about how they were produced. The `print` shows all of it.
+
+The section heading, `# ── model interface ──`, will stay at the top of `quark.py` through every lesson. Each lesson adds a section of its own.
 
 ## Run it
 
@@ -42,17 +44,45 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011Cfjtdeu23hbWiRDRTpJxg",
+  "id": "msg_011CfmJRUrVjniKSZKETcqsX",
   "container": null,
   "content": [
     {
-      "signature": "CAQSwgUKEAgSGAI4AUIIdGhpbmtpbmcSDCu9/GfGfYwbroLG+RoMOqs4xtYaAvKYS9GoIjD/...",
+      "signature": "CAQSzwUKEAgSGAI4AUIIdGhpbmtpbmcSDKlrwMSNM6lBxU18bRoMn4edTKN1RKRgwt8dIjBD...",
       "thinking": "",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your file system, so I can't tell what's in your directory. No files or tools have been shared in this conversation. Here's how you can check yourself:\n\n**macOS / Linux (Terminal)**\n```bash\nls          # basic listing\nls -la      # detailed listing, including hidden files\ntree        # tree view (may need to be installed)\n```\n\n**Windows Command Prompt**\n```cmd\ndir\ndir /a      # include hidden files\n```\n\n**Windows PowerShell**\n```powershell\nGet-ChildItem   # or: ls / dir\nGet-ChildItem -Force   # include hidden files\n```\n\nIf you paste the output here, I can help you interpret it, find specific files, clean things up, or write a script to work with them.\n\nIf you're using an IDE or tool that's supposed to give me file access, it may not be set up correctly. Let me know what you're working with and I can help troubleshoot.",
+      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared.\n\nYou can list the contents yourself with one of these:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n\nIf you paste the output here, I can help you work out what the files are, how the project is organized, or what to do next. If you're using a tool or IDE that is supposed to give me file access, it doesn't seem to be connected here.",
+      "type": "text"
+    }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 15,
+    "output_tokens": 242,
+    "output_tokens_details": {
+      "thinking_tokens": 41
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
+```bash\nls          # basic listing\nls -la      # detailed listing, including hidden files\ntree        # tree view (may need to be installed)\n```\n\n**Windows Command Prompt**\n```cmd\ndir\ndir /a      # include hidden files\n```\n\n**Windows PowerShell**\n```powershell\nGet-ChildItem   # or: ls / dir\nGet-ChildItem -Force   # include hidden files\n```\n\nIf you paste the output here, I can help you interpret it, find specific files, clean things up, or write a script to work with them.\n\nIf you're using an IDE or tool that's supposed to give me file access, it may not be set up correctly. Let me know what you're working with and I can help troubleshoot.",
       "type": "text"
     }
   ],
