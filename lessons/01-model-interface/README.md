@@ -27,9 +27,9 @@ print(output.model_dump_json(indent=2))
 
 **`client = Anthropic()`** is where the request goes: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson calls the model through this one function, so the primitive stays in one place.
+**`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson's `quark.py` calls the model through this one function, so the primitive stays in one place.
 
-**`client.messages.stream(...)`** is how the response comes back: streamed, piece by piece, as the model produces it, instead of all at once at the end. A long response that arrives all at once can time out while you wait; one that streams can't. **`for event in stream: each(event)`** hands each piece, as it arrives, to `each()`. Here nothing is done with the pieces: `each` defaults to a function that ignores them. **`stream.get_final_message()`** then returns the whole response, put back together, so `call()` hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2.
+**`client.messages.stream(...)`** is how the response comes back: streamed, piece by piece, as the model produces it, instead of all at once at the end. A long response that arrives all at once can time out while you wait for it; one that streams keeps arriving, so it doesn't sit waiting. **`for event in stream: each(event)`** hands each piece, as it arrives, to `each()`. Here nothing is done with the pieces: `each` defaults to a function that ignores them. **`stream.get_final_message()`** then returns the whole response, put back together, so `call()` hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2.
 
 **`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
@@ -103,7 +103,7 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
 - **How it travels.** An official SDK, raw HTTP, or a layer that speaks several providers' formats so the rest of the harness doesn't have to.
 - **Which model answers.** One model, or a backup that takes over when the first is unavailable.
-- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out. quark streams.
+- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response doesn't sit waiting to time out. quark streams.
 - **How many go at once.** One request, or a batch of them.
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
 - **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.
@@ -123,7 +123,7 @@ def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
         try:
             with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:
                 return stream.get_final_message()
-        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError):
+        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError, anthropic.OverloadedError):
             continue
     raise RuntimeError("no model answered")
 
@@ -131,7 +131,7 @@ output = call([{"role": "user", "content": "What's in this directory?"}])
 print(output.model_dump_json(indent=2))
 ```
 
-- **What happens when a request fails.** `timeout=120` gives up on a request that takes longer than two minutes. `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
+- **What happens when a request fails.** `timeout=120` gives up when the API goes two minutes without sending anything. `max_retries=3` has the SDK retry dropped connections, rate limits and server errors, waiting longer each time.
 - **Which model answers.** If every retry fails, `call` moves on to the next model in `MODELS`.
 - **How the response arrives.** It streams, just like `quark.py`, and `get_final_message()` hands back the whole response once it's done. There's no `each()` here: nothing looks at the pieces along the way.
 - **The request's settings.** `max_tokens`, `effort` (how much the model thinks first) and `thinking` are arguments the caller can set. `"summarized"` asks for a readable summary of the model's thinking instead of the empty default. The raw thinking itself is never returned.
@@ -146,17 +146,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011Cfjmr2xbFAE1MRszzzWWX",
+  "id": "msg_011Cfmo5ETdNJ28reosFF3dn",
   "container": null,
   "content": [
     {
-      "signature": "CAQS0AUKEAgSGAI4AUIIdGhpbmtpbmcSDJo1AOU3Q8nzeKwLQRoMqA3M2GGFMP3dZLX+IjCE...",
-      "thinking": "I don't actually have access to this user's file system, so I can't see what's in their directory—I should explain that and suggest they paste the listing or output here instead.\n\n",
+      "signature": "CAQSwgUKEAgSGAI4AUIIdGhpbmtpbmcSDBCegPorSEbHzhLnbBoMD3bANjNq4stHLo66IjBy...",
+      "thinking": "I don't actually have access to their file system or any tools here, so I can't see what's in a directory. I should let them know and suggest they paste the contents or describe it so I can help.\n\n",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory. I don't have file system access in this conversation, and nothing has been shared with me besides your message.\n\nTo find out what's in it, you can run one of these yourself:\n\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -R` (recursive)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n- **Tree view:** `tree` (on Linux/macOS you may need to install it first)\n\nIf you paste the output here, I can help you make sense of it, such as explaining what the files are, finding something specific, or cleaning things up.",
+      "text": "I can't see your directory because I don't have access to your file system in this conversation. Here are some ways to find out what's in it:\n\n**Command line**\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -lah` for human-readable sizes\n- **Windows (Command Prompt):** `dir`\n- **Windows (PowerShell):** `Get-ChildItem` or `ls`\n- **Tree view:** `tree` (Linux/macOS, may need installing) or `tree /f` (Windows)\n\n**Graphical**\n- Open the folder in Finder, File Explorer, or your file manager.\n\nIf you paste the output here, I can help you:\n- Explain what the files and folders are for\n- Work out what kind of project it is\n- Find something specific, clean up, or organize it\n- Write a script or command to do something with the contents\n\nWhat are you trying to do?",
       "type": "text"
     }
   ],
@@ -176,9 +176,9 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 257,
+    "output_tokens": 323,
     "output_tokens_details": {
-      "thinking_tokens": 41
+      "thinking_tokens": 39
     },
     "server_tool_use": null,
     "service_tier": "standard"

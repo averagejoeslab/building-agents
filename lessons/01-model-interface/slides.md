@@ -181,7 +181,7 @@ def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
     raise RuntimeError("no model answered")
 ```
 
-<!-- timeout=120 gives up after two minutes. max_retries=3 has the SDK retry dropped connections, rate limits and server errors. If every retry fails, call moves on to the next model in MODELS. It streams, and get_final_message hands back the whole response once it's done. The stream line also passes effort and thinking settings; I've cut them here. -->
+<!-- timeout=120 gives up when the API goes two minutes without sending anything. max_retries=3 has the SDK retry dropped connections, rate limits and server errors. If every retry fails, call moves on to the next model in MODELS. It streams, and get_final_message hands back the whole response once it's done. The stream line also passes effort and thinking settings; I've cut them here. -->
 
 ---
 
@@ -204,7 +204,7 @@ uv run lessons/01-model-interface/model_interface.py
 
 The `thinking` block, in part:
 
-> I don't actually have access to this user's file system, so I can't see what's in their directory...
+> I don't actually have access to their file system or any tools here, so I can't see what's in a directory...
 
 The rest only shows when something goes wrong: a dropped connection, a rate limit, a model that's down.
 

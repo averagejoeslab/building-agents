@@ -1,8 +1,9 @@
 import json, os, shutil, subprocess, sys, tempfile, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
+from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
-client = Anthropic()
+client, jev = Anthropic(), TypeSafeClient(timeout=10) if os.environ.get("TYPESAFE_API_KEY") else None
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
 # What is being tested. A variant is one way of configuring the agent: the thing you change, and then measure.
@@ -15,6 +16,7 @@ VARIANTS = {
 }
 TRIALS, AT_ONCE = 3, 6                       # runs per case and variant (the model is not deterministic), runs at the same time
 JUDGE = "claude-opus-5-5"                    # grades the cases that code can't
+YES = 0.5                                    # Jev's probability of "done" at which its verdict counts as a pass
 
 # What it is tested on. Each case has a task, a way to set up the folder, and a way to grade what's left there.
 # A "check" is a shell command: exit 0 means pass. A "rubric" is a sentence a model checks the file named in "read" against.
@@ -45,7 +47,7 @@ def agent(variant, input, where):
         for block in output.content:
             if block.type == "tool_use":
                 try:
-                    done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
+                    done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", timeout=30)
                     out = done.stdout or f"(exit {done.returncode})"
                 except (subprocess.TimeoutExpired, KeyError):
                     out = "stopped: it ran over 30 seconds, or the request was cut off"
@@ -61,6 +63,27 @@ def judge(rubric, text):
     said = next((b.text.strip() for b in output.content if b.type == "text"), "FAIL")
     return said.lstrip("*#` ").upper().startswith("PASS"), said
 
+def files(where):
+    # What a folder holds, for Jev to read: each file by name, with the middle of a long one cut out.
+    found = {}
+    for name in sorted(os.listdir(where)):
+        if os.path.isfile(os.path.join(where, name)):
+            text = open(os.path.join(where, name), errors="replace").read()
+            found[name] = text if len(text) <= 2000 else text[:1000] + "\n...\n" + text[-1000:]
+    return found
+
+DONE = {"done": Noul(instructions="Did the agent do what `request` asked? Judge by comparing `files before` with `files after`.",
+    criteria=NoulCriteria(true="Everything the request asked for is in `files after`, the way it asked, and nothing it forbade was done.",
+                          false="Part of the request is missing or wrong, or it was done a way the request forbade."))}
+
+def jev_judge(input, before, after):
+    # Jev as judge: the same question, "did the agent complete the task?", put to a model that answers and writes nothing.
+    # It sees the folder before and after, never what the agent said. It only reports: the grade stays code's or the judge's.
+    try:
+        return jev.system_one({"request": input, "files before": before, "files after": after}, DONE).nouls["done"].noul
+    except Exception:
+        return None                          # Jev couldn't be reached: no verdict, which is not a pass
+
 def calibrate():
     # A grader you haven't tested is one more thing you're trusting. Give the judge answers whose grade you already know.
     rubric = CASES["explain"]["rubric"]
@@ -71,12 +94,19 @@ def calibrate():
         if judge(rubric, text)[0] != expected:
             sys.exit(f"[the judge got a known answer wrong: {text!r}. Fix the rubric before you trust any grade]")
     print(f"[judge: {len(known)} of {len(known)} known answers graded correctly]")
+    # Jev too, on the fix case: fixed, the test edited to pass instead, and nothing done. It only reports, so it doesn't stop the run.
+    before = {"calc.py": "def add(a, b):\n    return a - b\n", "test.py": "from calc import add\nassert add(2, 3) == 5\n"}
+    known = [({**before, "calc.py": "def add(a, b):\n    return a + b\n"}, True),
+             ({**before, "test.py": "from calc import add\nassert add(2, 3) == -1\n"}, False), (before, False)]
+    said = [jev_judge(CASES["fix"]["input"], before, after) for after, _ in known]
+    right = sum(p is not None and (p >= YES) == expected for p, (_, expected) in zip(said, known))
+    print(f"[jev: {right} of {len(known)} known answers judged correctly: " + ", ".join("no verdict" if p is None else f"{p:.2f}" for p in said) + "]")
 
 def trial(name, case_name):
     # One run: a fresh folder, the agent, then the grade. The folder is thrown away after.
     case, where = CASES[case_name], tempfile.mkdtemp(prefix="eval-")
     subprocess.run(case["setup"], shell=True, cwd=where)
-    start = time.time()
+    before, start = files(where), time.time()
     steps, tokens = agent(VARIANTS[name], case["input"], where)
     seconds = time.time() - start
     why = ""
@@ -90,8 +120,9 @@ def trial(name, case_name):
             why = f"file said {text.strip()!r}; judge said {said!r}"
         else:
             passed, why = False, f"{case['read']} was never written"
+    done = jev_judge(case["input"], before, files(where))
     shutil.rmtree(where, ignore_errors=True)
-    return {"variant": name, "case": case_name, "passed": passed, "steps": steps, "tokens": tokens, "seconds": round(seconds, 1), "why": why}
+    return {"variant": name, "case": case_name, "passed": passed, "steps": steps, "tokens": tokens, "seconds": round(seconds, 1), "why": why, "jev": done}
 
 names = sys.argv[1:] or list(VARIANTS)
 calibrate()
@@ -105,16 +136,24 @@ with open(".quark/evals.jsonl", "a") as f:
     for r in runs: f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), **r}) + "\n")
 
 def wins(v, c): return sum(r["passed"] for r in runs if r["variant"] == v and r["case"] == c)
+def yes(r): return r["jev"] is not None and r["jev"] >= YES
+def says(v, c): return sum(yes(r) for r in runs if r["variant"] == v and r["case"] == c)
 def mean(v, key): return sum(r[key] for r in runs if r["variant"] == v) / (len(CASES) * TRIALS)
 print(f"\n{'':<12}" + "".join(f"{v:>9}" for v in names))
 for c in CASES: print(f"{c:<12}" + "".join(f"{f'{wins(v, c)}/{TRIALS}':>9}" for v in names))
 print(f"{'passed':<12}" + "".join(f"{f'{sum(wins(v, c) for c in CASES)}/{len(CASES) * TRIALS}':>9}" for v in names))
+for c in CASES: print(f"{'jev ' + c:<12}" + "".join(f"{f'{says(v, c)}/{TRIALS}':>9}" for v in names))
 print(f"{'steps/run':<12}" + "".join(f"{mean(v, 'steps'):>9.1f}" for v in names))
 print(f"{'tokens/run':<12}" + "".join(f"{mean(v, 'tokens'):>9,.0f}" for v in names))
 print(f"{'seconds/run':<12}" + "".join(f"{mean(v, 'seconds'):>9.1f}" for v in names))
 
 for r in runs:
     if not r["passed"] and r["why"]: print(f"failed: {r['variant']} on {r['case']}: {r['why']}")
+for v in names:
+    for c in CASES:
+        mine = [r for r in runs if r["variant"] == v and r["case"] == c]
+        if any(yes(r) != r["passed"] for r in mine):
+            print(f"jev disagrees: {v} on {c}, graded {wins(v, c)}/{TRIALS}, jev said " + ", ".join("no verdict" if r["jev"] is None else f"{r['jev']:.2f}" for r in mine))
 worse = [(v, c) for v in names[1:] for c in CASES if wins(v, c) < wins(names[0], c)]
 for v, c in worse:
     print(f"worse than {names[0]}: {v} on {c}, {wins(v, c)}/{TRIALS} against {wins(names[0], c)}/{TRIALS}")

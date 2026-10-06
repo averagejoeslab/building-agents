@@ -1,5 +1,6 @@
-import subprocess, sys, os, json, time, random, signal
+import subprocess, sys, os, re, json, time, random, signal
 from anthropic import Anthropic, APIConnectionError, APIStatusError
+from typesafe_sdk import TypeSafeClient, Choice
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic(max_retries=0, timeout=120)   # the SDK's own retries are off: this file does them, where you can see them
@@ -10,6 +11,9 @@ BENCH = 60                                          # seconds a model that just 
 MAX_STEPS = 10
 TOOL_TIMEOUT, MAX_OUT = 20, 4000                    # seconds a command may run, characters of its output kept
 CHECKPOINT = ".quark/checkpoint.json"
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, for one question (Lesson 5); no key, no Jev
+SURE = 0.8                                          # how confident Jev must be before its answer changes anything
+READS = {"cat", "head", "tail", "ls", "wc", "grep", "curl"}   # programs that only look, so running one twice does no harm
 
 class Down(Exception): pass
 
@@ -54,6 +58,23 @@ def run(cmd):
         p.returncode = -9
     if len(out) > MAX_OUT: out, note = out[:MAX_OUT], f"\n[output cut at {MAX_OUT} characters]" + note
     return (out + note).strip() or "(no output)", p.returncode != 0
+
+def failure(cmd, out):
+    # Jev's question: will this failed command work if it's simply run again? Unsure, or no answer at all, is "unsure" or None: never a retry.
+    try: a = jev.system_one({"command": cmd, "result": out}, {"failure": Choice(
+        instructions="The command in `command` failed with `result`. What kind of failure is it?",
+        criteria={"transient": "likely to work if run again unchanged: network blip, timeout, lock held, rate limit, busy resource",
+                  "permanent": "will fail again unchanged: missing file, syntax error, wrong argument, permission denied, failing test",
+                  "partial": "it got part of the way: some of its changes may have happened before it failed"})}).choices["failure"]
+    except Exception:
+        print("[Jev: no answer]")
+        return None
+    print(f"[Jev: {a.choice}, confidence {a.confidence:.2f}]")
+    return a.choice if a.confidence >= SURE else "unsure"
+
+def reads(cmd):
+    # Hand-written and strict: one program from READS, no pipes, redirects or chaining, no curl flag that sends or saves. Jev never decides this.
+    return cmd.split()[0] in READS and not re.search(r"[|;&<>$`(\n]| -[A-Za-z]*[oOXdTF]|--(data|upload|output|request|form)", cmd)
 
 def save(messages):
     os.makedirs(".quark", exist_ok=True)
@@ -100,6 +121,13 @@ for step in range(1, MAX_STEPS + 1):
                 out, failed = "your request was cut off at the token limit, so it was not run. Send it again, shorter.", True
             else:
                 out, failed = run(cmd)
+                kind = failure(cmd, out) if failed else None
+                if kind == "transient" and reads(cmd):
+                    print(f"[trying once more in {BASE:.0f}s]")
+                    time.sleep(BASE)
+                    out, failed = run(cmd)
+                elif kind in ("partial", "unsure") and not reads(cmd):   # a read can't have partly done anything
+                    out += "\n(it may have partly run: check before repeating it)"
             print(out)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
     if not input:

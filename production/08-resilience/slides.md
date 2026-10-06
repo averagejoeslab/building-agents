@@ -137,7 +137,7 @@ def unfinished():
 In `# ── input ──`, it's asked before anything else is read:
 
 ```python
-resumed = unfinished()
+resumed = None if sys.argv[1:] else unfinished()   # resilience: a new task on the command line starts fresh
 input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
 ```
 
@@ -334,6 +334,7 @@ Gateways like LiteLLM and OpenRouter handle retries, fallbacks and rate limits. 
 - `retryable()` sorts failures; `pause()` honors `retry-after`, else backs off with jitter
 - `ask()` benches a model that gave up for `BENCH` seconds
 - `run()` kills the whole process group and caps output
+- `failure()` asks Jev if a failed command is worth one more try
 - `save()` checkpoints every step; `resilience.py resume` picks it up
 
 <!-- The client has max_retries=0, so its retries are the only ones. The checkpoint is written before the first request, after each reply and after each set of results, so it always ends at a point the API will accept. -->
@@ -343,9 +344,9 @@ Gateways like LiteLLM and OpenRouter handle retries, fallbacks and rate limits. 
 # The preferred model down, with a circuit breaker
 
 ```
-[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.7s]
-[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.7s]
-[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 2.5s]
+[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.8s]
+[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.3s]
+[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 3.5s]
 [claude-sonnet-5-5: OverloadedError, giving up on it for 60s]
 [answered by the backup, claude-opus-5-5]
 $ wc -c notes.txt
@@ -355,9 +356,33 @@ notes.txt is 6 bytes.
 [done in 2 steps]
 ```
 
-Waits grow with jitter: 0.7, 1.7, 2.5. The second call skipped the benched model: six requests, where quark sent ten.
+Waits grow with jitter: 0.8, 1.3, 3.5. The second call skipped the benched model: six requests, where quark sent ten.
 
 <!-- The doubling would give 1, 2, 4, each multiplied by a number between a half and one. The stand-in's log shows four requests to the first model, two to the second. -->
+
+---
+
+# Asking Jev about a failed command
+
+```python
+kind = failure(cmd, out) if failed else None
+if kind == "transient" and reads(cmd):
+    time.sleep(BASE)
+    out, failed = run(cmd)
+elif kind in ("partial", "unsure") and not reads(cmd):
+    out += "\n(it may have partly run: check before repeating it)"
+```
+
+```
+$ curl -sSf http://127.0.0.1:8115/status
+[Jev: transient, confidence 0.87]
+[trying once more in 1s]
+ok
+```
+
+(abridged, and the run shortened) Jev says if a retry is worth it; hand-written `reads()` says if it's safe.
+
+<!-- Jev is the small decision model from Lesson 5: a choice and a confidence in a fraction of a second. Under SURE, or no answer at all, and nothing is retried. Asking is a model-interface act; the retry or the warning is output's. The service answered 503 once, then ok; the model only saw ok. migrate.py, which failed at its fourth table, came back as partial, 0.85, with the warning added. -->
 
 ---
 

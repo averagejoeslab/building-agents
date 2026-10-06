@@ -241,16 +241,41 @@ The run hit the step limit before the model saw what it read.
 
 ---
 
-# `evaluation.py`: variants, a judge, and trials
+# `evaluation.py`: variants, two judges, and trials
 
 Lesson 3's loop as a function, with:
 
 - **Three variants** to compare: `sonnet` (the baseline), `haiku`, and `hasty`
 - **Four cases:** three graded by code, `explain` graded by a model against a rubric
 - **`calibrate()`** tests the judge on three known answers before trusting it
+- **Jev as judge** beside the LLM as judge: did the agent complete the task?
 - **Three trials** of each case, six at a time, and a table against the baseline
 
 <!-- hasty is the same model told to use few commands and never read before editing: the kind of "be efficient" line someone adds to save money. Each variant is a hypothesis: this one is as good and cheaper. -->
+
+---
+
+# Jev as judge (abridged, run shortened)
+
+```python
+def jev_judge(input, before, after):
+    try:
+        return jev.system_one({"request": input, "files before": before,
+                               "files after": after}, DONE).nouls["done"].noul
+    except Exception:
+        return None
+```
+
+```
+jev fix           3/3      3/3      3/3
+jev log           0/3      0/3      0/3
+jev disagrees: sonnet on log, graded 3/3, jev said 0.13, 0.16, 0.15
+```
+
+- Sees the folder before and after, never what the agent said; it only reports
+- Wrong on `log`: it doesn't count. A disagreement says which runs to read
+
+<!-- Jev is a decision model from Lesson 5: it writes no text, it answers typed questions, cheap and fast enough to ask on every run. The call is model interface; counting the verdicts is the evaluation's own control flow. It got the known answers right, 0.99 for a fix and 0.01 for the test edited instead. Without files before in the state, those were 0.47 and 0.43: it can't infer a change it can't see. If Jev can't be reached, no verdict, which is never a pass. -->
 
 ---
 
@@ -266,8 +291,8 @@ log               3/3      0/3
 explain           3/3      0/3
 passed          12/12     3/12
 steps/run         3.2      1.0
-tokens/run      2,257      488
-seconds/run       4.8      1.3
+tokens/run      2,265      488
+seconds/run       5.0      1.3
 ```
 
 <!-- The first full run had all 36 passing for all three variants, so four cases couldn't tell them apart: either they're equal on this work, or the cases are too easy. This one shows what worse looks like. onestep was cheaper because it stopped before doing the work. That's why cost is read together with pass rate and never alone. -->

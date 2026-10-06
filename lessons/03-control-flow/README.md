@@ -156,7 +156,7 @@ for step in range(1, MAX_STEPS + 1):
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:
@@ -179,18 +179,17 @@ uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the 
 Here's one run:
 
 ```
-$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5; pwd
-5 02-input-and-output/
-4 03-control-flow/
-3 04-context/
-3 01-model-interface/
-/home/user/building-agents/lessons
+$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5
+7 02-input-and-output/
+6 03-control-flow/
+5 04-context/
+5 01-model-interface/
 
-The `02-input-and-output` folder in `lessons` has the most files, with 5.
+The `02-input-and-output` folder in `lessons` has the most files, with 7.
 [done in 2 steps]
 ```
 
-Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, the same harness stops after the first command, before the model sees its result:
+Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, and an input that asks for the git version, the same harness stops after the first command, before the model sees its result:
 
 ```
 $ git --version
@@ -206,7 +205,7 @@ Anthropic's [Building effective agents](https://www.anthropic.com/engineering/bu
 - **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
 - **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
 
-Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down and belongs to the model interface.
+Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike the backup model in Lesson 1's `model_interface.py`, which only steps in when the first is down and belongs to the model interface.
 
 `quark.py` and `control_flow.py` are both agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
 

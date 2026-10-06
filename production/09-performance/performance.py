@@ -1,18 +1,24 @@
 import asyncio, glob, os, sys, time
 from anthropic import AsyncAnthropic
+from typesafe_sdk import AsyncTypeSafeClient, Choice
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = AsyncAnthropic()
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
-# Control flow: which model answers is chosen per task, by a small fast model. That's routing (Lesson 3). (The cache belongs to one model, so
-# this is decided once per task, not once per step: switching mid-task would start the cache over.)
-ROUTER = "claude-haiku-4-5"
-TIERS = {                                    # tier -> (model, effort)
-    "quick":    ("claude-haiku-4-5", None),
-    "standard": ("claude-sonnet-5-5", "medium"),
-    "deep":     ("claude-opus-5-5", "high"),
+# Control flow: which model answers is chosen per task, by asking Jev how much work it is. That's routing (Lesson 3). (The cache belongs to
+# one model, so this is decided once per task, not once per step: switching mid-task would start the cache over.)
+jev = AsyncTypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev, a decision model: answers typed questions, writes no text
+TIERS = {                                    # how much work -> (model, effort)
+    "lookup": ("claude-haiku-4-5", None),
+    "edit":   ("claude-sonnet-5-5", "medium"),
+    "work":   ("claude-opus-5-5", "high"),
 }
+DEFAULT, SURE = "edit", 0.7                  # the tier when Jev can't say, and how confident it must be to choose another
+SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={
+    "lookup": "one quick fact or one command: count, list, show, check a version",
+    "edit": "a small, clear change to one or two files",
+    "work": "several steps of reading, reasoning and changing things, or a design question"})
 MAX_STEPS, MAX_RESULT = 10, 20_000
 TOOL_TIMEOUT, AT_ONCE = 30, 4                # seconds a command may run, commands that may run together
 
@@ -33,12 +39,14 @@ def trim(text):
     if len(text) <= MAX_RESULT: return text
     return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + text[-MAX_RESULT // 2:]
 
-async def route(input):
-    output = await client.messages.create(model=ROUTER, max_tokens=10, messages=[{"role": "user", "content":
-        "How much model does this task need? quick: one lookup or one simple command. standard: a few steps. "
-        "deep: hard reasoning, debugging, or code that must be right. Reply with one word: quick, standard or deep.\n\nTask: " + input}])
-    word = next((b.text.strip().lower() for b in output.content if b.type == "text"), "")
-    return word if word in TIERS else "standard"
+async def size(input):
+    # Model interface: one question to a second model. What's done with the answer is control flow's.
+    try:
+        answer = (await jev.system_one({"input": input}, {"size": SIZE})).choices["size"]
+    except Exception as e:                   # TypeSafeError, or anything else the call raises: never stop the task for it
+        return DEFAULT, f"no answer from Jev ({type(e).__name__})"
+    if answer.confidence < SURE: return DEFAULT, f"Jev: {answer.choice}, {answer.confidence:.2f}, not sure enough"
+    return answer.choice, f"Jev: {answer.choice}, {answer.confidence:.2f}"
 
 async def call(messages, tier):
     # Model interface: streamed, so the person reads the answer as it is written, and timed, so you can see it.
@@ -71,8 +79,8 @@ async def bash(cmd):
 
 async def main():
     input = " ".join(sys.argv[1:]) or read("> ")
-    tier = await route(input)
-    print(f"[routed to {tier}: {TIERS[tier][0]}]")
+    tier, why = await size(input)
+    print(f"[routed to {tier}: {TIERS[tier][0]} ({why})]")
     messages, start, seen = [{"role": "user", "content": input}], time.time(), [0, 0]
     for step in range(1, MAX_STEPS + 1):
         output = await call(messages, tier)

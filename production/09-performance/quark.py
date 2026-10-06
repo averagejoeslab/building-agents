@@ -270,7 +270,7 @@ def listening():                                         # input: watch the keyb
     tty.setcbreak(sys.stdin); watcher = threading.Thread(target=watch, args=(stop,), daemon=True); watcher.start()
     try: yield
     finally: stop.set(); watcher.join(0.2); termios.tcsetattr(sys.stdin, termios.TCSADRAIN, attrs)
-resumed = unfinished()
+resumed = None if sys.argv[1:] else unfinished()   # resilience: a new task on the command line starts fresh
 input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
 chat = len(sys.argv) < 2

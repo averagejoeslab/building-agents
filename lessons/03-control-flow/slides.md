@@ -200,7 +200,7 @@ else:
 `uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the most files? answer in one English sentence"`
 
 ```
-The `02-input-and-output` folder in `lessons` has the most files, with 5.
+The `02-input-and-output` folder in `lessons` has the most files, with 7.
 [done in 2 steps]
 ```
 
