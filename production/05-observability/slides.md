@@ -113,9 +113,9 @@ So the loop is where you watch.
 
 # Not the other four
 
-Input sees only what comes in.
+The model interface only knows one call.
 
-Output sees only one tool at a time.
+Output only knows one tool.
 
 Only the loop sees call, tool, call, tool, stop.
 
@@ -409,7 +409,7 @@ It uses a `PRICE` dict.
 
 # The prices are examples
 
-The numbers in `PRICE` are **not real rates**.
+The numbers in `PRICE` are **example rates**.
 
 The file says so.
 
@@ -429,9 +429,9 @@ You watch it **as it happens**, not afterwards.
 
 `row()` prints one line at the end.
 
-Steps, tokens, dollars.
+Status, calls, tools, problems, time, tokens in and out, cached, cost.
 
-The answer to "what did that cost?"
+The answer to "what did that cost, and did anything fail?"
 
 ---
 
@@ -484,9 +484,9 @@ It adds no primitive.
 
 # Notice what observability never does
 
-It never changes what the model sees.
+It never decides what runs, or when to stop.
 
-It never changes what runs.
+It reads the clock, `usage` and exit codes, and changes none of them.
 
 It only **watches**.
 

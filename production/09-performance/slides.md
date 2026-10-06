@@ -61,8 +61,8 @@ Performance is spread across **several primitives**.
 # Three places in quark.py
 
 - **context**: prompt caching, small requests
-- **model interface**: streaming, a model per request
-- **output**: running tools in parallel
+- **model interface**: streaming, a fixed smaller model for summaries
+- **output**: text shown as it arrives, tools run in parallel
 
 ---
 
@@ -184,15 +184,15 @@ Reading from it costs about **0.1x**.
 
 Lesson 5's trace has `cache_read` and `cache_write`.
 
-Step 1: a big **cache_write**.
+The first call writes the prompt to the cache, unless a run minutes before already did.
 
 ---
 
-# Step 2
+# Each step after
 
-Step 1 wrote 5,289 tokens.
+In the README's run: **read** 5,182, then 5,311, then 5,466.
 
-Step 2 **read** 5,289 tokens, and wrote only 251 new.
+Written each time: only what's new, 129, 155 and 119 tokens.
 
 ---
 
@@ -286,11 +286,11 @@ Nothing was printed.
 
 # Now we print
 
-`text_stream` lines go to the terminal **live**.
+The text goes to the terminal **live**.
 
-Same total time.
+Receiving the stream is the model interface. Showing it to you is output.
 
-Feels much faster.
+Same total time. Feels much faster.
 
 ---
 
@@ -314,7 +314,7 @@ One function for every model call.
 
 # live
 
-`live=True`: print the text as it arrives.
+`live=True`: print the text as it arrives, for the person.
 
 `live=False`: collect quietly.
 
@@ -412,21 +412,21 @@ Now: commands that don't depend on each other can go in the same response. They 
 
 # Why that matters
 
-Without it, the model never asked for several.
+The old line told the model *not* to ask for several at once.
 
-It followed the old instruction.
+A harness can only run in parallel what the model asks for in parallel.
 
-Changing context changed performance.
+Changing context can change performance.
 
 ---
 
-# Two passes
+# Three passes
 
-**Pass 1**: sequential.
+**Pass 1**: in order: cut off, refused, or approved.
 
-**Pass 2**: results, in order.
+**Pass 2**: the approved commands, all at once.
 
-Between them: the parallel run.
+**Pass 3**: the results, in the order the model asked.
 
 ---
 
@@ -442,7 +442,7 @@ print the command, check for cut-off, **ask the guard**.
 
 A person can only answer one question at a time.
 
-Questions in a stack, before anything runs.
+Questions one at a time, before anything runs.
 
 ---
 
@@ -488,7 +488,7 @@ Build the `tool_result` list in the **original order**.
 
 Each `tool_result` names its `tool_use_id`.
 
-But printing in order keeps the output readable.
+They go back in the order the model asked: the API checks that.
 
 Same results, no matter who finished first.
 
@@ -496,9 +496,12 @@ Same results, no matter who finished first.
 
 # Run it
 
+Start in a scratch folder: the box mounts it.
+
 ```
-uv run production/09-performance/quark.py \
-  "run sleep 3 three times, in parallel"
+uv run --project /path/to/building-agents \
+  /path/to/building-agents/production/09-performance/quark.py \
+  "Run these three commands as three separate commands: 'sleep 3; echo lint ok', 'sleep 3; echo types ok', 'sleep 3; echo tests ok'. Then say what passed, in one line."
 ```
 
 ---
@@ -762,6 +765,10 @@ Concurrent time vs the sum.
 # Notice what performance never does
 
 It never gathers input.
+
+It never changes the loop: same calls, same steps, same stops.
+
+It changes how, not what.
 
 ---
 

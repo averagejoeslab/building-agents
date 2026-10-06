@@ -159,7 +159,7 @@ Lesson 1: `timeout=120`.
 
 Now: `timeout=300`.
 
-A longer limit, because the agent's requests are bigger.
+A reply of 16,000 tokens can take minutes to write.
 
 ---
 
@@ -296,7 +296,11 @@ Working memory was in RAM.
 
 # Save as you go
 
-After each step, `save()` writes the session to **`session.json`**.
+`save()` writes `session.json` at the top of every pass,
+
+and right after the reply, **before** any tool runs.
+
+If the harness dies mid-command, the file already says what was asked.
 
 ---
 
@@ -322,7 +326,7 @@ That would lose what you were protecting.
 
 At startup, look for a saved session.
 
-If it was cut off, **pick it up**.
+If there is one, **ask** whether to pick it up.
 
 ---
 
@@ -388,9 +392,13 @@ So resume always supplies one.
 
 # Run it
 
+Start in a scratch folder: the box mounts it, and `session.json` goes there.
+
 ```
-uv run production/08-resilience/quark.py \
-  "how many lines are in README.md?"
+mkdir /tmp/demo && cd /tmp/demo && echo notes > notes.txt
+uv run --project /path/to/building-agents \
+  /path/to/building-agents/production/08-resilience/quark.py \
+  "How many bytes is notes.txt? Answer in one line."
 ```
 
 ---
@@ -431,11 +439,13 @@ No change to `quark.py`.
 
 ---
 
-# Demo: the first call fails
+# Demo: the preferred model is down
 
-The stub fails once, then lets it through.
+The stand-in fails every request to `claude-sonnet-5-5`.
 
-The run still succeeds.
+The run looks normal.
+
+The trace shows Sonnet failing, and the backup answering.
 
 ---
 
@@ -582,7 +592,7 @@ Continues.
 # Demos in the README
 
 - first two requests fail with 429 and a retry-after
-- Sonnet down, Opus benched 60 seconds
+- Sonnet down: benched for 60 seconds, Opus answers
 - everything down, then `resume`
 - a slow tool, timed out and capped
 - `kill -9`, then `resume`
@@ -610,9 +620,9 @@ It never decides **when** to call.
 
 It never decides **what goes in**.
 
-It never decides **what the model sees**.
+It never edits the working memory it saves.
 
-Those are control flow, input, and context.
+Its one note to the model, *interrupted, may or may not have run*, is a tool result.
 
 ---
 

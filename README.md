@@ -241,12 +241,12 @@ The Lesson 9 README and the root README table may still describe the router as m
 |---|---|
 | [Observability](./production/05-observability/slides.md) | 53 |
 | [Guardrails](./production/06-guardrails/slides.md) | 64 |
-| [Sandboxing](./production/07-sandboxing/slides.md) | 71 |
+| [Sandboxing](./production/07-sandboxing/slides.md) | 69 |
 | [Resilience](./production/08-resilience/slides.md) | 71 |
 | [Performance](./production/09-performance/slides.md) | 91 |
-| [Evaluation](./production/10-evaluation/slides.md) | 91 |
+| [Evaluation](./production/10-evaluation/slides.md) | 88 |
 
-We checked the four details it flagged and every code line on the slides against the lessons. Its guess about `guard()`'s order, the stand-in's modes and `compact()`'s call were right. Two slides were fixed by hand: one dropped `.values()` from `pool.map(execute, pending.values())`, and one called the `hasty` evaluation variant "a cheaper setup" when it's the same model told to use fewer commands.
+We checked the four details it flagged and every code line on the slides against the lessons, and its guesses about `guard()`'s order, the stand-in's modes and `compact()`'s call were right. Then a full read of every slide against its lesson found more, and this is the part to learn from. Writing from memory, quark had filled gaps with things that never happened: a few slides describe runs that aren't in the lessons, quote cache numbers no run produced, or reverse which model was benched. Others simplified the code until they misstated it, or put a mechanism under the wrong primitive. 47 slides were corrected by hand and 5 invented ones were removed, so every slide now matches its lesson. Memory is a summary, and a summary can be wrong in ways that read as confident; that's why the review step exists.
 
 Everything quark printed is in [`docs/quark-at-work/`](./docs/quark-at-work/), including the failed attempts: [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), run 3 for lessons [5](./docs/quark-at-work/run-3-lesson-05.txt), [6](./docs/quark-at-work/run-3-lesson-06.txt), [7](./docs/quark-at-work/run-3-lesson-07.txt), [8](./docs/quark-at-work/run-3-lesson-08.txt), [9](./docs/quark-at-work/run-3-lesson-09.txt) and [10](./docs/quark-at-work/run-3-lesson-10.txt), the [two](./docs/quark-at-work/run-3-lesson-05-attempt-1-silent-stop.txt) [silent stops](./docs/quark-at-work/run-3-lesson-05-attempt-2-silent-stop.txt) and the [traced crash](./docs/quark-at-work/run-3-lesson-05-attempt-3-traced-crash.txt), the [run that killed itself](./docs/quark-at-work/run-3-lesson-08-attempt-1-killed-itself.txt) and the [Lesson 9 session we stopped](./docs/quark-at-work/run-3-lesson-09-attempt-1-stopped.txt) because it was building on it, [run 4](./docs/quark-at-work/run-4-make-production-slides.txt), and the [memory file](./docs/quark-at-work/memory.md) as it stands after all four runs.
 

@@ -182,7 +182,9 @@ It waits for commands.
 
 `--rm`, plus `atexit` running `docker rm -f`.
 
-Nothing is left behind.
+The container goes when the run ends.
+
+What it wrote to the mounted folder stays, and a `kill -9` skips `atexit`.
 
 ---
 
@@ -288,6 +290,8 @@ The project folder, writable.
 
 Nothing else on your machine.
 
+Not your environment either: the API key stays with the harness, outside the box.
+
 ---
 
 # If Docker fails
@@ -384,9 +388,13 @@ Two layers.
 
 # Run it
 
+Start in a scratch folder: the box mounts it.
+
 ```
-uv run production/07-sandboxing/quark.py \
-  "how many lines are in README.md?"
+mkdir /tmp/demo && cd /tmp/demo
+uv run --project /path/to/building-agents \
+  /path/to/building-agents/production/07-sandboxing/quark.py \
+  "write hello.txt containing hi, then try /etc, the network and your env"
 ```
 
 You need Docker running.
@@ -420,26 +428,6 @@ You'll see `quark-<run id>`.
 Ask it to fetch a web page.
 
 It fails. The container has no network.
-
----
-
-# A real catch
-
-The first draft's output was empty.
-
-`docker exec` needs `-i` to forward stdin.
-
-A mistake worth knowing.
-
----
-
-# Models self-limit
-
-Asked for a fork bomb, the model **declined**.
-
-`stop_reason` was `refusal`.
-
-Asked to hog memory, also declined.
 
 ---
 
@@ -565,7 +553,9 @@ Everything else is discarded.
 
 Nothing leaves the box unless you say so.
 
-That is control over **output**.
+Where commands run is output.
+
+Asking you first is a guardrail.
 
 ---
 

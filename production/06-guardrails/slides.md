@@ -69,7 +69,7 @@ One bad command is enough.
 
 The loop never stops asking for tools.
 
-Lesson 3: "a loop with no clear end is a bill with no clear end."
+Lesson 3: "A loop with no clear way to end is a bill with no clear way to end."
 
 ---
 
@@ -159,11 +159,11 @@ It never reaches `trace()`.
 
 # SAFE
 
-A set of programs that are known to be harmless.
+A set of read-only programs: `ls`, `cat`, `wc`, `grep`…
 
-If the command is one of them: **allow**.
+Runs unasked only if **every** piece between pipes starts with one,
 
-No question asked.
+and nothing chains, redirects or expands: no `; & < > $`, backtick, newline or `(`.
 
 ---
 
@@ -189,8 +189,8 @@ Three outcomes, one function.
 
 # The order of checks
 
-1. does it match `DENY`? deny
-2. is it in `SAFE`? allow
+1. matches `DENY`? **deny**
+2. only `SAFE` programs, nothing chained or redirected? **allow**
 3. otherwise: **ask**
 
 ---
@@ -211,7 +211,7 @@ The harness prints the command.
 
 It waits for an answer.
 
-This is **input**, but control flow decided to ask.
+That's control flow deciding whether the next step runs. The answer is a decision, not a task.
 
 ---
 
@@ -257,7 +257,7 @@ Not a crash.
 
 Not silence.
 
-**Input from the world**, like any other result.
+An ordinary tool result, marked as an error, in the slot the result would have filled.
 
 ---
 
@@ -341,13 +341,13 @@ Now it is a guard in the working agent.
 
 ---
 
-# What the model sees
+# Who stops the run
 
-Nothing about the limits.
+The harness checks the limits.
 
-The harness stops.
+The harness stops the run.
 
-The model does not decide to stop.
+The model doesn't decide to stop.
 
 ---
 
@@ -414,11 +414,9 @@ Adds structure to the verdicts.
 
 # ALLOWED and DENIED
 
-Two dicts.
+`ALLOWED`: a set of programs that may run unasked.
 
-Rules for programs you always allow.
-
-Rules for programs you always refuse.
+`DENIED`: patterns that are always refused, each with its reason.
 
 ---
 
@@ -444,9 +442,13 @@ Every program in the line gets checked.
 
 # verdict()
 
-Looks at each program.
+A `DENIED` pattern anywhere: **deny**.
 
-One bad program makes the whole line bad.
+A redirect or `$`: **ask**.
+
+Any program not in `ALLOWED`: **ask**.
+
+Only a command made entirely of allowed programs runs unasked.
 
 ---
 
@@ -464,7 +466,7 @@ One bad program makes the whole line bad.
 
 Uses a `PRICE` dict of **example rates**.
 
-Not real prices. The file says so.
+They show which run cost more, not your bill.
 
 ---
 
@@ -482,9 +484,9 @@ Stop. The model is stuck.
 
 Make a copy with `MAX_DOLLARS = 0.004`.
 
-It stops partway.
+It stopped at $0.0041 against $0.004.
 
-A real run, shown in the README.
+The limit is checked before each call, so a run can end a little over.
 
 ---
 
@@ -561,11 +563,11 @@ This layer, packaged.
 
 # Notice what guardrails never do
 
-They never change what the model sees.
+They never change how a request is built or sent.
 
-They never make the model smarter about danger.
+A refusal goes back as an ordinary tool result.
 
-They decide **whether**.
+They decide **whether** the next step happens.
 
 ---
 

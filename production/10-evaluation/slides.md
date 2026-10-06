@@ -88,7 +88,7 @@ Looks at what happened.
 
 ---
 
-# And it uses all five itself
+# And it's built from primitives too
 
 - **control flow**: a loop over the cases
 - **input**: the task it hands over
@@ -184,7 +184,7 @@ A project with a bug.
 
 `calc.py` subtracts where it should add.
 
-The check runs the code.
+The check runs `test.py`, and checks the assertion is still there.
 
 ---
 
@@ -329,8 +329,11 @@ Before the program looks for an unfinished session.
 
 # Run it
 
+Start in a scratch folder: results are logged there.
+
 ```
-uv run production/10-evaluation/quark.py --eval
+uv run --project /path/to/building-agents \
+  /path/to/building-agents/production/10-evaluation/quark.py --eval
 ```
 
 ---
@@ -367,9 +370,9 @@ Exit code 1.
 
 `calc.py` still subtracts.
 
-The trace shows **one model call**.
+The trace shows **one model call**: `cat calc.py test.py`.
 
-It found the bug and never got to fix it.
+The run stopped before the model saw what it read.
 
 ---
 
@@ -378,24 +381,6 @@ It found the bug and never got to fix it.
 Lesson 6's step limit.
 
 An evaluation caught a limit set too low.
-
----
-
-# Another change: a small model
-
-Haiku only.
-
-**4 of 4.**
-
-Three or four steps each.
-
----
-
-# Good news, measured
-
-The small model is enough for these four.
-
-Now you **know**.
 
 ---
 
@@ -419,21 +404,13 @@ The pass rate hid it. The trace didn't.
 
 ---
 
-# One more: two steps
-
-`MAX_STEPS = 2`.
-
-Still 4 of 4.
-
-Two steps was enough for these cases.
-
----
-
 # What we learned
 
-Four changes. Four different outcomes.
+Two changes, two outcomes.
 
-None would show up from running it once.
+One broke a case. One passed everything and cost more.
+
+You need the pass rate **and** the cost to see both.
 
 ---
 
@@ -449,7 +426,7 @@ None would show up from running it once.
 
 Built on Lesson 3's `control_flow.py`.
 
-**119 lines.**
+**122 lines.**
 
 ---
 
@@ -499,7 +476,7 @@ No command can grade that.
 
 A model reads the answer and the rubric.
 
-It says **PASS** or lists what's missing.
+It says **PASS** or **FAIL**, with one sentence why.
 
 ---
 
@@ -549,9 +526,9 @@ Three tells you something.
 
 `AT_ONCE = 6`.
 
-Runs go in parallel.
+Whole trials run at the same time.
 
-Lesson 9's trick, reused.
+Running model calls in parallel is control flow, not Lesson 9's tool executor.
 
 ---
 
@@ -595,7 +572,7 @@ Haiku averaged about **3.8 steps**.
 
 # A null result
 
-The cheaper variant wasn't cheaper.
+`hasty` wasn't cheaper or faster.
 
 That's a finding.
 
@@ -727,9 +704,9 @@ Not only when something seems wrong.
 
 Exit 1 on failure.
 
-A script or CI runs it.
+A script or CI runs it on every change.
 
-A broken change can't slip in.
+A change that breaks a case you wrote is caught before it ships.
 
 ---
 
