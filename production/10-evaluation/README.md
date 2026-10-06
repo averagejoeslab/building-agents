@@ -345,12 +345,13 @@ jev disagrees: hasty on log, graded 3/3, jev said 0.14, 0.15, 0.13
 
 Thirty-six agent runs, and every one passed. That's a result, and it's less dull than it looks. `haiku`, the cheaper model, passed everything. It took more steps (3.8 a run against 3.2) and about eleven hundred more tokens, and each run was quicker, 3.5 seconds against 4.3. `hasty`, with its instruction to read nothing before editing, wasn't worse on any case either, and it didn't save anything I can measure: 3.0 steps against 3.2, and slower, 5.7 seconds against 4.3. I haven't looked into why. If the numbers had been worse, they'd have been the reason not to ship the change. That the four cases can't tell these three apart means either they're equal on this work or the cases are too easy. Which it is, the table can't say, and that's the next point.
 
-Jev agreed with the grade on three cases of four, every run, and was sure about it: it got the three known answers right at 0.99, 0.01 and 0.01, so it told a real fix from an edited test. On `log` it said no, nine times out of nine, at about 0.15, while the code said every answer was right. Jev was wrong there, and it's the kind of wrong its makers warn about: it doesn't count. To know that 3 is the right answer you have to count the error codes in two thousand lines, which is arithmetic, and `files()` had cut the middle out of the log anyway, so Jev couldn't have seen them all. A question whose answer is a count belongs in code, which is where the `log` case's check already is. That's what the `jev disagrees` lines are for: a disagreement doesn't say which judge is right, it says which runs to read.
+Jev agreed with the grade on three cases of four, every run, and was sure about it: it got the three known answers right at 0.99, 0.01 and 0.01, so it told a real fix from an edited test. On `log` it said no, nine times out of nine, at about 0.15, while the code said every answer was right. Jev was wrong there, and it's the kind of wrong [its makers warn about](https://docs.typesafe.ai/model-jaggedness/jev-1.13): it doesn't count. To know that 3 is the right answer you have to count the error codes in two thousand lines, which is arithmetic, and `files()` had cut the middle out of the log anyway, so Jev couldn't have seen them all. A question whose answer is a count belongs in code, which is where the `log` case's check already is. That's what the `jev disagrees` lines are for: a disagreement doesn't say which judge is right, it says which runs to read.
 
 To see what a table looks like when something is worse, I added one line to `VARIANTS` in a copy of the file, a variant that is the baseline with `"steps": 1`, and ran only that and the baseline:
 
 ```
 [judge: 3 of 3 known answers graded correctly]
+[jev: 3 of 3 known answers judged correctly: 0.99, 0.02, 0.02]
 [24 runs: 2 variants x 4 cases x 3 trials, 6 at a time]
 
                sonnet  onestep
@@ -359,21 +360,69 @@ fix               3/3      0/3
 log               3/3      0/3
 explain           3/3      0/3
 passed          12/12     3/12
+jev count         3/3      3/3
+jev fix           3/3      0/3
+jev log           0/3      0/3
+jev explain       3/3      0/3
 steps/run         3.2      1.0
-tokens/run      2,257      488
-seconds/run       4.8      1.3
+tokens/run      2,265      488
+seconds/run       5.0      1.3
 failed: onestep on explain: explanation.txt was never written
 failed: onestep on explain: explanation.txt was never written
 failed: onestep on explain: explanation.txt was never written
+jev disagrees: sonnet on log, graded 3/3, jev said 0.14, 0.12, 0.14
 worse than sonnet: onestep on fix, 0/3 against 3/3
 worse than sonnet: onestep on log, 0/3 against 3/3
 worse than sonnet: onestep on explain, 0/3 against 3/3
 [worse than the baseline in 3 of 4 comparisons]
 ```
 
-`onestep` failed three cases of four, every trial, and it was cheaper in every column: 488 tokens a run against 2,257, and 1.3 seconds against 4.8. It was cheaper because it had stopped before doing the work. That is exactly why cost is read together with pass rate and never alone. The last lines name each comparison that got worse, the run exits with 1, and `explain` is reported without the judge being asked, since there was no file to read.
+`onestep` failed three cases of four, every trial, and it was cheaper in every column: 488 tokens a run against 2,265, and 1.3 seconds against 5.0. It was cheaper because it had stopped before doing the work. That is exactly why cost is read together with pass rate and never alone. The last lines name each comparison that got worse, the run exits with 1, and `explain` is reported without the judge being asked, since there was no file to read. Jev agreed with every `onestep` grade, and only disagreed where it did before, on the baseline's `log`.
 
-**The grader had a bug.** The second full run I made of this file didn't end like that one:
+**What Jev needs to see.** Jev reads what's in the state literally, and it can't work out what isn't there. To show what that means, I made a copy of the file with one change, leaving `files before` out of `jev_judge()`'s state, and ran it on `haiku` alone (shortened):
+
+```
+[judge: 3 of 3 known answers graded correctly]
+[jev: 2 of 3 known answers judged correctly: 0.47, 0.43, 0.05]
+...
+jev fix           0/3
+...
+jev disagrees: haiku on fix, graded 3/3, jev said 0.43, 0.43, 0.47
+jev disagrees: haiku on log, graded 2/3, jev said 0.20, 0.24, 0.22
+```
+
+With only the folder afterwards, the right fix got 0.47 and the edited test 0.43: Jev couldn't tell them apart, and it failed all three real fixes. That makes sense once you see what it was asked. "Was the bug fixed in `calc.py`, and was the test left alone?" is a question about a change, and with one folder there is no change to see. Jev would have to infer what `test.py` used to say. With `files before` in the state, it's a comparison of two texts, and it answered 0.99 and 0.01. When Jev gets a question wrong, the fix is usually to make it more literal: give it the thing to compare, or split the question into two plain ones and combine the answers in code. (In this run `haiku` also failed one `log` trial on the code's check. I didn't keep the folder, so I can't say what it wrote.)
+
+And if Jev can't be reached at all, here with a key that isn't one, on `haiku` alone:
+
+```
+[judge: 3 of 3 known answers graded correctly]
+[jev: 0 of 3 known answers judged correctly: no verdict, no verdict, no verdict]
+[12 runs: 1 variants x 4 cases x 3 trials, 6 at a time]
+
+                haiku
+count             3/3
+fix               3/3
+log               3/3
+explain           3/3
+passed          12/12
+jev count         0/3
+jev fix           0/3
+jev log           0/3
+jev explain       0/3
+steps/run         3.7
+tokens/run      3,271
+seconds/run       3.3
+jev disagrees: haiku on count, graded 3/3, jev said no verdict, no verdict, no verdict
+jev disagrees: haiku on fix, graded 3/3, jev said no verdict, no verdict, no verdict
+jev disagrees: haiku on log, graded 3/3, jev said no verdict, no verdict, no verdict
+jev disagrees: haiku on explain, graded 3/3, jev said no verdict, no verdict, no verdict
+[no variant is worse than the baseline]
+```
+
+The grades and the exit status are what they'd be without Jev. No verdict is never counted as done, so every case shows as a disagreement, and you can see at once that the second judge wasn't there.
+
+**The grader had a bug.** The second full run I made of this file, before Jev was in it, didn't end like the first:
 
 ```
 [judge: 3 of 3 known answers graded correctly]
