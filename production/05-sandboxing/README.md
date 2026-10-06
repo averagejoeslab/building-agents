@@ -456,9 +456,9 @@ copy them to ./sandbox-out? [y/N] y
 [copied 1 files to ./sandbox-out; the rest is discarded]
 ```
 
-Jev was sure both times, so I was asked both times. With a `y`, the box could reach the mirror for that one command and the title was saved. The next command, a `n`, ran in the closed box and couldn't even look the name up. The model didn't know any of that was happening, so it put the failure down to the network, which is all it could see.
+Jev was sure both times, so I was asked both times. With a `y`, the box could reach the mirror for that one command and the title was saved. The next command, a `n`, ran in the closed box and couldn't even look the name up. The model wasn't told any of that, so it could only guess at why the second check failed: a dropped connection, DNS, or something in the sandbox.
 
-And the same box with no Jev. This run had `TYPESAFE_API_KEY` empty, so every call failed and `needs()` said so (traceback shortened):
+And the same box with no Jev. This run had `TYPESAFE_API_KEY` empty, so there was no Jev to ask, and `needs()` said so (traceback shortened):
 
 ```
 $ curl -sS -o /dev/null -m 15 -w "HTTP %{http_code}\n" -I http://archive.ubuntu.com/ubuntu/

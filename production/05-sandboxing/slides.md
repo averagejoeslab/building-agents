@@ -236,6 +236,7 @@ Lesson 3's agent loop, so the sandbox is all there is to look at:
 
 - `start()` copies the project in, leaving out everything in `KEEP_OUT`
 - Stricter `LIMITS`: runs as `nobody`, with small sized scratch disks
+- No way out: a network of its own with no route off it, until one is lent
 - Each command's output is cut at `MAX_OUT` characters
 - `review()` lists what changed in the box and asks; only a `y` copies it to `./sandbox-out`
 
@@ -263,6 +264,52 @@ stats.py
 ```
 
 <!-- The model's rm removed the box's copy, and the box is gone. It looked for .env and didn't find it, because it was never copied in. One limit: review() lists created or changed files, not deleted ones. -->
+
+---
+
+# Asking Jev: does it need the network?
+
+<style scoped>pre { font-size: 0.8em; }</style>
+
+Jev is a second model that writes no text: send it a state and typed questions, get typed answers with a confidence.
+
+```python
+def needs(cmd):
+    # Jev's answer only decides whether to ask. No answer, and the box stays shut.
+    try: answer = jev.system_one({"command": cmd}, {"needs": NEEDS}).choices["needs"]
+    except Exception: return "no answer", 0.0
+    return answer.choice, answer.confidence
+```
+
+- `network`, and at least `SURE` (0.9): you're asked; a `y` connects the box to `bridge` for that one command
+- Anything else, unsure, or no answer: the closed box, as before
+
+<!-- Asking Jev is a model-interface act; lending the way out is output. Jev never opens anything: it only decides whether you're asked. It costs about $0.00002 a question and takes about a fifth of a second. -->
+
+---
+
+# A way out for one command
+
+The task: fetch a page from an Ubuntu mirror, then check again. I answered `y`, then `n` (shortened):
+
+```
+$ python3 - <<'EOF'
+import urllib.request, re
+...
+[Jev: network, 1.00]
+it needs the network: allow it for this one command? [y/N] y
+Title: Index of /ubuntu
+
+$ cat title.txt; python3 -c "
+...
+[Jev: network, 1.00]
+it needs the network: allow it for this one command? [y/N] n
+Index of /ubuntu
+...
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+```
+
+<!-- With the y, the mirror was reachable for that one command and the title was saved. The n ran in the closed box: the name didn't even resolve. With no key, Jev gives no answer, nobody is asked, and the run is what --network none would give. -->
 
 ---
 

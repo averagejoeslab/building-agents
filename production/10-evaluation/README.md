@@ -124,7 +124,7 @@ The calculator still subtracts. The trace shows one model call, which asked for 
 **What else evaluation can be:** quark has four hand-written cases, graded by code, run once each, on demand. These are the choices you make when you build it.
 - **Where cases come from.** Written by hand, as in quark, which is how you start. Better is to grow them from reality: every time the agent gets something wrong in real use, turn it into a case, so that it can never silently come back. Lesson 7's traces are where you find those. A model can also write candidate cases, but a person has to read them, because a case with a wrong answer key is worse than none.
 - **What counts as a pass.** The state of the world afterwards, as in quark. Or the final answer, if the task is a question. Or the path the agent took, such as "it must read the file before it edits it" or "it must not call this tool", which is fragile, since a different route that works would fail. And a case can test what the agent must *not* do: a file that has to be untouched, a command that has to be refused. That's how you test Lesson 6's guardrails.
-- **How it's graded.** Code where you can. A model where you can't, as in the fuller example, with a rubric strict enough that two graders agree, and a check on the grader. A person for the cases that matter most or that nothing else can read. A model can also compare two outputs ("which is better?") more reliably than it can score one on a scale. Partial credit, such as "four of the five required files were made", tells you more than pass or fail when tasks are big.
+- **How it's graded.** Code where you can. A model where you can't, as in the fuller example, with a rubric strict enough that two graders agree, and a check on the grader. Or a second opinion on every run from a model that only answers questions, which is cheap enough to ask every time; the fuller example asks Jev. A person for the cases that matter most or that nothing else can read. A model can also compare two outputs ("which is better?") more reliably than it can score one on a scale. Partial credit, such as "four of the five required files were made", tells you more than pass or fail when tasks are big.
 - **How noise is handled.** Each case several times, as in the fuller example, and then a choice: count a case as passed if it passes *at least once* in *k* runs (a measure of what the agent can do), or only if it passes *every* time (a measure of whether you can rely on it). With a handful of runs, a difference of one is often noise, as you'll see below.
 - **Two kinds of case.** Some cases are meant to pass, always, and exist to catch breakage; a failure there is a regression. Others are hard, start out failing, and exist to show progress. They need different treatment: don't mix the two into one score.
 - **When it runs.** On demand, as in quark. On every change, as a git hook or a CI job that fails when the exit status says so. On a schedule, because a new version of the model is a change you didn't make. And on live runs: grading a sample of real traces, not made-up cases, which tells you how the agent does on what people actually ask it.
@@ -133,14 +133,15 @@ The calculator still subtracts. The trace shows one model call, which asked for 
 
 It can be a product on its own. [Braintrust](https://www.braintrust.dev), [LangSmith](https://www.langchain.com/langsmith), [promptfoo](https://www.promptfoo.dev) and [Inspect](https://inspect.aisi.org.uk) all take cases, run them, grade them with code or a model, keep the history and show it to you. They save you the plumbing, the dashboards and the comparison. What they can't give you is the cases, because only you know what your agent's job is, and a product that runs a hundred of somebody else's cases tells you about somebody else's agent. The usual trade-off applies: the more of the layer you hand over, the less you see of how a grade came about.
 
-The fuller example, [`evaluation.py`](./evaluation.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guard, no sandbox: just the loop), written as a function so that the thing to measure is all there is. Around it are three variants of the agent, each one a configuration you might change; four cases, three graded by code and one by a model; a model that grades the explanation, and a test of that model before it's trusted; three trials of each case, run six at a time; and a table that compares every variant with the first one, the baseline. Here it is, all of it:
+The fuller example, [`evaluation.py`](./evaluation.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guard, no sandbox: just the loop), written as a function so that the thing to measure is all there is. Around it are three variants of the agent, each one a configuration you might change; four cases, three graded by code and one by a model; a model that grades the explanation, and a test of that model before it's trusted; a second judge, Jev, that says whether every run did its job, beside the grade; three trials of each case, run six at a time; and a table that compares every variant with the first one, the baseline. Here it is, all of it:
 
 ```python
 import json, os, shutil, subprocess, sys, tempfile, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
+from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
-client = Anthropic()
+client, jev = Anthropic(), TypeSafeClient(timeout=10)
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
 # What is being tested. A variant is one way of configuring the agent: the thing you change, and then measure.
@@ -153,6 +154,7 @@ VARIANTS = {
 }
 TRIALS, AT_ONCE = 3, 6                       # runs per case and variant (the model is not deterministic), runs at the same time
 JUDGE = "claude-opus-5-5"                    # grades the cases that code can't
+YES = 0.5                                    # Jev's probability of "done" at which its verdict counts as a pass
 
 # What it is tested on. Each case has a task, a way to set up the folder, and a way to grade what's left there.
 # A "check" is a shell command: exit 0 means pass. A "rubric" is a sentence a model checks the file named in "read" against.
@@ -199,6 +201,27 @@ def judge(rubric, text):
     said = next((b.text.strip() for b in output.content if b.type == "text"), "FAIL")
     return said.lstrip("*#` ").upper().startswith("PASS"), said
 
+def files(where):
+    # What a folder holds, for Jev to read: each file by name, with the middle of a long one cut out.
+    found = {}
+    for name in sorted(os.listdir(where)):
+        if os.path.isfile(os.path.join(where, name)):
+            text = open(os.path.join(where, name), errors="replace").read()
+            found[name] = text if len(text) <= 2000 else text[:1000] + "\n...\n" + text[-1000:]
+    return found
+
+DONE = {"done": Noul(instructions="Did the agent do what `request` asked? Judge by comparing `files before` with `files after`.",
+    criteria=NoulCriteria(true="Everything the request asked for is in `files after`, the way it asked, and nothing it forbade was done.",
+                          false="Part of the request is missing or wrong, or it was done a way the request forbade."))}
+
+def jev_judge(input, before, after):
+    # Jev as judge: the same question, "did the agent complete the task?", put to a model that answers and writes nothing.
+    # It sees the folder before and after, never what the agent said. It only reports: the grade stays code's or the judge's.
+    try:
+        return jev.system_one({"request": input, "files before": before, "files after": after}, DONE).nouls["done"].noul
+    except Exception:
+        return None                          # Jev couldn't be reached: no verdict, which is not a pass
+
 def calibrate():
     # A grader you haven't tested is one more thing you're trusting. Give the judge answers whose grade you already know.
     rubric = CASES["explain"]["rubric"]
@@ -209,12 +232,19 @@ def calibrate():
         if judge(rubric, text)[0] != expected:
             sys.exit(f"[the judge got a known answer wrong: {text!r}. Fix the rubric before you trust any grade]")
     print(f"[judge: {len(known)} of {len(known)} known answers graded correctly]")
+    # Jev too, on the fix case: fixed, the test edited to pass instead, and nothing done. It only reports, so it doesn't stop the run.
+    before = {"calc.py": "def add(a, b):\n    return a - b\n", "test.py": "from calc import add\nassert add(2, 3) == 5\n"}
+    known = [({**before, "calc.py": "def add(a, b):\n    return a + b\n"}, True),
+             ({**before, "test.py": "from calc import add\nassert add(2, 3) == -1\n"}, False), (before, False)]
+    said = [jev_judge(CASES["fix"]["input"], before, after) for after, _ in known]
+    right = sum(p is not None and (p >= YES) == expected for p, (_, expected) in zip(said, known))
+    print(f"[jev: {right} of {len(known)} known answers judged correctly: " + ", ".join("no verdict" if p is None else f"{p:.2f}" for p in said) + "]")
 
 def trial(name, case_name):
     # One run: a fresh folder, the agent, then the grade. The folder is thrown away after.
     case, where = CASES[case_name], tempfile.mkdtemp(prefix="eval-")
     subprocess.run(case["setup"], shell=True, cwd=where)
-    start = time.time()
+    before, start = files(where), time.time()
     steps, tokens = agent(VARIANTS[name], case["input"], where)
     seconds = time.time() - start
     why = ""
@@ -228,8 +258,9 @@ def trial(name, case_name):
             why = f"file said {text.strip()!r}; judge said {said!r}"
         else:
             passed, why = False, f"{case['read']} was never written"
+    done = jev_judge(case["input"], before, files(where))
     shutil.rmtree(where, ignore_errors=True)
-    return {"variant": name, "case": case_name, "passed": passed, "steps": steps, "tokens": tokens, "seconds": round(seconds, 1), "why": why}
+    return {"variant": name, "case": case_name, "passed": passed, "steps": steps, "tokens": tokens, "seconds": round(seconds, 1), "why": why, "jev": done}
 
 names = sys.argv[1:] or list(VARIANTS)
 calibrate()
@@ -243,16 +274,24 @@ with open(".quark/evals.jsonl", "a") as f:
     for r in runs: f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), **r}) + "\n")
 
 def wins(v, c): return sum(r["passed"] for r in runs if r["variant"] == v and r["case"] == c)
+def yes(r): return r["jev"] is not None and r["jev"] >= YES
+def says(v, c): return sum(yes(r) for r in runs if r["variant"] == v and r["case"] == c)
 def mean(v, key): return sum(r[key] for r in runs if r["variant"] == v) / (len(CASES) * TRIALS)
 print(f"\n{'':<12}" + "".join(f"{v:>9}" for v in names))
 for c in CASES: print(f"{c:<12}" + "".join(f"{f'{wins(v, c)}/{TRIALS}':>9}" for v in names))
 print(f"{'passed':<12}" + "".join(f"{f'{sum(wins(v, c) for c in CASES)}/{len(CASES) * TRIALS}':>9}" for v in names))
+for c in CASES: print(f"{'jev ' + c:<12}" + "".join(f"{f'{says(v, c)}/{TRIALS}':>9}" for v in names))
 print(f"{'steps/run':<12}" + "".join(f"{mean(v, 'steps'):>9.1f}" for v in names))
 print(f"{'tokens/run':<12}" + "".join(f"{mean(v, 'tokens'):>9,.0f}" for v in names))
 print(f"{'seconds/run':<12}" + "".join(f"{mean(v, 'seconds'):>9.1f}" for v in names))
 
 for r in runs:
     if not r["passed"] and r["why"]: print(f"failed: {r['variant']} on {r['case']}: {r['why']}")
+for v in names:
+    for c in CASES:
+        mine = [r for r in runs if r["variant"] == v and r["case"] == c]
+        if any(yes(r) != r["passed"] for r in mine):
+            print(f"jev disagrees: {v} on {c}, graded {wins(v, c)}/{TRIALS}, jev said " + ", ".join("no verdict" if r["jev"] is None else f"{r['jev']:.2f}" for r in mine))
 worse = [(v, c) for v in names[1:] for c in CASES if wins(v, c) < wins(names[0], c)]
 for v, c in worse:
     print(f"worse than {names[0]}: {v} on {c}, {wins(v, c)}/{TRIALS} against {wins(names[0], c)}/{TRIALS}")
@@ -270,14 +309,19 @@ What's there beyond quark's version:
 
 **`judge()` and `calibrate()`.** The model grader and the test of the model grader. `judge()` gives a model the rubric and the file and asks for PASS or FAIL on the first line. It's a different model from all three variants, and it's told to be strict. `calibrate()` runs before anything else, and hands the judge three answers I already know the grade of: a right one, a wrong one, and a right one that breaks the length limit. If the judge gets any of them wrong, the run stops, because every grade after that would be a guess.
 
-**`trial()`.** One run: a fresh folder, the agent, the grade, and the folder thrown away. It returns a record of steps, tokens and seconds, and for a model-graded case, what the file said and what the judge said, so you can check the grader.
+**`files()`, `jev_judge()` and `YES`.** Jev as judge, next to the LLM as judge. Both answer the same question: did the agent complete the task? Jev is a decision model: it writes no text, it answers typed questions about a state you give it, and it's fast and cheap enough to ask about every run. I introduced it in [Lesson 5](../05-sandboxing/#asking-jev). Here it gets one yes-or-no question, `done`, and a state of three things: the request, the folder as it was after setup (`files before`) and the folder as the agent left it (`files after`), which `files()` reads, cutting the middle out of any file over 2,000 characters. It never sees what the agent said, for the same reason a case grades the world and not the words. What comes back is a probability of yes, and `YES` (0.5) is where I count it as a pass. In these cases the state is a few hundred to about 2,700 tokens, so at $0.042 a million tokens a verdict costs a hundredth of a cent at most, and it took about a fifth of a second. Jev's verdict only reports: the grade is still code's, or the LLM judge's, and nothing about the exit status changes. If Jev can't be reached, `jev_judge()` returns no verdict, which counts as not done, never as done. Asking Jev is a model-interface act, like asking the LLM judge: a second model, called. What's done with the answer is the evaluation's own control flow: it counts verdicts and compares them with the grade, outside the harness under test, like everything else here.
 
-**The report.** Every trial runs in a pool of six, then each is appended to `.quark/evals.jsonl`. The table is passes out of trials for each case and variant, then averages of steps, tokens and seconds. The last lines name every case where a variant did worse than the baseline, and the exit status is 1 if there are any.
+**`calibrate()`, for Jev too.** Jev is a grader, so it gets known answers as well: the `fix` case done right, the test edited to pass instead (`assert add(2, 3) == -1`) with the bug left in, and nothing done at all. Unlike the LLM judge's, a wrong one here doesn't stop the run, because Jev's verdict doesn't decide anything. The line prints how many it got right and the probabilities, so you can see how sure it was.
+
+**`trial()`.** One run: a fresh folder, the agent, the grade, Jev's verdict, and the folder thrown away. It returns a record of steps, tokens and seconds, Jev's probability of done, and for a model-graded case, what the file said and what the judge said, so you can check the grader.
+
+**The report.** Every trial runs in a pool of six, then each is appended to `.quark/evals.jsonl`. The table is passes out of trials for each case and variant, then how many runs Jev called done, then averages of steps, tokens and seconds. Then a `jev disagrees` line for each case and variant where Jev and the grade differ on any run, with Jev's probabilities. The last lines name every case where a variant did worse than the baseline, and the exit status is 1 if there are any. Jev's verdicts never count towards that.
 
 A first run, all three variants, from a scratch folder:
 
 ```
 [judge: 3 of 3 known answers graded correctly]
+[jev: 3 of 3 known answers judged correctly: 0.99, 0.01, 0.01]
 [36 runs: 3 variants x 4 cases x 3 trials, 6 at a time]
 
                sonnet    haiku    hasty
@@ -286,13 +330,22 @@ fix               3/3      3/3      3/3
 log               3/3      3/3      3/3
 explain           3/3      3/3      3/3
 passed          12/12    12/12    12/12
+jev count         3/3      3/3      3/3
+jev fix           3/3      3/3      3/3
+jev log           0/3      0/3      0/3
+jev explain       3/3      3/3      3/3
 steps/run         3.2      3.8      3.0
-tokens/run      2,279    3,343    2,348
-seconds/run       4.4      3.3      5.7
+tokens/run      2,270    3,394    2,395
+seconds/run       4.3      3.5      5.7
+jev disagrees: sonnet on log, graded 3/3, jev said 0.13, 0.16, 0.15
+jev disagrees: haiku on log, graded 3/3, jev said 0.17, 0.14, 0.15
+jev disagrees: hasty on log, graded 3/3, jev said 0.14, 0.15, 0.13
 [no variant is worse than the baseline]
 ```
 
-Thirty-six agent runs, and every one passed. That's a result, and it's less dull than it looks. `haiku`, the cheaper model, passed everything. It took more steps (3.8 a run against 3.2) and about a thousand more tokens, and each run was quicker, 3.3 seconds against 4.4. `hasty`, with its instruction to read nothing before editing, wasn't worse on any case either, and it didn't save anything I can measure: 3.0 steps against 3.2, and slower, 5.7 seconds against 4.4. I haven't looked into why. If the numbers had been worse, they'd have been the reason not to ship the change. That the four cases can't tell these three apart means either they're equal on this work or the cases are too easy. Which it is, the table can't say, and that's the next point.
+Thirty-six agent runs, and every one passed. That's a result, and it's less dull than it looks. `haiku`, the cheaper model, passed everything. It took more steps (3.8 a run against 3.2) and about eleven hundred more tokens, and each run was quicker, 3.5 seconds against 4.3. `hasty`, with its instruction to read nothing before editing, wasn't worse on any case either, and it didn't save anything I can measure: 3.0 steps against 3.2, and slower, 5.7 seconds against 4.3. I haven't looked into why. If the numbers had been worse, they'd have been the reason not to ship the change. That the four cases can't tell these three apart means either they're equal on this work or the cases are too easy. Which it is, the table can't say, and that's the next point.
+
+Jev agreed with the grade on three cases of four, every run, and was sure about it: it got the three known answers right at 0.99, 0.01 and 0.01, so it told a real fix from an edited test. On `log` it said no, nine times out of nine, at about 0.15, while the code said every answer was right. Jev was wrong there, and it's the kind of wrong its makers warn about: it doesn't count. To know that 3 is the right answer you have to count the error codes in two thousand lines, which is arithmetic, and `files()` had cut the middle out of the log anyway, so Jev couldn't have seen them all. A question whose answer is a count belongs in code, which is where the `log` case's check already is. That's what the `jev disagrees` lines are for: a disagreement doesn't say which judge is right, it says which runs to read.
 
 To see what a table looks like when something is worse, I added one line to `VARIANTS` in a copy of the file, a variant that is the baseline with `"steps": 1`, and ran only that and the baseline:
 
