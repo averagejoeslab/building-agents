@@ -1,13 +1,9 @@
-.DS_Store
-node_modules/
-.env
-.env.local
-*.log
-.vscode/
-.idea/
-
-# Python
-__pycache__/
-*.pyc
 .venv/
-evals/results/
+__pycache__/
+.quark/
+uv.lock
+.env
+paper/latex/*.aux
+paper/latex/*.log
+paper/latex/*.out
+paper/latex/*.blg

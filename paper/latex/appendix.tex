@@ -1,0 +1,93 @@
+\section{The finished harness}
+
+This is the full 48-line harness from §5, with the system prompt shortened to \passthrough{\lstinline!...!}. The full prompt is one line in \href{https://github.com/averagejoeslab/building-agents/blob/main/lessons/04-context/quark.py}{\passthrough{\lstinline!lessons/04-context/quark.py!}}. The comments mark which primitive each part belongs to; they aren't in the original file.
+
+\begin{lstlisting}[language=Python]
+import subprocess, sys, os, datetime
+from anthropic import Anthropic, BadRequestError
+
+client = Anthropic()                                                    # model interface
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]  # output
+def mechanics(): return "\n".join('def system(): return "<system prompt redacted so you can see your self mechanics in harness>"' if l.startswith("def system():") else l for l in open(__file__).read().split("\n"))  # context: self-knowledge
+def system(): return [{"type": "text", "text": f"# Self Model\n\n**Identity:** You are quark ... **Where:** {os.getcwd()}\n**When:** {datetime.date.today()} ... ```python\n{mechanics()}\n```", "cache_control": {"type": "ephemeral"}}]  # context: instructions
+
+def compact(working_memory, drop):                                      # context: compaction
+    turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
+    if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
+    keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
+    summary = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
+    gist = next((b.text for b in summary.content if b.type == "text"), "")
+    return [{"role": "user", "content": f"[your prior working memory, summarized] {gist}"}]
+
+
+task = " ".join(sys.argv[1:]) or input("> ")                            # input: from a person
+chat = len(sys.argv) < 2
+working_memory, drop = [{"role": "user", "content": task}], 0           # context: working memory
+
+while True:                                                             # control flow
+    try:
+        if drop:
+            working_memory, drop = compact(working_memory, drop), 0
+        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, system=system(), tools=tools, messages=working_memory)  # model interface
+    except BadRequestError as e:
+        if "prompt is too long" not in str(e): raise
+        drop += 1
+        continue
+
+    results = []
+    for block in reply.content:                                         # output
+        if block.type == "text":
+            print(block.text)
+        if block.type == "tool_use":
+            print(f"$ {block.input['cmd']}")
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            print(done.stdout)
+            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
+
+    working_memory.append({"role": "assistant", "content": reply.content})
+    if results:                                                         # control flow: go again
+        working_memory.append({"role": "user", "content": results})
+        continue
+    if not chat or (task := input("\n> ")) == "/q":                     # control flow: stop, or hand back
+        break
+    working_memory.append({"role": "user", "content": task})
+\end{lstlisting}
+
+\section{Where each production layer lives}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1071}}
+  >{\centering\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1786}}
+  >{\centering\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1786}}
+  >{\centering\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1786}}
+  >{\centering\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1786}}
+  >{\centering\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1786}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Layer
+\end{minipage} & \begin{minipage}[b]{\linewidth}\centering
+Control flow
+\end{minipage} & \begin{minipage}[b]{\linewidth}\centering
+Input
+\end{minipage} & \begin{minipage}[b]{\linewidth}\centering
+Context
+\end{minipage} & \begin{minipage}[b]{\linewidth}\centering
+Model interface
+\end{minipage} & \begin{minipage}[b]{\linewidth}\centering
+Output
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Observability & \(\bullet\) & & & & \\
+Guardrails & \(\bullet\) & & \(\circ\) hiding denied tools & & \\
+Sandboxing & & & & & \(\bullet\) \\
+Resilience & & & \(\circ\) replaying saved memory & \(\bullet\) & \(\bullet\) \\
+Performance & \(\circ\) routing, in the fuller example & & \(\bullet\) & \(\bullet\) & \(\bullet\) \\
+Evaluation & outside the harness, built from control flow, input, model interface and output & & & & \\
+\end{longtable}
+}
+
+\(\bullet\) where the layer lives · \(\circ\) a slice that lands in another primitive

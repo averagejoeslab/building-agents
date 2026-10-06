@@ -1,0 +1,172 @@
+\begin{thebibliography}{25}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Dovey(2026)]{course}
+Chase Dovey.
+\newblock harness-engineering: A hands-on course in building agents by building
+  their harness.
+\newblock \url{https://github.com/averagejoeslab/building-agents}, 2026.
+\newblock Average Joes Lab.
+
+\bibitem[Zhang et~al.(2026)Zhang, Wang, Ge, Xu, Hamm, and Reddy]{zhang2026stop}
+Yunbei Zhang, Janet Wang, Yingqiang Ge, Weijie Xu, Jihun Hamm, and Chandan~K.
+  Reddy.
+\newblock Stop comparing {LLM} agents without disclosing the harness.
+\newblock \emph{arXiv preprint arXiv:2605.23950}, 2026.
+\newblock Position paper; listed at ICML 2026 (venue and track to confirm).
+
+\bibitem[Fan et~al.(2026)Fan, Zhang, Ma, Hu, Wang, Song, Liu, Zamani, and
+  Wang]{fan2026empirical}
+Run-Ze Fan, Zihao Zhang, Simin Ma, Yebowen Hu, Shouju Wang, Kaiqiang Song, Fei
+  Liu, Hamed Zamani, and Xiaoyang Wang.
+\newblock An empirical study of harness design for coding agents.
+\newblock \emph{arXiv preprint arXiv:2609.20804}, 2026.
+
+\bibitem[Schluntz and Zhang(2024)]{schluntz2024building}
+Erik Schluntz and Barry Zhang.
+\newblock Building effective agents.
+\newblock Anthropic Engineering Blog, December 19, 2024, December 2024.
+\newblock URL
+  \url{https://www.anthropic.com/engineering/building-effective-agents}.
+
+\bibitem[{Model Context Protocol}(2026)]{mcp}
+{Model Context Protocol}.
+\newblock {Model Context Protocol}: Architecture overview.
+\newblock \url{https://modelcontextprotocol.io/docs/learn/architecture}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{OpenAI}(2026)]{codex}
+{OpenAI}.
+\newblock {Codex CLI}.
+\newblock \url{https://github.com/openai/codex}, 2026.
+\newblock Commit 7ac954e, 2026-10-06.
+
+\bibitem[{opencode contributors}(2026)]{opencode}
+{opencode contributors}.
+\newblock opencode.
+\newblock \url{https://github.com/anomalyco/opencode}, 2026.
+\newblock Commit 652c090, v1.18.34, 2026-10-06.
+
+\bibitem[{Anthropic}(2026)]{claudecode}
+{Anthropic}.
+\newblock {Claude Code} documentation.
+\newblock \url{https://code.claude.com/docs}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{BerriAI}(2026)]{litellm}
+{BerriAI}.
+\newblock {LiteLLM} router: Load balancing and fallbacks.
+\newblock \url{https://docs.litellm.ai/docs/routing}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{OpenRouter}(2026)]{openrouter}
+{OpenRouter}.
+\newblock {OpenRouter}: Model fallbacks and auto router.
+\newblock \url{https://openrouter.ai/docs/guides/routing/model-fallbacks},
+  2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Mem0}(2026)]{mem0}
+{Mem0}.
+\newblock {Mem0}: Memory operations.
+\newblock \url{https://docs.mem0.ai/core-concepts/memory-operations/add}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{LangChain}(2026{\natexlab{a}})]{langgraph}
+{LangChain}.
+\newblock {LangGraph}: Persistence.
+\newblock \url{https://docs.langchain.com/oss/python/langgraph/persistence},
+  2026{\natexlab{a}}.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Langfuse}(2026)]{langfuse}
+{Langfuse}.
+\newblock {Langfuse}.
+\newblock \url{https://github.com/langfuse/langfuse}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{LangChain}(2026{\natexlab{b}})]{langsmith}
+{LangChain}.
+\newblock {LangSmith}: Observability.
+\newblock \url{https://docs.langchain.com/langsmith/observability},
+  2026{\natexlab{b}}.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Open Policy Agent}(2026)]{opa}
+{Open Policy Agent}.
+\newblock {Open Policy Agent} documentation.
+\newblock \url{https://www.openpolicyagent.org/docs}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{NVIDIA}(2026)]{nemo}
+{NVIDIA}.
+\newblock {NeMo Guardrails}: Guardrail types.
+\newblock
+  \url{https://docs.nvidia.com/nemo/guardrails/latest/about/rail-types.html},
+  2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{E2B}(2026)]{e2b}
+{E2B}.
+\newblock {E2B} documentation.
+\newblock \url{https://e2b.dev/docs}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Daytona}(2026)]{daytona}
+{Daytona}.
+\newblock {Daytona}: Sandboxes.
+\newblock \url{https://www.daytona.io/docs/en/sandboxes/}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Modal}(2026)]{modal}
+{Modal}.
+\newblock {Modal}: Sandboxes.
+\newblock \url{https://modal.com/docs/guide/sandboxes}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Temporal}(2026)]{temporal}
+{Temporal}.
+\newblock {Temporal}: Event history.
+\newblock \url{https://docs.temporal.io/encyclopedia/event-history}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{Braintrust}(2026)]{braintrust}
+{Braintrust}.
+\newblock {Braintrust}: Evaluate.
+\newblock \url{https://www.braintrust.dev/docs/evaluate}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{promptfoo}(2026)]{promptfoo}
+{promptfoo}.
+\newblock {promptfoo}: Introduction.
+\newblock \url{https://www.promptfoo.dev/docs/intro/}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[{UK AI Security Institute}(2026)]{inspect}
+{UK AI Security Institute}.
+\newblock {Inspect}.
+\newblock \url{https://inspect.aisi.org.uk/}, 2026.
+\newblock Accessed 2026-10-06.
+
+\bibitem[Sumers et~al.(2024)Sumers, Yao, Narasimhan, and
+  Griffiths]{sumers2024cognitive}
+Theodore~R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas~L. Griffiths.
+\newblock Cognitive architectures for language agents.
+\newblock \emph{Transactions on Machine Learning Research}, 2024.
+\newblock URL \url{https://openreview.net/forum?id=1i6ZCvflQJ}.
+\newblock arXiv:2309.02427.
+
+\bibitem[Jin et~al.(2026)Jin, Kuang, Yu, Yuan, and
+  Wang]{jin2026agentprimitives}
+Haibo Jin, Peng Kuang, Ye~Yu, Xiaopeng Yuan, and Haohan Wang.
+\newblock Agent primitives: Reusable latent building blocks for multi-agent
+  systems.
+\newblock In \emph{Proceedings of the 43rd International Conference on Machine
+  Learning (ICML)}, 2026.
+\newblock arXiv:2602.03695.
+
+\end{thebibliography}

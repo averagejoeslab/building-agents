@@ -1,9 +1,0 @@
-id: find-imports
-description: Agent identifies imports in stateless_chatbot.py.
-input: "What does stateless_chatbot.py import?"
-checks:
-  - type: contains
-    value: "anthropic"
-  - type: contains
-    value: "dotenv"
-tags: [read, multi-import]

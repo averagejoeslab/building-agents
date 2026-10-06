@@ -1,420 +1,333 @@
-# Purpose of this repo
+# harness-engineering
 
-To provide guidance on how to build your agent from scratch, which you can do by building a harness around a model because `Agent = Model + Harness`. Additionally this repo makes clear the differences between: model development, harness engineering, and agentic engineering.
+**A hands-on course in building agents by building their harness.**
 
-I am Chase Dovey, and I conduct research on agentic systems. Most of that work is building harnesses around models. This is a focus of mine because building your own harness is a valuable skill to have given that the industry currently is in a race to see who has *the best harness*. If you go to any agent/AI conference, meetup, or any other industry event you will likely see various orgs pitching their harness as the best one (a harness consists of a couple of key components which typically include control flow, memory and context management, tool registry/execution, etc.). To me the best harness is the one you build yourself because you understand the internals, and can change them to fit your needs. If you know how to build a harness you can build agentic systems in any form factor you need. Also all you need is one good coding agent harness and you can use that to create any other bespoke harness you need for whatever purposes.
+Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-## What is an agentic system?
+This repo has three parts, in the order to read them:
 
-As a primer I felt it was necessary to define what an agentic system is. The idea of agentic systems comes from cognitive science — systems that can act on their own without human intervention. In modern agentic systems, the agency is provided by an LLM coordinating calls to tools allowing the model to take actions on its own without requiring intervention from a human.
+1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four primitives, then six production layers. Start here.
+2. **[The paper](#the-paper).** The course's thesis, written up and tested against Claude Code, OpenAI Codex and opencode.
+3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4, 48 lines long, doing real work on this repo: it wrote the production lessons and every slide deck.
 
-### Two shapes: workflows and agents
+## What is harness engineering?
 
-In my opinion, agentic systems come in two forms, as defined in Anthropic's [*Building Effective Agents*](https://www.anthropic.com/engineering/building-effective-agents). The distinction is about *what shape the system's control flow takes*.
+I'm not going to give you a definition. People are bad at saying what they mean and good at showing it, and I'm no exception. I've seen it at conferences: talk after talk, people use different words for the same thing — framework, scaffold, runtime, orchestration layer — while the thing itself is still evolving. The words don't line up, but when they show you how it works, it's the same thing every time. A definition only says what something is; a mechanism shows it.
 
-**Workflows** — An agentic system with a *prescriptive code path* defining the control flow is considered a workflow because the code enforces upon the agentic system what steps it can take.
+So instead of saying what I mean, I'll show you: what an agent is made of, and what each part does.
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> W1[LLM] --> W2[LLM] --> W3[LLM] --> Out[Output]
+An agent works by two mechanistic primitives:
+
+- **The model** predicts. Given tokens, it produces the tokens most likely to come next: **TokensOut = Model(TokensIn)**.
+- **The harness** does everything else. It decides how inputs are gathered, how they're presented to the model, how it interfaces with the model, how the model's outputs are handled, and how information flows between all of them.
+
+> **Agent = Harness(Model)**
+
+The model goes inside; the harness wraps it. Harness engineering is the work of building that second primitive.
+
+The first primitive is built by **model development**: training data, compute, and the methods to train and evaluate a model. If you want to know how a model works inside, read [the model deep dive](./docs/the-model.md). It's optional. This repo is about the harness.
+
+## What is a harness made of?
+
+Five mechanistic primitives. Control flow is one of them, and the other four sit inside it:
+
+```
+control flow          how information flows between the other four: run once, a chat loop, an agent loop, a workflow
+├── input             how inputs are gathered, from a person or the world
+├── context           what the request holds, and how inputs are presented in it
+├── model interface   how the harness interfaces with the model
+└── output            how the model's outputs are handled: shown to a person, or run as tools
 ```
 
-**Agents** — An agentic system with a loosely defined control flow has agency to determine the steps it will take on an ad-hoc basis and is considered an agent.
+Anything you build around a model that does these five things is a harness. How you build each one is up to you. Control flow shows this most clearly: run the other four once and you have a single call. Loop and hand back after every reply and you have a chatbot. Keep looping while the model asks to use tools and you have an agent. Claude Code, Cursor, Codex, and the harness you'll build here are all these five primitives with different choices made.
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> A1[LLM]
-    A1 --> A2{Tool?}
-    A2 -->|yes| A3[Execute] --> A1
-    A2 -->|no| Out[Output]
-```
+Input and output are built independently, but they're two ends of the same exchange, so this repo teaches them together.
 
-The key distinction between workflows and agents is the control flow. In the case of an agentic system where a control flow drives the model it is considered a workflow, and in the case where the model drives the control flow it is considered an agent.
+## How this repo teaches
 
-### Common workflow patterns
+You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
-Below are some common workflow patterns that are used to orchestrate LLM calls.
+The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add the primitive the last one was missing, and each one's `quark.py` is the previous lesson's plus that primitive.
 
-**Prompt chaining:**
+The course is **the primitives**, Lessons 1–4: they build a working harness, and they're the part to learn first. **The production layers**, Lessons 5–10, come after. They harden that harness for running unattended, and every one of them folds back into the primitives you already built.
 
-Definition — In my opinion this is the simplest of the workflow patterns. The model gets called in a fixed phased sequence, and the only context each call has is what the previous call produced. The code, not the model, decides how many calls happen and in what order.
+The example throughout is [quark](https://github.com/averagejoeslab/quark), my own agent. It's one way to build each primitive, not the only way. Each primitive lesson explains the primitive, walks through quark's version, has you run it, then shows what else the primitive can do, with a second example that does more.
 
-Example: Think of a phased technical document workflow where the first call produces a structured outline of the sections, that outline then gets handed off to a second call which expands each section into detailed prose, and the result of that finally goes to a third call that edits everything for clarity and consistency. The input to each call is whatever the previous call output.
+### The primitives
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> A[LLM 1] --> B[LLM 2] --> C[LLM 3] --> Out[Output]
-```
+| # | Lesson | You build | Slides | Video |
+|---|---|---|---|---|
+| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | [slides](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
+| 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | [slides](./lessons/02-input-and-output/slides.md) | 🎥 coming soon |
+| 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | [slides](./lessons/03-control-flow/slides.md) | 🎥 coming soon |
+| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | [slides](./lessons/04-context/slides.md) | 🎥 coming soon |
 
-**Routing:**
+Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
 
-Definition — A workflow pattern where the first model call's job is to look at the input and classify it into one of N categories, and then based on that classification the input gets dispatched to a category-specific downstream handler. The model isn't picking the handler dynamically — it's just doing the classification, and the code is doing the routing.
+### The production layers
 
-Example: Think of a customer support inbox where every incoming ticket gets read by the first model call, classified as billing, technical, or refund, and then routed off to a different downstream handler tuned for that specific kind of issue. That way each category gets its own specialized handler instead of one giant prompt trying to handle every case at once.
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where:
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> R[Router LLM]
-    R --> H1[Handler A]
-    R --> H2[Handler B]
-    R --> H3[Handler C]
-    H1 --> Out[Output]
-    H2 --> Out
-    H3 --> Out
-```
-
-**Parallelization:**
-
-Definition — A workflow pattern where the same task gets sent off to N model calls running in parallel and the responses get aggregated back into a single output. The way I think about it: fan out, then fan in. The model isn't deciding anything about the orchestration — the code spawns the parallel calls and stitches the responses.
-
-Example: Say you want a balanced answer to a contested question. Instead of asking one model and hoping for the best, you fire off the same prompt to several model calls in parallel, each picking up a different angle or perspective, and then aggregate the responses into a single answer that incorporates all of them.
-
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> A[LLM]
-    In --> B[LLM]
-    In --> C[LLM]
-    A --> Agg[Aggregate]
-    B --> Agg
-    C --> Agg
-    Agg --> Out[Output]
-```
-
-**Orchestrator-workers:**
-
-Definition — A workflow pattern where one model call (the orchestrator) reads the task and decides how to split it into sub-tasks, each sub-task gets handed off to its own worker call, and a final synthesis step stitches the worker outputs back into one cohesive result. The orchestrator is doing some thinking about how to decompose the work, but the overall control flow is still in code — not driven dynamically by the model.
-
-Example: Think of writing a market research report where the orchestrator reads the brief and splits it into sections like competitive landscape, customer interviews, and financial outlook, each section then gets written by its own worker call in depth, and a synthesizer at the end stitches them back into one report.
-
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> O[Orchestrator LLM]
-    O --> W1[Worker LLM]
-    O --> W2[Worker LLM]
-    O --> W3[Worker LLM]
-    W1 --> S[Synthesize]
-    W2 --> S
-    W3 --> S
-    S --> Out[Output]
-```
-
-**Evaluator-optimizer:**
-
-Definition — A workflow pattern where one model call (the generator) produces a draft, a second model call (the evaluator) scores the draft against a rubric, and the loop continues until the evaluator approves. The model is involved in both the generation and the quality check, but the loop itself — the "keep going until good" logic — is enforced by code, not the model.
-
-Example: Say you're writing marketing copy and you have specific quality criteria in mind. The generator drafts the copy, the evaluator reads it against your criteria and either approves or sends back critique, and the generator keeps revising until the evaluator finally says it's good enough.
-
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> G[Generator LLM]
-    G --> E[Evaluator LLM]
-    E -->|good| Out[Output]
-    E -->|refine| G
-```
-
-### The agent pattern
-
-Below is the one and only canonical agent pattern.
-
-**Autonomous agent:**
-
-Definition — An agentic system where the model is placed in a loop with tools, and on each turn the model decides on its own what to do next based on what it observes from the previous step. There's no prescriptive code path here — the control flow is whatever the model picks, and that's exactly what makes it an agent rather than a workflow.
-
-Example: Think of a coding agent given a task like *"find and fix the bug in `auth.py`"*. The agent decides on its own to grep for related code, read the file, run the test suite to reproduce the failure, edit based on what it sees, run the tests again, and stop only once they pass. None of those steps are planned in advance — the model picks each next action based on the output of the last one.
-
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#002D62','primaryBorderColor':'#EB6E1F','primaryTextColor':'#FFFFFF','lineColor':'#EB6E1F','secondaryColor':'#002D62','tertiaryColor':'#001638','edgeLabelBackground':'#001638','clusterBkg':'#002D62','clusterBorder':'#EB6E1F'}}}%%
-flowchart LR
-    In[Input] --> LLM[LLM]
-    LLM --> Q{Tool call?}
-    Q -->|yes| Act[Execute tool<br/>+ observe result]
-    Act --> LLM
-    Q -->|no| Out[Output]
-```
-
-This is the pattern this repo builds.
-
-### Composition
-
-Now you may have seen the above and thought how can I fit these lego pieces into something more grand. If so then you're thinking about how composition works. In the case of compositions I find it helpful to think of workflows as a catalog of orchestration shapes wherein you can use agents. To compose in this way is to build multi-agent systems/multi-agent orchestration.
-
-> [!NOTE]
-> **Whether to use multi-agent systems at all is a live disagreement in the field.** Anthropic embraces it ([multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system); Claude Code has subagents built in as a tool within the harness). Cognition argues *against* it in [*Don't Build Multi-Agents*](https://cognition.ai/blog/dont-build-multi-agents), making the case for a single-threaded linear agent with shared context — citing reliability and debuggability. Cursor 2.0 takes a third path: parallel independent agents on separate Git worktrees, no supervisor. The right composition depends on whether sub-tasks share context, run in parallel, and need to surface partial state — there is no default answer.
-
-### The Average Joes Lab stance
-
-As far as it relates to my personal stance and what I do with Average Joes Lab, I subscribe to the [Anthropic model](https://www.anthropic.com/engineering/building-effective-agents) of breaking it down into workflows and agents but I do not subscribe fully to the idea of multi-agent orchestration in most cases. I personally prefer to keep my agentic systems single threaded *for now*. As it relates to this repo the focus is building a single threaded agent.
-
-## Getting Started: The three disciplines
-
-There are three disciplines to know about when it comes to working in agentic systems:
-
-- **Model development.** This discipline is responsible for training the models. A small number of labs with capital, GPUs, and data pipelines have the resources to train these models and the output of their work is a model you call via an API endpoint. Examples of these models are GPT, Claude, Gemini, Llama, etc.
-- **Harness engineering.** This discipline is responsible for wrapping that model in a control flow, memory layer, tool execution layer, sandboxing, guardrails, observability, etc. When you wrap a model in a harness you get an agent because *Agent = Model + Harness.* The output of this discipline is a harness that wraps a model and gives rise to an agent. Examples of these harnesses are Claude Code, Cursor, Codex, Mistral's Vibe, etc.
-- **Agentic engineering.** This discipline is responsible for using an agentic system to build software, products, infrastructure, or more agentic systems. The agent becomes the tool. The output of this discipline is products built by agents orchestrated by humans. An example of agentic engineering is how Peter Steinberg used coding agents to build **openclaw**, but agentic engineering doesn't always mean building an AI product, it could also be a non-AI product that was built by an agent that was orchestrated by a human.
-
-Given that we will be building an agent from scratch, harness engineering is the primary content of this repo in the [modules](./modules/). We won't cover model development other than in theory because building a foundational model from scratch takes capital, GPUs, and data pipelines most of us don't have, so it's out of reach. Agentic engineering picks up after the curriculum with a section on what to do with the agent you've built.
-
-## Building an agent: a journey through the disciplines
-
-So with all three disciplines on the table, let's actually walk through them and see how they stack up. The way I think about it, the disciplines depend on each other in a specific order — you can't engineer a harness until you understand what the model is, and you can't do agentic engineering until you have a harness. So I'll go in that order: a quick orientation on model development to set the stage, a longer expansion on harness engineering which is what this whole repo is really about, and a closing note on where agentic engineering picks up once the curriculum is over.
-
-### 1. Model development → a callable model
-
-I won't be teaching model development here because, as I mentioned earlier, this is the discipline that a handful of well-resourced labs handle, and most of us don't have the GPUs, the training corpora, or the budget to do it ourselves. But I do want to give you enough orientation that you know what's actually inside the model your harness will be calling. So before we get to the harness work let's spend a moment on what a modern LLM is made of, how it gets trained, and how it produces output at inference time. If you already know all this you can skim or skip ahead.
-
-#### A journey through the forward pass
-
-At its core a modern LLM is a probabilistic next-token predictor — it sees some text and produces a probability distribution over what word should come next. That's the whole game. Everything we're going to do in the harness sits on top of that one capability. But to actually understand how the model produces that probability distribution, the cleanest path is to follow a single forward pass from raw input all the way to a sampled token, and explain what each part of the architecture is doing along the way.
-
-Before I do that walk-through though, there's one foundational idea worth establishing up front because everything else in the model rests on it: **meaning can be represented as a vector in a high-dimensional space.** That sounds abstract, so let me unpack it.
-
-Imagine a coordinate system. In 2D you've got an x-axis and a y-axis and any point on the plane is just a pair of numbers. In 3D you add a z-axis and now any point is a triple. A modern LLM uses *thousands* of these axes — somewhere between 2,048 and 16,384 in frontier models — and every word, every concept, every shade of meaning the model has learned ends up represented as a point in that high-dimensional space. The technical name for that point is a *vector*.
-
-What makes this useful is that the model is trained such that semantically similar things end up near each other in the space. Words like *cat*, *dog*, and *kitten* land in one neighborhood. Words like *car*, *truck*, and *bicycle* land in another. And — this is the famous example — you can actually do arithmetic on these vectors. The vector for *king* minus the vector for *man* plus the vector for *woman* lands very close to the vector for *queen*. The "gender" relationship and the "royalty" relationship are both *directions* in the vector space, and the model has learned them through training.
-
-Here's a tiny slice of what that looks like in three dimensions — keeping in mind that a real model is doing this in thousands:
-
-<p align="center">
-  <img src="./assets/embedding-space.svg" alt="A 3D slice of an embedding space. Two semantic clusters at the bottom — animals (cat, dog, kitten) and vehicles (car, truck, bicycle) — show that similar meanings sit near each other. Three purple gender pairs above — boy/girl, man/woman, king/queen — are connected by parallel arrows of equal length, visualizing that the same 'gender' direction in the space corresponds to the same relationship, which is why queen ≈ king − man + woman." width="720">
-</p>
-
-So with that as the foundation — that meaning lives as vectors in a learned high-dimensional space — let's walk through what actually happens when you send the model some text. I'm going to follow a single forward pass from raw input to a sampled output token, and at each step explain which part of the architecture is doing the work.
-
-**1. Tokenization.** The very first thing the model does is take your raw text and chop it into smaller pieces called tokens. A token is usually a sub-word — a few characters long, smaller than a typical word but larger than a single letter. The chopping is done with an algorithm called byte-pair encoding (BPE) or something close to it, which is essentially "merge the most common adjacent character pairs over and over until you have a vocabulary of the right size." Modern vocabularies typically have between 30k and 200k unique tokens. The output of this step is just a list of token IDs — integers — one per token in your input. There's no meaning attached yet, just keys.
-
-<p align="center">
-  <img src="./assets/01-tokenization.svg" alt="Tokenization: the text 'tokens go fast' becomes four sub-word tokens ('token', 's', '▁go', '▁fast') and then four integer IDs (3919, 82, 733, 5043). The ▁ marker indicates a leading space." width="720">
-</p>
-
-**2. Embedding lookup.** Now we get to the vectors. The model has a giant lookup table called the *embedding matrix*, with one row per token in the vocabulary, and each row is a vector somewhere between 2,048 and 16,384 dimensions long. The model takes each token ID from step 1 and uses it as an index into this table to pull out the corresponding vector. This is where the model starts to actually "know" what each token means, because the embedding vectors are exactly what we just talked about above — they're points in the learned semantic space, and they sit near other tokens that have similar meanings. After this step, your list of token IDs has become a list of vectors.
-
-<p align="center">
-  <img src="./assets/02-embedding-lookup.svg" alt="Embedding lookup: four token IDs on the left point into a tall embedding matrix in the middle, highlighting four rows. Each highlighted row sends a vector strip out to the right, illustrating that the lookup turns IDs into learned vectors." width="720">
-</p>
-
-**3. Positional encoding.** There's still a problem at this point though. Embeddings alone don't tell the model anything about *order*. The sentences "dog bites man" and "man bites dog" tokenize to the same three vectors — just in different orders — and without help the model couldn't tell which one you sent. So before the vectors go any further the model mixes positional information into them. The modern way to do this is **RoPE** (rotary position embedding), which rotates each vector by an amount that depends on its position in the sequence; some models use **ALiBi** as an alternative. Either way, after this step each vector encodes both *what* the token means and *where* in the sequence it sits.
-
-<p align="center">
-  <img src="./assets/03-positional-encoding.svg" alt="Positional encoding: 'dog bites man' on the left and 'man bites dog' on the right are each shown with three tokens at positions 1, 2, and 3, each represented as a small vector arrow rotated by an angle proportional to its position. The token 'dog' appears at position 1 on the left and position 3 on the right, producing arrows at different angles — showing that the same token at different positions becomes a different vector." width="720">
-</p>
-
-**4. Transformer blocks.** Now we're at the workhorse layer of the model, and this is where most of the actual thinking happens. A single transformer block is made up of a few moving parts working together:
-
-- **Self-attention.** Each token gets to "look at" every other token in the sequence and pull in context from them. So the vector for *bank* in "river bank" gets influenced by the surrounding vectors for *river* and ends up shifted toward "geological feature" rather than "financial institution." Every token attends to every other, all in parallel.
-
-<p align="center">
-  <img src="./assets/04a-self-attention.svg" alt="Self-attention example on the sentence 'the river bank is muddy'. The token 'bank' has attention arcs going to every other token, with arc thickness proportional to attention weight. The strongest arcs go to 'river' (0.42) and 'muddy' (0.28); much weaker arcs go to 'the' (0.04) and 'is' (0.06). An annotation explains that bank's output incorporates the values of the tokens it attended to and shifts toward 'geological feature'." width="720">
-</p>
-
-- **A feed-forward network (FFN).** After attention, each token vector goes through a per-token nonlinear transformation. The modern choice for this is SwiGLU. This is where a lot of the model's stored knowledge gets injected and where individual token meanings get further refined.
-
-<p align="center">
-  <img src="./assets/04b-ffn.svg" alt="Feed-forward network: a per-token vector is expanded roughly 4× into a wider hidden vector via W_up, gated by SwiGLU activation (shown as a wave pattern inside the hidden block), and contracted back via W_down into an output vector the same shape as the input. The transformation is applied independently to every token — no cross-token mixing." width="720">
-</p>
-
-- **Residual connections and layer normalization (RMSNorm).** These don't change the meaning of the vectors directly — they're plumbing that keeps the math stable as the network gets deeper.
-
-Putting all three together inside one block:
-
-<p align="center">
-  <img src="./assets/04-transformer-block.svg" alt="Transformer block: three input token vectors at the top enter a self-attention layer where every token attends to every other (drawn as bidirectional arrows between three points). The output is added back to the input via a residual connection and normalized. Each token then passes independently through a feed-forward network (SwiGLU). A second residual + normalization follows, and three refined output vectors emerge at the bottom. The block is stacked 60 to 120 times in a real model." width="720">
-</p>
-
-One pass through this block refines every token vector a little — incorporating context from neighbors, applying learned transformations. Then the output gets fed straight into the next block, and the next, and the next. Frontier models typically stack 60 to 120 of these on top of each other, and each successive layer pushes the vectors closer to a representation that captures what's about to come next.
-
-A couple of architectural variations are worth knowing about because they show up in current frontier models:
-
-- **Attention variants.** Plain multi-head attention (MHA) is legacy at this point. **GQA** (grouped-query attention) is the field standard in 2026. **MLA** (multi-head latent attention, DeepSeek V3 / R1) compresses the KV-cache by about 10× and is the frontier choice for very long contexts.
-
-<p align="center">
-  <img src="./assets/04c-attention-variants.svg" alt="Attention variants side by side. Each variant has four query heads (Q1–Q4) and shows how K and V are stored. MHA on the left gives every head its own K and V, producing the largest KV-cache (100%). GQA in the middle groups heads two-by-two and shares one K and one V per group, halving the KV-cache to about 50%. MLA on the right compresses K and V into a single shared latent representation, shrinking the KV-cache to roughly 10%. A note maps each variant to the models that use it." width="720">
-</p>
-
-- **FFN variants.** The feed-forward network can either be a single dense SwiGLU (Llama 3, Gemma) or a **Mixture of Experts** (MoE) router that picks K experts out of N per token (Mixtral, DeepSeek V3 / R1, DBRX, Llama 4, and probably GPT-4). DeepSeek R1 for example is 671B total parameters but only 37B active per token via 256 routed experts plus 1 shared per layer.
-
-<p align="center">
-  <img src="./assets/04d-ffn-variants.svg" alt="FFN variants. On the left, a dense FFN: a single token vector goes through one large SwiGLU box and out the other side. On the right, an MoE block: the token goes through a small router which picks 2 of 8 experts. The two selected experts (experts 2 and 6) are highlighted in orange; the six unselected experts are dimmed. The selected experts' outputs are weighted-summed (Σ) and produce the output vector. The note on the right side cites DeepSeek R1 at 671B total parameters but only 37B active per token." width="720">
-</p>
-
-**5. Output head.** After the final transformer block we've got a refined vector for every position in the sequence. The model takes the vector at the last position — the one that represents "what should come next" — and projects it back into the vocabulary space using the *output head*. What comes out the other side is a probability for every single token in the vocabulary, and the next token is sampled from that distribution. The output head is often weight-tied to the embedding matrix from step 2, meaning the same numbers used to look up token vectors at the start are reused to project back out at the end. This both saves parameters and pushes the model toward consistency between its input and output representations.
-
-<p align="center">
-  <img src="./assets/05-output-head.svg" alt="Output head: the final vector at the last position (a column of coloured cells in purple) is multiplied by W_out (weight-tied to the embedding matrix) and projected into a probability distribution over the vocabulary, drawn as a vertical bar chart. The most probable token — a period — is highlighted in orange with a 'sampled' arrow above it; the remaining candidates ('·and', ',' , '·but', '·though', '·for', '·when') trail off in lower probabilities, with about 100k more tokens beyond." width="720">
-</p>
-
-That's the entire forward pass. Text comes in, gets chopped into tokens, looked up as vectors, positionally encoded, refined through dozens of transformer layers, and projected back out as a probability distribution over the next token. Do this once and you've produced one new token. Do it in a loop where each new token gets appended back to the input and you've produced a full response.
-
-#### Training
-
-Getting from a raw architecture to a released frontier model takes a specific sequence of training stages. At a glance, the canonical pipeline goes:
-
-- **Pretraining** — predict the next token over trillions of tokens of web text; produces the *base model*.
-- **Mid-training** — continued pretraining on a curated higher-quality corpus (code, math, reasoning) to sharpen specific domains.
-- **Supervised fine-tuning (SFT)** — train on curated instruction/response pairs so the model follows instructions instead of just continuing text.
-- **Preference tuning (RLHF / DPO / GRPO)** — train on human-rated comparisons between responses; helpfulness, honesty, and safety get instilled here.
-- **Constitutional AI / RLAIF** — replace human labellers with an AI judge that scores responses against a written set of principles.
-- **Reasoning RL (GRPO + verifiable rewards)** — rule-based rewards on math and code that teach the model explicit chain-of-thought.
-- **System prompt learning** *(emerging, harness-owned)* — instead of updating weights, the model edits its own system prompt to accumulate explicit problem-solving strategies; happens at inference time, no GPUs needed, and unlike every other stage on this list, it's a paradigm we as harness builders can actually impact.
-
-Now let's walk through each of these in a bit more detail.
-
-1. **Pretraining.** This is where the model is taught to predict the next token across trillions of tokens of web-scale data. By the end of pretraining the model has picked up syntax, facts, and reasoning patterns. Takes thousands of GPUs running for months of wall-clock time. The output of this stage is what we call the *base model*.
-
-<p align="center">
-  <img src="./assets/t1-pretraining.svg" alt="Pretraining: a sample 'The Eiffel Tower is in [?]' is drawn from a web corpus and fed into the model. The model predicts a probability distribution over the next token, with 'Paris' highlighted at 0.78 as the correct target. A dashed feedback arrow loops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width="720">
-</p>
-
-2. **Mid-training.** Continued pretraining on a higher-quality and more curated corpus — code, math, reasoning data. This sharpens specific domains without having to start over from scratch.
-
-<p align="center">
-  <img src="./assets/t2-mid-training.svg" alt="Mid-training: a faded 'general web corpus' on the left is filtered through a funnel into three smaller curated document boxes on the right — a Python factorial function, an algebra equation, and a step-by-step reasoning chain — which then feed into the model. The annotation notes that no training restart from scratch is needed." width="720">
-</p>
-
-3. **Supervised fine-tuning (SFT).** Now we feed the model curated instruction/response pairs so it learns to actually follow instructions rather than continue arbitrary text.
-
-<p align="center">
-  <img src="./assets/t3-sft.svg" alt="SFT: three example instruction-response cards on the left (photosynthesis question, Python string-reverse request, article summarization) each show a 'user' prompt and an 'assistant' response. An arrow with the label 'train on assistant tokens' leads to a model box on the right that transitions from 'base model' to 'instruction-following model'." width="720">
-</p>
-
-4. **Preference tuning (RLHF / DPO / GRPO).** Human-rated comparisons between responses teach the model what counts as a good answer. This is the stage where helpfulness, honesty, and safety mostly get instilled.
-
-<p align="center">
-  <img src="./assets/t4-preference-tuning.svg" alt="Preference tuning: a shared prompt 'What's a good first programming language to learn?' is followed by two response cards. Response A on the left is detailed and helpful, marked 'star preferred' in orange. Response B on the right is dismissive and faded. Annotations indicate that the model's probability mass on A is pushed up and on B is pushed down." width="720">
-</p>
-
-5. **Constitutional AI / RLAIF.** This one is optional and is Anthropic's signature contribution — instead of relying on humans to label everything, you have AI feedback against a written set of principles. Scales alignment past what humans could directly label on their own.
-
-<p align="center">
-  <img src="./assets/t5-constitutional-ai.svg" alt="Constitutional AI: a 'Constitution' document on the left lists principles like 'be helpful', 'avoid harmful content', 'be honest about uncertainty', and 'respect human autonomy'. A model response card in the middle shows the assistant refusing a harmful request and offering safe alternatives. An AI judge on the right returns a verdict that the response complies with principle 2, and a feedback arrow loops back to reinforce the behavior." width="720">
-</p>
-
-6. **Reasoning RL (GRPO + verifiable rewards).** Rule-based rewards on math, code, and other verifiable tasks teach the model to do explicit chain-of-thought reasoning. This is the stage that produces o1, o3, Claude's reasoning mode, and DeepSeek R1 from their respective base models.
-
-<p align="center">
-  <img src="./assets/t6-reasoning-rl.svg" alt="Reasoning RL: a prompt asks 'What is 17 × 23?' and the model produces a chain-of-thought response (Step 1: 17 × 20 = 340, Step 2: 17 × 3 = 51, Step 3: 340 + 51 = 391) with a boxed final answer 391. A rule-based verifier on the right computes 17 × 23 = 391, confirms the answer, and emits reward +1. A feedback arrow loops back to reinforce CoT trajectories that produce correct answers." width="720">
-</p>
-
-7. **System prompt learning *(emerging, harness-owned)*.** This one was named by Andrej Karpathy in a 2025 tweet, and in my opinion it's the most interesting paradigm on this list for anyone building their own harness — because it's the one we can actually influence ourselves. The idea is that not every kind of learning has to involve changing weights. A lot of human learning is more like *"I figured out how to solve this kind of problem before, let me write down the strategy so I have it next time."* That's an external note you wrote to yourself, not a rewiring of your brain. System prompt learning is the LLM analog of that: instead of updating weights, the model edits its own system prompt to accumulate explicit problem-solving strategies that it can refer back to on every future turn. Karpathy's exhibit A is Claude's system prompt itself, which contains hand-written instructions like *"to count letters, do it step by step"* — a workaround for the *"how many r's in strawberry"* failure. That instruction is doing exactly the job system prompt learning would do, except a human at Anthropic wrote it by hand instead of the model writing it for itself.
-
-The reason this one matters so much for us specifically comes down to a distinction worth making explicit: there are really only two ways to get new behaviour into a model. You can change its weights, or you can change what you put in its context. The first is *parametric* — it's the six stages above, and it takes a lab with GPUs. The second is *non-parametric* — the weights stay frozen and you steer the model entirely by what sits in front of it on each call. Every other stage on this list belongs to the labs; this one belongs to whoever owns the context, and when you build your own harness, that's you. System prompt learning is just non-parametric learning aimed at the most durable slot in the context — the system prompt, which the model re-reads on *every single turn*. Write a hard-won strategy there once and the model effectively "knows" it on every future turn, with no gradient step involved. The knowledge lives in your harness's text, not the model's weights — which is exactly how a harness extends a model *past the edge of what it was trained on*: not by teaching it anything new internally, but by reliably putting the right learned-from-experience context in front of it at inference time. It's the one training-adjacent paradigm you can ship in your own code without ever touching a GPU, which is why I'm including it here even though strictly speaking it isn't part of the labs' standard pipeline.
-
-And the cleanest way to actually build it is with a memory system — which is exactly the machinery [Module 4](./modules/04-add-memory/) adds. There the harness summarizes each finished turn, embeds it, and pulls the relevant pieces back into the system prompt before the next call. That recall loop *is* the substrate for system prompt learning; the only thing separating plain "memory" from "learning" is what you choose to distill and feed back. Store and recall raw facts about the conversation and you've got episodic memory. Distill the *reusable strategy* from whatever just worked — *"next time, read the file before editing it"* — and accumulate those into the system prompt instead, and the same loop becomes system prompt learning. Either way the shape is identical: the harness watches the model work, writes something down, and feeds it back in on the next turn, using nothing but the context window and code you already own. The model is frozen; the harness is what gets smarter.
-
-<p align="center">
-  <img src="./assets/t7-system-prompt-learning.svg" alt="System prompt learning: a system prompt document on the left contains a growing strategy book with bullets like 'count letters one at a time', 'show work for math problems', and 'verify sources before quoting'. A newly appended strategy reads 'when stuck, re-read the prompt' in orange. An arrow leads to a model box in the middle which applies the strategies to a new task, producing a solution with a newly distilled strategy on the right. A dashed orange loop arrow runs from the solution back to the system prompt with the label 'append strategy → reuse next time'. A caption notes that this paradigm runs at inference time, requires no GPUs, and is the one stage the harness owns." width="720">
-</p>
-
-#### Inference
-
-Once you have a fully trained model, generating text from it works like this. The model does a forward pass and produces a probability distribution over the entire vocabulary. From that distribution a single token is sampled — and the sampling itself is modulated by a few knobs: **temperature** controls how random the pick is, **top-k** restricts the choice to only the k highest-probability tokens, and **top-p / nucleus** restricts it to the smallest set of tokens whose probabilities sum to p. Once a token is picked it gets fed back in as part of the input and the model predicts the next one. This repeats until the model emits an end-of-sequence token or hits the max length.
-
-<p align="center">
-  <img src="./assets/inference.svg" alt="Inference: the top half shows three successive iterations of the autoregressive loop on the input 'The cat sat on the', where each sampled token ('mat', then '.', then </s>) gets appended to the input before the next iteration. The third iteration emits </s>, which terminates the loop. The bottom half compares three sampling knobs side by side: temperature shows the same distribution at T=0.3 (peaky) and T=1.5 (flat); top-k shows eight bars with the top three highlighted as kept and five dimmed as dropped; top-p shows the same bars with a cumulative-sum bracket marking the smallest set that sums to p=0.9." width="720">
-</p>
-
-So that's what you have at the end of model development: a callable model that can complete text. What it cannot do on its own is read files, run commands, remember across sessions, or even decide when it's finished with a task. To get any of that we need to wrap it in a harness, and that's where harness engineering picks up.
-
-### 2. Harness engineering → an agent
-
-Harness engineering is the layer I'm actually teaching in this repo. The way I think about a harness is pretty simple — a harness is every piece of code, configuration, and execution logic that isn't the model itself. So that includes the state the agent carries between turns, the tools it can call, the execution environment those tools run in, the feedback loops that drive the agent forward, the constraints on what it's allowed to do, and the observability layer that lets you see what it did and why. Wrap a model in one of those and what you have is an agent.
-
-The way I break down a harness is into nine components, and the rest of this repo builds them up one at a time:
-
-- **Model interface.** How the harness actually calls the underlying model. This covers which model you wrap, whether you call it sync or streaming, and how you parse the response back into something the rest of the harness can use.
-- **Control flow.** The loop that drives the model continuously, turn after turn. The TAO loop (Think → Act → Observe) is the workhorse here and it's what every checkpoint downstream of Module 3 uses.
-- **Memory + context management.** What the harness persists across sessions and what it fits into each call's token budget. This is where the decisions about pruning, recall, and summarization live.
-- **Tools / action layer.** What capabilities the harness actually exposes to the model. The choice of which tools, at what granularity, and with what error semantics is one of the biggest design levers you have as a harness engineer.
-- **Execution environment.** Where dangerous tool calls actually run. For most production agents this is a sandbox, a container, or an isolated VM — somewhere the model can do its work without damaging the host.
-- **Safety / guardrails.** What the model is actually allowed to do in practice. Approval gates, loop bounds, retry policies, and content gates on both input and output all live here.
-- **Observability.** Structured traces of every LLM call, every tool call, and every state transition. This is what makes the harness debuggable, replayable, and feedable into evals.
-- **Evaluation.** How you actually measure whether the harness you've built produces a good agent. Test cases, judging criteria, regression detection — basically a harness for testing the harness.
-- **Optimization.** Everything you do to make the harness fast and cheap once it works. Prompt caching, tool output caching, threading for blocking work, and structured prompts all sit here.
-
-Each one of these components gets its own module, plus Module 1 as the conceptual on-ramp. Every checkpoint in [`examples/`](./examples/) is a runnable harness at a different stage of construction — you read the module, then you run the script, and you can see exactly what each component is buying you. Stack all nine around a model and what you've got is an agent.
-
-> [!NOTE]
-> The term *harness* in this sense was consolidated through 2025–2026 by Anthropic ([effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents); [harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)), LangChain ([*The Anatomy of an Agent Harness*](https://www.langchain.com/blog/the-anatomy-of-an-agent-harness)), Martin Fowler ([Birgitta Böckeler, *Harness engineering for coding agent users*](https://martinfowler.com/articles/harness-engineering.html)), [Addy Osmani](https://addyosmani.com/blog/agent-harness-engineering/), and [O'Reilly Radar](https://www.oreilly.com/radar/agent-harness-engineering/).
-
----
-
-## Curriculum
-
-Below is the actual curriculum. The model I picked for this repo is Claude — partly because Anthropic is where the harness vocabulary consolidated, and partly because the Claude API and SDK are what I work with day to day. But the harness work itself is largely model-agnostic, so if you wanted to swap Claude for GPT or Gemini almost nothing about these modules would have to change. With Claude as the model, here are the ten modules that build the harness around it, one component at a time:
-
-| # | Module | Harness component | Checkpoint |
-|---|---|---|---|
-| 1 | [What is an agent?](./modules/01-what-is-an-agent/) | (concept — Model + Harness) | [`test.py`](./examples/test.py) |
-| 2 | [An LLM call](./modules/02-an-llm-call/) | **Model interface** | [`llm_call_sync.py`](./examples/llm_call_sync.py), [`llm_call_async.py`](./examples/llm_call_async.py) |
-| 3 | [Add a loop](./modules/03-add-a-loop/) | **Control flow** | [`stateless_chatbot.py`](./examples/stateless_chatbot.py) |
-| 4 | [Add memory](./modules/04-add-memory/) | **Memory + context management** | [`stateful_chatbot.py`](./examples/stateful_chatbot.py) |
-| 5 | [Add tools](./modules/05-add-tools/) | **Tool / action layer** | [`agent.py`](./examples/agent.py) |
-| 6 | [Add sandboxing](./modules/06-add-sandboxing/) | **Execution environment** | [`sandbox_agent.py`](./examples/sandbox_agent.py) |
-| 7 | [Add guardrails](./modules/07-add-guardrails/) | **Safety constraints** | [`safe_agent.py`](./examples/safe_agent.py) |
-| 8 | [Add observability](./modules/08-add-observability/) | **Structured tracing** | [`traced_agent.py`](./examples/traced_agent.py) |
-| 9 | [Add evaluation](./modules/09-add-evaluation/) | **Test infrastructure** | [`evals/`](./evals/) |
-| 10 | [Add performance](./modules/10-add-performance/) | **Production hardening** | [`production_agent.py`](./examples/production_agent.py) |
-
-All ten modules are written end-to-end and each one is grounded in a runnable checkpoint that lives in [`examples/`](./examples/) — or in [`evals/`](./evals/) for Module 9. My recommendation is to read the module first to get the framing, and then run the script to see the harness at that stage actually doing the thing. Both halves matter, and the two together is what makes the curriculum stick.
-
-## Agentic engineering in practice
-
-Once you've gone through all ten modules what you have at the end is an agent — a model wrapped in code, state, tools, and a loop that you built and understand top to bottom. So the natural question is, what do you actually do with it? In my experience there are two directions you can go from here, and both are worth pursuing.
-
-### Develop other products
-
-The first direction is outward — you point the agent at the next codebase and use it to build other software. A good example here is Peter Steinberg, who built **openclaw** by directing existing coding agents to produce most of the implementation, and then went one step further by embedding an agent harness inside openclaw itself so the final product ships with its own agent. Agents produced the artifact, and the artifact ships with an agent. That's agentic engineering in its purest form — you orchestrate the agent, and the agent builds the thing.
-
-### Develop the agent itself
-
-The second direction is recursive — you point the agent at its own curriculum and use it to develop itself. Have the agent write a new module, refactor one of the harness components, tighten up the eval suite, raise the performance, or improve the tracing. This is exactly how I'm building this repo. Claude Code (which is itself a coding-agent harness running on Claude) is writing modules and shipping commits while I drive the agentic engineering side of things. Every layer of the stack is visible in the work itself:
-
-1. Anthropic does **model development** → Claude.
-2. The Claude Code team does **harness engineering** → Claude Code.
-3. I do **agentic engineering** → this curriculum.
-
-So in this stack, model development is happening at Anthropic, harness engineering is happening at the Claude Code team, and agentic engineering is happening at my desk. This curriculum is teaching step 2 — harness engineering — because that's the discipline I think most people who want to build their own agent need to learn, and right now it's the one with the least available guidance.
-
-A quick note on terminology while we're here. You might have seen the phrase "vibe coding" floating around at some point (it's a Karpathy coinage). The way I think about it, vibe coding is the casual end of agentic engineering — you ask the agent for something, and you accept what it gives you. Agentic engineering is the disciplined version of that same activity. You think carefully about what to ask, what tools to provide, how to verify what comes back, and how to fit the whole thing into a delivery process you actually trust. Same underlying move, just at different levels of rigor.
-
-## Scope
-
-Before we get into the curriculum proper, here's a quick map of what is and isn't covered in this repo so you know what to expect going in:
-
-| | |
-|---|---|
-| ✓ | Harness around a model accessed via API |
-| ✓ | All 9 harness components, with one runnable checkpoint each (Modules 2–10), plus Module 1 as the conceptual on-ramp |
-| ✓ | Orientation on model development (upstream) and agentic engineering (downstream) |
-| ✗ | Training or fine-tuning the model itself |
-| ✗ | A practical course on using a finished agent to ship product features |
-| ✗ | Multi-agent orchestration as a primary focus |
-
-If your goal is purely to use a finished agent to ship product features, you'll want to pair this repo with a more agentic-engineering-focused resource. If your goal is to actually train a foundational model from scratch, you'll want to look at model-training literature instead. But if your goal is to genuinely understand and build the runtime that turns a model into an agent — that's exactly what this is.
+| # | Lesson | What it adds | Built on | Slides | Video |
+|---|---|---|---|---|---|
+| 5 | [Observability](./production/05-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | [slides](./production/05-observability/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | [slides](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 7 | [Sandboxing](./production/07-sandboxing/) | tools that run somewhere they can't do lasting damage | output | [slides](./production/07-sandboxing/slides.md) | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | [slides](./production/08-resilience/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | [slides](./production/09-performance/slides.md) | 🎥 coming soon |
+| 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
 ## Setup
 
-A few things you'll need to have installed and configured before you can run any of the example scripts in the curriculum:
+Everything you need to run the lessons.
 
-- Python 3.13 or newer
-- [uv](https://docs.astral.sh/uv/) for dependency management
-- An [Anthropic API key](https://console.anthropic.com) for the model calls
+macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
 
-Once those three are in place you should be able to walk through the modules in order and run each checkpoint as you go.
+Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
 
-## Start building a harness
+```bash
+cp .env.example .env        # then add your key to .env
+export UV_ENV_FILE=.env
+```
 
-You've got the framing, you've got the setup — time to actually build one. Module 1 is the conceptual on-ramp; from there each module adds one component of the harness, with a runnable checkpoint at every step.
+> [!WARNING]
+> From Lesson 2 on, the agent runs shell commands the model writes, with no confirmation. Run it somewhere you can afford to lose.
 
-**→ [Module 1: What is an agent?](./modules/01-what-is-an-agent/)**
+**→ [Start with Lesson 1](./lessons/01-model-interface/)**
+
+## The paper
+
+**[*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md)** · [PDF](./paper/latex/main.pdf) · [supplement](./paper/decomposition-study.md)
+
+The paper is the course's thesis, written up for people who want the argument rather than the lessons:
+
+- **The claim:** an agent is a model wrapped in a harness, and every harness is made of five primitives. It builds the case the way Lessons 1–4 do: one primitive at a time, from a single API call to a working agent.
+- **Production:** every production concern folds back into those five primitives instead of adding a sixth, as Lessons 5–10 show one layer at a time.
+- **Beyond the course:**
+  - **A test on real harnesses.** It takes apart three production coding agents, Claude Code, OpenAI Codex and opencode, part by part. Nothing in them needs a sixth primitive. The [supplement](./paper/decomposition-study.md) has the evidence for every assignment, with file and line or doc link.
+  - **Rules for the hard cases,** such as where a tool call's effect lands, backup models versus routing, and who a file is for.
+  - **The case study** that the next section shows in full.
+
+It's a preprint draft. [`paper/README.md`](./paper/README.md) explains how to build the PDF and what's left before submission.
+
+## quark at work
+
+This is the proof. Lesson 4's `quark.py` is 48 lines: the five primitives and nothing else. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
+
+**Run 1: read the repo and remember it.**
+
+```bash
+uv run lessons/04-context/quark.py "Read every file in this repo, skipping .git, .venv and the SVG images in assets/, and summarize what this repo is and what each lesson teaches. Save what you learn to your long-term memory in enough detail that you could teach each of the four primitive lessons later without rereading the files."
+```
+
+quark made 10 bash calls. It listed the repo, read the files in batches (the root files, each lesson's README and code, the model deep dive, the production stubs), and after each lesson appended what it had learned to `.quark/memory/memory.md`. That left 25 KB of notes, one timestamped entry per lesson plus one for the deep dive. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I read every file except `.git`, `.venv` and the SVGs in `assets/`, and saved what I learned to `.quark/memory/memory.md`. That covers the root files, `docs/the-model.md`, all of `lessons/01` to `04`, and the six production stubs. For `uv.lock` I only read the header. It's the generated dependency lock, so nothing in it affects the lessons. I haven't run any of the lesson scripts.
+
+## What the repo is
+It's **harness-engineering**, a hands-on course on building agents by building their harness, by averagejoeslab (MIT license, Python 3.13 or later, `uv`, and the `anthropic` package). Its thesis:
+- **Model:** `TokensOut = Model(TokensIn)`. The model only predicts the next tokens.
+- **Agent:** `Agent = Harness(Model)`. The harness is everything around the model.
+- **Five primitives:** control flow wraps four others: input, context, model interface and output.
+
+The course builds one example agent, **quark**, outward from the model. Each lesson's `quark.py` is the previous one plus one primitive, and Lesson 4's `quark.py` is the finished harness.
+
+Lessons 1 to 4 are the real content. Lessons 5 to 10 (observability, guardrails, sandboxing, resilience, performance, evaluation) are short "coming soon" stubs. `docs/the-model.md` is optional background on how an LLM works inside.
+
+## The four lessons
+1. **Model interface.** This is one request out and one response back. `quark.py` is a single `client.messages.create(...)` call. The response fields that matter are `content`, `stop_reason` and `usage`. `model_interface.py` adds a timeout, retries, a fallback model, streaming and settable thinking options. Nothing real feeds in or handles the reply yet.
+2. **Input and output.**
+   - **Input:** a task from the command line or a prompt, plus the `tool_result` that returns what a tool printed.
+   - **Output:** printing text blocks and running `tool_use` blocks with `subprocess`.
+   - **Tools:** the model asks for them and the harness acts. The result is built but never sent back to the model.
+   - **`input_output.py`:** a Telegram chat, concurrent tools, timeouts and error results.
+3. **Control flow.** `quark.py` wraps Lesson 2 in `while True`. It appends results to `messages` and stops when the model stops asking for tools, which makes it an agent loop with no step limit. `control_flow.py` adds `MAX_STEPS` and handles refusals. `workflow.py` is an evaluator-optimizer workflow where the code decides the order of calls.
+4. **Context.** `quark.py` adds working memory, a system prompt built as several "models" (self, world, other selves, body), a view of its own source (`mechanics()`), a memory file (`.quark/memory/memory.md`) and compaction. Compaction only happens after the API says "prompt is too long". `context.py` adds an episode log, skills files, token counting before each call (`fit`) and cutting long tool results (`trim`).
+
+My own system prompt and loop are Lesson 4's `quark.py`, so I'm quark in that form.
+
+The memory file has the details for each lesson: the code, the demos, the "going further" options and each lesson's rule and what it leaves missing. I can teach the lessons from that without rereading the repo.
+```
+
+</details>
+
+**Run 2: a new session makes the slides from memory.**
+
+```bash
+uv run lessons/04-context/quark.py "Using what's in your long-term memory, and without rereading the lesson files, create the slides I'll present while recording a video for each of the four primitive lessons. Write each deck as Marp markdown to slides.md inside that lesson's folder, following the lesson's flow, with one idea per slide."
+```
+
+quark made 7 bash calls. It read its memory file, listed the lesson folders, wrote one deck per lesson, and added a note to its memory that the job was done. It never opened a lesson file. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I wrote a Marp deck to `slides.md` in each of the four lesson folders, using only my memory notes. I haven't rendered them, because the Marp CLI isn't installed, so I don't know how they look yet.
+
+| Lesson | Slides |
+|---|---|
+| `01-model-interface` | about 30 |
+| `02-input-and-output` | about 43 |
+| `03-control-flow` | about 50 |
+| `04-context` | about 62 |
+
+- **Flow:** each deck follows the lesson's own order. It starts with a title slide and where the last lesson left off. Then it explains the primitive, walks through quark's version, runs it, and covers "Going further" with the richer example file. It ends with "What to take away", what's missing, and a "Next:" slide.
+- **Slide style:** each slide has one idea, so a few are only a sentence long and you'll pause on them. Code snippets are short excerpts, not full files. Title and closing slides are centered, and the other slides carry a header with the lesson name and page numbers.
+- **Four lesson folders:** I read "four primitive lessons" as the four folders. Lesson 2 covers two primitives, input and output, so it's one deck.
+
+My notes were detailed, but I haven't checked the decks against the actual files, so some details could be slightly off. The ones most worth checking are the line counts, the demo outputs (71, 327, 48 and so on) and the exact code excerpts.
+
+To preview, run `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`. That downloads the CLI the first time.
+```
+
+</details>
+
+The decks it wrote:
+
+| Lesson | Slides |
+|---|---|
+| [Model interface](./lessons/01-model-interface/slides.md) | 28 |
+| [Input and output](./lessons/02-input-and-output/slides.md) | 41 |
+| [Control flow](./lessons/03-control-flow/slides.md) | 48 |
+| [Context](./lessons/04-context/slides.md) | 60 |
+
+We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. A later read of every slide found nothing invented in these four decks, but 22 slides were tightened by hand: shortened code now says it's shortened, a few lines that put something under the wrong primitive were corrected, and wording that simplified the code too far was fixed. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
+
+**Run 3: write the six production lessons.**
+
+The production lessons were one-paragraph stubs. quark wrote each one in its own session, in order, so each lesson's `quark.py` could start from the one before. A short shell script ran the sessions one after another with this prompt, filling in the lesson each time:
+
+<details>
+<summary>the prompt</summary>
+
+```text
+Write Lesson {n}: {title}, one of the production layers of the harness-engineering course, in production/{slug}/. Its README.md is a coming-soon stub; replace it with the real lesson. Start from your long-term memory of how this course is built and taught, and read any files you need, including the previous lessons.
+
+Follow the course's method:
+- A production layer adds hardening, not a new primitive. Say which primitives this layer is built on, explain the mechanism before the code, and keep everything inside those primitives.
+- production/{slug}/quark.py is {previous lesson's quark.py} plus this layer and nothing else. Also write a fuller example, production/{slug}/{file}, that shows more of what this layer can be.
+- Lay out the README like the primitive lessons: an opening explanation with no heading, then '## The worked example', '## Run it', '## Going further' (what else this layer can be, a product built around it, then the fuller example and its run) and '## What to take away' (the rule, a 'Notice what {title} never does.' line naming the primitives it leaves alone, what's still missing, and a link to the next lesson). Keep the video placeholder at the top.
+- Run both files for real and paste their real output into the README. Never invent output.
+
+The Anthropic API key is already in your environment as ANTHROPIC_API_KEY. Never print, echo or save environment variables or the key. Your responses are capped at 16384 tokens, thinking included, and a response that runs past the cap is cut off and nothing in it happens. So work in small steps: think briefly, do one short action per response, and write long files in several parts: create the file, then append to it. To stop a process, use its PID, never pkill -f or killall with a name pattern: your own command line contains these lesson paths, so a pattern can kill you. When you're done, save what you built to long-term memory.
+```
+
+</details>
+
+What it wrote, all of it run for real:
+
+| Lesson | README | `quark.py` | Fuller example | Built on |
+|---|---|---|---|---|
+| [5 Observability](./production/05-observability/) | 344 lines | 59 lines | `observability.py`, 84 | control flow |
+| [6 Guardrails](./production/06-guardrails/) | 420 | 83 | `guardrails.py`, 98 | control flow |
+| [7 Sandboxing](./production/07-sandboxing/) | 448 | 94 | `sandboxing.py`, 87 | output |
+| [8 Resilience](./production/08-resilience/) | 640 | 135 | `resilience.py`, 112 | model interface, output |
+| [9 Performance](./production/09-performance/) | 533 | 159 | `performance.py`, 100 | context, model interface, output |
+| [10 Evaluation](./production/10-evaluation/) | 522 | 196 | `evaluation.py`, 122 | the whole harness |
+
+Along the way it started Docker's daemon when it found it wasn't running, built a stand-in API that fails on purpose to test retries, killed its own test runs to test recovery, and caught a regression with the evaluation it wrote.
+
+It didn't go smoothly, and the failures were the course's own lessons:
+
+- **Lesson 5 stopped twice without writing anything.** A trace of each response showed why: with thinking on, 4,096 output tokens wasn't enough to think and then write a file. One response hit `max_tokens` partway through a tool request, and the harness crashed with `KeyError: 'cmd'`, the gap Lesson 2 describes. We raised `max_tokens` to 16,384 across the course, and it went through.
+- **Lesson 8 killed itself.** To test crash recovery, quark ran `pkill -9 -f 08-resilience/quark.py` to kill its test agent. Its own command line contained that path, so it killed quark too. Its Docker container outlived it, the leftover Lesson 7 had warned about. We added "stop processes by PID, never by name" to the prompt and ran Lesson 8 again; it picked up the `quark.py` it had already written and finished the lesson.
+
+We reviewed every lesson against the course's method before it was committed: each `quark.py` is the previous one plus exactly one layer, each lesson stays on the primitives it names, and every output is from a real run. Two things were changed by hand then: Lesson 6 now says what was typed at an interrupt prompt, and Lesson 9's fuller example calls per-task model routing control flow, as Lesson 3 does. A later line-by-line read, re-running every lesson's code and checking its claims against the API documentation, changed a few more: Lesson 9's framing of which model a request goes to and of printing a streamed reply, its minimum cacheable prompt size, and Lesson 8's statement of the SDK's default retries. Every lesson's demos reproduced.
+
+**Run 4: a new session makes their slides from memory.**
+
+```bash
+uv run lessons/04-context/quark.py "Using what's in your long-term memory, and without rereading the lesson files, create the slides I'll present while recording a video for each of the six production lessons, Lessons 5 to 10. Write each deck as Marp markdown to slides.md inside that lesson's folder, in the same style as the decks you made for the primitive lessons, following the lesson's flow, with one idea per slide. One change since you wrote them: in review, Lesson 9's per-task model routing in performance.py was relabeled as control flow (routing, from Lesson 3), not the model interface, so present it that way. Your responses are capped at 16384 tokens, thinking included, so write each deck in several parts if it's long."
+```
+
+quark read its memory and the start and end of one earlier deck to match the format, then wrote the six decks without opening a lesson file. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I wrote all six decks as Marp markdown, one `slides.md` in each lesson's folder. I couldn't render them because the Marp CLI isn't installed. I did check that the front matter and code fences are balanced and that no slide runs past 11 lines.
+
+| Lesson | File | Slides |
+|---|---|---|
+| 5 Observability | `production/05-observability/slides.md` | 53 |
+| 6 Guardrails | `production/06-guardrails/slides.md` | 64 |
+| 7 Sandboxing | `production/07-sandboxing/slides.md` | 71 |
+| 8 Resilience | `production/08-resilience/slides.md` | 71 |
+| 9 Performance | `production/09-performance/slides.md` | 91 |
+| 10 Evaluation | `production/10-evaluation/slides.md` | 91 |
+
+- **Source:** I wrote them from long-term memory only and didn't open any lesson README or code. I did look at the front matter and ending of my Lesson 3 deck so the format matched. That means the same front matter, a header per lesson, a centered title slide and a closing "Next:" slide. Lesson 10 ends on "Back to the course" because there's no Lesson 11.
+- **Flow:** each deck follows its README order. That is the problem, where it lives, the worked `quark.py`, running it, "Going further" with the richer file, the take-away rule, what the lesson never does, and what's missing.
+- **Lesson 9 relabel:** the router in `performance.py` (`route()` with the quick, standard and deep tiers) is presented as control flow, as Lesson 3's routing pattern. It sits on its own slides, which contrast it with Lesson 1's outage fallback and explain why it's decided once per task (the cache is per model). The "built on" slide lists context, model interface and output, with routing flagged separately as control flow. The closing slide now says Performance never does input, and that `quark.py` never touches control flow.
+- **Lesson 9 compaction model:** I kept the fixed small model that `quark.py` uses for compaction under model interface. That is one hard-coded choice, not a decision. If your review relabeled that too, it's a one-slide change.
+
+My memory notes don't have every detail, so I inferred these. Please check them against the source before recording:
+- **Lesson 6:** the order of checks in `guard()` (deny, then safe, then ask).
+- **Lesson 8:** the exact modes of the fake-failure test server.
+- **Lesson 9:** how `compact()` calls `ask()` (`live=False`, `models=FAST`).
+- **Lesson 10:** what the `rename` case does and what "hasty" means.
+
+The Lesson 9 README and the root README table may still describe the router as model interface. I didn't edit them.
+```
+
+</details>
+
+| Lesson | Slides |
+|---|---|
+| [Observability](./production/05-observability/slides.md) | 53 |
+| [Guardrails](./production/06-guardrails/slides.md) | 64 |
+| [Sandboxing](./production/07-sandboxing/slides.md) | 69 |
+| [Resilience](./production/08-resilience/slides.md) | 71 |
+| [Performance](./production/09-performance/slides.md) | 91 |
+| [Evaluation](./production/10-evaluation/slides.md) | 88 |
+
+We checked the four details it flagged and every code line on the slides against the lessons, and its guesses about `guard()`'s order, the stand-in's modes and `compact()`'s call were right. Then a full read of every slide against its lesson found more, and this is the part to learn from. Writing from memory, quark had filled gaps with things that never happened: a few slides describe runs that aren't in the lessons, quote cache numbers no run produced, or reverse which model was benched. Others simplified the code until they misstated it, or put a mechanism under the wrong primitive. 47 slides were corrected by hand and 5 invented ones were removed, so every slide now matches its lesson. Memory is a summary, and a summary can be wrong in ways that read as confident; that's why the review step exists.
+
+Everything quark printed is in [`docs/quark-at-work/`](./docs/quark-at-work/), including the failed attempts: [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), run 3 for lessons [5](./docs/quark-at-work/run-3-lesson-05.txt), [6](./docs/quark-at-work/run-3-lesson-06.txt), [7](./docs/quark-at-work/run-3-lesson-07.txt), [8](./docs/quark-at-work/run-3-lesson-08.txt), [9](./docs/quark-at-work/run-3-lesson-09.txt) and [10](./docs/quark-at-work/run-3-lesson-10.txt), the [two](./docs/quark-at-work/run-3-lesson-05-attempt-1-silent-stop.txt) [silent stops](./docs/quark-at-work/run-3-lesson-05-attempt-2-silent-stop.txt) and the [traced crash](./docs/quark-at-work/run-3-lesson-05-attempt-3-traced-crash.txt), the [run that killed itself](./docs/quark-at-work/run-3-lesson-08-attempt-1-killed-itself.txt) and the [Lesson 9 session we stopped](./docs/quark-at-work/run-3-lesson-09-attempt-1-stopped.txt) because it was building on it, [run 4](./docs/quark-at-work/run-4-make-production-slides.txt), and the [memory file](./docs/quark-at-work/memory.md) as it stands after all four runs.
+
+The paper's case study (§8) reads these failures through the primitives: each one lands on a specific primitive or layer.
+
+### How Claude Code and quark worked together
+
+Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the writing: the slides for all ten lessons and the six production lessons. Later it ran the paper's decomposition study under my direction and helped draft the paper.
+
+What Claude Code did, run by run:
+
+- **Set up each run.** It wrote the prompts, and ran Lesson 4's `quark.py` from the repo root with a shell command, the way a person would. quark got a task, its own memory and a bash tool; nothing else.
+- **Kept the key safe.** Before asking quark to read "every file", it moved `.env` out of the repo, so the key reached quark through the environment and could never land in a transcript. Every transcript was searched for the key before it was committed.
+- **Ran the production lessons as a loop.** A short script ran one quark session per lesson and stopped if a lesson didn't produce a `quark.py`. That's a workflow around an agent, Lesson 3's control flow one level up.
+- **Diagnosed failures without changing quark.** When Lesson 5 kept stopping, it wrapped quark's model calls to log each response's `stop_reason`, found the cut-off, and fixed the cause in the course's code, not with a workaround. When Lesson 8 killed itself, it read the transcript, found the `pkill`, cleaned up the leftover container and restarted from Lesson 8. (It then killed its own shell command the same way, with `pkill -f`. The lesson applies to everyone.)
+- **Reviewed before anything was committed.** It diffed each `quark.py` against the one before, read every README against the course's method, traced demo output back to the commands that produced it, tested the one path quark hadn't (summarizing Sonnet 5.5's thinking blocks on Haiku), and checked that every code block matches its file and every link resolves. It fixed a few small things by hand, and this page says which.
+- **Checked the slides.** It rendered the decks with Marp, checked every number and code line against the lessons, and looked at the slides as images.
+
+quark never saw Claude Code. From its side, someone gave it a task in a terminal, the same as anyone running it would.
+
+## How to cite
+
+If you use this course, its code or its framework, please cite the paper:
+
+```bibtex
+@misc{dovey2026fiveprimitives,
+  author       = {Chase Dovey},
+  title        = {Five Primitives Are All You Need: Building an Agent Harness},
+  year         = {2026},
+  organization = {Average Joes Lab},
+  howpublished = {\url{https://github.com/averagejoeslab/building-agents}},
+  note         = {Companion course: harness-engineering}
+}
+```
+
+GitHub's **Cite this repository** button gives the same, from [`CITATION.cff`](./CITATION.cff).
 
 ## License
 
-Released under MIT — use it however you find useful. If you end up building something interesting with it I'd love to hear about it.
+© 2026 Chase Dovey, Average Joes Lab.
+
+- **Code** (every `.py` file, and the code shown in the lessons): [MIT](./LICENSE). Use it for anything, keeping the copyright notice.
+- **Content** (the lessons' text, slides, paper, docs, diagrams and videos): [CC BY-NC-SA 4.0](./LICENSE-CONTENT). Share and adapt it with credit to Chase Dovey, Average Joes Lab, for non-commercial use, under the same license. Commercial use, such as a book or a paid course, needs permission.
