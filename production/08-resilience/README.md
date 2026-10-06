@@ -431,11 +431,12 @@ Every response hit the limit while the model was writing its command, before any
 
 It can be a product on its own. Gateways like [LiteLLM](https://www.litellm.ai) and [OpenRouter](https://openrouter.ai) sit in front of several models and providers and handle retries, fallbacks and rate limits for you. If your harness sends every call to one of those, the model interface half of this layer is theirs. For the other half, durable-execution systems such as [Temporal](https://temporal.io), and checkpointing in agent frameworks such as [LangGraph](https://www.langchain.com/langgraph), record each step of a long process, so that after a crash it picks up at the step it was on. The idea is the same as quark's episode, with more machinery.
 
-The fuller example, [`resilience.py`](./resilience.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails, no sandbox) so resilience is all there is to look at. It turns the SDK's retries off and does them itself, in plain sight: it prints each failed try and how long it's waiting, honors `Retry-After`, backs off with jitter, and benches a model that has given up for a minute. Commands run under a time limit that kills the whole process group, with their output capped, and every result tells the model how the command ended. And the checkpoint is written at every step, so `resilience.py resume` picks a run up. Here it is, all of it:
+The fuller example, [`resilience.py`](./resilience.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails, no sandbox) so resilience is all there is to look at. It turns the SDK's retries off and does them itself, in plain sight: it prints each failed try and how long it's waiting, honors `Retry-After`, backs off with jitter, and benches a model that has given up for a minute. Commands run under a time limit that kills the whole process group, with their output capped, and every result tells the model how the command ended. When a command fails, it asks Jev, the small decision model I introduced in [Lesson 5](../05-sandboxing/#asking-jev), what kind of failure it was, and only a read that failed by chance is run again. And the checkpoint is written at every step, so `resilience.py resume` picks a run up. Here it is, all of it:
 
 ```python
-import subprocess, sys, os, json, time, random, signal
+import subprocess, sys, os, re, json, time, random, signal
 from anthropic import Anthropic, APIConnectionError, APIStatusError
+from typesafe_sdk import TypeSafeClient, Choice
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic(max_retries=0, timeout=120)   # the SDK's own retries are off: this file does them, where you can see them
@@ -446,6 +447,9 @@ BENCH = 60                                          # seconds a model that just 
 MAX_STEPS = 10
 TOOL_TIMEOUT, MAX_OUT = 20, 4000                    # seconds a command may run, characters of its output kept
 CHECKPOINT = ".quark/checkpoint.json"
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, for one question (Lesson 5); no key, no Jev
+SURE = 0.8                                          # how confident Jev must be before its answer changes anything
+READS = {"cat", "head", "tail", "ls", "wc", "grep", "curl"}   # programs that only look, so running one twice does no harm
 
 class Down(Exception): pass
 
@@ -490,6 +494,23 @@ def run(cmd):
         p.returncode = -9
     if len(out) > MAX_OUT: out, note = out[:MAX_OUT], f"\n[output cut at {MAX_OUT} characters]" + note
     return (out + note).strip() or "(no output)", p.returncode != 0
+
+def failure(cmd, out):
+    # Jev's question: will this failed command work if it's simply run again? Unsure, or no answer at all, is "unsure" or None: never a retry.
+    try: a = jev.system_one({"command": cmd, "result": out}, {"failure": Choice(
+        instructions="The command in `command` failed with `result`. What kind of failure is it?",
+        criteria={"transient": "likely to work if run again unchanged: network blip, timeout, lock held, rate limit, busy resource",
+                  "permanent": "will fail again unchanged: missing file, syntax error, wrong argument, permission denied, failing test",
+                  "partial": "it got part of the way: some of its changes may have happened before it failed"})}).choices["failure"]
+    except Exception:
+        print("[Jev: no answer]")
+        return None
+    print(f"[Jev: {a.choice}, confidence {a.confidence:.2f}]")
+    return a.choice if a.confidence >= SURE else "unsure"
+
+def reads(cmd):
+    # Hand-written and strict: one program from READS, no pipes, redirects or chaining, no curl flag that sends or saves. Jev never decides this.
+    return cmd.split()[0] in READS and not re.search(r"[|;&<>$`(\n]| -[A-Za-z]*[oOXdTF]|--(data|upload|output|request|form)", cmd)
 
 def save(messages):
     os.makedirs(".quark", exist_ok=True)
@@ -536,6 +557,13 @@ for step in range(1, MAX_STEPS + 1):
                 out, failed = "your request was cut off at the token limit, so it was not run. Send it again, shorter.", True
             else:
                 out, failed = run(cmd)
+                kind = failure(cmd, out) if failed else None
+                if kind == "transient" and reads(cmd):
+                    print(f"[trying once more in {BASE:.0f}s]")
+                    time.sleep(BASE)
+                    out, failed = run(cmd)
+                elif kind in ("partial", "unsure") and not reads(cmd):   # a read can't have partly done anything
+                    out += "\n(it may have partly run: check before repeating it)"
             print(out)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": out, "is_error": failed})
     if not input:
@@ -557,9 +585,16 @@ The new parts, in the order they matter:
 
 **`run()`.** The command runs in a new session (`start_new_session=True`), so it has its own process group. If it's still running after `TOOL_TIMEOUT`, the whole group gets SIGKILL, which takes the command's children with it; killing only the shell would leave them running and holding the pipe open. Output past `MAX_OUT` is cut, with a note. The result always ends with how the command ended (its exit code, or that it was killed), and it comes back flagged as an error if it didn't succeed, so the model's request always gets a reply it can use.
 
+**`failure()` and `reads()`.** `retryable()` sorts the API's failures by their status code. A command's failure has no code that says "try again": exit 1 is a missing file, a failing test, a lock someone else holds or a server that was busy for a second. Telling those apart means reading what the command printed, and that's a job for a model. So when a command fails, `failure()` sends Jev the command and what it printed, and one question with three answers: `transient` (it would likely work if run again unchanged), `permanent` (it will fail the same way) or `partial` (it got part of the way, so some of its changes may already have happened). Jev answers in a fraction of a second with a choice and a confidence, and the harness prints both. Then:
+- **transient**, with confidence of at least `SURE`, and the command **reads**: it's run once more after `BASE` seconds, without the model, and the model only sees the second result.
+- **partial**, or any answer under `SURE`, for a command that doesn't read: the result gets "it may have partly run: check before repeating it", the same warning `resume()` gives.
+- **permanent**, or no answer at all (no key, a timeout, an error): the result goes back as before.
+
+Whether a command reads is not Jev's call. `reads()` is a hand-written list of programs that only look (`READS`), with no pipes, redirects or chaining, and none of `curl`'s flags that send or save. It's strict on purpose: `grep -o` isn't let through, and that only costs a retry. Running something twice is safe for a read and never safe for a write, so that line is drawn by code you can read, and Jev only says whether a second try is worth it. Asking Jev is a model-interface act (it's a second model, called like the first); what's done with the answer, a retry or a note on the result, is output's side of resilience, like the rest of `run()`. Jev reads the command's output literally, so it can only judge what the command printed, and a command that printed nothing gives it nothing to go on (one of the runs below shows that).
+
 **`save()` and `resume()`.** A checkpoint file, written whole or not at all: it holds the messages, and the input that opened the run is the first of them. `resume()` is chosen by a word on the command line, not asked at startup: `resilience.py resume` loads the checkpoint, and gives every unanswered request an "interrupted, may or may not have run, check before repeating it" result that includes the command, so the model doesn't have to look back for it. The checkpoint is written before the first request, after each reply, and after each set of results, so the file always ends at a point the API will accept once the interrupted results are added. A run that finishes removes it. One that hits `MAX_STEPS` or gives up keeps it.
 
-Four runs show it (I wrote `python3 resilience.py` for brevity; I ran it with the repo's own Python, `.venv/bin/python`, from a scratch folder). The first uses the stand-in from above, in a mode that answers the first two requests with `429` and `retry-after: 1`, and then passes everything through:
+These runs show it (I wrote `python3 resilience.py` for brevity; I ran it with `uv run --project` pointing at the repo, from a scratch folder, with `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` set). The first uses the stand-in from above, in a mode that answers the first two requests with `429` and `retry-after: 1`, and then passes everything through:
 
 ```
 $ python3 flaky.py 8111 first:2 &
@@ -585,9 +620,9 @@ $ ANTHROPIC_BASE_URL=http://127.0.0.1:8112 python3 resilience.py "How many bytes
 ```
 
 ```
-[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.7s]
-[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.7s]
-[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 2.5s]
+[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.8s]
+[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.3s]
+[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 3.5s]
 [claude-sonnet-5-5: OverloadedError, giving up on it for 60s]
 [answered by the backup, claude-opus-5-5]
 $ wc -c notes.txt
@@ -597,7 +632,7 @@ notes.txt is 6 bytes.
 [done in 2 steps]
 ```
 
-The waits grow, with jitter: 0.7, 1.7, 2.5 (the doubling would give 1, 2, 4, each multiplied by a number between a half and one). After the fourth failure it gave up on `claude-sonnet-5-5` and used `claude-opus-5-5`. The second call, for the answer, didn't try the first model at all, because it was benched. The stand-in's log shows it: four requests to the first model, two to the second. Compare with quark, which sent ten.
+The waits grow, with jitter: 0.8, 1.3, 3.5 (the doubling would give 1, 2, 4, each multiplied by a number between a half and one). After the fourth failure it gave up on `claude-sonnet-5-5` and used `claude-opus-5-5`. The second call, for the answer, didn't try the first model at all, because it was benched. The stand-in's log shows it: four requests to the first model, two to the second. Compare with quark, which sent ten.
 
 The third takes everything down, and then brings it back:
 
@@ -607,13 +642,13 @@ $ ANTHROPIC_BASE_URL=http://127.0.0.1:8113 python3 resilience.py "How many bytes
 ```
 
 ```
-[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.8s]
-[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.4s]
-[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 2.4s]
+[claude-sonnet-5-5: OverloadedError, try 1 of 4, waiting 0.7s]
+[claude-sonnet-5-5: OverloadedError, try 2 of 4, waiting 1.0s]
+[claude-sonnet-5-5: OverloadedError, try 3 of 4, waiting 2.2s]
 [claude-sonnet-5-5: OverloadedError, giving up on it for 60s]
 [claude-opus-5-5: OverloadedError, try 1 of 4, waiting 0.9s]
-[claude-opus-5-5: OverloadedError, try 2 of 4, waiting 1.9s]
-[claude-opus-5-5: OverloadedError, try 3 of 4, waiting 3.2s]
+[claude-opus-5-5: OverloadedError, try 2 of 4, waiting 1.1s]
+[claude-opus-5-5: OverloadedError, try 3 of 4, waiting 3.9s]
 [claude-opus-5-5: OverloadedError, giving up on it for 60s]
 [no model answered. Everything so far is saved (step 1); run `resilience.py resume` to pick it up]
 ```
@@ -638,21 +673,122 @@ The fourth is about commands. The time limit is 20 seconds, which is slow to dem
 
 ```
 $ sleep 60; echo hi
+[Jev: transient, confidence 0.74]
 (killed: still running after 3 seconds)
+(it may have partly run: check before repeating it)
+The first command was killed by a 3-second tool timeout before it could finish. I'll run the second one now.
 $ python3 -c "print('x'*5000)"
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 [output cut at 300 characters]
-Here is what each command did:
+**Command 1: `sleep 60; echo hi`**
+- It did not complete. The tool killed it after about 3 seconds, while `sleep 60` was still running.
+- `echo hi` never ran, so there was no "hi" output.
+- The tool's limit is about 3 seconds, so I didn't retry, because it would be killed the same way. A shorter sleep would fit within the limit.
 
-1. **`sleep 60; echo hi`**: The tool killed it after about 3 seconds with the message "(killed: still running after 3 seconds)". It never reached `echo hi`, so nothing was printed. This environment seems to have a roughly 3-second timeout, which a 60-second sleep can't fit inside.
-
-2. **`python3 -c "print('x'*5000)"`**: It ran fine and printed a line of `x` characters. The tool truncated the output at 300 characters and added "[output cut at 300 characters]". I saw only the first 300 of the 5000 characters.
+**Command 2: `python3 -c "print('x'*5000)"`**
+- It ran and printed a line of the letter `x`, which should be 5000 characters followed by a newline.
+- The tool cut the display off at 300 characters, so I only saw the first 300 `x`s. I can't confirm from the output that all 5000 were printed. To check, I could run `python3 -c "print('x'*5000)" | wc -c`. It should report 5001, which is 5000 characters plus the newline.
 [done in 3 steps]
 ```
 
-The sleep was killed at three seconds and the model was told so. The long line was cut at 300 characters and the model was told that too. In both cases it reported accurately what it had been given. The run went on to a third step where the model answered; the harness neither hung nor held on to five thousand characters.
+The sleep was killed at three seconds and the model was told so. Jev thought a timeout was probably transient, but only at 0.74, under `SURE`, so the harness didn't act on it, and since `sleep` isn't on the list of reads, the result got the "may have partly run" warning. The long line was cut at 300 characters and the model was told that too. In both cases it reported accurately what it had been given. The run went on to a third step where the model answered; the harness neither hung nor held on to five thousand characters.
 
-And the crash, which is the one from the worked example, with `resilience.py`. The command takes twelve seconds and I killed the harness at seven, again by PID:
+The next three are Jev's question. For the first, a service that's down for its first request and fine after, about ten lines of Python:
+
+```
+# A service that's down for its first request and fine after: "503" once, then "ok".
+import sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+seen = 0
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        global seen
+        seen += 1
+        code, out = (503, b"busy\n") if seen == 1 else (200, b"ok\n")
+        print(f"request {seen} -> {code}", flush=True)
+        self.send_response(code); self.send_header("content-length", str(len(out))); self.end_headers(); self.wfile.write(out)
+    def log_message(self, *args): pass
+HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+```
+
+```
+$ python3 blip.py 8115 &
+$ python3 resilience.py "Run exactly this command: curl -sSf http://127.0.0.1:8115/status   Then tell me in one line what the service said."
+```
+
+```
+$ curl -sSf http://127.0.0.1:8115/status
+[Jev: transient, confidence 0.87]
+[trying once more in 1s]
+ok
+The service responded with "ok".
+[done in 2 steps]
+```
+
+Jev read `curl: (22) The requested URL returned error: 503` as a failure that goes away; `curl` with those flags is on the list of reads, so the harness ran it again, and the model only ever saw `ok`. The service's log has two requests: a 503 and a 200. The same run without a key for Jev (`TYPESAFE_API_KEY=`, on a fresh service):
+
+```
+$ curl -sSf http://127.0.0.1:8116/status
+[Jev: no answer]
+curl: (22) The requested URL returned error: 503
+
+(exit 22)
+The service didn't give a status. It returned an HTTP 503 error (Service Unavailable), and curl exited with code 22.
+[done in 2 steps]
+```
+
+No answer means no retry: the failure goes to the model as it did before Jev. And the limit: the first time I tried this, I used `curl -sf`, which hides curl's error message, so all the command printed was its exit code:
+
+```
+$ curl -sf http://127.0.0.1:8114/status
+[Jev: permanent, confidence 0.47]
+(exit 22)
+The service didn't return a status. `curl` exited with code 22, which with `-f` means the server sent an HTTP error (4xx or 5xx). `-s` hid the error message, so I can't tell which status code it was.
+[done in 2 steps]
+```
+
+With nothing but `(exit 22)` to read, Jev guessed, and said so with its confidence; at 0.47 the harness left it alone. Jev can only judge what a command shows.
+
+The last is a command that does part of its work and then fails. `migrate.py` writes one file per table and stops at the fourth:
+
+```
+import os
+os.makedirs("out", exist_ok=True)
+for table in ["users", "orders", "items", "payments", "audit"]:
+    if table == "payments": raise SystemExit("error: payments: no column named email")
+    open(f"out/{table}.csv", "w").write("id\n")
+    print(f"migrated {table}")
+```
+
+```
+$ python3 resilience.py "Run python3 migrate.py once and tell me how it went. Don't fix anything."
+```
+
+```
+$ python3 migrate.py
+[Jev: partial, confidence 0.85]
+migrated users
+migrated orders
+migrated items
+error: payments: no column named email
+
+(exit 1)
+(it may have partly run: check before repeating it)
+The migration failed partway through. I ran it once and didn't fix anything.
+
+- `users` migrated.
+- `orders` migrated.
+- `items` migrated.
+- `payments` failed with `error: payments: no column named email`, and the script exited with code 1.
+
+The tool output warned that the script may have partly run, so check the state before you run it again. The first three steps appear to have completed. I haven't checked whether they were committed or whether the failure left `payments` half-migrated. Running it again could duplicate or conflict with the work already done.
+...
+[done in 2 steps]
+```
+
+(shortened: two paragraphs of the answer cut.) Jev called it partial, the harness added the warning, and the model passed it on instead of running the script again.
+
+And the crash, which is the one from the worked example, with `resilience.py`. The command takes twelve seconds and I killed the harness a second or two after it started the command, again by PID:
 
 ```
 $ sleep 12 && echo finished > flag.txt
@@ -677,7 +813,7 @@ checkpoint.json
 
 ```
 user "Run exactly this one command: sleep 12 && echo finished > flag.txt   (it is slow on purpose). Then tell me what flag.txt contains."
-assistant [{"id": "toolu_013994a4bJA2eTwxGkasqnRj", "caller": {"type": "direct"}, "input": {"cmd": "sleep 12 && echo finished > flag.txt"}, "name": "bash", "type": "tool_use"}]
+assistant [{"id": "toolu_01Umw4defRA62i4aiNkwCrGU", "caller": {"type": "direct"}, "input": {"cmd": "sleep 12 && echo finished > flag.txt"}, "name": "bash", "type": "tool_use"}]
 ```
 
 Later the command (which kept running) had written its file:
@@ -693,13 +829,13 @@ And then `resilience.py resume`:
 
 ```
 [resuming: 'Run exactly this one command: sleep 12 && echo finished > fl', 3 messages]
-The harness interrupted the command, so I'll check whether the file exists before deciding whether to run it again.
+The command was interrupted, so I don't know if it finished. I'll check whether flag.txt exists before I run anything again.
 $ ls -l flag.txt && cat flag.txt
--rw-r--r-- 1 root root 9 Oct  5 23:53 flag.txt
+-rw-r--r-- 1 root root 9 Oct  6 22:43 flag.txt
 finished
 `flag.txt` contains `finished`.
 
-The harness reported an interruption, so I checked the file before running the command again. The file was already there with that content, which means the command finished before the interruption. I didn't need to run it a second time.
+The harness reported my command as interrupted, but the file exists and has the expected content, so the command did finish. I didn't run it a second time.
 [done in 2 steps]
 ```
 
