@@ -64,9 +64,11 @@ The example throughout is [quark](https://github.com/averagejoeslab/quark), my o
 
 Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
 
+**Presenting a lesson.** Each lesson has a slide deck, written in [Marp](https://marp.app) Markdown, for teaching it to a room. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md` (add `--pdf` to export it). The decks for Lessons 1–4 were made from an earlier, 48-line version of the code and don't yet show the version in the lessons, so teach the code from the lesson's README.
+
 ### The production layers
 
-A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where. (The production lessons were written on an earlier, 48-line version of Lesson 4's `quark.py`, before episodic and procedural memory; moving them onto the current one is still to do.)
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where. The production lessons are built on an earlier, 48-line version of Lesson 4's `quark.py`, from before episodic and procedural memory. Each layer still adds exactly what its lesson says, but its `quark.py` starts from that version, not from the one you finish Lesson 4 with.
 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
@@ -108,7 +110,7 @@ The paper is the course's thesis, written up for people who want the argument ra
   - **Rules for the hard cases,** such as where a tool call's effect lands, backup models versus routing, and who a file is for.
   - **The case study** that the next section shows in full.
 
-It's a preprint draft. [`paper/README.md`](./paper/README.md) explains how to build the PDF and what's left before submission.
+It's a preprint. [`paper/README.md`](./paper/README.md) lists the paper's files.
 
 ## quark at work
 

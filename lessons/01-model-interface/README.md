@@ -82,34 +82,6 @@ Here's one run:
     "service_tier": "standard"
   }
 }
-```bash\nls          # basic listing\nls -la      # detailed listing, including hidden files\ntree        # tree view (may need to be installed)\n```\n\n**Windows Command Prompt**\n```cmd\ndir\ndir /a      # include hidden files\n```\n\n**Windows PowerShell**\n```powershell\nGet-ChildItem   # or: ls / dir\nGet-ChildItem -Force   # include hidden files\n```\n\nIf you paste the output here, I can help you interpret it, find specific files, clean things up, or write a script to work with them.\n\nIf you're using an IDE or tool that's supposed to give me file access, it may not be set up correctly. Let me know what you're working with and I can help troubleshoot.",
-      "type": "text"
-    }
-  ],
-  "diagnostics": null,
-  "model": "claude-sonnet-5-5",
-  "role": "assistant",
-  "stop_details": null,
-  "stop_reason": "end_turn",
-  "stop_sequence": null,
-  "type": "message",
-  "usage": {
-    "cache_creation": {
-      "ephemeral_1h_input_tokens": 0,
-      "ephemeral_5m_input_tokens": 0
-    },
-    "cache_creation_input_tokens": 0,
-    "cache_read_input_tokens": 0,
-    "inference_geo": "global",
-    "input_tokens": 15,
-    "output_tokens": 331,
-    "output_tokens_details": {
-      "thinking_tokens": 38
-    },
-    "server_tool_use": null,
-    "service_tier": "standard"
-  }
-}
 ```
 
 Yours will be worded differently; the model's output varies from run to run. (The long `signature` is shortened here.) Three fields matter:

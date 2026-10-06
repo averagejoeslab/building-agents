@@ -62,7 +62,9 @@ def skills():                                            # procedural memory: an
     return "\n".join(index) or "- (none yet)"
 
 def mechanics():                                         # self-knowledge: this file, with the system prompt redacted
-    return re.sub(r"^def system\(\):.*?(?=^def )", "def system():                                            # instructions: the prompt is shown in full below
+    return re.sub(r"^def system\(\):.*?(?=^def )", "def system(): ...  # redacted: it is the prompt you are reading\n\n", open(__file__).read(), flags=re.S | re.M)
+
+def system():                                            # instructions: the prompt is shown in full below
     return [{"type": "text", "cache_control": {"type": "ephemeral"}, "text": f"""..."""}]
 
 def compact(working_memory, drop):                       # lazy: runs only after the API says the prompt is too long
