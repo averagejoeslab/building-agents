@@ -40,7 +40,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
@@ -51,7 +51,7 @@ print(output.model_dump_json(indent=2))
 
 The model interface section is Lesson 1's, unchanged. Two sections are new.
 
-**`# ── input ──`** gathers what goes to the model. `input` is whatever comes in: here, the words on the command line, or a line typed at the `> ` prompt. It isn't assumed to be a task or a question; it's just input, and it goes into the request as the `user` message. `read()` is the afferent pathway from a person: it prints a prompt, reads a line, asks again on a blank line, and returns `/q` when the input ends (Ctrl-D), so the harness can stop.
+**`# ── input ──`** gathers what goes to the model. `input` is whatever comes in: here, the words on the command line, or a line typed at the `> ` prompt. It isn't assumed to be a task or a question; it's just input, and it goes into the request as the `user` message. `read()` is the afferent pathway from a person: it prints a prompt and reads a line. Press Enter on an empty line and it gives you a fresh `> ` on the next line, as a terminal does, so you can make space as often as you like; nothing is sent. When the input ends (Ctrl-D) it returns `/q`, so the harness can stop.
 
 **`# ── output: the one tool ──`** describes one tool, `bash`, and goes in the request so the model knows it can ask for it. Nothing here can run it yet. Running it is output, which is still the stub: `output` is the whole response, dumped.
 
@@ -196,7 +196,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()

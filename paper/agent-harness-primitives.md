@@ -265,7 +265,7 @@ The model replies that it cannot see the directory and suggests running `ls`. It
 
 Input and output are constructed separately and then combined. The code names them generically, `input` and `output`, because input is whatever arrives, from a person or from the environment, and output is whatever the model produces; neither is assumed to be a task, a question or an answer.
 
-- **Input** gathers from a person: the words on the command line, or a line read at a prompt by a small `read()` function, which asks again on a blank line and signals the end of input. The request also describes one tool, `bash`. Given *"how many lines are in README.md?"*, the model responds with a single `tool_use` block requesting `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, the request is not executed.
+- **Input** gathers from a person: the words on the command line, or a line read at a prompt by a small `read()` function, which, as a terminal does, gives a fresh prompt when Enter is pressed on an empty line, and signals the end of input. The request also describes one tool, `bash`. Given *"how many lines are in README.md?"*, the model responds with a single `tool_use` block requesting `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, the request is not executed.
 - **Output** processes each block of the model's `output`: text is printed and a tool call is executed with `subprocess`.
 - **Combined,** the two require one further element: the command's result, wrapped as a `tool_result`, which constitutes input from the environment. The code collects it in the same variable, `input`, since it is input from another source.
 
@@ -629,7 +629,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
@@ -667,7 +667,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
@@ -899,7 +899,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()

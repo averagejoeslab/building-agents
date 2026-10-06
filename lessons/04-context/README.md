@@ -79,7 +79,7 @@ def read(prompt):                                        # input: from a person
         print(prompt, end="", flush=True)
         line = sys.stdin.readline()
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
-        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
 input = " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()

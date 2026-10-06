@@ -306,7 +306,7 @@ Input and output are constructed separately and then combined. The code names th
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Input} gathers from a person: the words on the command line, or a line read at a prompt by a small \passthrough{\lstinline!read()!} function, which asks again on a blank line and signals the end of input. The request also describes one tool, \passthrough{\lstinline!bash!}. Given \emph{``how many lines are in README.md?''}, the model responds with a single \passthrough{\lstinline!tool\_use!} block requesting \passthrough{\lstinline!wc -l README.md!}, with \passthrough{\lstinline!stop\_reason: tool\_use!}. With output still a stub, the request is not executed.
+  \textbf{Input} gathers from a person: the words on the command line, or a line read at a prompt by a small \passthrough{\lstinline!read()!} function, which, as a terminal does, gives a fresh prompt when Enter is pressed on an empty line, and signals the end of input. The request also describes one tool, \passthrough{\lstinline!bash!}. Given \emph{``how many lines are in README.md?''}, the model responds with a single \passthrough{\lstinline!tool\_use!} block requesting \passthrough{\lstinline!wc -l README.md!}, with \passthrough{\lstinline!stop\_reason: tool\_use!}. With output still a stub, the request is not executed.
 \item
   \textbf{Output} processes each block of the model's \passthrough{\lstinline!output!}: text is printed and a tool call is executed with \passthrough{\lstinline!subprocess!}.
 \item
