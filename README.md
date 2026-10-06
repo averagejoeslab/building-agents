@@ -47,31 +47,31 @@ The example throughout is [quark](https://github.com/averagejoeslab/quark), my o
 
 ### The primitives
 
-| # | Lesson | You build | Video |
-|---|---|---|---|
-| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | 🎥 coming soon |
-| 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | 🎥 coming soon |
-| 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | 🎥 coming soon |
-| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | 🎥 coming soon |
+| # | Lesson | You build | Slides | Video |
+|---|---|---|---|---|
+| 1 | [Model interface](./lessons/01-model-interface/) | how the harness interfaces with the model: one call, and its reply | [slides](./lessons/01-model-interface/slides.md) | 🎥 coming soon |
+| 2 | [Input and output](./lessons/02-input-and-output/) | how inputs are gathered, and how outputs are handled: shown to a person or run as a tool | [slides](./lessons/02-input-and-output/slides.md) | 🎥 coming soon |
+| 3 | [Control flow](./lessons/03-control-flow/) | how information flows: the loop that sends a result back and goes again | [slides](./lessons/03-control-flow/slides.md) | 🎥 coming soon |
+| 4 | [Context](./lessons/04-context/) | what the request holds: who it is, what's happened, what it remembers | [slides](./lessons/04-context/slides.md) | 🎥 coming soon |
 
 Lesson 4's `quark.py` is the finished harness. By then you've built quark, and you can take apart any harness someone hands you.
 
-### The production layers (coming soon)
+### The production layers
 
 A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each piece is built on the primitives you already know, and these lessons will show where:
 
-| # | Lesson | What it adds | Built on | Video |
-|---|---|---|---|---|
-| 5 | [Observability](./production/05-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | 🎥 coming soon |
-| 6 | [Guardrails](./production/06-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | 🎥 coming soon |
-| 7 | [Sandboxing](./production/07-sandboxing/) | tools that run somewhere they can't do lasting damage | output | 🎥 coming soon |
-| 8 | [Resilience](./production/08-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | 🎥 coming soon |
-| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | 🎥 coming soon |
-| 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | 🎥 coming soon |
+| # | Lesson | What it adds | Built on | Slides | Video |
+|---|---|---|---|---|---|
+| 5 | [Observability](./production/05-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | [slides](./production/05-observability/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | [slides](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 7 | [Sandboxing](./production/07-sandboxing/) | tools that run somewhere they can't do lasting damage | output | [slides](./production/07-sandboxing/slides.md) | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | [slides](./production/08-resilience/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | [slides](./production/09-performance/slides.md) | 🎥 coming soon |
+| 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
 ## quark at work
 
-Lesson 4's `quark.py` is 48 lines. Here it is doing real work on this repo: it made the slides for the four primitive lessons. It took two runs, and the second one started with empty working memory, so everything it knew came from what the first run wrote down.
+Lesson 4's `quark.py` is 48 lines. Here it is doing real work on this repo: it made the slides for all ten lessons and wrote the six production lessons, in four runs. Each run started with empty working memory, so what it knew beyond the task came from what earlier runs wrote down.
 
 **Run 1: read the repo and remember it.**
 
@@ -157,7 +157,113 @@ The decks it wrote:
 
 We checked them against the lessons. Every line count, demo result and setting matched; one code excerpt had dropped the `anthropic.` prefix from three exception names, which we fixed by hand. To present one: `npx @marp-team/marp-cli -p lessons/01-model-interface/slides.md`.
 
-Everything quark printed, and the memory file it wrote, are in [`docs/quark-at-work/`](./docs/quark-at-work/): [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), [memory](./docs/quark-at-work/memory.md).
+**Run 3: write the six production lessons.**
+
+The production lessons were one-paragraph stubs. quark wrote each one in its own session, in order, so each lesson's `quark.py` could start from the one before. A short shell script ran the sessions one after another with this prompt, filling in the lesson each time:
+
+<details>
+<summary>the prompt</summary>
+
+```text
+Write Lesson {n}: {title}, one of the production layers of the harness-engineering course, in production/{slug}/. Its README.md is a coming-soon stub; replace it with the real lesson. Start from your long-term memory of how this course is built and taught, and read any files you need, including the previous lessons.
+
+Follow the course's method:
+- A production layer adds hardening, not a new primitive. Say which primitives this layer is built on, explain the mechanism before the code, and keep everything inside those primitives.
+- production/{slug}/quark.py is {previous lesson's quark.py} plus this layer and nothing else. Also write a fuller example, production/{slug}/{file}, that shows more of what this layer can be.
+- Lay out the README like the primitive lessons: an opening explanation with no heading, then '## The worked example', '## Run it', '## Going further' (what else this layer can be, a product built around it, then the fuller example and its run) and '## What to take away' (the rule, a 'Notice what {title} never does.' line naming the primitives it leaves alone, what's still missing, and a link to the next lesson). Keep the video placeholder at the top.
+- Run both files for real and paste their real output into the README. Never invent output.
+
+The Anthropic API key is already in your environment as ANTHROPIC_API_KEY. Never print, echo or save environment variables or the key. Your responses are capped at 16384 tokens, thinking included, and a response that runs past the cap is cut off and nothing in it happens. So work in small steps: think briefly, do one short action per response, and write long files in several parts: create the file, then append to it. To stop a process, use its PID, never pkill -f or killall with a name pattern: your own command line contains these lesson paths, so a pattern can kill you. When you're done, save what you built to long-term memory.
+```
+
+</details>
+
+What it wrote, all of it run for real:
+
+| Lesson | README | `quark.py` | Fuller example | Built on |
+|---|---|---|---|---|
+| [5 Observability](./production/05-observability/) | 344 lines | 59 lines | `observability.py`, 84 | control flow |
+| [6 Guardrails](./production/06-guardrails/) | 420 | 83 | `guardrails.py`, 98 | control flow |
+| [7 Sandboxing](./production/07-sandboxing/) | 448 | 94 | `sandboxing.py`, 87 | output |
+| [8 Resilience](./production/08-resilience/) | 640 | 135 | `resilience.py`, 112 | model interface, output |
+| [9 Performance](./production/09-performance/) | 533 | 159 | `performance.py`, 100 | context, model interface, output |
+| [10 Evaluation](./production/10-evaluation/) | 522 | 196 | `evaluation.py`, 122 | the whole harness |
+
+Along the way it started Docker's daemon when it found it wasn't running, built a stand-in API that fails on purpose to test retries, killed its own test runs to test recovery, and caught a regression with the evaluation it wrote.
+
+It didn't go smoothly, and the failures were the course's own lessons:
+
+- **Lesson 5 stopped twice without writing anything.** A trace of each response showed why: with thinking on, 4,096 output tokens wasn't enough to think and then write a file. One response hit `max_tokens` partway through a tool request, and the harness crashed with `KeyError: 'cmd'`, the gap Lesson 2 describes. We raised `max_tokens` to 16,384 across the course, and it went through.
+- **Lesson 8 killed itself.** To test crash recovery, quark ran `pkill -9 -f 08-resilience/quark.py` to kill its test agent. Its own command line contained that path, so it killed quark too. Its Docker container outlived it, the leftover Lesson 7 had warned about. We added "stop processes by PID, never by name" to the prompt and ran Lesson 8 again; it picked up the `quark.py` it had already written and finished the lesson.
+
+We reviewed every lesson against the course's method before it was committed: each `quark.py` is the previous one plus exactly one layer, each lesson stays on the primitives it names, and every output is from a real run. Two things were changed by hand: Lesson 6 now says what was typed at an interrupt prompt, and Lesson 9's fuller example calls per-task model routing control flow, as Lesson 3 does.
+
+**Run 4: a new session makes their slides from memory.**
+
+```bash
+uv run lessons/04-context/quark.py "Using what's in your long-term memory, and without rereading the lesson files, create the slides I'll present while recording a video for each of the six production lessons, Lessons 5 to 10. Write each deck as Marp markdown to slides.md inside that lesson's folder, in the same style as the decks you made for the primitive lessons, following the lesson's flow, with one idea per slide. One change since you wrote them: in review, Lesson 9's per-task model routing in performance.py was relabeled as control flow (routing, from Lesson 3), not the model interface, so present it that way. Your responses are capped at 16384 tokens, thinking included, so write each deck in several parts if it's long."
+```
+
+quark read its memory and the start and end of one earlier deck to match the format, then wrote the six decks without opening a lesson file. Then it answered:
+
+<details>
+<summary>quark's reply</summary>
+
+```text
+I wrote all six decks as Marp markdown, one `slides.md` in each lesson's folder. I couldn't render them because the Marp CLI isn't installed. I did check that the front matter and code fences are balanced and that no slide runs past 11 lines.
+
+| Lesson | File | Slides |
+|---|---|---|
+| 5 Observability | `production/05-observability/slides.md` | 53 |
+| 6 Guardrails | `production/06-guardrails/slides.md` | 64 |
+| 7 Sandboxing | `production/07-sandboxing/slides.md` | 71 |
+| 8 Resilience | `production/08-resilience/slides.md` | 71 |
+| 9 Performance | `production/09-performance/slides.md` | 91 |
+| 10 Evaluation | `production/10-evaluation/slides.md` | 91 |
+
+- **Source:** I wrote them from long-term memory only and didn't open any lesson README or code. I did look at the front matter and ending of my Lesson 3 deck so the format matched. That means the same front matter, a header per lesson, a centered title slide and a closing "Next:" slide. Lesson 10 ends on "Back to the course" because there's no Lesson 11.
+- **Flow:** each deck follows its README order. That is the problem, where it lives, the worked `quark.py`, running it, "Going further" with the richer file, the take-away rule, what the lesson never does, and what's missing.
+- **Lesson 9 relabel:** the router in `performance.py` (`route()` with the quick, standard and deep tiers) is presented as control flow, as Lesson 3's routing pattern. It sits on its own slides, which contrast it with Lesson 1's outage fallback and explain why it's decided once per task (the cache is per model). The "built on" slide lists context, model interface and output, with routing flagged separately as control flow. The closing slide now says Performance never does input, and that `quark.py` never touches control flow.
+- **Lesson 9 compaction model:** I kept the fixed small model that `quark.py` uses for compaction under model interface. That is one hard-coded choice, not a decision. If your review relabeled that too, it's a one-slide change.
+
+My memory notes don't have every detail, so I inferred these. Please check them against the source before recording:
+- **Lesson 6:** the order of checks in `guard()` (deny, then safe, then ask).
+- **Lesson 8:** the exact modes of the fake-failure test server.
+- **Lesson 9:** how `compact()` calls `ask()` (`live=False`, `models=FAST`).
+- **Lesson 10:** what the `rename` case does and what "hasty" means.
+
+The Lesson 9 README and the root README table may still describe the router as model interface. I didn't edit them.
+```
+
+</details>
+
+| Lesson | Slides |
+|---|---|
+| [Observability](./production/05-observability/slides.md) | 53 |
+| [Guardrails](./production/06-guardrails/slides.md) | 64 |
+| [Sandboxing](./production/07-sandboxing/slides.md) | 71 |
+| [Resilience](./production/08-resilience/slides.md) | 71 |
+| [Performance](./production/09-performance/slides.md) | 91 |
+| [Evaluation](./production/10-evaluation/slides.md) | 91 |
+
+We checked the four details it flagged and every code line on the slides against the lessons. Its guess about `guard()`'s order, the stand-in's modes and `compact()`'s call were right. Two slides were fixed by hand: one dropped `.values()` from `pool.map(execute, pending.values())`, and one called the `hasty` evaluation variant "a cheaper setup" when it's the same model told to use fewer commands.
+
+Everything quark printed is in [`docs/quark-at-work/`](./docs/quark-at-work/), including the failed attempts: [run 1](./docs/quark-at-work/run-1-read-and-remember.txt), [run 2](./docs/quark-at-work/run-2-make-slides.txt), run 3 for lessons [5](./docs/quark-at-work/run-3-lesson-05.txt), [6](./docs/quark-at-work/run-3-lesson-06.txt), [7](./docs/quark-at-work/run-3-lesson-07.txt), [8](./docs/quark-at-work/run-3-lesson-08.txt), [9](./docs/quark-at-work/run-3-lesson-09.txt) and [10](./docs/quark-at-work/run-3-lesson-10.txt), the [two](./docs/quark-at-work/run-3-lesson-05-attempt-1-silent-stop.txt) [silent stops](./docs/quark-at-work/run-3-lesson-05-attempt-2-silent-stop.txt) and the [traced crash](./docs/quark-at-work/run-3-lesson-05-attempt-3-traced-crash.txt), the [run that killed itself](./docs/quark-at-work/run-3-lesson-08-attempt-1-killed-itself.txt) and the [Lesson 9 session we stopped](./docs/quark-at-work/run-3-lesson-09-attempt-1-stopped.txt) because it was building on it, [run 4](./docs/quark-at-work/run-4-make-production-slides.txt), and the [memory file](./docs/quark-at-work/memory.md) as it stands after all four runs.
+
+## How Claude Code and quark worked together
+
+Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the writing: the slides for all ten lessons and the six production lessons.
+
+What Claude Code did, run by run:
+
+- **Set up each run.** It wrote the prompts, and ran Lesson 4's `quark.py` from the repo root with a shell command, the way a person would. quark got a task, its own memory and a bash tool; nothing else.
+- **Kept the key safe.** Before asking quark to read "every file", it moved `.env` out of the repo, so the key reached quark through the environment and could never land in a transcript. Every transcript was searched for the key before it was committed.
+- **Ran the production lessons as a loop.** A short script ran one quark session per lesson and stopped if a lesson didn't produce a `quark.py`. That's a workflow around an agent, Lesson 3's control flow one level up.
+- **Diagnosed failures without changing quark.** When Lesson 5 kept stopping, it wrapped quark's model calls to log each response's `stop_reason`, found the cut-off, and fixed the cause in the course's code, not with a workaround. When Lesson 8 killed itself, it read the transcript, found the `pkill`, cleaned up the leftover container and restarted from Lesson 8. (It then killed its own shell command the same way, with `pkill -f`. The lesson applies to everyone.)
+- **Reviewed before anything was committed.** It diffed each `quark.py` against the one before, read every README against the course's method, traced demo output back to the commands that produced it, tested the one path quark hadn't (summarizing Sonnet 5.5's thinking blocks on Haiku), and checked that every code block matches its file and every link resolves. It fixed a few small things by hand, and this page says which.
+- **Checked the slides.** It rendered the decks with Marp, checked every number and code line against the lessons, and looked at the slides as images.
+
+quark never saw Claude Code. From its side, someone gave it a task in a terminal, the same as anyone running it would.
 
 ## Setup
 

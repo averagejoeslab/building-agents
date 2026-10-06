@@ -1,0 +1,4267 @@
+I'll start by reading my long-term memory.
+$ cd /home/user/building-agents 2>/dev/null && pwd && ls -la .quark/memory/ && wc -c .quark/memory/memory.md && cat .quark/memory/memory.md
+/home/user/building-agents
+total 48
+drwxr-xr-x 2 root root  4096 Oct  5 23:20 .
+drwxr-xr-x 3 root root  4096 Oct  5 23:22 ..
+-rw-r--r-- 1 root root 39455 Oct  6 00:14 memory.md
+39455 .quark/memory/memory.md
+# Quark Memory
+
+## 2026-10-05 22:58:58
+- REPO building-agents (/home/user/building-agents), a.k.a. "harness-engineering" (pyproject name), by averagejoeslab (MIT, 2026). "A hands-on course in building agents by building their harness." Python>=3.13, uv, dep only `anthropic`. Setup: cp .env.example .env (ANTHROPIC_API_KEY; TELEGRAM_BOT_TOKEN only for lessons/02/input_output.py), export UV_ENV_FILE=.env, run `uv run lessons/NN-name/file.py`. .gitignore: .venv, __pycache__, .quark/, uv.lock, .env. WARNING: from lesson 2 the agent runs model-written shell commands with no confirmation.
+- REPO thesis: no definition, show mechanism. TokensOut = Model(TokensIn) (model predicts). Agent = Harness(Model); harness = everything else. Model internals optional in docs/the-model.md (model development = first primitive; repo is about the harness = second primitive).
+- REPO five harness primitives: control flow (outer; how info flows between others: run once -> single call; loop+hand back each reply -> chatbot; loop while model asks for tools -> agent; or workflow), and inside it: input (gathered from person/world), context (what request holds + how inputs presented), model interface (how harness talks to model), output (model outputs shown to person or run as tools). Claude Code/Cursor/Codex = same five with different choices.
+- REPO method: ask "what is it and by what mechanistic primitives does it work?" recursively until answers diverge (terminal vs Slack). Lessons build back up outward from model; each lesson's quark.py = previous + one primitive. Worked example throughout = quark (github.com/averagejoeslab/quark, author's agent, one way not only way). Each primitive lesson structure: explain primitive -> walk through quark's version -> run it -> "Going further" with a second, richer example file -> "What to take away" (rule, what's missing, link to next). Lesson 4 quark.py = finished harness. Videos all "coming soon".
+- REPO layout: lessons/01..04 (primitives, real), production/05..10 (stubs, "coming soon", each README ~15 lines): 5 Observability (traces/logs/cost; built on control flow), 6 Guardrails (approve before tool, interrupt, step/spend limits, command policies; control flow), 7 Sandboxing (container, limit files/network/time, discard env; output), 8 Resilience (retries/backup models, timeouts/error results, resume after crash; model interface+output), 9 Performance (prompt caching, small requests [context]; streaming, per-request model choice [model interface]; parallel tools [output]), 10 Evaluation (tasks w/ known outcomes, grading by code or model, evals on every change; whole harness).
+- LESSON 1 Model interface (lessons/01-model-interface: README.md, quark.py, model_interface.py). Idea: model is function; model interface = how harness calls it: request out (tokens in), response back (tokens out), like any API. Thinnest primitive: it's the boundary/the parentheses in Agent=Harness(Model); other four live on harness side (control flow=when to call, input=what goes in, context=how presented, output=what to do with response). Comes first since nothing reaches model without it.
+  quark.py (whole file): `client=Anthropic()` (reads ANTHROPIC_API_KEY; hosted API via SDK); `client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, messages=[{"role":"user","content":"What's in this directory?"}])`; `print(reply.model_dump_json(indent=2))`. max_tokens caps output (stops even mid-sentence). Run: uv run lessons/01-model-interface/quark.py. Response fields that matter: content (list of blocks; model thinks first so block1 type=thinking with empty text + encrypted `signature`, block2 type=text), stop_reason (end_turn vs max_tokens), usage (input_tokens=TokensIn, output_tokens=TokensOut incl thinking_tokens). Demo outcome: model says it can't see the dir; it knows right step is `ls` but can't take it.
+  Going further list (what a model interface can be): where request goes (hosted API/local model/gateway), how it travels (SDK/raw HTTP/multi-provider layer), which model (one or fallback), how response arrives (whole or streamed), how many at once (single/batch), failure handling (retry/rate limit wait/timeout), request settings (max tokens, thinking effort, thinking summary). Gateways LiteLLM and OpenRouter = this primitive alone; using one hands off your model interface.
+  model_interface.py: `client=anthropic.Anthropic(timeout=120, max_retries=3)`; MODELS=["claude-sonnet-5-5","claude-opus-5-5"]; `call(messages,max_tokens=16384,effort="high",thinking="summarized")` loops MODELS, `with client.messages.stream(model=..., max_tokens=..., output_config={"effort":effort}, thinking={"type":"adaptive","display":thinking}, messages=messages) as stream: return stream.get_final_message()`; except (APIConnectionError, RateLimitError, InternalServerError): continue; after loop raise RuntimeError("no model answered"). Teaches: timeout=2min, SDK retries w/ backoff, fallback model, streaming avoids long-response timeout (nothing printed — printing is output), settings as args; "summarized" makes thinking block contain a readable summary (raw thinking never returned). Only visible difference in run: thinking has text.
+  Take away: RULE = model interface sends tokens as request and gets tokens back as response; it never decides when to call, what goes in, how presented, or what to do with response. MISSING: both ends are stubs (hardcoded input string, output just dumps whole response); model said what to do but nothing could do it -> Lesson 2.
+
+## 2026-10-05 22:59:12
+- LESSON 2 Input and output (lessons/02-input-and-output: README.md, input.py, output.py, quark.py, input_output.py). Idea: model only takes/gives tokens; can't read typing or run commands. INPUT = how inputs gathered: from a person (task/question) or the world (what happened when a command ran) = afferent pathway. OUTPUT = how model outputs handled: shown to a person or run as a tool = efferent pathway. Built independently but taught together because they're two ends of one exchange via TOOLS: model can't act but can ask (tool_use block: name+args in shape harness described); output runs it; result comes back as input. "The model asks; the harness acts." Tools not strictly needed for an agent, but without them only thing model changes is what a person reads. Diagram: person/world -> input -> request -> model interface -> response -> output -> person/world. Lesson 1 had both ends stubbed.
+  Shared tool def: tools=[{"name":"bash","description":"Run shell command — the whole system is in reach","input_schema":{"type":"object","properties":{"cmd":{"type":"string"}},"required":["cmd"]}}] (name, description model reads, JSON schema for args); passed as tools=tools in request.
+  input.py: real input, stub output. `task = " ".join(sys.argv[1:]) or input("> ")` replaces hardcoded question; tools in request; output still model_dump_json dump. Run `uv run lessons/02-input-and-output/input.py "how many lines are in README.md?"` -> response has tool_use block (id toolu_..., input {"cmd":"wc -l README.md"}, name bash) and stop_reason "tool_use" (stopped waiting for result). Model asked; nothing acted.
+  output.py: real output, hardcoded input "What's in this directory?". `for block in reply.content`: type text -> print(block.text); type tool_use -> print(f"$ {block.input['cmd']}"), `done=subprocess.run(cmd, shell=True, stdout=PIPE, stderr=subprocess.STDOUT, text=True)` (stderr merged in order), print(done.stdout). Thinking blocks ignored. max_tokens 16384 from here on to leave room for thinking: truncated tool request would lack block.input['cmd'] -> crash (input_output.py checks for it). bash = anything on command line -> warning to run somewhere disposable. Demo: model asked `ls -la`, listing printed.
+  quark.py (together): input.py + output.py, `import subprocess, sys`; adds `results=[]` and after printing, `results.append({"type":"tool_result","tool_use_id":block.id,"content":done.stdout or f"(exit {done.returncode})"})` = input from the world (tool_result names tool_use_id it answers; silent command still reports exit code). Lesson 1 dump removed. Run `uv run lessons/02-input-and-output/quark.py "how many lines are in README.md?"` -> "$ wc -l README.md / 71 README.md". Prompts if no arg. KEY GAP: model never sees the 71 — results is built but nothing sends it back.
+  Going further — Input: where person input comes from (CLI args, prompt, pipe, chat app, webhook, schedule); what it can be (text, images, files); bad input (re-ask blank); what comes back from world (printed output, exit code, failure). Output: where it goes (terminal, file, chat msg, PR); reaching a person (all at once vs streamed); which tools (one general vs many specific routed by name); where tools run (this machine, container, remote, provider-hosted); how run (sequential vs concurrent); when not to run (tool request cut off at max_tokens is incomplete — half a command worse than none); failure/hang (timeout, report failure not crash). MCP servers = package tools behind one protocol = output you plug in.
+  input_output.py (richer, needs TELEGRAM_BOT_TOKEN, via @BotFather): AsyncAnthropic; tools bash(cmd)+read_file(path); `telegram(method, **params)` urllib POST JSON to api.telegram.org/bot<token>/<method>; `receive()` long-polls getUpdates (offset, timeout=50) via asyncio.to_thread, returns (chat_id, text) of first text message and acks offset, takes ONE message and stops (repeating = control flow); `send(chat,text)` sendMessage text[:4000]; async `bash` uses create_subprocess_shell, wait_for 30s timeout -> kill, returns ("stopped after 30 seconds", True), appends "\n(exit N)" if nonzero; `read_file` -> (text,False) or (str(e),True) on OSError; `executors` dict name->lambda; `execute(block, cut_off)` returns tool_result with is_error: cut_off -> "cut off before it was finished, so it was not run"; unknown name -> "no tool named X"; content `out or "(no output)"`; main: receive, one create call, send text blocks, `asyncio.gather` all tool_use blocks concurrently (cut_off = stop_reason=="max_tokens" and block is last content), send each result as "→ name {json args}\nresult". Demo: one message asking 3 things -> 3 concurrent bash calls (3x2s tasks take 2s not 6). Model still never sees results.
+  Take away: RULE = input gathers what goes to model (person or world); output handles what comes back (shown or run as tool); tool = model asking + harness acting. They never: get request/response to model (model interface), decide when to call/whether result goes back (control flow), present input in request (context). MISSING: result never reaches the model; need to send it back to start and go again = control flow -> Lesson 3.
+
+## 2026-10-05 22:59:26
+- LESSON 3 Control flow (lessons/03-control-flow: README.md, quark.py, control_flow.py, workflow.py). Idea: control flow = how information flows between the other four primitives; they all sit inside it; decides what runs, order, whether to go again. Diagram: person/world -> input -> request -> model interface -> response -> output -> person/world, plus arrow from output's tool result back up to input (loop). At end of path control flow decides: result goes back around, person gets a turn, or stop. Arrangements: run once (Lesson 2); chat loop (call, show, hand back to person = chatbot); workflow (YOUR CODE decides steps: draft, check, fix); agent loop (call; while model asks for tools run them, send results back, call again; hand back when it stops asking). No correct one: differ in who decides next (workflow=code, predictable/testable but only planned cases; agent=model, handles unplanned, costs predictability). Does two things: SEQUENCES the primitives and TERMINATES (loop with no clear end = bill with no clear end).
+  quark.py (30 lines): same as lesson 2 but wrapped in `while True:`; `chat = len(sys.argv) < 2`; `messages=[{"role":"user","content":task}]`; each pass: create(...messages=messages), results=[], for-block handling same as L2; then `messages.append({"role":"assistant","content":reply.content})`; `if results: messages.append({"role":"user","content":results}); continue`; `if not chat or (task := input("\n> ")) == "/q": break`; else append new user task. Key points: while True = go again (each pass one model call); messages.append = the arrow back around (each request carries everything so far; growing list = simplest context/working memory; deciding what goes in = L4); `if results: continue` = agent loop; no results = termination (model decides by not asking for a tool; no step counting or magic word); chat flag gives two modes (task on CLI: run till model stops asking then exit; no task: chat, hands back with "> ", /q quits). NO step limit — trusts the model; if it never stops asking, quark never stops. Demo: `uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is the longest? answer in one sentence"` -> find|wc -l|sort -> 04-context/quark.py 48 lines; two calls. (Line counts: L1 9, L2 21, L3 30, L4 48.)
+  Going further (control flow can be): shape (single call, chat loop, workflow, agent loop, agents handing tasks to agents, loop waking on message/schedule); when it stops (model stops asking, N steps, spending limit, model declines, person says stop); who it hands back to (person, program, no one); concurrency (one call or several). LangGraph = this primitive as product (graph of steps and paths).
+  control_flow.py: MAX_STEPS=10; `for step in range(1, MAX_STEPS+1)`: create; append assistant msg; `if reply.stop_reason == "refusal": print("[stopped: the model declined]"); break`; handle blocks; `if not results: print(f"[done in {step} steps]"); break`; append results; for-else `else: print(f"[stopped: hit the {MAX_STEPS}-step limit]")`. No chat mode — runs task, exits, hands back to no one. Demo: 2 steps "[done in 2 steps]"; with MAX_STEPS=1 stops after first command before model sees result.
+  Anthropic "Building effective agents" workflows: prompt chaining (fixed sequence, code checks between), routing (one call classifies, code sends down path), parallelization (sectioning independent parts or voting same question), orchestrator-workers (one call breaks task down dynamically, workers do pieces, combine), evaluator-optimizer (one produces, another judges, repeat till pass). Course caveats: article's "augmented LLM" = retrieval+memory (context) + tools (output), not control flow; routing to a cheaper model is a decision about the work, unlike L1's fallback model which only covers outage.
+  workflow.py (evaluator-optimizer, no tools, max_tokens 2048): `ask(prompt)` -> single create, returns first text block; draft = ask("Do this task. Reply with only the result.\n\n{task}"); `for round in range(1,4)`: print draft; verdict = ask(task+draft+"Check the draft against every requirement... reply with only PASS. Otherwise list what to fix."); if verdict.strip()=="PASS": print("[evaluator: pass]"); break; else print verdict, draft = ask(task+draft+feedback+"Rewrite..."); for-else "[stopped: 3 rounds without a pass]". Who decides = your code (order always draft/judge/rewrite/judge); prompts built from task + last draft = simplest context. Demo: task "one sentence about agent harnesses, every word exactly five letters, >=8 words"; draft1 had 'rigs','wrap' (4 letters); evaluator listed; draft2 passed.
+  quark.py and control_flow.py are agents (model decides); workflow.py is a workflow (code decides).
+  Take away: RULE = control flow sequences the other four and decides when to stop; arranged differently same pieces = single call, chatbot, agent, workflow. It never does: model interface, input, output, or context (incl. the growing messages list and workflow prompts). MISSING: agent knows nothing (where it is, date, who it is, what you told it yesterday); messages grows every pass and will outgrow model's window; something must decide what model sees = context -> Lesson 4.
+
+## 2026-10-05 22:59:43
+- LESSON 4 Context (lessons/04-context: README.md, quark.py, context.py). NOTE: my own harness/system prompt (Self Model/World Model/Other Selves/Body Operations/Mechanics, mechanics(), compact()) IS lessons/04-context/quark.py — I am quark in lesson 4 form. Idea: model knows nothing about this moment except what's in the request (where it runs, date, who it is, what it did a minute ago, what you said last week) unless harness puts it there; every call starts from nothing. CONTEXT = how inputs are presented to the model; input gathers, context decides what the request actually holds and how laid out. Path: person/world -> input -> CONTEXT -> request -> model interface -> response -> output -> (result loops back to input). Does two things before every call: ASSEMBLES (choose what goes in, how presented) and FITS (context window limit; when bigger something gives). Context components: instructions (system prompt), working memory (this session), episodic memory (past sessions record), semantic memory (durable facts: who you are, prefs, past mistakes), procedural memory (recipes/playbooks/skills read when relevant), retrieval (search store, put results in request), compaction (summarize when won't fit), self-knowledge (tell model what it is/how it works). Need only the ones your agent needs.
+  quark.py (48 lines) = L3 + 5 components: (1) WORKING MEMORY = L3's messages renamed `working_memory`, all session sent in full each call. (2) INSTRUCTIONS `system()` passed as system=system() each call; function so cwd/date are current; written as models: Self Model (identity, mind=context window, body=bash, loop), World Model (os.getcwd(), datetime.date.today()), Other Selves Model (you exist, reach via echo/printf), Body Operations; returns [{"type":"text","text":...,"cache_control":{"type":"ephemeral"}}]; date only, no time because cache_control caches prompt and cache hits only if prompt identical (timestamp would change). (3) SELF-KNOWLEDGE `mechanics()` reads own file (__file__) and appends under "# Mechanics" at end of system prompt, with the `def system():` line replaced by placeholder. (4) SEMANTIC MEMORY `.quark/memory/memory.md`: no memory code; system prompt gives file path, entry format (## YYYY-MM-DD HH:MM:SS then bullets), write recipe (printf+heredoc), read moves with grep/tail, what's worth keeping (who you are, prefs, corrections); quark uses bash it already has. (5) COMPACTION `compact(working_memory, drop)`: REACTIVE — loop wraps create in try; `except BadRequestError as e: if "prompt is too long" not in str(e): raise; drop += 1; continue`; next pass `if drop: working_memory, drop = compact(...), 0`; compact finds indices of user turns that are plain str, `if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")`, keeps working_memory[turns[drop]:] (oldest `drop` turns discarded), asks model (same system prompt) "Your working memory is full. Summarize into a gist that preserves what matters for continuing.", returns single user msg "[your prior working memory, summarized] {gist}". If summary request also too long, drop rises, retries with less. Tradeoff: never spends a call on unneeded summary; oldest turns dropped unsummarized. Summary = one more call via L1 interface; looping again = L3; only new thing is what working memory holds. Rarely seen: model reads ~1M tokens. quark's real version also has ESC interrupt and summary retry on network failure (hardening, omitted).
+  Run demos: `uv run lessons/04-context/quark.py "what are you, and how do you work? three sentences"` (knows name/body/loop/memory file from context); "remember that I prefer short answers" -> writes memory.md entry via bash; new run "what do you know about me?" -> reads memory, reports preference: working memory didn't carry between runs, semantic memory did.
+  Going further (choices): who decides what's remembered (model vs harness code auto save/load); retrieval (nothing, or docs/code/past messages by search); when it fits (after API refuses vs before by counting tokens); how it fits (summarize old turns, drop them, cut long tool results); layout (one system prompt vs instructions loaded only when task needs). Mem0 = memory layer product = this primitive.
+  context.py (56 lines; no memory.md, no mechanics): LIMIT, KEEP = 50_000, 4_000; MODEL const; `system()` plain f-string: you're quark, body is bash, cwd, today; says past sessions are logged one msg per line in .quark/episodes.jsonl (search when past matters); skills: lists `.quark/skills/*.md` as "- path: first line" or "(none yet)", tells model to cat the one that fits before a covered task. `remember(message)` appends json.dumps(message, default=lambda b: b.model_dump()) to .quark/episodes.jsonl. `trim(text)`: if len>KEEP keep first KEEP//2 + "[... N characters cut ...]" + last KEEP//2 (applied to tool result before into working memory). `fit(working_memory)`: PROACTIVE — client.messages.count_tokens(model,system,tools,messages).input_tokens < LIMIT -> return as is; else find user str turns, need >=2, old = before last user turn, recent = from last user turn; summarize old with "Summarize this session so far into a gist..."; prints "[working memory over {LIMIT} tokens: summarized N messages]"; returns [{"role":"user","content":"[earlier in this session, summarized] {gist}"}] + recent. `add(wm, msg)` = append + remember (episodic log). Loop calls working_memory = fit(working_memory) before each create. Demos: skill file .quark/skills/count-python.md ("How to count lines of Python in this repo" / find . -name "*.py" -not -path "./.venv/*" | xargs wc -l / report total then largest) -> model cats skill, follows, answers 327 lines, largest input_output.py 64 lines; later session greps episodes.jsonl and recalls 327; LIMIT=560 chat demo: favorite color green survives in summary after "summarized 6 messages". Maps: episodic=add/remember, procedural=skills in system(), when fits=fit() counting tokens, how fits=trim().
+  Take away: RULE = before every call, context assembles what request holds and fits it in the model's space; memory, retrieval, instructions, compaction are all ways of doing that. It never does: model interface, control flow, input, output. "You've built a harness": 5 primitives, 48 lines. Next: dissect any harness (suggested nanoagent github.com/averagejoeslab/nanoagent, TypeScript) by sorting parts under the five primitives (control flow: what loop/who stops; input: where from; context: what request holds, memories, fit; model interface: where goes/how returns; output: where goes, which tools/how run); if it decides what model sees = context whatever it's called; acting on model's words = output; author wants to hear of anything fitting none. Then production layers start at Lesson 5.
+
+## 2026-10-05 22:59:57
+- DOCS docs/the-model.md (optional background, "the model: what the harness wraps"; lessons don't depend on it; has ~20 SVGs in assets/ I skipped): LLM = probabilistic next-token predictor; meaning as vectors in high-dim space (2,048–16,384 dims; king−man+woman≈queen). Forward pass: 1 tokenization (BPE, vocab 30k–200k, token IDs), 2 embedding lookup (matrix row per token), 3 positional encoding (RoPE; ALiBi alt; "dog bites man" vs "man bites dog"), 4 transformer blocks (self-attention + FFN/SwiGLU + residual & RMSNorm; stacked 60–120x; variants GQA standard 2026, MLA ~10x smaller KV cache; dense FFN vs MoE e.g. DeepSeek R1 671B total/37B active), 5 output head (last-position vector -> vocab probabilities, often weight-tied to embeddings, sample). Looping appended tokens = full response. Training pipeline: pretraining (base model), mid-training, SFT, preference tuning (RLHF/DPO/GRPO), Constitutional AI/RLAIF (Anthropic), reasoning RL (GRPO + verifiable rewards), and SYSTEM PROMPT LEARNING (Karpathy 2025; harness-owned): model edits its own system prompt/memory to accumulate strategies, no weights change. Parametric (change weights) vs non-parametric (change context; belongs to harness builder). quark's memory.md is substrate for it: facts/corrections = semantic memory; distilled reusable strategy = system prompt learning; quark's own prompt instructions were derived in live sessions, written to memory, promoted into prompt by hand. "The model is frozen; the harness is what gets smarter." Inference: sample with temperature/top-k/top-p, feed token back, until end-of-sequence or max length. Model alone can't read files, run commands, remember across sessions, or know when done -> harness.
+- READ-STATUS 2026-10-05: read every non-svg, non-.git, non-.venv file in repo (README, pyproject, .env.example, .gitignore, LICENSE, uv.lock header, docs/the-model.md, lessons 01-04 all files, production 05-10 stubs). Task from user: summarize repo + each lesson, save detail to memory so I can teach the four primitive lessons without rereading. Teaching order: model interface -> input&output -> control flow -> context (outward from model; each quark.py = previous + one primitive).
+
+## 2026-10-05 23:01:41
+- SLIDES task done: wrote Marp decks lessons/01-model-interface/slides.md, 02-input-and-output/slides.md, 03-control-flow/slides.md, 04-context/slides.md from memory only (no lesson rereads). One idea per slide, follows each README flow (explain -> quark.py walk-through -> run -> Going further -> take away -> next). Each deck: title slide, closing "Next:" slide, frontmatter marp:true paginate header. Slide counts ~30/43/50/62. Not rendered/validated (marp CLI not installed; npx available). User = presenter recording videos; "four primitive lessons" = the 4 lesson folders (lesson 2 covers two primitives). Details from memory could be slightly off vs files — user may want a check against READMEs.
+
+## 2026-10-05 23:24:11
+- LESSON 5 Observability DONE (production/05-observability: README.md, quark.py, observability.py). Production layer = hardening not new primitive; BUILT ON control flow (the one place that sees the whole sequence). quark.py = lessons/04-context/quark.py + `trace(**event)` appending JSON lines to .quark/traces.jsonl (ts, run id, event=start/model/tool/too_long; model: seconds, stop_reason, input_tokens, output_tokens, cache_read, cache_write; tool: cmd, seconds, exit, chars); imports json,time,uuid added; 59 lines (L4 is 48). observability.py = control_flow.py-based, `span()` contextmanager (run->model/tool spans, parent, error recorded and re-raised), cost() with example PRICE dict (not real rates; says so), live step lines, row() summary, `report` mode; log .quark/spans.jsonl (separate file from traces.jsonl, different format). README layout: opening no heading, ## The worked example, ## Run it, ## Going further, ## What to take away; "Notice what Observability never does." ; next link ../06-guardrails/. Real outputs pasted (runs done w/o .env: key already in env, plain `uv run`). Pre-existing .quark/traces.jsonl had an old run 92afcc73 (not mine, left alone). Lesson: don't invent facts about quark's "real version" (I wrote and removed one such claim); jq exists on box; sh lacks $'\t'.
+
+## 2026-10-05 23:30:46
+- LESSON 6 Guardrails DONE (production/06-guardrails: README.md, quark.py, guardrails.py). Built on control flow. Mechanism: gate before each tool (allow/ask/deny; refusal returned as tool_result with is_error so model reads reason; person's typed "no, reason" goes back as instruction), limits at top of loop (steps, tokens; repeats and dollars in fuller file), interrupt (Ctrl-C) only in guardrails.py. quark.py = 05 quark.py + `import re`, MAX_STEPS/MAX_TOKENS, SAFE set, DENY regex, guard(cmd), steps/spent counters (reset on new task in chat), stop check at loop top, gate in tool branch (before trace/subprocess, so denied cmds not traced); 83 lines. guardrails.py = control_flow.py based: ALLOWED/DENIED dicts, programs() splits on && || ; | newline, verdict(), ask() with y/always/reason, MAX_DOLLARS (PRICE example rates), MAX_REPEATS, KeyboardInterrupt handler answering unanswered tool_use ids then "what now?".
+- LESSON 6 README layout same as 5 (opening no heading, worked example, run it, going further w/ OPA/NeMo Guardrails, take away "Notice what Guardrails never does."; missing = guards decide whether not what allowed cmd can reach -> next ../07-sandboxing/). Real outputs captured by piping answers into stdin (answers not echoed, README says so); limit demos via sed'd copies (MAX_STEPS=2, MAX_DOLLARS=0.004), interrupt via `timeout -s INT 7 .venv/bin/python` (exit 124 explained). Gotchas: `<(...)` breaks /bin/sh (whole && chain silently skipped — verify appends happened); README built from /tmp templates with @@placeholders via python. Root README.md table still says lessons 5/6 "coming soon" (also not updated for 5) — left alone.
+
+## 2026-10-05 23:36:31
+- LESSON 7 Sandboxing DONE (production/07-sandboxing: README.md, quark.py, sandboxing.py). Built on OUTPUT (changes where tools run). Mechanism: kernel-enforced container (docker), not text checks. quark.py = 06 quark.py + `atexit` import, IMAGE/TIMEOUT=python:3.13-slim/30, `sandbox()` (docker run -d --rm --name quark-<run> --network none --memory 512m --cpus 1 --pids-limit 128 --cap-drop ALL no-new-privileges --read-only --tmpfs /tmp HOME=/tmp --user uid:gid -v cwd:cwd -w cwd sleep infinity; exit if docker fails, no host fallback; atexit docker rm -f), call before loop, tool call -> `docker exec box timeout -s KILL 30 sh -c cmd`, exit 137 appends "(killed: ran over N seconds or out of memory)". 94 lines. sandboxing.py = control_flow.py-based: LIMITS list, copy project in via tar minus KEEP_OUT (.env .git .venv .quark), /work tmpfs 64m, user 65534, run_in_box writes output to /tmp/out then head -c MAX_OUT, review() lists files newer than marker (created/changed, not deleted) and asks to copy to ./sandbox-out; rest discarded.
+- LESSON 7 how I ran it: docker daemon wasn't running; started with `dockerd &` (root VM, cgroup v1) and `docker pull python:3.13-slim`. Demos in scratch dirs /tmp/demo, /tmp/demo2 using `yes y | uv run --project <repo> <abs path>`; limit demos via sed'd copies (TIMEOUT 5; MAX_OUT 300). Model declined (stop_reason refusal) fork-bomb and 1GB-memory-hog tasks; model self-limits `yes`. Bug caught: `docker exec` needs -i to forward stdin (tar -T - produced empty sandbox-out). README 07 same layout as 05/06; next link ../08-resilience/. Root README table still not updated for 5-7. Missing noted: harness kill -9 leaves container; harness itself not sandboxed; network none means no installs.
+
+## 2026-10-05 23:49:38
+- LESSON 8 Resilience IN PROGRESS: quark.py (08) tested OK and resilience.py written+tested; README.md still to write (was coming-soon stub). Built on MODEL INTERFACE + OUTPUT (stub says so). quark.py = 07 + ask() (MODELS sonnet-5-5 then opus-5-5, Anthropic(timeout=300,max_retries=3), catches APIConnectionError/APIStatusError with 429/>=500 -> trace model_failed -> Down), save()/unfinished() session.json atomically (os.replace), interrupted tool_use gets is_error tool_result "may or may not have run", cut-off (max_tokens) tool call not run, errors="replace". resilience.py = control_flow-based: own retry loop (max_retries=0), backoff+jitter+retry-after, bench failed model 60s, run() with timeout+killpg+output cap, checkpoint.json, `resilience.py resume`.
+- GOTCHA found by real test: anthropic.OverloadedError (529) is NOT a subclass of InternalServerError -> catch APIStatusError and test status_code. /bin/sh: `time ( ... )` syntax error. Never pkill -f; start process as `(cmd & echo $! > pid)` with .venv/bin/python directly so PID is the python, then `kill -9 $(cat pid)`.
+- Demo tooling: /tmp/flaky.py PORT all|MODEL|first:N = stub API (529 / 429 retry-after) forwarding to real API otherwise, used via ANTHROPIC_BASE_URL=http://127.0.0.1:PORT (README should show it). Demo dirs /tmp/r1 /tmp/r3 (quark.py) /tmp/f1 /tmp/f5 /tmp/f6 (resilience.py). docker is running on this box.
+
+## 2026-10-05 23:54:37
+- LESSON 8 Resilience DONE (production/08-resilience: README.md 640 lines, quark.py 135 lines, resilience.py 112 lines). README same layout as 05-07; "Notice what Resilience never does." names control flow, input, context; next link ../09-performance/. Real outputs captured by scripts /tmp/rd/demo_quark.sh and demo_res.sh into /tmp/rd/out, README assembled from /tmp/rd/p1.md p2.md with @@PLACEHOLDER@@ via python. Final quark.py: timeout=300, ask() tests status_code (429 or >=500) not class names; unfinished() deletes stale file if saved record ends in assistant w/o tool_use. resilience.py demos: first:2 (429 retry-after), sonnet down -> opus backup benched 60s, all down -> `resume`, slow.py sed copy (TOOL_TIMEOUT,MAX_OUT=3,300), kill -9 + resume. Root README table row for 8 exists; rows 5-8 status still "coming soon" (not updated by me). quark.py demos used a pre-existing EOFError at chat-mode end if stdin lacks /q (inherited from lesson 4; not touched).
+
+## 2026-10-05 23:56:29
+- LESSON 9 Performance IN PROGRESS: production/09-performance/quark.py written+tested (08 + layer, 159 lines). Built on context+model interface+output. Changes vs 08: ThreadPoolExecutor import; ask(models=MODELS, live=False, **request) uses client.messages.stream, prints text_stream live; FAST=["claude-haiku-4-5"] used for compact() (per-request model; caveat haiku window may be smaller -> falls to drop path); MAX_RESULT=20_000 trim() head+tail; cached(working_memory) puts cache_control on last block of last message (system already had it); system prompt line "One bash invocation per response" replaced by "commands that don't depend on each other can go in the same response: they run at the same time" (needed or model never parallels); tool loop = pass 1 sequential (print $cmd, cut-off/guard ask) -> pending dict; pool.map(execute) concurrently; pass 2 prints+builds results in order; execute() = old docker exec + trace. Real test: 3x sleep 3 -> tool seconds 3.08 each, wall 7s total (model calls incl); step1 cache_write 5289, step2 cache_read 5289 write 251. Demo dir /tmp/p1; run with `yes y |` since sleep isn't SAFE; /bin/sh has no `time` -> use date +%s. TODO: performance.py (async? routing haiku->tier, ttft, parallel gather), README.
+
+## 2026-10-05 23:59:33
+- LESSON 9 progress: performance.py written+tested (async, AsyncAnthropic; route() via haiku-4-5 -> TIERS quick/standard/deep = haiku / sonnet-5-5 medium / opus-5-5 high, decided once per task because cache is per model; notes() = README.md + docs/*.md in system (~10.6k tokens, so cache works); cached() 2nd breakpoint; streaming events w/ first-output time; asyncio.gather bash with Semaphore AT_ONCE=4, prints "N commands: Xs together, Ys one after another"; step line with new/cached/written tokens). Real outputs saved in /tmp/pd/out (a09,a08 parallel compare 6.94s vs 13.0s wall; c09 cache trace; d09 trim (25327 chars -> 20k, "[... 5327 characters cut ...]"); e1,e2 cold/warm performance.py in /tmp/pd/e (48% then 100% from cache); p3 parallel opus 3.0s vs 9.0s). Runner /tmp/pd/run.sh. README still to write -> assemble via /tmp/pd/build.py from /tmp/pd/p1.md etc. with @@placeholders.
+
+## 2026-10-06 00:01:58
+- LESSON 9 Performance DONE (production/09-performance: README.md 560 lines, quark.py 159 lines, performance.py ~115 lines). Built on context + model interface + output. README same layout as 05-08 ("Notice what Performance never does." names control flow + input; missing = faster/cheaper but nothing measures if still as good -> ../10-evaluation/). Mechanism order: context (prompt caching = prefix match, read ~0.1x, write 1.25x, 5 min, min ~1-4k tokens, per model; second breakpoint on conversation end; trim tool results) -> model interface (streaming for felt latency; per-request model: FAST for compact) -> output (parallel tools, guard questions asked first sequentially). Real demos: 08 vs 09 three sleep-3 tools 13.0s vs 6.9s wall; cache trace (cache_write only ~130/step); trim 25,327 chars; performance.py cold 50% / warm 100% cache share (dir /tmp/pd/f), parallel run routed to "deep" opus (router guess wrong-ish, said honestly). Build: /tmp/pd/p1.md p2.md p3.md + build.py (@@OUT:file@@ placeholders from /tmp/pd/out). Gotchas: a pasted model output containing ``` fences breaks README fences (reran demo to get short output); grep -c of ``` counts the system-prompt line once; root README table row 9 already says built on context, model interface, output. Compaction on haiku only checked via direct compact() call, not staged full-window — README says so.
+
+## 2026-10-06 00:05:04
+- LESSON 10 Evaluation IN PROGRESS: production/10-evaluation/quark.py written+tested (09 + tempfile/shutil imports + CASES list [count, fix, rename, remember: name/setup/task/check shell cmd, exit 0 = pass] + evaluate(names) + dispatch `if sys.argv[1:2]==["--eval"]: sys.exit(evaluate(...))` before `resumed = unfinished()`). evaluate runs quark.py ITSELF as subprocess per case in fresh tempdir, stdin "y\n"*50 answers guard, grades by check cmd on host, reads child's .quark/traces.jsonl for steps/tokens, logs .quark/evals.jsonl, flags REGRESSED if passed last time, keeps tempdir of failures, exit 1 on fail. Real runs in /tmp/ev1: baseline 4/4 (~18s); sed copies: MAX_STEPS=1 -> fix FAIL + REGRESSED 3/4 exit 1; haiku-only 4/4 (3-4 steps); MAX_RESULT=20 4/4 but fix 3->4 steps, 20k->27k tokens; MAX_STEPS=2 4/4. Plan: evaluation.py (control_flow.py-based, variants compared, trials, model-graded case), README (built on whole harness; control flow + input/output).
+
+## 2026-10-06 00:10:44
+- LESSON 10 progress: evaluation.py written+tested (119 lines, control_flow-based agent() fn, VARIANTS sonnet/haiku/hasty, CASES count/fix/log (code checks) + explain (model rubric, judge opus-5-5, calibrate() with 3 known answers), TRIALS=3, AT_ONCE=6 pool, table + "worse than" + exit 1). Real outputs: /tmp/ev3/out3.txt (default 12/12 all), /tmp/ev4/out4.txt (/tmp/evaluation_onestep.py sed copy with extra variant onestep steps=1: 3/12, exit 1), /tmp/ev1 quark.py runs, /tmp/ev2/out2_keep.txt + failjq.txt = EARLIER-version run where baseline sonnet got explain 2/3 because judge said "**PASS**" with markdown and my parse startswith("PASS") failed (fixed with lstrip("*#` ")); also rubric "returns" vs "computes" ambiguity fixed. Story for README: read the failures, found grader bug. Next: write README via python assembling.
+
+## 2026-10-06 00:14:00
+- LESSON 10 Evaluation DONE (production/10-evaluation: README.md ~520 lines, quark.py 196 lines = 09 + 1 import line change + CASES/evaluate/--eval dispatch only, evaluation.py 119 lines). Built on "the whole harness" (runs all five from outside; own code = control flow loop, input task, output check cmd, model interface for judge). README same layout as 05-09; "Notice what Evaluation never does." names all five; no Lesson 11 so closes with Back to the course link. Real outputs in README: quark.py --eval baseline 4/4, MAX_STEPS=1 copy -> fix FAIL REGRESSED exit 1 (kept folder: calc.py still a-b, trace one model call), evaluation.py default 36 runs all pass (haiku 3.8 steps, hasty no saving), onestep variant 3/12 exit 1 (cheaper because stopped early), and the grader-bug story (judge answered "**PASS**", parse startswith failed; fixed; calibrate() didn't catch it). Build: /tmp/rd10/p1.md with @@placeholders via python. Gotcha: quark --eval kill on timeout can leak docker container; each case cwd differs so no cache sharing between cases.
+
+Memory covers all six lessons in detail. It's thin on the exact deck formatting, so I'll look at the style of my own earlier decks (only the slides, not the lesson files) and check the folder names.
+$ cd /home/user/building-agents && ls production/ && head -90 lessons/03-control-flow/slides.md && echo ---- && tail -25 lessons/03-control-flow/slides.md && grep -c '^---$' lessons/0*/slides.md
+05-observability
+06-guardrails
+07-sandboxing
+08-resilience
+09-performance
+10-evaluation
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 3 · Control flow"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Control flow
+
+### Building agents by building their harness
+Lesson 3 of 4
+
+---
+
+# Where we left off
+
+The model asked for `wc -l README.md`.
+
+We ran it and got `71`.
+
+The model never saw it.
+
+---
+
+# Control flow
+
+**How information flows between the other four primitives.**
+
+They all sit inside it.
+
+---
+
+# What it decides
+
+- what runs
+- in what order
+- whether to go again
+
+---
+
+# The path, with a loop
+
+```
+person/world → input → request → model interface
+     ↑                                  ↓
+     └──── tool result ←── output ←── response
+```
+
+---
+
+# At the end of the path
+
+Control flow decides one of three things:
+
+- the result goes **back around**
+- the **person** gets a turn
+- **stop**
+
+---
+
+# Arrangement 1: run once
+
+Lesson 2.
+
+One call, one answer, done.
+
+---
+
+# Arrangement 2: chat loop
+
+Call, show the reply, hand back to the person.
+
+That is a **chatbot**.
+
+---
+
+# Arrangement 3: workflow
+
+**Your code** decides the steps.
+
+Draft, check, fix.
+
+----
+# What to take away
+
+**Rule:** control flow sequences the other four and decides when to stop.
+
+The same pieces, arranged differently, give a single call, a chatbot, an agent, or a workflow.
+
+It never does model interface, input, output, or context.
+
+---
+
+# What's missing
+
+The agent knows nothing: where it is, the date, who it is, what you told it yesterday.
+
+`messages` grows every pass and will outgrow the model's window.
+
+Something must decide what the model sees.
+
+---
+
+<!-- _class: title -->
+
+# Next: Context
+
+Lesson 4 decides what the model sees.
+lessons/01-model-interface/slides.md:29
+lessons/02-input-and-output/slides.md:42
+lessons/03-control-flow/slides.md:49
+lessons/04-context/slides.md:61
+
+Style is clear: Marp frontmatter with a per-lesson header, a centered title slide, short slides, and a closing "Next:" slide. Now Lesson 5.
+$ cd /home/user/building-agents && cat > production/05-observability/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 5 · Observability"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Observability
+
+### Building agents by building their harness
+Lesson 5 of 10 · Production
+
+---
+
+# Where we left off
+
+Lesson 4 finished the harness.
+
+Five primitives. 48 lines.
+
+It works.
+
+---
+
+# A new kind of lesson
+
+Lessons 1 to 4 each added a **primitive**.
+
+Lessons 5 to 10 add **no new primitive**.
+
+They **harden** the five we have.
+
+---
+
+# Production, not a sixth primitive
+
+Each production lesson takes one concern.
+
+It shows where that concern lives among the five.
+
+Then it adds the smallest code that handles it.
+
+---
+
+# The question for today
+
+The agent ran for a minute and gave a wrong answer.
+
+**What happened?**
+
+---
+
+# Or a simpler one
+
+The agent finished.
+
+**What did that cost?**
+
+---
+
+# What you can see today
+
+The final answer.
+
+That is all.
+
+The steps in between are gone.
+
+---
+
+# What was in between
+
+- every model call
+- every command it asked for
+- how long each took
+- how many tokens each used
+
+All of it happened. None of it was kept.
+
+---
+
+# Observability
+
+**Recording what the harness did, so you can read it afterwards.**
+
+Traces, logs, cost.
+
+---
+
+# Where does it live?
+
+Observability is **built on control flow**.
+
+---
+
+# Why control flow
+
+Control flow is the one place that sees the **whole sequence**.
+
+Every model call and every tool run passes through the loop.
+
+So the loop is where you watch.
+
+---
+
+# Not the other four
+
+Input sees only what comes in.
+
+Output sees only one tool at a time.
+
+Only the loop sees call, tool, call, tool, stop.
+
+---
+
+# The worked example
+
+`production/05-observability/quark.py`
+
+Lesson 4's `quark.py` plus one function.
+
+---
+
+# Line count
+
+Lesson 4: 48 lines.
+
+Lesson 5: **59 lines**.
+
+---
+
+# The new function
+
+```python
+trace(**event)
+```
+
+It appends one JSON line to `.quark/traces.jsonl`.
+
+---
+
+# Why JSON lines
+
+One event per line.
+
+Append only. No parsing the whole file to add one.
+
+Readable by `jq`, `grep`, or a ten-line script.
+
+---
+
+# Three new imports
+
+```python
+import json, time, uuid
+```
+
+- `json` writes the line
+- `time` measures and stamps
+- `uuid` names the run
+
+---
+
+# Every event carries two fields
+
+- `ts`: when it happened
+- `run`: a run id
+
+---
+
+# Why a run id
+
+`.quark/traces.jsonl` collects every run.
+
+The id lets you pull out **one** run.
+
+Without it, runs blur together.
+
+---
+
+# Four kinds of event
+
+- `start`
+- `model`
+- `tool`
+- `too_long`
+
+---
+
+# Event: start
+
+The run began.
+
+Marks where one run's lines begin.
+
+---
+
+# Event: model
+
+One call to the model.
+
+- `seconds`
+- `stop_reason`
+- `input_tokens`
+- `output_tokens`
+- `cache_read`
+- `cache_write`
+
+---
+
+# Why stop_reason
+
+Lesson 1: `end_turn` or `max_tokens`.
+
+Lesson 2: `tool_use`.
+
+Now you can see **why each call stopped**.
+
+---
+
+# Why the cache fields
+
+Lesson 4 marked the system prompt for caching.
+
+`cache_read` and `cache_write` show whether it **worked**.
+
+---
+
+# Event: tool
+
+One command the model asked for.
+
+- `cmd`
+- `seconds`
+- `exit`
+- `chars`
+
+---
+
+# Why chars, not output
+
+The trace records **how much** came back.
+
+Not the output itself.
+
+Traces stay small. The conversation already holds the text.
+
+---
+
+# Event: too_long
+
+Lesson 4's reactive compaction.
+
+The API said the prompt was too long.
+
+Now that moment is **on the record**.
+
+---
+
+# Where trace() is called
+
+Inside the loop.
+
+Around the model call.
+
+Around the tool run.
+
+---
+
+# Timing
+
+Take `time.time()` before.
+
+Take it again after.
+
+The difference is `seconds`.
+
+---
+
+# What did not change
+
+Control flow still decides everything.
+
+`trace()` only **writes down** what it decided.
+
+---
+
+# Run it
+
+```
+uv run production/05-observability/quark.py \
+  "how many lines are in README.md?"
+```
+
+Same agent as Lesson 4.
+
+---
+
+# Read the trace
+
+```
+tail -n 5 .quark/traces.jsonl | jq .
+```
+
+`jq` pretty-prints each line.
+
+---
+
+# What to look for
+
+- how many `model` events
+- which one had the tool call
+- how long each `tool` took
+- how the tokens grew
+
+---
+
+# Tokens grow every step
+
+Each request carries everything so far.
+
+`input_tokens` rises with each model event.
+
+You can **see** the growing `working_memory`.
+
+---
+
+# One run out of many
+
+Filter by run id:
+
+```
+jq 'select(.run == "<id>")' .quark/traces.jsonl
+```
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`observability.py` is a richer one.
+
+---
+
+# observability.py
+
+Built on Lesson 3's `control_flow.py`.
+
+Same loop, with **spans** and **cost**.
+
+---
+
+# From events to spans
+
+An event is a point in time.
+
+A **span** has a start, an end, and a **parent**.
+
+---
+
+# The span tree
+
+```
+run
+├── model
+├── tool
+├── model
+└── tool
+```
+
+Model and tool spans have the run as their parent.
+
+---
+
+# span()
+
+A context manager, `with span(...)`.
+
+It times the block and writes the record when the block ends.
+
+---
+
+# Errors are recorded
+
+If the block raises, the span **records the error**.
+
+Then it **re-raises** it.
+
+Observing must not hide a failure.
+
+---
+
+# Cost
+
+`cost()` turns token counts into dollars.
+
+It uses a `PRICE` dict.
+
+---
+
+# The prices are examples
+
+The numbers in `PRICE` are **not real rates**.
+
+The file says so.
+
+Look up the current price before you trust the totals.
+
+---
+
+# Live step lines
+
+While it runs, it prints a line per step.
+
+You watch it **as it happens**, not afterwards.
+
+---
+
+# A summary row
+
+`row()` prints one line at the end.
+
+Steps, tokens, dollars.
+
+The answer to "what did that cost?"
+
+---
+
+# Report mode
+
+```
+uv run production/05-observability/observability.py report
+```
+
+Reads the log. Runs nothing.
+
+---
+
+# A separate log
+
+Spans go to `.quark/spans.jsonl`.
+
+`quark.py` writes `.quark/traces.jsonl`.
+
+Different file. Different format. Don't mix them up.
+
+---
+
+# What observability can be
+
+- **what** it records: events, spans, tokens, cost
+- **where** it goes: a file, a service
+- **when** you read it: live or after
+- **how much** it keeps: counts or full text
+
+---
+
+# Tracing products
+
+Services exist that collect and display this.
+
+They are this layer, packaged.
+
+You can hand it off. You can also write 11 lines.
+
+---
+
+# What to take away
+
+**Rule:** observability records what the harness did, from the one place that sees the whole sequence: control flow.
+
+It adds no primitive.
+
+---
+
+# Notice what observability never does
+
+It never changes what the model sees.
+
+It never changes what runs.
+
+It only **watches**.
+
+---
+
+# What's missing
+
+You can now see everything the agent does.
+
+You can see it run any command it likes.
+
+Nothing stops it.
+
+---
+
+<!-- _class: title -->
+
+# Next: Guardrails
+
+Lesson 6 stops it before it does harm.
+EOF
+grep -c '^---$' production/05-observability/slides.md
+54
+
+Lesson 6 next.
+$ cd /home/user/building-agents && cat > production/06-guardrails/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 6 · Guardrails"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Guardrails
+
+### Building agents by building their harness
+Lesson 6 of 10 · Production
+
+---
+
+# Where we left off
+
+Lesson 5 lets us **see** everything the agent does.
+
+We can read every command it ran.
+
+After it ran.
+
+---
+
+# The problem with after
+
+The trace is a record.
+
+It does not stop anything.
+
+The command has already run.
+
+---
+
+# Remember the warning
+
+From Lesson 2 on, the agent runs model-written shell commands.
+
+**With no confirmation.**
+
+---
+
+# Two things can go wrong
+
+- one **action** is harmful
+- the **run as a whole** goes on too long
+
+---
+
+# One action
+
+`rm -rf` something it shouldn't.
+
+Overwrite a file.
+
+One bad command is enough.
+
+---
+
+# The whole run
+
+The loop never stops asking for tools.
+
+Lesson 3: "a loop with no clear end is a bill with no clear end."
+
+---
+
+# Guardrails
+
+**Checks that can stop the agent before it acts, or before it goes on.**
+
+---
+
+# Where does it live?
+
+Guardrails are **built on control flow**.
+
+---
+
+# Why control flow
+
+Control flow decides **whether to go again**.
+
+Control flow sits between a request for a tool and the tool running.
+
+That is where you put a gate.
+
+---
+
+# Two kinds of guard
+
+- a **gate** before each tool
+- **limits** at the top of the loop
+
+Plus one more, in the richer file: an **interrupt**.
+
+---
+
+# The worked example
+
+`production/06-guardrails/quark.py`
+
+Lesson 5's `quark.py` plus guards.
+
+**83 lines.**
+
+---
+
+# Start with the gate
+
+Before a tool runs, the harness gives a verdict.
+
+---
+
+# Three verdicts
+
+- **allow**: run it
+- **ask**: the person decides
+- **deny**: don't run it
+
+---
+
+# Where the gate sits
+
+In the tool branch.
+
+**Before** the trace.
+
+**Before** `subprocess.run`.
+
+---
+
+# So denied commands are not traced
+
+Lesson 5 records what ran.
+
+A denied command never ran.
+
+It never reaches `trace()`.
+
+---
+
+# Four new pieces
+
+- `import re`
+- `SAFE`
+- `DENY`
+- `guard(cmd)`
+
+---
+
+# SAFE
+
+A set of programs that are known to be harmless.
+
+If the command is one of them: **allow**.
+
+No question asked.
+
+---
+
+# DENY
+
+A regular expression.
+
+It matches patterns that should never run.
+
+If it matches: **deny**.
+
+---
+
+# guard(cmd)
+
+Takes the command string.
+
+Returns the verdict.
+
+Three outcomes, one function.
+
+---
+
+# The order of checks
+
+1. does it match `DENY`? deny
+2. is it in `SAFE`? allow
+3. otherwise: **ask**
+
+---
+
+# Why default to ask
+
+An unknown command is neither known-safe nor known-bad.
+
+So a person decides.
+
+Safe by default, not by hope.
+
+---
+
+# Asking the person
+
+The harness prints the command.
+
+It waits for an answer.
+
+This is **input**, but control flow decided to ask.
+
+---
+
+# What happens on yes
+
+The command runs.
+
+Everything continues as in Lesson 5.
+
+---
+
+# What happens on no
+
+The command does not run.
+
+But the model asked and is **waiting**.
+
+The tool request still needs an answer.
+
+---
+
+# The refusal goes back as a result
+
+A `tool_result` with `is_error` set.
+
+It says why the command was not run.
+
+---
+
+# Why is_error
+
+The model reads the result.
+
+It learns that this failed and why.
+
+It can try something else.
+
+---
+
+# Refusal is information
+
+Not a crash.
+
+Not silence.
+
+**Input from the world**, like any other result.
+
+---
+
+# The person can explain
+
+Type `no`, then a reason.
+
+"no, don't touch that folder"
+
+The reason goes back as an instruction.
+
+---
+
+# A guard talking to the model
+
+The person steers it.
+
+Without a new task. Without restarting.
+
+---
+
+# Now the limits
+
+The gate guards each action.
+
+Limits guard the **run**.
+
+---
+
+# Two counters
+
+- `steps`: how many model calls
+- `spent`: how many tokens
+
+Both start at zero.
+
+---
+
+# Two constants
+
+- `MAX_STEPS`
+- `MAX_TOKENS`
+
+The ceilings.
+
+---
+
+# The stop check
+
+At the **top** of the loop.
+
+Before the next model call.
+
+Over a ceiling? Stop.
+
+---
+
+# Why the top
+
+Stopping before the call costs nothing.
+
+Stopping after is a call you already paid for.
+
+---
+
+# Counters reset per task
+
+In chat mode, a new task resets both.
+
+Each task gets its own budget.
+
+---
+
+# Lesson 3 had MAX_STEPS too
+
+`control_flow.py` stopped after 10 steps.
+
+That was a counting loop in one file.
+
+Now it is a guard in the working agent.
+
+---
+
+# What the model sees
+
+Nothing about the limits.
+
+The harness stops.
+
+The model does not decide to stop.
+
+---
+
+# Run it
+
+```
+uv run production/06-guardrails/quark.py \
+  "how many lines are in README.md?"
+```
+
+---
+
+# A command that needs asking
+
+The harness prints it and waits.
+
+You answer `y`.
+
+---
+
+# A command that gets denied
+
+Answer `no, <reason>`.
+
+Watch the model read the reason and change course.
+
+---
+
+# A note on the outputs
+
+The recorded outputs were made by **piping answers into stdin**.
+
+Answers are not echoed.
+
+At the keyboard you will see your own typing.
+
+---
+
+# Seeing a limit
+
+Make a copy with `MAX_STEPS = 2`.
+
+Give it a task that needs more.
+
+It stops after two.
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`guardrails.py` is a richer one.
+
+---
+
+# guardrails.py
+
+Built on Lesson 3's `control_flow.py`.
+
+Adds structure to the verdicts.
+
+---
+
+# ALLOWED and DENIED
+
+Two dicts.
+
+Rules for programs you always allow.
+
+Rules for programs you always refuse.
+
+---
+
+# One command is many programs
+
+```
+ls && rm -rf x ; cat y | grep z
+```
+
+Checking the first word is not enough.
+
+---
+
+# programs()
+
+Splits a command on:
+
+`&&`  `||`  `;`  `|`  and newlines.
+
+Every program in the line gets checked.
+
+---
+
+# verdict()
+
+Looks at each program.
+
+One bad program makes the whole line bad.
+
+---
+
+# ask() with more answers
+
+- `y`: allow once
+- `always`: allow this from now on
+- anything else: a **reason**, sent to the model
+
+---
+
+# Dollar limit
+
+`MAX_DOLLARS`.
+
+Uses a `PRICE` dict of **example rates**.
+
+Not real prices. The file says so.
+
+---
+
+# Repeat limit
+
+`MAX_REPEATS`.
+
+The same command again and again?
+
+Stop. The model is stuck.
+
+---
+
+# Seeing the dollar limit
+
+Make a copy with `MAX_DOLLARS = 0.004`.
+
+It stops partway.
+
+A real run, shown in the README.
+
+---
+
+# Interrupt
+
+Press **Ctrl-C** while it works.
+
+Only in `guardrails.py`.
+
+---
+
+# The tricky part of interrupting
+
+The model may have asked for tools.
+
+Every `tool_use` needs a `tool_result`.
+
+Stop in the middle and the next request is **malformed**.
+
+---
+
+# The handler
+
+On `KeyboardInterrupt`, it answers each unanswered tool request.
+
+Then it asks you: **what now?**
+
+---
+
+# After the interrupt
+
+You type a new instruction.
+
+The model carries on, with that.
+
+Not a crash. A hand-back.
+
+---
+
+# Why interrupt is control flow
+
+It decides whether the loop goes on.
+
+And who gets the next turn.
+
+The person, this time.
+
+---
+
+# Policy languages
+
+Open Policy Agent and NeMo Guardrails.
+
+They express rules like these in their own language.
+
+This layer, packaged.
+
+---
+
+# What guardrails can be
+
+- **what** is checked: command, path, spend
+- **who** decides: code, person, another model
+- **when**: before an action, or between steps
+- **what happens**: stop, ask, tell the model
+
+---
+
+# What to take away
+
+**Rule:** guardrails are checks in control flow that decide whether an action runs and whether the loop goes on.
+
+---
+
+# Notice what guardrails never do
+
+They never change what the model sees.
+
+They never make the model smarter about danger.
+
+They decide **whether**.
+
+---
+
+# What's missing
+
+A guard decides whether a command runs.
+
+It does not limit **what an allowed command can reach**.
+
+An allowed command still has the whole machine.
+
+---
+
+<!-- _class: title -->
+
+# Next: Sandboxing
+
+Lesson 7 limits what a command can reach.
+EOF
+grep -c '^---$' production/06-guardrails/slides.md
+65
+
+Lesson 7 next.
+$ cd /home/user/building-agents && cat > production/07-sandboxing/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 7 · Sandboxing"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Sandboxing
+
+### Building agents by building their harness
+Lesson 7 of 10 · Production
+
+---
+
+# Where we left off
+
+Lesson 6 added guards.
+
+A gate before each tool. Limits on the run.
+
+---
+
+# What a guard can't do
+
+A guard decides **whether** a command runs.
+
+Once it runs, it has the whole machine.
+
+---
+
+# An allowed command
+
+The person said yes.
+
+Or it was on the safe list.
+
+Now it can read any file, use the network, and run as long as it likes.
+
+---
+
+# Guards read text
+
+A guard looks at the command **as text**.
+
+Text can be disguised.
+
+A shell command can do more than it looks like.
+
+---
+
+# So change the question
+
+Not: "is this command safe?"
+
+But: "**what can any command reach?**"
+
+---
+
+# Sandboxing
+
+**Run the tools where they can reach only what you allow.**
+
+---
+
+# Where does it live?
+
+Sandboxing is **built on output**.
+
+---
+
+# Why output
+
+Output is how model outputs get **run as tools**.
+
+Lesson 2: output decides **where tools run**.
+
+This machine, a container, a remote host.
+
+---
+
+# Going further, Lesson 2
+
+"Where tools run" was already on the list.
+
+Today we pick one answer.
+
+---
+
+# What changes
+
+Only **where** the command executes.
+
+Not what the model sees.
+
+Not when the loop stops.
+
+---
+
+# The enforcement
+
+Not a text check.
+
+The **kernel** enforces the limits.
+
+The command can't talk its way past it.
+
+---
+
+# The tool
+
+A **container**, with Docker.
+
+---
+
+# The worked example
+
+`production/07-sandboxing/quark.py`
+
+Lesson 6's `quark.py` plus a sandbox.
+
+**94 lines.**
+
+---
+
+# Two things change
+
+1. a `sandbox()` starts a container once
+2. tool commands run **inside** it
+
+---
+
+# New constants
+
+- `IMAGE`: `python:3.13-slim`
+- `TIMEOUT`: 30 seconds
+
+---
+
+# New import
+
+`atexit`.
+
+It cleans the container up when quark exits.
+
+---
+
+# sandbox()
+
+Starts one container.
+
+Called once, **before the loop**.
+
+---
+
+# One container per run
+
+Named `quark-<run id>`.
+
+Same run id as the trace.
+
+Easy to find. Easy to match.
+
+---
+
+# It runs in the background
+
+`docker run -d`, then `sleep infinity`.
+
+It waits for commands.
+
+---
+
+# Removed when done
+
+`--rm`, plus `atexit` running `docker rm -f`.
+
+Nothing is left behind.
+
+---
+
+# The limits, one by one
+
+Each is a flag on `docker run`.
+
+---
+
+# Limit: no network
+
+`--network none`
+
+The command cannot reach the internet.
+
+Or anything else on the network.
+
+---
+
+# Limit: memory
+
+`--memory 512m`
+
+Use more? The kernel kills it.
+
+---
+
+# Limit: CPU
+
+`--cpus 1`
+
+One core. No more.
+
+---
+
+# Limit: processes
+
+`--pids-limit 128`
+
+A runaway loop of processes hits a wall.
+
+---
+
+# Limit: privileges
+
+`--cap-drop ALL`
+
+`no-new-privileges`
+
+It cannot gain powers it wasn't given.
+
+---
+
+# Limit: filesystem
+
+`--read-only`
+
+The container's own files cannot change.
+
+---
+
+# One writable place
+
+`--tmpfs /tmp`
+
+`HOME=/tmp`
+
+Scratch space that vanishes with the container.
+
+---
+
+# Run as you
+
+`--user uid:gid`
+
+Files it creates belong to you, not to root.
+
+---
+
+# The project folder
+
+`-v cwd:cwd` and `-w cwd`
+
+Your working directory is mounted at the same path.
+
+The agent can do its job on your files.
+
+---
+
+# Why the same path
+
+The system prompt says where it is.
+
+`os.getcwd()` is true inside the box too.
+
+No confusion about paths.
+
+---
+
+# What it can still reach
+
+The project folder, writable.
+
+Nothing else on your machine.
+
+---
+
+# If Docker fails
+
+quark **exits**.
+
+There is no fallback to running on the host.
+
+---
+
+# Why no fallback
+
+A sandbox that quietly turns off is worse than none.
+
+You'd believe you were safe.
+
+---
+
+# Running a command
+
+Before: `subprocess.run(cmd, shell=True)`.
+
+Now: `docker exec`.
+
+---
+
+# The exec line
+
+```
+docker exec box timeout -s KILL 30 sh -c cmd
+```
+
+The command runs inside the container, under a **time limit**.
+
+---
+
+# A time limit
+
+`timeout -s KILL 30`
+
+Past 30 seconds, it is killed.
+
+Lesson 2 listed this: failure and hang.
+
+---
+
+# Exit 137
+
+A killed process exits with **137**.
+
+quark spots it.
+
+---
+
+# Telling the model
+
+On 137, the result gains:
+
+`(killed: ran over 30 seconds or out of memory)`
+
+---
+
+# Why say so
+
+The model can't see the kernel.
+
+It only sees the result.
+
+So the harness names the cause.
+
+---
+
+# What didn't change
+
+The model asks for a bash command.
+
+Output runs it.
+
+The result goes back.
+
+Same loop.
+
+---
+
+# Guards still there
+
+The gate from Lesson 6 is still before the tool.
+
+Sandboxing doesn't replace it.
+
+Two layers.
+
+---
+
+# Run it
+
+```
+uv run production/07-sandboxing/quark.py \
+  "how many lines are in README.md?"
+```
+
+You need Docker running.
+
+---
+
+# Starting Docker
+
+If Docker isn't running, quark exits.
+
+Start the daemon first.
+
+Pull `python:3.13-slim` once.
+
+---
+
+# See the box
+
+While it runs:
+
+```
+docker ps
+```
+
+You'll see `quark-<run id>`.
+
+---
+
+# Proof of no network
+
+Ask it to fetch a web page.
+
+It fails. The container has no network.
+
+---
+
+# A real catch
+
+The first draft's output was empty.
+
+`docker exec` needs `-i` to forward stdin.
+
+A mistake worth knowing.
+
+---
+
+# Models self-limit
+
+Asked for a fork bomb, the model **declined**.
+
+`stop_reason` was `refusal`.
+
+Asked to hog memory, also declined.
+
+---
+
+# So the sandbox is the second line
+
+Don't count on the model refusing.
+
+The kernel limit is there either way.
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`sandboxing.py` is a richer one.
+
+---
+
+# sandboxing.py
+
+Built on Lesson 3's `control_flow.py`.
+
+A different sandbox shape.
+
+---
+
+# Copy the project in
+
+Not mounted. **Copied.**
+
+Via `tar`, into the container.
+
+---
+
+# What stays out
+
+`KEEP_OUT`:
+
+`.env`  `.git`  `.venv`  `.quark`
+
+Secrets and history never enter the box.
+
+---
+
+# Why copy
+
+Mounted: the agent changes your real files as it goes.
+
+Copied: your files are **untouched**.
+
+---
+
+# Where the copy lives
+
+`/work`, a **tmpfs**, 64 MB.
+
+Memory-backed. Gone when the box goes.
+
+---
+
+# Even less power
+
+User **65534**.
+
+Nobody, in unix terms.
+
+---
+
+# Capped output
+
+`run_in_box` writes output to `/tmp/out`.
+
+Then reads `head -c MAX_OUT`.
+
+A huge output can't flood the context.
+
+---
+
+# The LIMITS list
+
+The flags live in one list.
+
+Easy to read. Easy to change.
+
+---
+
+# Discard the environment
+
+Whatever happened in the box can be thrown away.
+
+That's the point.
+
+---
+
+# review()
+
+At the end, it lists files **created or changed**.
+
+It compares against a marker made at the start.
+
+---
+
+# Not deleted
+
+Deleted files aren't listed.
+
+That's a limit of the approach.
+
+---
+
+# Copy out what you want
+
+It asks.
+
+Say yes: files copied to `./sandbox-out`.
+
+Everything else is discarded.
+
+---
+
+# The person decides what escapes
+
+Nothing leaves the box unless you say so.
+
+That is control over **output**.
+
+---
+
+# Seeing limits bite
+
+Sed'd copies: `TIMEOUT` of 5, `MAX_OUT` of 300.
+
+The README shows each hit its limit.
+
+---
+
+# What sandboxing can be
+
+- **where**: container, VM, remote machine
+- **what it reaches**: files, network, time, memory
+- **how files get in**: mounted or copied
+- **what comes out**: nothing, or only what you approve
+
+---
+
+# What's still open
+
+- `kill -9` on the harness leaves the container behind
+- the harness itself is **not** sandboxed
+- `--network none` means **no installs**
+
+---
+
+# What to take away
+
+**Rule:** sandboxing is output choosing where tools run, with the kernel enforcing what they can reach.
+
+---
+
+# Notice what sandboxing never does
+
+It never changes what the model sees.
+
+It never decides when the loop stops.
+
+It never decides whether to ask.
+
+---
+
+# What's missing
+
+The agent is watched, guarded, and boxed.
+
+But the world is unreliable.
+
+The API may fail. A command may hang. quark may crash.
+
+---
+
+<!-- _class: title -->
+
+# Next: Resilience
+
+Lesson 8 keeps going when things fail.
+EOF
+grep -c '^---$' production/07-sandboxing/slides.md
+72
+
+Lesson 8 next.
+$ cd /home/user/building-agents && cat > production/08-resilience/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 8 · Resilience"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Resilience
+
+### Building agents by building their harness
+Lesson 8 of 10 · Production
+
+---
+
+# Where we left off
+
+The agent is watched, guarded, and boxed.
+
+Everything so far assumed things **work**.
+
+---
+
+# They don't always
+
+- the API says "overloaded"
+- the network drops
+- a command hangs
+- the machine restarts mid-run
+
+---
+
+# The cost of a failure
+
+Ten minutes into a task, one call fails.
+
+The run **dies**.
+
+Everything it did is gone.
+
+---
+
+# Resilience
+
+**Keep going when something fails, or pick up where you stopped.**
+
+---
+
+# Where does it live?
+
+Resilience is built on two primitives:
+
+**model interface** and **output**.
+
+---
+
+# Why model interface
+
+Failures happen **talking to the model**.
+
+Lesson 1: how the harness calls the model.
+
+Lesson 1 listed failure handling.
+
+---
+
+# Why output
+
+Failures happen **running tools**.
+
+Lesson 2 listed failure and hang.
+
+Report it. Don't crash.
+
+---
+
+# What Lesson 1 already did
+
+`model_interface.py` had:
+
+- `timeout=120`
+- `max_retries=3`
+- a fallback model
+
+---
+
+# What was missing
+
+That was a standalone file.
+
+The working `quark.py` still had none of it.
+
+Today it gets all of it.
+
+---
+
+# The worked example
+
+`production/08-resilience/quark.py`
+
+Lesson 7's `quark.py` plus resilience.
+
+**135 lines.**
+
+---
+
+# Three problems
+
+1. the **model call** fails
+2. a **tool** misbehaves
+3. the **process** dies
+
+---
+
+# Part 1: the model call
+
+---
+
+# A function: ask()
+
+All model calls go through `ask()`.
+
+It owns the retrying and the fallback.
+
+---
+
+# A list of models
+
+```python
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+```
+
+First choice, then backup.
+
+---
+
+# The client
+
+```python
+Anthropic(timeout=300, max_retries=3)
+```
+
+Wait up to 5 minutes.
+
+The SDK retries 3 times, with backoff.
+
+---
+
+# Lesson 1 vs now
+
+Lesson 1: `timeout=120`.
+
+Now: `timeout=300`.
+
+A longer limit, because the agent's requests are bigger.
+
+---
+
+# What counts as a failure
+
+- `APIConnectionError`: couldn't reach it
+- `APIStatusError` with status **429** or **500 and up**
+
+---
+
+# 429 and 5xx
+
+429: you're being rate limited.
+
+5xx: the server has a problem.
+
+Both are worth trying again or elsewhere.
+
+---
+
+# What isn't a failure to absorb
+
+A **400**, a bad request.
+
+Retrying won't help.
+
+It raises, loudly.
+
+---
+
+# A bug the tests caught
+
+`OverloadedError` is the **529** status.
+
+It is **not** a subclass of `InternalServerError`.
+
+---
+
+# So we test the number
+
+Not the class name.
+
+```python
+status_code == 429 or status_code >= 500
+```
+
+Works for every case, including 529.
+
+---
+
+# Falling back
+
+First model fails after retries?
+
+Try the next in `MODELS`.
+
+---
+
+# The failure goes in the trace
+
+Event: `model_failed`.
+
+Lesson 5 pays off.
+
+You can see which model failed, and when.
+
+---
+
+# When everything is down
+
+Every model fails: raise `Down`.
+
+The run stops cleanly.
+
+Not a stack trace in the middle.
+
+---
+
+# Part 2: tools
+
+---
+
+# A tool returns an error
+
+Lesson 2: report the failure, don't crash.
+
+Same here.
+
+The error goes back as a `tool_result`.
+
+---
+
+# Cut-off tool calls
+
+`stop_reason` is `max_tokens`.
+
+The last tool request may be **half written**.
+
+Half a command is worse than none.
+
+---
+
+# So it isn't run
+
+Lesson 2's rule, now in `quark.py`.
+
+The result says it was **cut off**, so it was not run.
+
+---
+
+# Undecodable output
+
+`errors="replace"`
+
+A command prints bytes that aren't valid text.
+
+Replaced. No crash.
+
+---
+
+# Part 3: the process dies
+
+---
+
+# A crash at the wrong moment
+
+The harness is killed.
+
+Power goes. The terminal closes. `kill -9`.
+
+Working memory was in RAM.
+
+---
+
+# Save as you go
+
+After each step, `save()` writes the session to **`session.json`**.
+
+---
+
+# Written atomically
+
+Write to a temporary file.
+
+Then `os.replace` it.
+
+Either the old file or the new one. **Never half of one.**
+
+---
+
+# Why atomic matters
+
+A crash during a save must not corrupt the save.
+
+That would lose what you were protecting.
+
+---
+
+# unfinished()
+
+At startup, look for a saved session.
+
+If it was cut off, **pick it up**.
+
+---
+
+# Resumed, not restarted
+
+The saved `working_memory` goes back in.
+
+The loop continues from there.
+
+---
+
+# A stale file
+
+If the saved record ends in an assistant message with **no tool request**, the run was finished.
+
+`unfinished()` **deletes** it.
+
+---
+
+# The hard case
+
+The harness died **while a tool was running**.
+
+Did the command run?
+
+---
+
+# We don't know
+
+It may have finished.
+
+It may never have started.
+
+It may have run halfway.
+
+---
+
+# So we say exactly that
+
+The interrupted request gets a `tool_result` with `is_error`:
+
+"**may or may not have run**"
+
+---
+
+# Honest, not clever
+
+The model reads it and can **check**.
+
+Rerun? List the files? Its choice.
+
+---
+
+# Every tool_use needs a result
+
+An API rule.
+
+A request with no result is malformed.
+
+So resume always supplies one.
+
+---
+
+# Run it
+
+```
+uv run production/08-resilience/quark.py \
+  "how many lines are in README.md?"
+```
+
+---
+
+# Testing failures on purpose
+
+We can't wait for the API to fail.
+
+So the README uses a **stub API**.
+
+---
+
+# flaky.py
+
+A small server that fakes failures.
+
+Otherwise it forwards to the real API.
+
+---
+
+# Pointing quark at it
+
+```
+ANTHROPIC_BASE_URL=http://127.0.0.1:PORT
+```
+
+The SDK reads it.
+
+No change to `quark.py`.
+
+---
+
+# Stub modes
+
+- `all`: every request fails with 529
+- a model name: only that model fails
+- `first:N`: the first N requests fail
+
+---
+
+# Demo: the first call fails
+
+The stub fails once, then lets it through.
+
+The run still succeeds.
+
+---
+
+# Demo: the main model is down
+
+Sonnet fails with 529.
+
+quark moves on to **Opus**.
+
+The task completes.
+
+---
+
+# Demo: everything is down
+
+Both models fail.
+
+quark stops with `Down`.
+
+The session is saved.
+
+---
+
+# Demo: kill it
+
+`kill -9` mid-run.
+
+Run quark again.
+
+It **resumes**.
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`resilience.py` is a richer one.
+
+---
+
+# resilience.py
+
+Built on Lesson 3's `control_flow.py`.
+
+**112 lines.**
+
+---
+
+# Your own retry loop
+
+`max_retries=0`.
+
+The SDK doesn't retry.
+
+The harness does, so you control it.
+
+---
+
+# Backoff
+
+Wait longer after each failure.
+
+1 second, then 2, then 4.
+
+---
+
+# Jitter
+
+Add a random amount.
+
+Many clients retrying together would all hit the server at once.
+
+---
+
+# retry-after
+
+A **429** can say how long to wait.
+
+The harness obeys it.
+
+---
+
+# Benching a model
+
+A model that failed is **benched for 60 seconds**.
+
+Later calls skip it and go to the backup.
+
+---
+
+# Why bench
+
+Don't retry a model that just said it was down.
+
+Don't waste time on it.
+
+Come back after a minute.
+
+---
+
+# Tool timeouts
+
+`run()` runs each command with a **timeout**.
+
+---
+
+# Kill the whole group
+
+`killpg`.
+
+A command may start children.
+
+Killing just the parent leaves them running.
+
+---
+
+# Output cap
+
+`MAX_OUT`.
+
+A command that prints forever can't fill memory.
+
+---
+
+# Checkpoints
+
+After each step, write **`checkpoint.json`**.
+
+---
+
+# Resume
+
+```
+uv run production/08-resilience/resilience.py resume
+```
+
+Reads the checkpoint.
+
+Continues.
+
+---
+
+# Demos in the README
+
+- first two requests fail with 429 and a retry-after
+- Sonnet down, Opus benched 60 seconds
+- everything down, then `resume`
+- a slow tool, timed out and capped
+- `kill -9`, then `resume`
+
+---
+
+# What resilience can be
+
+- **how many** retries, and how they wait
+- **which** backup models
+- **how long** before giving up on a tool
+- **what survives** a crash
+
+---
+
+# What to take away
+
+**Rule:** resilience retries, falls back, reports tool failures, and saves progress, so a failure costs a retry, not the run.
+
+---
+
+# Notice what resilience never does
+
+It never decides **when** to call.
+
+It never decides **what goes in**.
+
+It never decides **what the model sees**.
+
+Those are control flow, input, and context.
+
+---
+
+# What's missing
+
+The agent survives.
+
+But it's slow, and it costs a lot.
+
+Every step resends everything.
+
+---
+
+<!-- _class: title -->
+
+# Next: Performance
+
+Lesson 9 makes it faster and cheaper.
+EOF
+grep -c '^---$' production/08-resilience/slides.md
+72
+
+Fixing one invented detail (the backoff numbers) before moving on.
+$ cd /home/user/building-agents && python3 - << 'EOF'
+p="production/08-resilience/slides.md"
+s=open(p).read()
+s=s.replace("Wait longer after each failure.\n\n1 second, then 2, then 4.","Wait longer after each failure.\n\nEach retry waits more than the last.")
+open(p,"w").write(s)
+EOF
+grep -n "1 second" production/08-resilience/slides.md; echo ok
+ok
+
+Lesson 9 next. Per your note, the per-task model routing in `performance.py` is presented as control flow (routing, from Lesson 3), not model interface.
+$ cd /home/user/building-agents && cat > production/09-performance/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 9 · Performance"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Performance
+
+### Building agents by building their harness
+Lesson 9 of 10 · Production
+
+---
+
+# Where we left off
+
+The agent survives failures.
+
+But it's slow and it's expensive.
+
+---
+
+# Why it's slow
+
+Each step is a model call.
+
+A task is many steps.
+
+You wait on every one.
+
+---
+
+# Why it's expensive
+
+Lesson 3: each request carries **everything so far**.
+
+Step 10 resends steps 1 to 9.
+
+---
+
+# Performance
+
+**Make it faster and cheaper without changing what it does.**
+
+---
+
+# Where does it live?
+
+Performance is spread across **several primitives**.
+
+---
+
+# Three places in quark.py
+
+- **context**: prompt caching, small requests
+- **model interface**: streaming, a model per request
+- **output**: running tools in parallel
+
+---
+
+# And one more place
+
+In `performance.py`, choosing a model **per task** is **control flow**.
+
+Routing, from Lesson 3.
+
+We'll get there.
+
+---
+
+# The worked example
+
+`production/09-performance/quark.py`
+
+Lesson 8's `quark.py` plus a performance layer.
+
+**159 lines.**
+
+---
+
+# Start with context
+
+---
+
+# The expensive part
+
+Each request begins with the same things:
+
+instructions, then the conversation so far.
+
+The model **reads all of it again**.
+
+---
+
+# Prompt caching
+
+The API remembers the **start** of a request.
+
+Send the same start again: it costs far less.
+
+---
+
+# How a match works
+
+The cache matches a **prefix**.
+
+Same beginning, same tokens, same order.
+
+One changed token breaks the match from there on.
+
+---
+
+# Why Lesson 4 had no time
+
+The system prompt says today's **date**, not the time.
+
+A timestamp would change every call.
+
+The prefix would never match.
+
+---
+
+# Marking a breakpoint
+
+`cache_control` marks where the cached part **ends**.
+
+Lesson 4 put one on the system prompt.
+
+---
+
+# The conversation grows
+
+The system prompt is cached.
+
+The conversation is not.
+
+Every step resends all of it at full price.
+
+---
+
+# A second breakpoint
+
+`cached(working_memory)`
+
+Puts `cache_control` on the **last block of the last message**.
+
+---
+
+# Why the last message
+
+Next step, the prefix is longer by one turn.
+
+Everything up to here is **already cached**.
+
+Only the new part is paid in full.
+
+---
+
+# The numbers: write and read
+
+Writing to the cache costs about **1.25x**.
+
+Reading from it costs about **0.1x**.
+
+---
+
+# The catches
+
+- the cache lasts about **5 minutes**
+- there is a **minimum size** to cache
+- the cache is **per model**
+
+---
+
+# Seeing it work
+
+Lesson 5's trace has `cache_read` and `cache_write`.
+
+Step 1: a big **cache_write**.
+
+---
+
+# Step 2
+
+Step 1 wrote 5,289 tokens.
+
+Step 2 **read** 5,289 tokens, and wrote only 251 new.
+
+---
+
+# Observability pays off
+
+You can't tune what you can't see.
+
+The trace made this a **measurement**.
+
+---
+
+# Smaller requests
+
+Cheaper still: **send less**.
+
+---
+
+# Trimming tool results
+
+`MAX_RESULT = 20_000`
+
+A long result is cut before it enters working memory.
+
+---
+
+# Head and tail
+
+Keep the **start** and the **end**.
+
+Cut the middle.
+
+Both are where the useful part usually is.
+
+---
+
+# Say what was cut
+
+```
+[... 5327 characters cut ...]
+```
+
+The model knows something is missing.
+
+It can ask for more.
+
+---
+
+# Seen in the README
+
+A 25,327-character result.
+
+Trimmed to 20,000.
+
+---
+
+# Lesson 4 had this
+
+`trim()` in `context.py`.
+
+Now it's in the working agent.
+
+---
+
+# Now the model interface
+
+---
+
+# Waiting for the whole reply
+
+Without streaming: nothing until it's done.
+
+Then it all appears.
+
+---
+
+# Streaming
+
+`client.messages.stream`
+
+Text arrives **as it's generated**.
+
+---
+
+# Lesson 1 already streamed
+
+For a different reason: long responses time out.
+
+Nothing was printed.
+
+---
+
+# Now we print
+
+`text_stream` lines go to the terminal **live**.
+
+Same total time.
+
+Feels much faster.
+
+---
+
+# Latency you feel
+
+The time to the **first word** is what you notice.
+
+Not the total.
+
+---
+
+# ask()
+
+```python
+ask(models=MODELS, live=False, **request)
+```
+
+One function for every model call.
+
+---
+
+# live
+
+`live=True`: print the text as it arrives.
+
+`live=False`: collect quietly.
+
+---
+
+# Other requests don't need live
+
+A summary is not for a person to watch.
+
+So `compact()` calls with `live=False`.
+
+---
+
+# A model per request
+
+```python
+FAST = ["claude-haiku-4-5"]
+```
+
+---
+
+# Compaction uses FAST
+
+Summarizing doesn't need the strongest model.
+
+`compact()` passes `models=FAST`.
+
+Faster. Cheaper.
+
+---
+
+# A fixed choice
+
+In `quark.py`, this is one fixed choice for one job.
+
+Nothing is **deciding**.
+
+---
+
+# A caveat
+
+The small model may have a **smaller window**.
+
+If the summary request is too long, Lesson 4's `drop` path takes over.
+
+---
+
+# A caveat on our testing
+
+The README only tested compaction on the small model with a direct call.
+
+Not a full-window run.
+
+It says so.
+
+---
+
+# Now output
+
+---
+
+# Tools run one at a time
+
+The model asks for three commands.
+
+We run them in order.
+
+Three waits, added up.
+
+---
+
+# They may not depend on each other
+
+`ls`, `wc`, `git status`.
+
+No need to wait for one to start the next.
+
+---
+
+# Lesson 2 hinted at this
+
+`input_output.py` used `asyncio.gather`.
+
+Three 2-second tasks took 2 seconds, not 6.
+
+---
+
+# First: tell the model
+
+The system prompt used to say **one command per response**.
+
+Now: commands that don't depend on each other can go in the same response. They **run at the same time**.
+
+---
+
+# Why that matters
+
+Without it, the model never asked for several.
+
+It followed the old instruction.
+
+Changing context changed performance.
+
+---
+
+# Two passes
+
+**Pass 1**: sequential.
+
+**Pass 2**: results, in order.
+
+Between them: the parallel run.
+
+---
+
+# Pass 1: sequential
+
+For each tool request:
+
+print the command, check for cut-off, **ask the guard**.
+
+---
+
+# Why guard questions come first
+
+A person can only answer one question at a time.
+
+Questions in a stack, before anything runs.
+
+---
+
+# The pending dict
+
+Approved commands go into `pending`.
+
+Denied or cut-off ones get their error result right away.
+
+---
+
+# The parallel part
+
+```python
+pool.map(execute, pending)
+```
+
+A `ThreadPoolExecutor`.
+
+All approved commands run **at once**.
+
+---
+
+# execute()
+
+The Lesson 7 `docker exec`.
+
+Plus the Lesson 5 trace.
+
+One function. One command.
+
+---
+
+# Pass 2: in order
+
+Print each result.
+
+Build the `tool_result` list in the **original order**.
+
+---
+
+# Why order matters
+
+Each `tool_result` names its `tool_use_id`.
+
+But printing in order keeps the output readable.
+
+Same results, no matter who finished first.
+
+---
+
+# Run it
+
+```
+uv run production/09-performance/quark.py \
+  "run sleep 3 three times, in parallel"
+```
+
+---
+
+# A note on running it
+
+`sleep` isn't on the safe list.
+
+The guard asks.
+
+So the demos pipe `y` into stdin.
+
+---
+
+# The comparison
+
+Three tools that each sleep 3 seconds.
+
+Lesson 8: **13.0 s** total.
+
+Lesson 9: **6.9 s** total.
+
+---
+
+# Where the time went
+
+Lesson 9's tools ran together: about **3 seconds** each, overlapping.
+
+The rest is the two model calls.
+
+---
+
+# What stayed the same
+
+The same answer.
+
+The same commands.
+
+Faster and cheaper.
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`performance.py` is a richer one.
+
+---
+
+# performance.py
+
+Built on Lesson 3's `control_flow.py`.
+
+**Async**: `AsyncAnthropic`.
+
+---
+
+# The new idea: routing
+
+Not every task needs the strongest model.
+
+Pick the model **per task**.
+
+---
+
+# Control flow, not model interface
+
+This looks like a model-interface choice.
+
+It isn't.
+
+It's a decision about **the work**.
+
+---
+
+# Remember Lesson 3
+
+**Routing**: one call classifies, code sends the work down a path.
+
+One of the workflow arrangements.
+
+---
+
+# It's the same pattern
+
+One cheap call classifies the task.
+
+Code picks the path.
+
+The path is a **model**.
+
+---
+
+# Lesson 1's fallback
+
+Lesson 1's fallback model only covered an **outage**.
+
+Routing picks a model because of the **task**.
+
+Different decision. Different primitive.
+
+---
+
+# route()
+
+Asks the small model: how hard is this task?
+
+It answers with a **tier**.
+
+---
+
+# Three tiers
+
+- **quick**: Haiku
+- **standard**: Sonnet, medium effort
+- **deep**: Opus, high effort
+
+---
+
+# TIERS
+
+A dict from tier name to **model and effort**.
+
+Easy to read. Easy to change.
+
+---
+
+# Decided once per task
+
+Not per step.
+
+---
+
+# Why once
+
+The cache is **per model**.
+
+Switch models mid-task and you lose the cache.
+
+---
+
+# Routing is a trade
+
+Cheaper and faster on easy tasks.
+
+But it can **guess wrong**.
+
+---
+
+# It did, in the README
+
+The parallel-tools task was routed to **deep**.
+
+That's more than it needed.
+
+The README says so, honestly.
+
+---
+
+# Fixing a wrong router
+
+Measure it.
+
+That's Lesson 10.
+
+---
+
+# A bigger cacheable prefix
+
+`notes()` reads `README.md` and `docs/*.md`.
+
+They go into the system prompt.
+
+---
+
+# Why add notes
+
+About **10.6k tokens**.
+
+Past the cache minimum.
+
+Now caching has something to work on.
+
+---
+
+# Cold, then warm
+
+First run: about half the input from cache.
+
+Second run: **all of it**.
+
+(Roughly 50%, then 100%.)
+
+---
+
+# Streaming events
+
+It watches the stream's events.
+
+Records **time to first output**.
+
+The number you feel.
+
+---
+
+# Step lines
+
+Each step prints the tokens by kind:
+
+**new**, **cached**, **written**.
+
+You see the cache working, live.
+
+---
+
+# Parallel tools, async
+
+`asyncio.gather` runs the bash calls together.
+
+`Semaphore`, `AT_ONCE = 4`.
+
+At most four at a time.
+
+---
+
+# Why a limit
+
+Fifty at once would exhaust the machine.
+
+A cap keeps it safe.
+
+---
+
+# The timing line
+
+```
+3 commands: 3.0s together, 9.0s one after another
+```
+
+Concurrent time vs the sum.
+
+---
+
+# What performance can be
+
+- **cache**: what's reused, how long
+- **size**: what's trimmed or summarized
+- **latency**: streamed or whole
+- **model**: fixed, or routed per task
+- **tools**: sequential or parallel
+
+---
+
+# What to take away
+
+**Rule:** performance is spread across the primitives: context caches and trims, the model interface streams, output runs tools in parallel, and control flow routes.
+
+---
+
+# Notice what performance never does
+
+It never gathers input.
+
+---
+
+# And in quark.py
+
+It never touches control flow.
+
+The loop is the same.
+
+Routing is the one place control flow shows up, in `performance.py`.
+
+---
+
+# What's missing
+
+The agent is faster and cheaper.
+
+Is it still as **good**?
+
+Nothing measures that.
+
+---
+
+<!-- _class: title -->
+
+# Next: Evaluation
+
+Lesson 10 measures whether it still works.
+EOF
+grep -c '^---$' production/09-performance/slides.md
+92
+
+Lesson 10 is the last deck.
+$ cd /home/user/building-agents && cat > production/10-evaluation/slides.md << 'EOF'
+---
+marp: true
+theme: default
+paginate: true
+header: "Lesson 10 · Evaluation"
+style: |
+  section { font-size: 30px; }
+  code { font-size: 0.85em; }
+  section.title { text-align: center; justify-content: center; }
+---
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
+
+# Evaluation
+
+### Building agents by building their harness
+Lesson 10 of 10 · Production
+
+---
+
+# Where we left off
+
+Lesson 9 made the agent faster and cheaper.
+
+It trimmed results. It chose smaller models.
+
+Is it still **as good**?
+
+---
+
+# How do you know?
+
+You ran it once. It worked.
+
+Then you changed something.
+
+You ran it once. It worked.
+
+---
+
+# Why that's not enough
+
+A model's answers vary.
+
+One run proves little.
+
+A change can break something you didn't try.
+
+---
+
+# Every lesson so far
+
+Each one changed the harness.
+
+Each change could make it **worse** while looking fine.
+
+---
+
+# Evaluation
+
+**Run the agent on tasks whose right answer you know, and check the results.**
+
+---
+
+# Where does it live?
+
+Evaluation is built on **the whole harness**.
+
+---
+
+# Why the whole harness
+
+You're not testing one primitive.
+
+You're testing what the five do **together**.
+
+---
+
+# From the outside
+
+An evaluation runs the agent like a user would.
+
+Gives it a task.
+
+Looks at what happened.
+
+---
+
+# And it uses all five itself
+
+- **control flow**: a loop over the cases
+- **input**: the task it hands over
+- **output**: a command that checks the result
+- **model interface**: a model, when the judge is a model
+
+---
+
+# Three parts
+
+1. **tasks** with known outcomes
+2. **grading** by code or by model
+3. evals **on every change**
+
+---
+
+# Part 1: tasks with known outcomes
+
+---
+
+# A case
+
+A task, and a way to know if it was done right.
+
+---
+
+# Four fields
+
+- `name`
+- `setup`: prepare the folder
+- `task`: what we ask the agent
+- `check`: a shell command
+
+---
+
+# check
+
+A shell command run **after** the agent finishes.
+
+**Exit 0 means pass.**
+
+Anything else means fail.
+
+---
+
+# Why a shell command
+
+The check doesn't trust the agent's words.
+
+It looks at the **result**.
+
+Did the file change? Does the test pass?
+
+---
+
+# The worked example
+
+`production/10-evaluation/quark.py`
+
+Lesson 9's `quark.py` plus evaluation.
+
+**196 lines.**
+
+---
+
+# What's new
+
+- `CASES`
+- `evaluate(names)`
+- a `--eval` flag
+
+Plus a small change to the imports.
+
+---
+
+# The cases
+
+Four of them:
+
+`count`, `fix`, `rename`, `remember`
+
+---
+
+# count
+
+A question with one right number.
+
+---
+
+# fix
+
+A project with a bug.
+
+`calc.py` subtracts where it should add.
+
+The check runs the code.
+
+---
+
+# rename
+
+A change across files.
+
+The check looks at the files.
+
+---
+
+# remember
+
+Lesson 4's semantic memory.
+
+Tell it a fact. Then see if it was **written down**.
+
+---
+
+# Part 2: running them
+
+---
+
+# The key move
+
+`evaluate()` runs **`quark.py` itself**.
+
+As a subprocess.
+
+Once per case.
+
+---
+
+# Why a subprocess
+
+Not a function call.
+
+The real program, from the command line.
+
+Exactly what a person would run.
+
+---
+
+# A fresh folder
+
+Each case runs in a new **temp directory**.
+
+`setup` fills it.
+
+No case sees another's leftovers.
+
+---
+
+# The guard
+
+Lesson 6 asks before commands.
+
+Nobody's there to answer.
+
+So the eval sends `y` fifty times on stdin.
+
+---
+
+# Grading
+
+After the agent ends:
+
+run `check` on the host.
+
+Exit code, pass or fail.
+
+---
+
+# Reading the trace
+
+Lesson 5 pays off again.
+
+The child writes `.quark/traces.jsonl`.
+
+The eval reads **steps** and **tokens** from it.
+
+---
+
+# Pass is not the whole story
+
+Passing and costing **ten times more** is a regression too.
+
+Steps and tokens are measured.
+
+---
+
+# The log
+
+Every run appends to `.quark/evals.jsonl`.
+
+A history.
+
+---
+
+# REGRESSED
+
+If a case **passed last time** and fails now, it's flagged.
+
+**REGRESSED**.
+
+---
+
+# Why that flag
+
+A failing case may always have failed.
+
+A regressed case is **something you broke**.
+
+---
+
+# Keeping failures
+
+A failed case's temp folder is **kept**.
+
+You can open it and see what the agent did.
+
+---
+
+# The exit code
+
+Any failure: **exit 1**.
+
+A script, or CI, can stop on it.
+
+---
+
+# Where it hooks in
+
+```python
+if sys.argv[1:2] == ["--eval"]:
+    sys.exit(evaluate(...))
+```
+
+Before the program looks for an unfinished session.
+
+---
+
+# Run it
+
+```
+uv run production/10-evaluation/quark.py --eval
+```
+
+---
+
+# The baseline
+
+**4 of 4** pass.
+
+About 18 seconds.
+
+Every future change is compared to this.
+
+---
+
+# Break it on purpose
+
+A copy with `MAX_STEPS = 1`.
+
+The agent can make one model call and no more.
+
+---
+
+# The result
+
+**3 of 4.**
+
+`fix` fails, flagged **REGRESSED**.
+
+Exit code 1.
+
+---
+
+# Open the kept folder
+
+`calc.py` still subtracts.
+
+The trace shows **one model call**.
+
+It found the bug and never got to fix it.
+
+---
+
+# A guard did that
+
+Lesson 6's step limit.
+
+An evaluation caught a limit set too low.
+
+---
+
+# Another change: a small model
+
+Haiku only.
+
+**4 of 4.**
+
+Three or four steps each.
+
+---
+
+# Good news, measured
+
+The small model is enough for these four.
+
+Now you **know**.
+
+---
+
+# Another: trim harder
+
+`MAX_RESULT = 20`.
+
+Lesson 9's trim, set tiny.
+
+Still **4 of 4**.
+
+---
+
+# But the cost moved
+
+`fix` went from 3 steps to 4.
+
+Tokens went from about 20k to 27k.
+
+The pass rate hid it. The trace didn't.
+
+---
+
+# One more: two steps
+
+`MAX_STEPS = 2`.
+
+Still 4 of 4.
+
+Two steps was enough for these cases.
+
+---
+
+# What we learned
+
+Four changes. Four different outcomes.
+
+None would show up from running it once.
+
+---
+
+# Going further
+
+`quark.py` is one way to do it.
+
+`evaluation.py` is a richer one.
+
+---
+
+# evaluation.py
+
+Built on Lesson 3's `control_flow.py`.
+
+**119 lines.**
+
+---
+
+# agent()
+
+The loop from `control_flow.py`, as a **function**.
+
+Call it with a task and a variant. Get a result.
+
+---
+
+# Variants
+
+Different ways to run the agent.
+
+Compared **side by side**.
+
+---
+
+# Three of them
+
+- **sonnet**: the baseline
+- **haiku**: a smaller model
+- **hasty**: a cheaper setup
+
+---
+
+# Cases with code checks
+
+`count`, `fix`, `log`.
+
+A shell command decides. Cheap and exact.
+
+---
+
+# Some tasks have no exact answer
+
+"Explain what this function does."
+
+No command can grade that.
+
+---
+
+# Grading by model
+
+`explain` has a **rubric**.
+
+A model reads the answer and the rubric.
+
+It says **PASS** or lists what's missing.
+
+---
+
+# The judge
+
+A different, stronger model.
+
+`claude-opus-5-5`.
+
+---
+
+# Can you trust the judge?
+
+A judge can be wrong.
+
+---
+
+# calibrate()
+
+Give the judge **three answers whose grade you know**.
+
+Check it agrees.
+
+Before it grades anything real.
+
+---
+
+# Trials
+
+`TRIALS = 3`.
+
+Each case, each variant, three times.
+
+---
+
+# Why three
+
+Answers vary.
+
+One pass might be luck.
+
+Three tells you something.
+
+---
+
+# A pool
+
+`AT_ONCE = 6`.
+
+Runs go in parallel.
+
+Lesson 9's trick, reused.
+
+---
+
+# The table
+
+Cases down. Variants across.
+
+Passes out of trials.
+
+Steps. Tokens.
+
+---
+
+# worse than
+
+If a variant does **worse than the baseline**, it's called out.
+
+And the exit code is 1.
+
+---
+
+# Run it
+
+```
+uv run production/10-evaluation/evaluation.py
+```
+
+36 runs.
+
+---
+
+# The result
+
+Every variant passed all 12.
+
+Haiku averaged about **3.8 steps**.
+
+**Hasty** saved nothing.
+
+---
+
+# A null result
+
+The cheaper variant wasn't cheaper.
+
+That's a finding.
+
+You'd have guessed otherwise.
+
+---
+
+# Break it on purpose
+
+A copy with a fourth variant: **onestep**.
+
+One step allowed.
+
+---
+
+# The result
+
+**3 of 12.**
+
+Exit code 1.
+
+---
+
+# Cheaper, because it stopped early
+
+It used fewer tokens.
+
+Because it **gave up**.
+
+Cost alone would say "better".
+
+---
+
+# Always read both
+
+Pass rate and cost.
+
+Either one alone misleads.
+
+---
+
+# A story about a grader
+
+An earlier run: baseline Sonnet got **2 of 3** on `explain`.
+
+That looked like a real weakness.
+
+---
+
+# Read the failures
+
+The judge had answered `**PASS**`.
+
+With markdown stars.
+
+---
+
+# The bug was ours
+
+The parse checked `startswith("PASS")`.
+
+`**PASS**` doesn't start with `PASS`.
+
+The agent was right. The **grader** was wrong.
+
+---
+
+# The fix
+
+Strip the stars and marks first:
+
+```python
+lstrip("*#` ")
+```
+
+---
+
+# calibrate() didn't catch it
+
+It checked the judge's judgment.
+
+Not our reading of it.
+
+A grader has bugs too.
+
+---
+
+# Another fix: the rubric
+
+A word in it was ambiguous.
+
+"returns" or "computes".
+
+Reworded.
+
+---
+
+# The lesson
+
+When an eval fails, **read the failure**.
+
+Before blaming the agent.
+
+---
+
+# What evaluation can be
+
+- **tasks**: a few, or hundreds
+- **grading**: code, a model, a person
+- **trials**: once, or many
+- **when**: on demand, or on every change
+- **compared to**: last run, or other variants
+
+---
+
+# Part 3: on every change
+
+---
+
+# The habit
+
+Run it after each change.
+
+Not only when something seems wrong.
+
+---
+
+# The exit code makes it automatic
+
+Exit 1 on failure.
+
+A script or CI runs it.
+
+A broken change can't slip in.
+
+---
+
+# Where we've been
+
+Lesson 5: you can see what it did.
+
+Lesson 6: it asks first.
+
+Lesson 7: it's boxed.
+
+---
+
+# And
+
+Lesson 8: it survives failure.
+
+Lesson 9: it's fast and cheap.
+
+Lesson 10: you **know** it still works.
+
+---
+
+# Honest limits
+
+- killing it on a timeout can leave a **Docker container**
+- each case has its own folder, so cases **share no cache**
+
+---
+
+# What to take away
+
+**Rule:** evaluation runs the whole harness on tasks with known outcomes, grades by code or model, and runs on every change.
+
+---
+
+# Notice what evaluation never does
+
+It doesn't do any of the five primitives **for** the agent.
+
+It doesn't act as control flow, input, context, model interface, or output **in** the agent.
+
+It stands **outside** and measures.
+
+---
+
+# The whole course
+
+Five primitives.
+
+Six layers that harden them.
+
+One agent, **quark**.
+
+---
+
+# And a way to read any agent
+
+Sort its parts into the five.
+
+Ask what each layer is built on.
+
+Tell the author what doesn't fit.
+
+---
+
+<!-- _class: title -->
+
+# Back to the course
+
+You've built a harness, and you can measure it.
+EOF
+grep -c '^---$' production/10-evaluation/slides.md
+92
+
+All six decks are written. Quick structural check (fence balance, front matter, slide counts), then I'll save a note to memory.
+$ cd /home/user/building-agents && for d in production/*/; do f=$d/slides.md; python3 - "$f" << 'EOF'
+import sys,re
+s=open(sys.argv[1]).read()
+fm=s.startswith("---\nmarp: true")
+fences=s.count("```")%2==0
+parts=s.split("\n---\n")
+longest=max(parts[2:],key=lambda p:len(p.strip().splitlines()))
+print(sys.argv[1],"frontmatter",fm,"fences ok",fences,"slides",len(parts)-1,"max lines",len(longest.strip().splitlines()))
+EOF
+done
+printf '\n## %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> .quark/memory/memory.md && cat >> .quark/memory/memory.md << 'EOF'
+- SLIDES task 2 done: wrote Marp decks production/05..10/slides.md (observability 54ish, guardrails 65, sandboxing 72, resilience 72, performance 92, evaluation 92 separators) from memory only, same style as lessons/01-04 decks (frontmatter marp/theme default/paginate/header "Lesson N · Title"/style block; title slide class title with "Lesson N of 10 · Production"; closing "Next:" slide; for 10 closing "Back to the course"). Peeked only at lessons/03 slides.md head/tail for format, not at lesson READMEs/code.
+- CORRECTION from user (review): Lesson 9 per-task model routing in performance.py (route() -> TIERS quick/standard/deep) is CONTROL FLOW (routing, Lesson 3), NOT model interface. quark.py's FAST haiku for compact() I kept under model interface as fixed per-request choice. Lesson 9 "never does" slide: never input; quark.py never touches control flow. README for 09 and root README row/stub may still say model interface — not edited.
+- Unverified inferences in decks (check vs source if asked): guard() check order deny->safe->ask (06); backoff/flaky mode details (08); compact() live=False / models=FAST call form (09); rename case description and "hasty" meaning (10); marp not rendered.
+EOF
+tail -3 .quark/memory/memory.md | head -1
+production/05-observability//slides.md frontmatter True fences ok True slides 53 max lines 11
+production/06-guardrails//slides.md frontmatter True fences ok True slides 64 max lines 7
+production/07-sandboxing//slides.md frontmatter True fences ok True slides 71 max lines 9
+production/08-resilience//slides.md frontmatter True fences ok True slides 71 max lines 9
+production/09-performance//slides.md frontmatter True fences ok True slides 91 max lines 9
+production/10-evaluation//slides.md frontmatter True fences ok True slides 91 max lines 8
+- SLIDES task 2 done: wrote Marp decks production/05..10/slides.md (observability 54ish, guardrails 65, sandboxing 72, resilience 72, performance 92, evaluation 92 separators) from memory only, same style as lessons/01-04 decks (frontmatter marp/theme default/paginate/header "Lesson N · Title"/style block; title slide class title with "Lesson N of 10 · Production"; closing "Next:" slide; for 10 closing "Back to the course"). Peeked only at lessons/03 slides.md head/tail for format, not at lesson READMEs/code.
+
+I wrote all six decks as Marp markdown, one `slides.md` in each lesson's folder. I couldn't render them because the Marp CLI isn't installed. I did check that the front matter and code fences are balanced and that no slide runs past 11 lines.
+
+| Lesson | File | Slides |
+|---|---|---|
+| 5 Observability | `production/05-observability/slides.md` | 53 |
+| 6 Guardrails | `production/06-guardrails/slides.md` | 64 |
+| 7 Sandboxing | `production/07-sandboxing/slides.md` | 71 |
+| 8 Resilience | `production/08-resilience/slides.md` | 71 |
+| 9 Performance | `production/09-performance/slides.md` | 91 |
+| 10 Evaluation | `production/10-evaluation/slides.md` | 91 |
+
+- **Source:** I wrote them from long-term memory only and didn't open any lesson README or code. I did look at the front matter and ending of my Lesson 3 deck so the format matched. That means the same front matter, a header per lesson, a centered title slide and a closing "Next:" slide. Lesson 10 ends on "Back to the course" because there's no Lesson 11.
+- **Flow:** each deck follows its README order. That is the problem, where it lives, the worked `quark.py`, running it, "Going further" with the richer file, the take-away rule, what the lesson never does, and what's missing.
+- **Lesson 9 relabel:** the router in `performance.py` (`route()` with the quick, standard and deep tiers) is presented as control flow, as Lesson 3's routing pattern. It sits on its own slides, which contrast it with Lesson 1's outage fallback and explain why it's decided once per task (the cache is per model). The "built on" slide lists context, model interface and output, with routing flagged separately as control flow. The closing slide now says Performance never does input, and that `quark.py` never touches control flow.
+- **Lesson 9 compaction model:** I kept the fixed small model that `quark.py` uses for compaction under model interface. That is one hard-coded choice, not a decision. If your review relabeled that too, it's a one-slide change.
+
+My memory notes don't have every detail, so I inferred these. Please check them against the source before recording:
+- **Lesson 6:** the order of checks in `guard()` (deny, then safe, then ask).
+- **Lesson 8:** the exact modes of the fake-failure test server.
+- **Lesson 9:** how `compact()` calls `ask()` (`live=False`, `models=FAST`).
+- **Lesson 10:** what the `rename` case does and what "hasty" means.
+
+The Lesson 9 README and the root README table may still describe the router as model interface. I didn't edit them.
