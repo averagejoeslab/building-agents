@@ -92,7 +92,7 @@ chat = len(sys.argv) < 2
 messages = [{"role": "user", "content": input}]
 
 while True:
-    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    output = call(show, max_tokens=16384, tools=tools, messages=messages).content
     messages.append({"role": "assistant", "content": output})
 ```
 
@@ -108,9 +108,7 @@ while True:
 
 ```python
     input = []
-    for block in output:                                 # output: show text, run tool requests
-        if block.type == "text":
-            print(block.text)
+    for block in output:                                 # output: run tool requests
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, ...)
@@ -119,7 +117,7 @@ while True:
 ```
 (abridged: two long lines cut to `...`; the last one is commented "input: from the world")
 
-<!-- This is Lesson 2's output, unchanged in spirit: show text, run tool requests. What's new is that the results are collected as input, from the world. -->
+<!-- This is Lesson 2's output: show prints the text as it streams, so this loop only runs tool requests. What's new is that the results are collected as input, from the world. -->
 
 ---
 
@@ -147,14 +145,14 @@ while True:
 `uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is the longest? answer in one sentence"`
 
 ```
-$ find . -ipath '*lessons*' -name 'quark.py' -exec wc -l {} + 2>/dev/null | sort -n
-    9 ./lessons/01-model-interface/quark.py
-   33 ./lessons/02-input-and-output/quark.py
-   46 ./lessons/03-control-flow/quark.py
-  234 ./lessons/04-context/quark.py
-  322 total
+$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + | sort -n | tail -5
+   12 ./lessons/01-model-interface/quark.py
+   38 ./lessons/02-input-and-output/quark.py
+   51 ./lessons/03-control-flow/quark.py
+  239 ./lessons/04-context/quark.py
+  340 total
 
-The longest is `./lessons/04-context/quark.py`, at 234 lines.
+The longest one is `./lessons/04-context/quark.py`, at 239 lines.
 ```
 
 <!-- The first call asked for a command. Its result went back, and the second call answered from what it found. Run it with no input to chat with it instead. -->
