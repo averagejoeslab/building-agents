@@ -5,7 +5,7 @@ Average Joes Lab
 
 October 2026 · Preprint draft
 
-Companion course and code: [harness-engineering](https://github.com/averagejoeslab/building-agents) · Decomposition study: [supplement](./decomposition-study.md)
+Companion artifact (an open course with runnable code): [harness-engineering](https://github.com/averagejoeslab/building-agents) · Decomposition study: [supplement](./decomposition-study.md)
 
 ---
 
@@ -30,7 +30,7 @@ Two results follow.
 1. **Production concerns fold back into the primitives.** Observability, guardrails, sandboxing, resilience, performance and evaluation look like new building blocks. Each is hardening inside the primitives it touches.
 2. **The vocabulary holds on real systems.** I take apart three production coding agents (Claude Code, OpenAI Codex CLI and opencode) part by part. Nothing in them needs a sixth primitive. The study also found where my original rules were too loose, and I tighten them here.
 
-A case study, in which quark wrote much of its own course, shows the vocabulary used for diagnosis.
+A case study, in which quark wrote much of the material that teaches it, shows the vocabulary used for diagnosis.
 
 ---
 
@@ -67,9 +67,9 @@ My answer is **reductive**: take an agent apart until the parts stop being share
 3. **A build showing the five are enough:** a working agent, built one primitive at a time, where each step's missing piece is the next primitive (§5).
 4. **Production hardening folds back** into the primitives instead of adding new ones (§6).
 5. **A decomposition of three production harnesses,** Claude Code, Codex and opencode. Nothing needs a sixth primitive, and the study sharpens the rules (§7).
-6. **A case study** in which the agent built here wrote much of the course that teaches it (§8).
+6. **A case study** in which the agent built here wrote much of the material that teaches it (§8).
 
-Everything here comes from an open course, [harness-engineering](https://github.com/averagejoeslab/building-agents). Every listing and every run I quote is there in full, with real output.
+The paper comes with a companion artifact, *harness-engineering* [25]: an open course with runnable code. It builds the harness of §5 and the production layers of §6 one lesson at a time, and keeps the full transcripts of every run. The paper stands on its own, though. Every listing and run it relies on is reproduced in the appendices (A–D), and the artifact has them in full.
 
 ---
 
@@ -323,14 +323,14 @@ The same file can serve two readers. Claude Code's session transcript is read by
 
 ## 5. Building it back up: the five are enough
 
-A taxonomy can be complete on paper and still miss something in practice. The test is to build an agent from nothing but the five and see whether anything else is needed. That's the heart of the course, its first four lessons, and the heart of this paper.
+A taxonomy can be complete on paper and still miss something in practice. The test is to build an agent from nothing but the five and see whether anything else is needed. That's the core of this paper, and the first four lessons of the artifact.
 
 The build goes outward from the model, in a different order from §3:
 
 - the model interface comes first, because nothing reaches the model without it;
 - each later step adds the primitive the last one was missing.
 
-The example is quark, my own agent. Each lesson's `quark.py` is the last lesson's file plus that primitive and nothing else. It's one way to build each primitive, not the only way.
+The example is quark, my own agent. Each step's `quark.py` is the last step's file plus that primitive and nothing else, and all four files are in Appendix A; the runs quoted below are in Appendix B. It's one way to build each primitive, not the only way.
 
 ### 5.1 The model interface alone (9 lines)
 
@@ -354,11 +354,11 @@ The joined harness runs `wc -l` and prints `71 README.md`. **The model never see
 
 ### 5.3 Control flow (30 lines)
 
-Lesson 2 goes inside `while True`. The response and the results are appended to `messages`. If the model asked for anything, the loop calls again. When it stops asking, the run ends, or, in a chat, it hands back to you.
+Step 2 goes inside `while True`. The response and the results are appended to `messages`. If the model asked for anything, the loop calls again. When it stops asking, the run ends, or, in a chat, it hands back to you.
 
 Asked which lesson's `quark.py` is longest, the agent ran one `find … | wc -l` and answered from what it found. That's two calls, and the second only happened because the first one's result went back.
 
-That's an agent now: the model decides what happens next. The same four pieces, arranged differently, make a single call, a chatbot or a workflow (§3.4). The lesson's second example is a workflow, an evaluator–optimizer, where your code decides the order of the calls.
+That's an agent now: the model decides what happens next. The same four pieces, arranged differently, make a single call, a chatbot or a workflow (§3.4). The artifact's second example for this step is a workflow, an evaluator–optimizer, where your code decides the order of the calls.
 
 **But it knows nothing:** not where it is, not what day it is, not who it is, not what you told it yesterday. And `messages` grows every pass, so a long session will outgrow what the model can read. Something has to decide what the model sees.
 
@@ -366,7 +366,7 @@ That's an agent now: the model decides what happens next. The same four pieces, 
 
 The last primitive adds five context components:
 
-- **Working memory.** Lesson 3's `messages`, renamed for what it is.
+- **Working memory.** Step 3's `messages`, renamed for what it is.
 - **Instructions.** A system prompt written as models of self, world, other selves and body. It's rebuilt every call, so the directory and the date are current.
 - **Self-knowledge.** quark's own source file, put in that prompt so the model can see the harness it runs in.
 - **Semantic memory.** A file the agent reads and writes with the tool it already has. There's no memory code at all.
@@ -408,9 +408,9 @@ A harness that works isn't one you'd run unattended. Production agents add traci
 
 > **Corollary.** Production concerns add *hardening*, not new primitives. Each piece of a production layer lands inside a primitive, where that primitive already acts.
 
-The course's second part tests this one layer at a time:
+The artifact's second part tests this one layer at a time. The code each layer adds is in Appendix C:
 
-- Each production lesson's `quark.py` is the previous one plus that layer.
+- Each layer's `quark.py` is the previous one plus that layer.
 - Each names the primitives it's built on.
 - Each ends with a *"Notice what [layer] never does"* paragraph naming the primitives it leaves alone.
 
@@ -447,7 +447,7 @@ Claude Code is the same: its sandbox can stand in for a permission prompt, and t
 - the check run as **output**;
 - a model grader reached through the **model interface**.
 
-It's a second harness wrapped around the first. In the course it caught a change that looked harmless. Lowering the step limit from 20 to 1 kept three of four cases passing and flagged the fourth as `REGRESSED`. In the production harnesses, evaluation is just as clearly outside:
+It's a second harness wrapped around the first. In the artifact it caught a change that looked harmless (Appendix C.6). Lowering the step limit from 20 to 1 kept three of four cases passing and flagged the fourth as `REGRESSED`. In the production harnesses, evaluation is just as clearly outside:
 
 - **Codex and opencode** ship only engineering tests, against a mocked or recorded model.
 - **Claude Code's** `claude plugin eval` grades plugins and skills by running the real agent.
@@ -458,7 +458,7 @@ So the production harness of 196 lines reads under the same five headings as the
 
 ## 7. Taking apart production harnesses
 
-If the primitives are right, real harnesses should sort under them, including big ones that weren't written to teach anything. I took apart three production coding agents, part by part, with the checklist the course ends on:
+If the primitives are right, real harnesses should sort under them, including big ones that weren't written to teach anything. I took apart three production coding agents, part by part, with the checklist the artifact ends on:
 
 ```
 control flow          what kind of loop? who decides when to stop?
@@ -507,7 +507,7 @@ The three make very different choices inside each primitive: how they stop, wher
 | Performance | ✔ prompt caching, tool search, streaming, parallel reads | ✔ streaming, incremental WebSocket requests, a cache key, environment diffs, parallel tools | ✔ cache marks, pruning and truncation, concurrent tools |
 | Evaluation | partial: `claude plugin eval`, outside the agent, for plugins and skills | ✘ only engineering tests against a mocked model | ✘ only engineering tests with recorded model responses |
 
-Every layer the course teaches shows up in at least two of the three. Each one lands where the corollary says it should. The one layer missing from all three cores, evaluation, is the one the paper puts outside the harness.
+Every layer in §6 shows up in at least two of the three. Each one lands where the corollary says it should. The one layer missing from all three cores, evaluation, is the one the paper puts outside the harness.
 
 ### 7.4 What was hard to place
 
@@ -566,9 +566,9 @@ So products are made of primitives too. They're sold as one thing and built from
 
 ---
 
-## 8. Case study: the harness that wrote its course
+## 8. Case study: the harness that wrote its own lessons
 
-I used the finished 48-line harness for real work on the repository that teaches it. Claude Code operated it from a terminal, the way a person would, and quark never saw Claude Code. Over four runs, quark:
+I used the finished 48-line harness for real work on the companion artifact, the repository that teaches it. The evidence quoted below is in Appendix D. Claude Code operated it from a terminal, the way a person would, and quark never saw Claude Code. Over four runs, quark:
 
 1. read the whole repository and wrote what it learned to its memory file, about 25 KB of notes, one entry per lesson;
 2. in a new session with empty working memory, wrote slide decks for the four primitive lessons *from memory alone*, without opening a lesson file;
@@ -579,9 +579,9 @@ The setup is itself an example of the claim. The script that ran one quark sessi
 
 The failures are the interesting part, and each lands on a primitive.
 
-**A silent stop, then a crash: model interface and output.** Lesson 5 stopped twice without writing anything. A trace of each response's `stop_reason` showed why: with thinking on, a 4,096-token cap wasn't enough to think and then write a file. (Adding that trace was observability, put in for diagnosis.) On the third try, a response hit `max_tokens` halfway through a tool request, and the harness crashed with `KeyError: 'cmd'`. That's the incomplete request from Lesson 2's "when not to run."
+**A silent stop, then a crash: model interface and output.** The session writing the observability lesson stopped twice without writing anything. A trace of each response's `stop_reason` showed why: with thinking on, a 4,096-token cap wasn't enough to think and then write a file. (Adding that trace was observability, put in for diagnosis.) On the third try, a response hit `max_tokens` halfway through a tool request, and the harness crashed with `KeyError: 'cmd'`. That's the incomplete request §3.3 lists under "when not to run."
 
-- **The fix** was a request setting: `max_tokens` raised to 16,384 across the course.
+- **The fix** was a request setting: `max_tokens` raised to 16,384 across the artifact.
 - **The guard** against the same crash, refusing to run an incomplete request, is part of what the resilience layer adds to output.
 
 **The agent killed itself: output, guardrails and sandboxing.** To test crash recovery, quark killed its test agent with `pkill -9 -f 08-resilience/quark.py`. Its own command line contained that path, so it killed itself too. Its Docker container outlived it: the leftover the sandboxing lesson had warned about for a harness killed hard.
@@ -596,7 +596,7 @@ The failures are the interesting part, and each lands on a primitive.
 
 That's a context failure. What the request held was a lossy summary, and the model couldn't tell it from fact. Only review caught it, checking each slide against its source, which is evaluation done by hand.
 
-**What it shows.** The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure could be placed under one primitive or one layer, and they were the failures the course had already described. So the vocabulary worked for diagnosis, not just for description. This is one case, and the agent and I are both inside it. It shows the framework in use; it isn't independent evidence.
+**What it shows.** The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure could be placed under one primitive or one layer, and they were the failures the artifact had already described in §3 and §6. So the vocabulary worked for diagnosis, not just for description. This is one case, and the agent and I are both inside it. It shows the framework in use; it isn't independent evidence.
 
 ---
 
@@ -610,7 +610,7 @@ I wrote the claim so it can be shown wrong. It fails if someone finds a part of 
 2. it can't be read as hardening inside one or more of them;
 3. it isn't a harness nested inside another (§4).
 
-The course ends with that invitation: if you find something that genuinely fits none of the five, I'd like to hear about it.
+The artifact ends with that invitation: if you find something that genuinely fits none of the five, I'd like to hear about it.
 
 Before the study, I named three places the boundary was most likely to break:
 
@@ -631,12 +631,12 @@ Search or decoding loops didn't come up and remain untested.
 
 Nothing in the study needed a sixth primitive. Two definitions do strain.
 
-- **Output and actions a person starts.** Output is defined around *the model's* response. A person who undoes the agent's file changes (Claude Code's restore, opencode's revert) is having the harness act on the world without a model response. I place it as resilience over output's past actions. A cleaner fix might widen output to *the harness acting on a person or the world, usually at the model's request*. I've left the narrower definition because it's the one the course teaches. This is the first place to look for a refinement.
+- **Output and actions a person starts.** Output is defined around *the model's* response. A person who undoes the agent's file changes (Claude Code's restore, opencode's revert) is having the harness act on the world without a model response. I place it as resilience over output's past actions. A cleaner fix might widen output to *the harness acting on a person or the world, usually at the model's request*. I've left the narrower definition because it's the one the artifact teaches. This is the first place to look for a refinement.
 - **Model switches with mixed triggers.** The backup-or-routing rule settles a switch by what triggered it. A switch that starts as a failure and then persists, like Claude Code's content-classifier fallback, is two decisions: model interface, then control flow. That's consistent, but it shows that one feature can sit across a boundary.
 
 ### 9.3 Limitations
 
-- **The core evidence is mine.** The build, the production layers and the case study come from my own course and my own agent. §7 adds three outside systems, but they're three, all coding agents. Harnesses for other jobs, such as voice, browsing or robotics, haven't been tested.
+- **The core evidence is mine.** The build, the production layers and the case study come from my own artifact and my own agent. §7 adds three outside systems, but they're three, all coding agents. Harnesses for other jobs, such as voice, browsing or robotics, haven't been tested.
 - **Claude Code was read from its docs.** I could only check what Anthropic says it does. That's weaker than reading the code, especially for the "never does" half of each definition.
 - **The decompositions were AI-assisted.** Each assignment cites its evidence so anyone can check it, but a second, independent decomposer would make the result stronger.
 - **Some boundaries are rules I chose.** Backup or routing, receiving or printing, who reads, who uses an answer: these follow from the definitions, but each had to be stated. Someone with different definitions could draw the line elsewhere. The value is that every choice is written down.
@@ -685,7 +685,7 @@ The model interface as a primitive, and the production layers as a category, hav
 
 An agent is a model wrapped in a harness. A harness is five things: input, context, the model interface and output, with control flow sequencing them and deciding when to stop.
 
-**The build.** One at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That's the claim, and it's the core of the course.
+**The build.** One at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That's the claim.
 
 **Production hardening.** Everything a production harness adds after that, from observability to evaluation, folds back into the same five.
 
@@ -697,12 +697,12 @@ The point isn't that every harness should look like quark. It's that every harne
 
 ## Acknowledgments and disclosure of AI use
 
-The course this paper draws on was built with two AI agents, and the paper says so because the case study depends on it.
+The companion artifact was built with two AI agents, and the paper says so because the case study depends on it.
 
-- **Claude Code** (Anthropic) worked with me on the course's README and primitive lessons. It operated quark and reviewed quark's output. It ran the decomposition study in §7 under my direction, and it helped draft this paper from the course's content.
-- **quark**, the agent built in the course, running on Anthropic's Claude models, wrote the six production lessons and the slide decks. Those were then reviewed and corrected as described in §8.
+- **Claude Code** (Anthropic) worked with me on the artifact's README and primitive lessons. It operated quark and reviewed quark's output. It ran the decomposition study in §7 under my direction, and it helped draft this paper from the artifact's content.
+- **quark**, the agent built in §5, running on Anthropic's Claude models, wrote the six production lessons and the slide decks. Those were then reviewed and corrected as described in §8.
 
-The thesis, the five primitives, their definitions, and the course's method are mine, and I'm responsible for every claim in this paper. Every run quoted here is reproduced in full, with transcripts, in the companion repository.
+The thesis, the five primitives, their definitions, and the method are mine, and I'm responsible for every claim in this paper. Every run quoted here is excerpted in the appendices and reproduced in full, with transcripts, in the artifact.
 
 ---
 
@@ -756,11 +756,92 @@ The thesis, the five primitives, their definitions, and the course's method are 
 
 [24] Anthropic. Claude Code documentation. https://code.claude.com/docs (accessed 2026-10-06).
 
+[25] C. Dovey. *harness-engineering*: an open course with runnable code (companion artifact). Average Joes Lab, 2026. https://github.com/averagejoeslab/building-agents
+
 ---
 
-## Appendix A. The finished harness
+## Appendix A. The build, file by file
 
-This is the full 48-line harness from §5, with the system prompt shortened to `...`. The full prompt is one line in [`lessons/04-context/quark.py`](../lessons/04-context/quark.py). The comments mark which primitive each part belongs to; they aren't in the original file.
+These are the four files of §5, in full. Each is the one before plus one primitive.
+
+### A.1 The model interface alone (9 lines)
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=16384,
+    messages=[{"role": "user", "content": "What's in this directory?"}],
+)
+print(reply.model_dump_json(indent=2))
+```
+
+### A.2 Plus input and output (21 lines)
+
+```python
+import subprocess, sys
+from anthropic import Anthropic
+
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+task = " ".join(sys.argv[1:]) or input("> ")
+reply = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=16384,
+    tools=tools,
+    messages=[{"role": "user", "content": task}],
+)
+results = []
+for block in reply.content:
+    if block.type == "text":
+        print(block.text)
+    if block.type == "tool_use":
+        print(f"$ {block.input['cmd']}")
+        done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        print(done.stdout)
+        results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+```
+
+### A.3 Plus control flow (30 lines)
+
+```python
+import subprocess, sys
+from anthropic import Anthropic
+
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+
+task = " ".join(sys.argv[1:]) or input("> ")
+chat = len(sys.argv) < 2
+messages = [{"role": "user", "content": task}]
+
+while True:
+    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+
+    results = []
+    for block in reply.content:
+        if block.type == "text":
+            print(block.text)
+        if block.type == "tool_use":
+            print(f"$ {block.input['cmd']}")
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            print(done.stdout)
+            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+
+    messages.append({"role": "assistant", "content": reply.content})
+    if results:
+        messages.append({"role": "user", "content": results})
+        continue
+    if not chat or (task := input("\n> ")) == "/q":
+        break
+    messages.append({"role": "user", "content": task})
+```
+
+### A.4 Plus context: the finished harness (48 lines)
+
+This is the full 48-line harness from §5, with the system prompt shortened to `...`. The full prompt is one long line in the artifact's `lessons/04-context/quark.py`; it holds the self, world, other-selves and body models described in §5.4, and ends with the file's own source. The comments mark which primitive each part belongs to; they aren't in the original file.
 
 ```python
 import subprocess, sys, os, datetime
@@ -813,7 +894,220 @@ while True:                                                             # contro
     working_memory.append({"role": "user", "content": task})
 ```
 
-## Appendix B. Where each production layer lives
+## Appendix B. The runs quoted in §5
+
+Each excerpt is from one real run. The model's wording varies from run to run.
+
+**B.1 The model interface alone.** The response's `content` holds an empty `thinking` block and a `text` block. The text begins:
+
+```
+I can't see your file system, so I can't tell what's in your directory. No files or tools have been shared in this conversation. Here's how you can check yourself:
+
+**macOS / Linux (Terminal)**
+ls          # basic listing
+```
+
+`stop_reason` is `end_turn`, and `usage` shows 15 input tokens and 331 output tokens, 38 of them thinking.
+
+**B.2 Input, with output still a stub.** Given *"how many lines are in README.md?"*, the whole `content` is one tool request:
+
+```
+{"id": "toolu_01UksmSeN8qGMiYrrgfvUDZC", "input": {"cmd": "wc -l README.md"}, "name": "bash", "type": "tool_use"}
+"stop_reason": "tool_use"
+```
+
+**B.3 Input and output together.** The same task. The command runs, and its result never reaches the model:
+
+```
+$ wc -l README.md
+71 README.md
+```
+
+**B.4 Control flow.** *"which quark.py in the lessons folder is the longest? answer in one sentence"*. Two calls: one command, then the answer from its result.
+
+```
+$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + 2>/dev/null | sort -n
+   9 ./lessons/01-model-interface/quark.py
+  21 ./lessons/02-input-and-output/quark.py
+  30 ./lessons/03-control-flow/quark.py
+  48 ./lessons/04-context/quark.py
+ 108 total
+
+The longest is `./lessons/04-context/quark.py`, at 48 lines.
+```
+
+**B.5 Context.** Three separate runs.
+
+*"what are you, and how do you work? three sentences"*:
+
+```
+I'm quark, an AI agent whose only way of acting and observing is a bash shell. [...] For long-term memory I keep timestamped notes in `.quark/memory/memory.md`, so what I learn can carry over between sessions.
+```
+
+*"remember that I prefer short answers"*: it appended an entry to its memory file and replied:
+
+```
+- User preference: prefers short answers (keep replies brief)
+
+I saved that. I'll keep my answers short.
+```
+
+*"what do you know about me?"*, in a new session with empty working memory:
+
+```
+$ ... cat .quark/memory/memory.md
+# Quark Memory
+
+## 2026-10-05 21:56:11
+- User preference: prefers short answers (keep replies brief)
+
+Not much yet. My memory has one note about you: you prefer short answers.
+```
+
+## Appendix C. The code each production layer adds
+
+Each layer's `quark.py` is the previous one plus the lines below, which are shortened where marked. Where each piece lands is in the comments.
+
+**C.1 Observability (+12 lines), in control flow.** One function, called at each point the loop already passes: the start, after each model call, after each tool, on each compaction.
+
+```python
+def trace(**event):                                    # observability: append one JSON line per event
+    os.makedirs(".quark", exist_ok=True)
+    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "run": run, **event}) + "\n")
+...
+trace(event="model", seconds=round(time.time() - start, 2), stop_reason=reply.stop_reason, input_tokens=reply.usage.input_tokens, ...)
+```
+
+**C.2 Guardrails (+26 lines), in control flow.** A gate before each tool, and limits before each call.
+
+```python
+MAX_STEPS, MAX_TOKENS = 20, 200_000
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
+DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
+def guard(cmd):                                        # allow, deny or ask a person
+    if DENY.search(cmd): return "blocked by policy"
+    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
+    try: answer = input(f"allow `{cmd}`? [y/N] ").strip()
+    except EOFError: answer = ""
+    return None if answer.lower() == "y" else f"the person said no: {answer or 'no'}"
+...
+    if steps >= MAX_STEPS or spent >= MAX_TOKENS: ...   # top of the loop: stop before another call
+...
+            if (no := guard(block.input["cmd"])):       # the refusal goes back as the tool's result
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+                continue
+```
+
+**C.3 Sandboxing (+13 lines), in output.** A container started once before the loop, and the tool call aimed at it.
+
+```python
+up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1",
+                     "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only",
+                     "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}",
+                     "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], ...)
+...
+done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], ...)
+```
+
+**C.4 Resilience (+53 lines), in the model interface, output and context.** SDK retries and a backup model; a saved session; interrupted requests answered on resume.
+
+```python
+client = Anthropic(timeout=300, max_retries=3)         # model interface: retries with backoff
+MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+def ask(**request):                                    # model interface: backup model, then stop cleanly
+    for model in MODELS:
+        try: return client.messages.create(model=model, **request)
+        except (APIConnectionError, APIStatusError) as e:
+            if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
+            trace(event="model_failed", model=model, error=type(e).__name__)
+    raise Down()
+def save(task, working_memory):                        # written atomically after each step
+    ...
+    os.replace(SESSION + ".tmp", SESSION)
+def unfinished():                                      # context: replay working memory; answer what was lost
+    ...
+        working_memory.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in lost]})
+```
+
+**C.5 Performance (+47 lines), in context, the model interface and output.** A cache mark on the conversation, a cap on tool results, streaming, a small model for summaries, and tools run together.
+
+```python
+MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]   # FAST: compaction only
+def ask(models=MODELS, live=False, **request):         # model interface: stream the reply
+    ...
+            with client.messages.stream(model=model, **request) as stream: ...
+def trim(text):                                        # context: keep the start and end of a long result
+    if len(text) <= MAX_RESULT: return text
+    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + text[-MAX_RESULT // 2:]
+def cached(working_memory):                            # context: mark the end of the conversation for the cache
+    last = working_memory[-1]
+    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) else list(last["content"])
+    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
+    return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
+...
+    with ThreadPoolExecutor() as pool:                 # output: run the approved commands at the same time
+        outputs = dict(zip(pending, pool.map(execute, pending.values())))
+```
+
+**C.6 Evaluation (+38 lines), outside the harness.** Four cases. Each sets up a fresh folder, runs the real agent on its task, and checks what the agent left behind.
+
+```python
+def evaluate(names):
+    ...
+    for case in cases:
+        where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
+        subprocess.run(case["setup"], shell=True, cwd=where)
+        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, input="y\n" * 50, ..., timeout=300)
+        except subprocess.TimeoutExpired: pass
+        passed = subprocess.run(case["check"], shell=True, cwd=where, ...).returncode == 0
+        ...
+    return 1 if failed else 0
+```
+
+The baseline, and the same cases after lowering `MAX_STEPS` from 20 to 1:
+
+```
+pass  count      2 steps    4.1s    13435 tokens
+pass  fix        3 steps    5.2s    20262 tokens
+pass  rename     2 steps    3.9s    13428 tokens
+pass  remember   2 steps    4.3s    13582 tokens
+4/4 passed
+
+pass  count      1 steps    3.0s     6687 tokens
+FAIL  fix        1 steps    2.6s     6644 tokens  kept /tmp/eval-fix-1pf3a9_w  REGRESSED: it passed last time
+pass  rename     1 steps    2.9s     6674 tokens
+pass  remember   1 steps    3.1s     6778 tokens
+3/4 passed
+```
+
+## Appendix D. Case-study evidence
+
+**D.1 The silent stop and the crash.** The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson. The last response hit the cap partway through a tool request:
+
+```
+[trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=3642 thinking=2498
+[trace] stop_reason=tool_use blocks=['text', 'tool_use'] out=228 thinking=0
+[trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=148 thinking=70
+[trace] stop_reason=max_tokens blocks=['thinking', 'tool_use'] out=4096 thinking=2260
+  File "lessons/04-context/quark.py", line 37, in <module>
+    print(f"$ {block.input['cmd']}")
+KeyError: 'cmd'
+```
+
+**D.2 The agent that killed itself.** The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained `08-resilience/quark.py`, so the pattern matched quark too:
+
+```
+(yes y | uv run --project $R $R/production/08-resilience/quark.py "Run 'sleep 20; echo first > first.txt' as one command, ..." > out1.txt 2>&1 &) ; ... ; pkill -9 -f 08-resilience/quark.py; ...
+```
+
+**D.3 Fabrication from memory.** The two decks written from memory were checked slide by slide against the lessons:
+
+- **The four primitive decks:** 22 slides tightened, none invented.
+- **The six production decks:** 47 slides corrected and 5 removed.
+
+The removed slides described runs that never happened, quoted cache numbers no run produced, or reversed which model was benched. The artifact keeps quark's transcripts and its memory file as they were after the runs.
+
+## Appendix E. Where each production layer lives
 
 | Layer | Control flow | Input | Context | Model interface | Output |
 |---|:---:|:---:|:---:|:---:|:---:|

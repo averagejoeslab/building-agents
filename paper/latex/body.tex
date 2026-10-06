@@ -58,10 +58,10 @@ My answer is \textbf{reductive}: take an agent apart until the parts stop being 
 \item
   \textbf{A decomposition of three production harnesses,} Claude Code, Codex and opencode. Nothing needs a sixth primitive, and the study sharpens the rules (§7).
 \item
-  \textbf{A case study} in which the agent built here wrote much of the course that teaches it (§8).
+  \textbf{A case study} in which the agent built here wrote much of the material that teaches it (§8).
 \end{enumerate}
 
-Everything here comes from an open course, \href{https://github.com/averagejoeslab/building-agents}{harness-engineering}. Every listing and every run I quote is there in full, with real output.
+The paper comes with a companion artifact, \emph{harness-engineering} \cite{course}: an open course with runnable code. It builds the harness of §5 and the production layers of §6 one lesson at a time, and keeps the full transcripts of every run. The paper stands on its own, though. Every listing and run it relies on is reproduced in the appendices (A--D), and the artifact has them in full.
 
 \section{Two primitives: the model and the harness}
 
@@ -446,7 +446,7 @@ The same file can serve two readers. Claude Code's session transcript is read by
 
 \section{Building it back up: the five are enough}
 
-A taxonomy can be complete on paper and still miss something in practice. The test is to build an agent from nothing but the five and see whether anything else is needed. That's the heart of the course, its first four lessons, and the heart of this paper.
+A taxonomy can be complete on paper and still miss something in practice. The test is to build an agent from nothing but the five and see whether anything else is needed. That's the core of this paper, and the first four lessons of the artifact.
 
 The build goes outward from the model, in a different order from §3:
 
@@ -458,7 +458,7 @@ The build goes outward from the model, in a different order from §3:
   each later step adds the primitive the last one was missing.
 \end{itemize}
 
-The example is quark, my own agent. Each lesson's \passthrough{\lstinline!quark.py!} is the last lesson's file plus that primitive and nothing else. It's one way to build each primitive, not the only way.
+The example is quark, my own agent. Each step's \passthrough{\lstinline!quark.py!} is the last step's file plus that primitive and nothing else, and all four files are in Appendix A; the runs quoted below are in Appendix B. It's one way to build each primitive, not the only way.
 
 \subsection{The model interface alone (9 lines)}
 
@@ -494,11 +494,11 @@ The joined harness runs \passthrough{\lstinline!wc -l!} and prints \passthrough{
 
 \subsection{Control flow (30 lines)}
 
-Lesson 2 goes inside \passthrough{\lstinline!while True!}. The response and the results are appended to \passthrough{\lstinline!messages!}. If the model asked for anything, the loop calls again. When it stops asking, the run ends, or, in a chat, it hands back to you.
+Step 2 goes inside \passthrough{\lstinline!while True!}. The response and the results are appended to \passthrough{\lstinline!messages!}. If the model asked for anything, the loop calls again. When it stops asking, the run ends, or, in a chat, it hands back to you.
 
 Asked which lesson's \passthrough{\lstinline!quark.py!} is longest, the agent ran one \passthrough{\lstinline!find … | wc -l!} and answered from what it found. That's two calls, and the second only happened because the first one's result went back.
 
-That's an agent now: the model decides what happens next. The same four pieces, arranged differently, make a single call, a chatbot or a workflow (§3.4). The lesson's second example is a workflow, an evaluator--optimizer, where your code decides the order of the calls.
+That's an agent now: the model decides what happens next. The same four pieces, arranged differently, make a single call, a chatbot or a workflow (§3.4). The artifact's second example for this step is a workflow, an evaluator--optimizer, where your code decides the order of the calls.
 
 \textbf{But it knows nothing:} not where it is, not what day it is, not who it is, not what you told it yesterday. And \passthrough{\lstinline!messages!} grows every pass, so a long session will outgrow what the model can read. Something has to decide what the model sees.
 
@@ -509,7 +509,7 @@ The last primitive adds five context components:
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Working memory.} Lesson 3's \passthrough{\lstinline!messages!}, renamed for what it is.
+  \textbf{Working memory.} Step 3's \passthrough{\lstinline!messages!}, renamed for what it is.
 \item
   \textbf{Instructions.} A system prompt written as models of self, world, other selves and body. It's rebuilt every call, so the directory and the date are current.
 \item
@@ -590,12 +590,12 @@ A harness that works isn't one you'd run unattended. Production agents add traci
 \textbf{Corollary.} Production concerns add \emph{hardening}, not new primitives. Each piece of a production layer lands inside a primitive, where that primitive already acts.
 \end{quote}
 
-The course's second part tests this one layer at a time:
+The artifact's second part tests this one layer at a time. The code each layer adds is in Appendix C:
 
 \begin{itemize}
 \tightlist
 \item
-  Each production lesson's \passthrough{\lstinline!quark.py!} is the previous one plus that layer.
+  Each layer's \passthrough{\lstinline!quark.py!} is the previous one plus that layer.
 \item
   Each names the primitives it's built on.
 \item
@@ -677,7 +677,7 @@ Claude Code is the same: its sandbox can stand in for a permission prompt, and t
   a model grader reached through the \textbf{model interface}.
 \end{itemize}
 
-It's a second harness wrapped around the first. In the course it caught a change that looked harmless. Lowering the step limit from 20 to 1 kept three of four cases passing and flagged the fourth as \passthrough{\lstinline!REGRESSED!}. In the production harnesses, evaluation is just as clearly outside:
+It's a second harness wrapped around the first. In the artifact it caught a change that looked harmless (Appendix C.6). Lowering the step limit from 20 to 1 kept three of four cases passing and flagged the fourth as \passthrough{\lstinline!REGRESSED!}. In the production harnesses, evaluation is just as clearly outside:
 
 \begin{itemize}
 \tightlist
@@ -691,7 +691,7 @@ So the production harness of 196 lines reads under the same five headings as the
 
 \section{Taking apart production harnesses}
 
-If the primitives are right, real harnesses should sort under them, including big ones that weren't written to teach anything. I took apart three production coding agents, part by part, with the checklist the course ends on:
+If the primitives are right, real harnesses should sort under them, including big ones that weren't written to teach anything. I took apart three production coding agents, part by part, with the checklist the artifact ends on:
 
 \begin{lstlisting}
 control flow          what kind of loop? who decides when to stop?
@@ -803,7 +803,7 @@ Evaluation & partial: \passthrough{\lstinline!claude plugin eval!}, outside the 
 \end{longtable}
 }
 
-Every layer the course teaches shows up in at least two of the three. Each one lands where the corollary says it should. The one layer missing from all three cores, evaluation, is the one the paper puts outside the harness.
+Every layer in §6 shows up in at least two of the three. Each one lands where the corollary says it should. The one layer missing from all three cores, evaluation, is the one the paper puts outside the harness.
 
 \subsection{What was hard to place}
 
@@ -920,9 +920,9 @@ Braintrust, promptfoo, Inspect \cite{braintrust,promptfoo,inspect} & evaluation:
 
 So products are made of primitives too. They're sold as one thing and built from several.
 
-\section{Case study: the harness that wrote its course}
+\section{Case study: the harness that wrote its own lessons}
 
-I used the finished 48-line harness for real work on the repository that teaches it. Claude Code operated it from a terminal, the way a person would, and quark never saw Claude Code. Over four runs, quark:
+I used the finished 48-line harness for real work on the companion artifact, the repository that teaches it. The evidence quoted below is in Appendix D. Claude Code operated it from a terminal, the way a person would, and quark never saw Claude Code. Over four runs, quark:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -941,12 +941,12 @@ The setup is itself an example of the claim. The script that ran one quark sessi
 
 The failures are the interesting part, and each lands on a primitive.
 
-\textbf{A silent stop, then a crash: model interface and output.} Lesson 5 stopped twice without writing anything. A trace of each response's \passthrough{\lstinline!stop\_reason!} showed why: with thinking on, a 4,096-token cap wasn't enough to think and then write a file. (Adding that trace was observability, put in for diagnosis.) On the third try, a response hit \passthrough{\lstinline!max\_tokens!} halfway through a tool request, and the harness crashed with \passthrough{\lstinline!KeyError: 'cmd'!}. That's the incomplete request from Lesson 2's ``when not to run.''
+\textbf{A silent stop, then a crash: model interface and output.} The session writing the observability lesson stopped twice without writing anything. A trace of each response's \passthrough{\lstinline!stop\_reason!} showed why: with thinking on, a 4,096-token cap wasn't enough to think and then write a file. (Adding that trace was observability, put in for diagnosis.) On the third try, a response hit \passthrough{\lstinline!max\_tokens!} halfway through a tool request, and the harness crashed with \passthrough{\lstinline!KeyError: 'cmd'!}. That's the incomplete request §3.3 lists under ``when not to run.''
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{The fix} was a request setting: \passthrough{\lstinline!max\_tokens!} raised to 16,384 across the course.
+  \textbf{The fix} was a request setting: \passthrough{\lstinline!max\_tokens!} raised to 16,384 across the artifact.
 \item
   \textbf{The guard} against the same crash, refusing to run an incomplete request, is part of what the resilience layer adds to output.
 \end{itemize}
@@ -973,7 +973,7 @@ The failures are the interesting part, and each lands on a primitive.
 
 That's a context failure. What the request held was a lossy summary, and the model couldn't tell it from fact. Only review caught it, checking each slide against its source, which is evaluation done by hand.
 
-\textbf{What it shows.} The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure could be placed under one primitive or one layer, and they were the failures the course had already described. So the vocabulary worked for diagnosis, not just for description. This is one case, and the agent and I are both inside it. It shows the framework in use; it isn't independent evidence.
+\textbf{What it shows.} The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure could be placed under one primitive or one layer, and they were the failures the artifact had already described in §3 and §6. So the vocabulary worked for diagnosis, not just for description. This is one case, and the agent and I are both inside it. It shows the framework in use; it isn't independent evidence.
 
 \section{Discussion}
 
@@ -992,7 +992,7 @@ I wrote the claim so it can be shown wrong. It fails if someone finds a part of 
   it isn't a harness nested inside another (§4).
 \end{enumerate}
 
-The course ends with that invitation: if you find something that genuinely fits none of the five, I'd like to hear about it.
+The artifact ends with that invitation: if you find something that genuinely fits none of the five, I'd like to hear about it.
 
 Before the study, I named three places the boundary was most likely to break:
 
@@ -1029,7 +1029,7 @@ Nothing in the study needed a sixth primitive. Two definitions do strain.
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Output and actions a person starts.} Output is defined around \emph{the model's} response. A person who undoes the agent's file changes (Claude Code's restore, opencode's revert) is having the harness act on the world without a model response. I place it as resilience over output's past actions. A cleaner fix might widen output to \emph{the harness acting on a person or the world, usually at the model's request}. I've left the narrower definition because it's the one the course teaches. This is the first place to look for a refinement.
+  \textbf{Output and actions a person starts.} Output is defined around \emph{the model's} response. A person who undoes the agent's file changes (Claude Code's restore, opencode's revert) is having the harness act on the world without a model response. I place it as resilience over output's past actions. A cleaner fix might widen output to \emph{the harness acting on a person or the world, usually at the model's request}. I've left the narrower definition because it's the one the artifact teaches. This is the first place to look for a refinement.
 \item
   \textbf{Model switches with mixed triggers.} The backup-or-routing rule settles a switch by what triggered it. A switch that starts as a failure and then persists, like Claude Code's content-classifier fallback, is two decisions: model interface, then control flow. That's consistent, but it shows that one feature can sit across a boundary.
 \end{itemize}
@@ -1039,7 +1039,7 @@ Nothing in the study needed a sixth primitive. Two definitions do strain.
 \begin{itemize}
 \tightlist
 \item
-  \textbf{The core evidence is mine.} The build, the production layers and the case study come from my own course and my own agent. §7 adds three outside systems, but they're three, all coding agents. Harnesses for other jobs, such as voice, browsing or robotics, haven't been tested.
+  \textbf{The core evidence is mine.} The build, the production layers and the case study come from my own artifact and my own agent. §7 adds three outside systems, but they're three, all coding agents. Harnesses for other jobs, such as voice, browsing or robotics, haven't been tested.
 \item
   \textbf{Claude Code was read from its docs.} I could only check what Anthropic says it does. That's weaker than reading the code, especially for the ``never does'' half of each definition.
 \item
@@ -1120,7 +1120,7 @@ The model interface as a primitive, and the production layers as a category, hav
 
 An agent is a model wrapped in a harness. A harness is five things: input, context, the model interface and output, with control flow sequencing them and deciding when to stop.
 
-\textbf{The build.} One at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That's the claim, and it's the core of the course.
+\textbf{The build.} One at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That's the claim.
 
 \textbf{Production hardening.} Everything a production harness adds after that, from observability to evaluation, folds back into the same five.
 
@@ -1130,14 +1130,14 @@ The point isn't that every harness should look like quark. It's that every harne
 
 \section*{Acknowledgments and disclosure of AI use}
 
-The course this paper draws on was built with two AI agents, and the paper says so because the case study depends on it.
+The companion artifact was built with two AI agents, and the paper says so because the case study depends on it.
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Claude Code} (Anthropic) worked with me on the course's README and primitive lessons. It operated quark and reviewed quark's output. It ran the decomposition study in §7 under my direction, and it helped draft this paper from the course's content.
+  \textbf{Claude Code} (Anthropic) worked with me on the artifact's README and primitive lessons. It operated quark and reviewed quark's output. It ran the decomposition study in §7 under my direction, and it helped draft this paper from the artifact's content.
 \item
-  \textbf{quark}, the agent built in the course, running on Anthropic's Claude models, wrote the six production lessons and the slide decks. Those were then reviewed and corrected as described in §8.
+  \textbf{quark}, the agent built in §5, running on Anthropic's Claude models, wrote the six production lessons and the slide decks. Those were then reviewed and corrected as described in §8.
 \end{itemize}
 
-The thesis, the five primitives, their definitions, and the course's method are mine, and I'm responsible for every claim in this paper. Every run quoted here is reproduced in full, with transcripts, in the companion repository.
+The thesis, the five primitives, their definitions, and the method are mine, and I'm responsible for every claim in this paper. Every run quoted here is excerpted in the appendices and reproduced in full, with transcripts, in the artifact.
