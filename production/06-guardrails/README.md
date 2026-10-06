@@ -426,7 +426,7 @@ for step in range(1, MAX_STEPS + 1):
                 print(f"[{no}]")
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
-            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:
@@ -566,7 +566,7 @@ The check happens before a call, so the run can end a little over: $0.0041 again
 
 **The rule:** decide what the harness is willing to do before it does it. Check each tool request at the point where control flow turns it into a command, and check the run itself at the point where control flow chooses to go around again. Say no in a way the model can read, and give the person a way in.
 
-Notice what Guardrails never does. It sits inside control flow, deciding whether the next step happens, and leaves the other primitives alone. The model interface gains one line, so a response can be stopped partway, and otherwise sends and receives as before; guardrails read `usage` and the tool request off the response and nothing more. When a command is allowed, output runs it in the box exactly as before. A refusal is an ordinary tool result in the slot the result would have filled, so context holds it the way it holds any result. And input is Lesson 2's `read()`, asking a person for a decision, plus a watcher that hears ESC while quark works.
+Notice what guardrails never does. It sits inside control flow, deciding whether the next step happens, and leaves the other primitives alone. The model interface gains one line, so a response can be stopped partway, and otherwise sends and receives as before; guardrails read `usage` and the tool request off the response and nothing more. When a command is allowed, output runs it in the box exactly as before. A refusal is an ordinary tool result in the slot the result would have filled, so context holds it the way it holds any result. And input is Lesson 2's `read()`, asking a person for a decision, plus a watcher that hears ESC while quark works.
 
 **What's missing:** you can stop a run now, but you can't see one. How long did each step take? How many tokens, and what did that cost? Which command did the guard refuse, and which did the box kill? The terminal scrolled past. The episode has every message, but it's written for the model: no timings, no token counts, no exit codes. The person running quark needs a record of their own.
 

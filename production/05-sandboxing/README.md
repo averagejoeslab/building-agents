@@ -28,7 +28,7 @@ In the imports, `atexit`, to remove the box however the program ends:
 import subprocess, sys, os, re, glob, json, datetime, atexit
 ```
 
-In `# ── output ──`, after the tool, the box itself:
+In `# ── output: the one tool ──`, after the tool, the box itself:
 
 ```python
 IMAGE, TIMEOUT = "python:3.13-slim", 30
@@ -55,13 +55,13 @@ And in the loop, the one line that ran a command on your machine now runs it in 
 
 **`sandbox()`** starts the container, once. `-d` runs it in the background, `--rm` deletes it when it stops, and `--name` gives it a name from the process ID so `docker exec` can find it. It runs `sleep infinity`: the container exists to be exec'd into. The flags are the limits from the list above. `-v folder:folder -w folder` mounts the working directory at the same path, so the model's relative paths, and Lesson 4's `.quark/` memories, work as before. If `docker run` fails, quark exits with the reason and nothing runs.
 
-**The discard.** `atexit.register(...)` removes the container when the program ends, however it ends: the model finishes, you type `/q`, or Ctrl-C. After that the box is gone, with anything written outside the mounted folder.
+**The discard.** `atexit.register(...)` removes the container when the program ends, however it ends short of a `kill -9`, which nothing can catch: the model finishes, you type `/q`, or Ctrl-C. After that the box is gone, with anything written outside the mounted folder.
 
 **The call.** `subprocess.run(cmd, shell=True)` became `docker exec box timeout -s KILL 30 sh -c cmd`: the same shell, the same merged output and exit code, but inside the container and under a 30-second limit. `-s KILL` means a command that ignores polite requests is still stopped.
 
 **The time-out message.** A command killed this way exits with 137 (128 plus signal 9), and so does one the kernel killed for using too much memory. quark can't tell them apart, so it adds a line saying it was one or the other. That line goes back to the model with the result, so the model finds out why its command died.
 
-Everything else is Lesson 4's, on purpose. The system prompt still tells the model that bash reaches "the whole system." Inside the box that's true, and the model finds out how big the box is by running into its walls. Telling it up front would be a decision about context, and this layer doesn't make it. The episode is still written by the harness, outside the box.
+Everything else is Lesson 4's, on purpose. The system prompt still tells the model that bash reaches "the whole system." Inside the box that's true. This layer adds no word about the box to the prompt: that would be a decision about context, and this layer doesn't make it. But Lesson 4's `mechanics()` puts quark's own file in the prompt, and `sandbox()` is in that file now, so a model that reads its own code can see the walls before it walks into them. That's Lesson 4's self-knowledge at work, not this layer. The episode is still written by the harness, outside the box.
 
 ## Run it
 
@@ -167,7 +167,7 @@ The fact is in `.quark/memory/memory.md` on the host, where the next session wil
 
 It can be a product on its own. Hosted sandboxes like [E2B](https://e2b.dev), [Modal](https://modal.com) and [Daytona](https://www.daytona.io) start an isolated machine for you on request and give you a way to run commands in it and read files out. If you're sending your agent's commands to one of those, it's this layer, and the choices above are theirs.
 
-The fuller example, [`sandboxing.py`](./sandboxing.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails) so the sandbox is all there is to look at. The box works on a *copy* of the project, with the secrets left out, a size limit on its disk, and a cap on how much output one command can return. It starts with no way out. Before each command, a second model is asked whether the command needs the network, and only if it's sure are you asked whether to lend it a way out, for that one command. When the run ends, it shows you what changed in the box and lets you choose whether anything leaves. The rest is discarded.
+The fuller example, [`sandboxing.py`](./sandboxing.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails) so the sandbox is all there is to look at. The box works on a *copy* of the project, with the secrets left out, a size limit on its disk, and a cap on how much output one command can return. It starts with no way out. Before each command, a second model, Jev (more on it below), is asked whether the command needs the network, and only if it's sure are you asked whether to lend it a way out, for that one command. When the run ends, it shows you what changed in the box and lets you choose whether anything leaves. The rest is discarded.
 
 ```python
 import subprocess, sys, os, uuid, atexit
@@ -204,7 +204,7 @@ NEEDS = Choice(instructions="To work, what does the shell command in `command` n
 SURE = 0.9
 
 def docker(*args, **kw):
-    return subprocess.run(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, **kw)
+    return subprocess.run(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", **kw)
 
 def ask(question):
     try: return read(question).strip().lower() == "y"
@@ -503,7 +503,7 @@ The command printed a million `x`s and the model got 300, with a note that it wa
 
 **The rule:** run the commands somewhere they can't do lasting damage. Make the box before the loop, aim the tool at it in place of `subprocess.run` on the host, and set its limits on what it can see, reach, use and change with the operating system, not with checks on the text of a command. Throw it away when the run ends.
 
-Notice what Sandboxing never does. It sits inside output, changing where a tool runs, and leaves the other primitives alone. The model interface still talks to the model from outside the box; the API key never goes in. Control flow is the same loop. Input still brings back what a command printed, the same way. And context is untouched: nothing about the box is put in front of the model, so the model finds the walls by walking into them.
+Notice what sandboxing never does. It sits inside output, changing where a tool runs, and leaves the other primitives alone. The model interface still talks to the model from outside the box; the API key never goes in. Control flow is the same loop. Input still brings back what a command printed, the same way. And context is untouched: this layer writes nothing about the box into the request. The model can still read `sandbox()` in its own file, through Lesson 4's `mechanics()`, but that's Lesson 4's doing.
 
 **What's missing:** the box limits what a command can reach, not whether it runs. Inside the box everything still runs unasked, including `rm -rf` on the mounted folder, which is your real project. Nothing lets you say no to one command, nothing lets you break in while it works, and nothing stops a run that loops forever, spending your money one call at a time. Deciding what's allowed to run, and when to stop, is next.
 

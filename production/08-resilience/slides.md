@@ -137,7 +137,7 @@ def unfinished():
 In `# ── input ──`, it's asked before anything else is read:
 
 ```python
-resumed = unfinished()
+resumed = None if sys.argv[1:] else unfinished()   # resilience: a new task on the command line starts fresh
 input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
 ```
 

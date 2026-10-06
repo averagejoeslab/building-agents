@@ -47,7 +47,7 @@ def agent(variant, input, where):
         for block in output.content:
             if block.type == "tool_use":
                 try:
-                    done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
+                    done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", timeout=30)
                     out = done.stdout or f"(exit {done.returncode})"
                 except (subprocess.TimeoutExpired, KeyError):
                     out = "stopped: it ran over 30 seconds, or the request was cut off"

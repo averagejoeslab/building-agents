@@ -155,7 +155,7 @@ The trace of that run, with only the fields that matter here:
 {"event":"model","seconds":2.01}
 ```
 
-The command was stopped at 3.23 seconds (`exit` 137, the box's kill), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it. Its answer says it "didn't get an exit status": since Lesson 6, a stopped command's result is just `[your doing stopped before done]`, so the trace knows more about that command than the model does.
+The command was stopped at 3.23 seconds (`exit` 137: ESC's `kill -9 -1` inside the box, which looks the same as a time-out in the trace), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it. Its answer says it "didn't get an exit status": since Lesson 6, a stopped command's result is just `[your doing stopped before done]`, so the trace knows more about that command than the model does.
 
 > The trace file only grows. Delete or rotate it when it gets big.
 
@@ -258,7 +258,7 @@ with span("run", task=input) as run:
             if block.type == "tool_use":
                 print(f"$ {block.input['cmd']}")
                 with span("tool", run["span"], step=step, cmd=block.input["cmd"]) as t:
-                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
                     t.update(exit=done.returncode, chars=len(done.stdout))
                 result = done.stdout or f"(exit {done.returncode})"
                 with span("jev", t["span"], step=step) as j:     # its own span, so the tool's seconds stay the tool's
@@ -289,7 +289,7 @@ The exit code is how a command says it failed, and it's a rough signal. `grep` e
 
 `failed()` asks it. The answer goes in a span of its own, kind `jev`, whose parent is the tool's span, so the tool's `seconds` stay the tool's. The live line shows it next to the exit code, and the summary gets a `jev` column next to `prob.`: the tools Jev was at least `SURE` (0.9) sure had failed. Next to the exit code, not instead of it. If Jev doesn't answer (it's down, it times out, the key is wrong), the span says `None` and nothing is counted.
 
-Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability: it's written down and counted, and that's all. It never goes to the model doing the work, and it never changes what runs next. A probability isn't a fact, either. Jev reads only what the command printed, so it can be fooled by output that looks like an error, and it isn't sure about the in-between cases, as you'll see.
+Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability's, inside control flow: it's written down and counted, and that's all. It never goes to the model doing the work, and it never changes what runs next. A probability isn't a fact, either. Jev reads only what the command printed, so it can be fooled by output that looks like an error, and it isn't sure about the in-between cases, as you'll see.
 
 Try it on a task with a failure and a slow step:
 
@@ -357,7 +357,7 @@ run       status     calls tools  prob.  jev   time     in    out  cached     co
 79a51a22  done           2     1     1    0    1.9s      846     93     0% $  0.0039  run ls /nonexistent and say what happene
 ```
 
-After a few runs, ask for the report:
+After a few runs, ask for the report (I took this one before the run with the wrong key, so that run isn't in it):
 
 ```bash
 uv run production/07-observability/observability.py report
@@ -406,7 +406,7 @@ The costs are computed at the example rates in `PRICE`, so they show you which r
 
 **The rule:** record what the harness does as it does it: each model call, each tool, each refusal, how long it took and what it cost, in a log you can search afterwards. Do it where control flow already sees the whole sequence, read from what's already there rather than changing it, and keep it apart from what the model remembers.
 
-Notice what Observability never does. It sits inside control flow's loop, but it never decides what runs next or when to stop. The model interface sends and receives exactly as before; observability only reads `usage` off the response. It gathers no input, and it puts nothing in front of the model: the trace is not in the request, which is what makes it observability and not context. Output runs tools the way it always did, only with a clock around them.
+Notice what observability never does. It sits inside control flow's loop, but it never decides what runs next or when to stop. The model interface sends and receives exactly as before; observability only reads `usage` off the response. It gathers no input, and it puts nothing in front of the model: the trace is not in the request, which is what makes it observability and not context. Output runs tools the way it always did, only with a clock around them.
 
 **What's missing:** it watches, and that's all it does. It will faithfully record that the API dropped a call halfway through a long run, that the model was cut off in the middle of a command, that you pressed ESC and everything it had said or printed up to then was thrown away, or that the process died and took the work with it. It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
 

@@ -94,7 +94,7 @@ for step in range(1, MAX_STEPS + 1):
                 print(f"[{no}]")
                 input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
                 continue
-            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:

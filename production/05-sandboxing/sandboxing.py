@@ -32,7 +32,7 @@ NEEDS = Choice(instructions="To work, what does the shell command in `command` n
 SURE = 0.9
 
 def docker(*args, **kw):
-    return subprocess.run(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, **kw)
+    return subprocess.run(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", **kw)
 
 def ask(question):
     try: return read(question).strip().lower() == "y"

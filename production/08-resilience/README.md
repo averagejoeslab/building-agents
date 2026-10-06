@@ -67,10 +67,10 @@ def unfinished():                                        # resilience: the last 
 
 **`unfinished()`** looks at the newest episode. If it ends with the model's answer and no tool request, that session finished, and there's nothing to do. Otherwise it shows you the input that opened it and asks, with Lesson 2's `read()`. On a `y`, it hands back the episode's path and its messages.
 
-In `# ── input ──`, it's asked before anything else is read:
+In `# ── input ──`, it's asked before anything else is read, but only when quark starts with no input: a new task on the command line starts a new session, so it's never swallowed by an old one.
 
 ```python
-resumed = unfinished()
+resumed = None if sys.argv[1:] else unfinished()   # resilience: a new task on the command line starts fresh
 input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
 ```
 
@@ -133,7 +133,7 @@ In the output loop, a cut-off request is never run:
 
 `block.input.get("cmd")` means a request with no command is answered and not a `KeyError`. If the response was cut off by `max_tokens` and this is its last block, the command may be half a command, so it isn't run, and the model is told so in the same words as everything else that didn't happen: it never reached the world. The other uses of `block.input["cmd"]` become `cmd`.
 
-Everything else is unchanged on purpose. ESC still stops the stream and kills the commands exactly as in Lesson 6; this layer only decides what's kept afterwards. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it.
+Everything else is unchanged on purpose. ESC still stops the stream and kills the commands exactly as in Lesson 6; this layer only decides what's kept afterwards. The guard still runs before the box. The trace now records failed models, and a `model` event's `seconds` includes the retries, so a flaky API shows up as slow calls next to `model_failed` events. The system prompt doesn't tell the model that the harness retries or that it may have been resumed; that would be a decision about context, and this layer doesn't make it. (It can read `call()` and `unfinished()` in its own file, as it always could.)
 
 ## Run it
 
@@ -431,7 +431,7 @@ Every response hit the limit while the model was writing its command, before any
 
 It can be a product on its own. Gateways like [LiteLLM](https://www.litellm.ai) and [OpenRouter](https://openrouter.ai) sit in front of several models and providers and handle retries, fallbacks and rate limits for you. If your harness sends every call to one of those, the model interface half of this layer is theirs. For the other half, durable-execution systems such as [Temporal](https://temporal.io), and checkpointing in agent frameworks such as [LangGraph](https://www.langchain.com/langgraph), record each step of a long process, so that after a crash it picks up at the step it was on. The idea is the same as quark's episode, with more machinery.
 
-The fuller example, [`resilience.py`](./resilience.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails, no sandbox) so resilience is all there is to look at. It turns the SDK's retries off and does them itself, in plain sight: it prints each failed try and how long it's waiting, honors `Retry-After`, backs off with jitter, and benches a model that has given up for a minute. Commands run under a time limit that kills the whole process group, with their output capped, and every result tells the model how the command ended. When a command fails, it asks Jev, the small decision model I introduced in [Lesson 5](../05-sandboxing/#asking-jev), what kind of failure it was, and only a read that failed by chance is run again. And the checkpoint is written at every step, so `resilience.py resume` picks a run up. Here it is, all of it:
+The fuller example, [`resilience.py`](./resilience.py), shows more of that list. It's Lesson 3's agent loop (no memory, no tracing, no guardrails, no sandbox) so resilience is all there is to look at. It turns the SDK's retries off and does them itself, in plain sight: it prints each failed try and how long it's waiting, honors `Retry-After`, backs off with jitter, and benches a model it has given up on, for a minute. Commands run under a time limit that kills the whole process group, with their output capped, and every result tells the model how the command ended. When a command fails, it asks Jev, the small decision model I introduced in [Lesson 5](../05-sandboxing/#asking-jev), what kind of failure it was, and only a read that failed by chance is run again. And the checkpoint is written at every step, so `resilience.py resume` picks a run up. Here it is, all of it:
 
 ```python
 import subprocess, sys, os, re, json, time, random, signal
@@ -588,7 +588,7 @@ The new parts, in the order they matter:
 **`failure()` and `reads()`.** `retryable()` sorts the API's failures by their status code. A command's failure has no code that says "try again": exit 1 is a missing file, a failing test, a lock someone else holds or a server that was busy for a second. Telling those apart means reading what the command printed, and that's a job for a model. So when a command fails, `failure()` sends Jev the command and what it printed, and one question with three answers: `transient` (it would likely work if run again unchanged), `permanent` (it will fail the same way) or `partial` (it got part of the way, so some of its changes may already have happened). Jev answers in a fraction of a second with a choice and a confidence, and the harness prints both. Then:
 - **transient**, with confidence of at least `SURE`, and the command **reads**: it's run once more after `BASE` seconds, without the model, and the model only sees the second result.
 - **partial**, or any answer under `SURE`, for a command that doesn't read: the result gets "it may have partly run: check before repeating it", the same warning `resume()` gives.
-- **permanent**, or no answer at all (no key, a timeout, an error): the result goes back as before.
+- **permanent**, **transient** for a command that doesn't read, or no answer at all (no key, a timeout, an error): the result goes back as before.
 
 Whether a command reads is not Jev's call. `reads()` is a hand-written list of programs that only look (`READS`), with no pipes, redirects or chaining, and none of `curl`'s flags that send or save. It's strict on purpose: `grep -o` isn't let through, and that only costs a retry. Running something twice is safe for a read and never safe for a write, so that line is drawn by code you can read, and Jev only says whether a second try is worth it. Asking Jev is a model-interface act (it's a second model, called like the first); what's done with the answer, a retry or a note on the result, is output's side of resilience, like the rest of `run()`. Jev reads the command's output literally, so it can only judge what the command printed, and a command that printed nothing gives it nothing to go on (one of the runs below shows that).
 
@@ -693,7 +693,7 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 The sleep was killed at three seconds and the model was told so. Jev thought a timeout was probably transient, but only at 0.74, under `SURE`, so the harness didn't act on it, and since `sleep` isn't on the list of reads, the result got the "may have partly run" warning. The long line was cut at 300 characters and the model was told that too. In both cases it reported accurately what it had been given. The run went on to a third step where the model answered; the harness neither hung nor held on to five thousand characters.
 
-The next three are Jev's question. For the first, a service that's down for its first request and fine after, about ten lines of Python:
+The next four are Jev's question. For the first, a service that's down for its first request and fine after, about ten lines of Python:
 
 ```
 # A service that's down for its first request and fine after: "503" once, then "ok".
@@ -788,7 +788,7 @@ The tool output warned that the script may have partly run, so check the state b
 
 (shortened: two paragraphs of the answer cut.) Jev called it partial, the harness added the warning, and the model passed it on instead of running the script again.
 
-And the crash, which is the one from the worked example, with `resilience.py`. The command takes twelve seconds and I killed the harness a second or two after it started the command, again by PID:
+And the crash, the same one as in Run it above, with `resilience.py`. The command takes twelve seconds and I killed the harness a second or two after it started the command, again by PID:
 
 ```
 $ sleep 12 && echo finished > flag.txt
@@ -845,7 +845,7 @@ The result for the dead request carried the command with it, the model checked t
 
 **The rule:** assume the call can fail, and make failure something the harness handles instead of something that ends the run. Retry what passes a bounded number of times, have somewhere else to go when the preferred model is out, and stop with a sentence when everywhere is. Answer every tool request, even a broken one, with a result the model can read. When you stop it, keep what it had already said and done. And keep a record written before each step, so that when the harness itself fails, what was in flight can be reported as *unknown*, not guessed at and not lost.
 
-Notice what Resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Control flow is the same loop with the same stop conditions: a retry happens inside one call, so the loop sees a call that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes only in what it's told about its own work: the "interrupted" result, the cut-off one, and the partial work an ESC used to throw away, each written like any other message.
+Notice what resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Control flow is the same loop with the same stop conditions: a retry happens inside one call, so the loop sees a call that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes only in what it's told about its own work: the "interrupted" result, the cut-off one, and the partial work an ESC used to throw away, each written like any other message.
 
 **What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation, and only the system prompt is cached, so the messages are paid for in full every time. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other, because quark asks for one at a time and runs them one after another. And when working memory fills up, the summary is written by the same big model as everything else. Making each step smaller, faster and cheaper is its own layer.
 

@@ -82,7 +82,7 @@ with span("run", task=input) as run:
             if block.type == "tool_use":
                 print(f"$ {block.input['cmd']}")
                 with span("tool", run["span"], step=step, cmd=block.input["cmd"]) as t:
-                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
                     t.update(exit=done.returncode, chars=len(done.stdout))
                 result = done.stdout or f"(exit {done.returncode})"
                 with span("jev", t["span"], step=step) as j:     # its own span, so the tool's seconds stay the tool's
