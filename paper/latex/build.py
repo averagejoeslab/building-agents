@@ -55,7 +55,7 @@ appendices = "## Appendix A" + rest.split("## Appendix A", 1)[1].rsplit("\n---\n
 (HERE / "abstract.tex").write_text(pandoc(prep(abstract)))
 body_tex = pandoc(prep(main_part.rstrip().rstrip("-").rstrip()))
 (HERE / "appendix.tex").write_text(pandoc(prep(appendices)))
-body_tex = body_tex.replace(r"\section{Acknowledgments and disclosure of AI use}", r"\section*{Acknowledgments and disclosure of AI use}")
+body_tex = body_tex.replace(r"\section{Disclosure of AI use}", r"\section*{Disclosure of AI use}")
 (HERE / "body.tex").write_text(body_tex)
 
 for cmd in (["pdflatex", "-interaction=nonstopmode", "main.tex"], ["bibtex", "main"],

@@ -361,7 +361,7 @@ For each harness we (i) mapped the modules on the request path; (ii) assigned ev
 | **opencode** [23] | source code, [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode) (TypeScript; formerly `sst/opencode`) | commit `652c090`, v1.18.34, 2026-10-06 |
 | **Claude Code** [24] | public documentation only (code.claude.com/docs and Anthropic engineering posts); the source is not published | documentation as of 2026-10-06 (CLI v2.1.288) |
 
-The decomposition was performed with AI assistance. An agent read the source code or documentation with the definitions of this paper and recorded each assignment with file-and-line or URL evidence, so that every assignment can be verified against its source. The complete tables, with the evidence for each assignment, are provided in the [supplement](./decomposition-study.md).
+The decomposition was carried out with an AI coding agent as a research instrument (see the Disclosure of AI use). The agent applied the definitions of §3 and §4 to the source code or documentation of each harness and recorded every assignment with file-and-line or URL evidence; the author reviewed the assignments, and each can be verified against its source. The complete tables, with the evidence for each assignment, are provided in the [supplement](./decomposition-study.md).
 
 ### 7.2 Design choices within each primitive
 
@@ -519,14 +519,17 @@ The claim is not that every harness should resemble quark. It is that every harn
 
 ---
 
-## Acknowledgments and disclosure of AI use
+## Disclosure of AI use
 
-The companion artifact was developed with two AI agents, and we disclose this because the case study depends on it.
+AI tools were used in three distinct roles, which we separate because two of them are part of the method.
 
-- **Claude Code** (Anthropic) assisted the author with the artifact's README and primitive lessons, operated quark and reviewed its output, conducted the decomposition study of §7 under the author's direction, and assisted in drafting this paper from the artifact's content.
-- **quark**, the agent constructed in §5, running on Anthropic's Claude models, wrote the six production lessons and the slide decks, which were subsequently reviewed and corrected as described in §8.
+**As the object of study.** The case study (§8) concerns quark, the agent constructed in §5, running on Anthropic's Claude models. quark wrote the six production lessons and the slide decks of the companion artifact. Its output was reviewed against the source material and corrected, as reported in §8; its transcripts are retained in the artifact.
 
-The thesis, the five primitives, their definitions and the method are the author's, and the author is responsible for every claim in this paper. Every run quoted here is excerpted in the appendices and reproduced in full, with transcripts, in the artifact.
+**As a research instrument.** The decomposition study (§7) was carried out by an AI coding agent, Claude Code (Anthropic), under the author's direction. The agent applied the definitions of §3 and §4 to each harness and recorded every assignment with file-and-line or URL evidence. The author reviewed the assignments, and every assignment can be checked independently against the cited source (see the supplement).
+
+**As a writing tool.** Claude Code assisted the author with the artifact's README and primitive lessons, and with drafting and editing this manuscript from the artifact's content. The author reviewed and edited all text.
+
+The thesis, the five primitives, their definitions and the method are the author's. No AI system is an author of this work, and the author takes full responsibility for its content.
 
 ---
 
