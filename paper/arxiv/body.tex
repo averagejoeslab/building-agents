@@ -49,7 +49,7 @@ Our approach is \textbf{reductive}: we decompose an agent until its parts are no
 \item
   \textbf{A decomposition of three production harnesses,} Claude Code, Codex and opencode, which finds no need for a sixth primitive and refines the boundary rules (§7).
 \item
-  \textbf{A case study} in which the constructed agent produced much of its own teaching material (§8).
+  \textbf{A case study} in which the constructed agent, working across sessions from its own memory, maintained its teaching material and reviewed this paper (§8).
 \end{enumerate}
 
 This is a conceptual and analytical contribution, in the tradition of frameworks such as CoALA \cite{sumers2024cognitive}: its evidence is a construction, a decomposition of existing systems, and a case study, and it reports no quantitative experiments. Measuring how much each primitive contributes to differences in performance is left to future work (§9.5).
@@ -392,7 +392,7 @@ A working harness is not yet suitable for unattended operation. Production agent
 \textbf{Corollary.} Production concerns contribute \emph{hardening}, not new primitives. Each element of a production layer resides within a primitive, at a point where that primitive already acts.
 \end{quote}
 
-The second part of the artifact tests this corollary one layer at a time. The layers were developed on an earlier version of the base harness: 48 lines, with working memory, semantic memory, instructions, self-knowledge and lazy compaction, but not yet episodic or procedural memory. Each layer's \passthrough{\lstinline!quark.py!} is the preceding file plus that layer, and each layer is documented with the primitives on which it is built and those it leaves unchanged. The code each layer adds appears in Appendix C. The layers are summarized below.
+The second part of the artifact tests this corollary one layer at a time, on the harness of §5. The layers are taught in the order sandboxing, guardrails, observability, resilience, performance, evaluation: first containment, so that the agent can be run at all where it can do damage; then the decision in front of it; then a record of both; then recovery, cost, and finally measurement of the whole. Each layer's \passthrough{\lstinline!quark.py!} is the preceding file plus that layer and nothing else, and each layer is documented with the primitives on which it is built and those it leaves unchanged. The code each layer adds appears in Appendix C. The layers are summarized below.
 
 {\def\LTcaptype{none} 
 \begin{longtable}[]{@{}
@@ -411,24 +411,26 @@ Rationale
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
 Mechanism
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Lines added
+Net lines
 \end{minipage} \\
 \midrule\noalign{}
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Observability & control flow & the only primitive with visibility of the whole sequence & reads the clock, \passthrough{\lstinline!usage!} and exit codes already present; appends one JSON record per event & +12 \\
-Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits and handling of interruption) & +26 \\
-Sandboxing & output & where a tool executes was always output's decision & commands executed via \passthrough{\lstinline!docker exec!} in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits & +13 \\
-Resilience & model interface, output, context & where the environment can fail, and what must be replayed & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; per-step persistence and resumption, marking interrupted commands as \emph{may or may not have run} & +53 \\
-Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) & +47 \\
+Sandboxing & output & where a tool executes was always output's decision & commands executed via \passthrough{\lstinline!docker exec!} in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits & +10 \\
+Guardrails & control flow (primarily) & control flow already decides whether a request becomes a command and whether to iterate & allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits and handling of interruption) & +23 \\
+Observability & control flow & the only primitive with visibility of the whole sequence & reads the clock, \passthrough{\lstinline!usage!}, exit codes and refusals already present; appends one JSON record per event, each naming the episode of the same session & +12 \\
+Resilience & model interface, output & where the environment can fail & retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; resumption from the episode that context already keeps, marking interrupted commands as \emph{may or may not have run} & +29 \\
+Performance & context, model interface, output & where tokens and latency are incurred & cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) & +24 \\
 Evaluation & outside the harness & it treats the agent as a black box & an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run & +38 \\
 \end{longtable}
 }
 
 Several entries require qualification.
 
-\textbf{Some layers span several primitives without adding one.} For resilience, a retry occurs within a single call (model interface), answering a malformed tool call is output, and resumption replays saved working memory (context); Codex performs the equivalent at request assembly, synthesizing ``aborted'' results for unfinished tool calls. For performance, concurrent execution of the model's tool calls is output, and a cache marker is a decision about request layout and therefore context. The artifact's fuller performance example also routes each task to a model tier; that element is control flow under the routing rule of §4.
+\textbf{Some layers span several primitives without adding one.} For resilience, a retry occurs within a single call (model interface), and answering a malformed tool call is output. Resumption reads the session's episode, which context already writes before each tool runs, back into working memory: the layer adds no store of its own, and the element that rebuilds the request is context. Codex performs the equivalent at request assembly, synthesizing ``aborted'' results for unfinished tool calls. For performance, concurrent execution of the model's tool calls is output, and a cache marker is a decision about request layout and therefore context. The artifact's fuller performance example also routes each task to a model tier; that element is control flow under the routing rule of §4.
+
+\textbf{The same events can have two readers.} The base harness's episodic memory and the observability layer's trace record the same session. The episode is written for the model, which searches it, and is context; the trace, with timings, token counts, exit codes and refusals, is written for the operator, and is observability (the rule of who reads it, §4). Each trace record names its episode, so the two remain distinct but linked.
 
 \textbf{Guardrails reside primarily, but not exclusively, in control flow.} In opencode and Claude Code, denied tools are also removed from the request, and that element is context. The decision retains a single home, while its enforcement may extend into another primitive.
 
@@ -532,9 +534,9 @@ opencode
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Observability & \ding{51} OpenTelemetry metrics, events and traces; transcripts; cost & \ding{51} OpenTelemetry, tracing spans, a trace bundle & \ding{51} structured logs, OpenTelemetry spans, per-step tokens and cost \\
-Guardrails & \ding{51} six permission modes, allow/ask/deny rules, hooks, a learned auto-approval classifier, turn and budget limits & \ding{51} approval policies, a rule language for commands, an LLM reviewer, hooks, a token budget & \ding{51} allow/ask/deny rules per agent, a repetition check (the same call three times), a subagent depth limit \\
 Sandboxing & \ding{51} Seatbelt or bubblewrap with a network proxy (off by default); worktrees; cloud VMs & \ding{51} Seatbelt; bubblewrap, seccomp and Landlock; Windows restricted tokens; a network proxy & \ding{55} no kernel-enforced limits: permission prompts, worktrees, and a confined interpreter for code mode only \\
+Guardrails & \ding{51} six permission modes, allow/ask/deny rules, hooks, a learned auto-approval classifier, turn and budget limits & \ding{51} approval policies, a rule language for commands, an LLM reviewer, hooks, a token budget & \ding{51} allow/ask/deny rules per agent, a repetition check (the same call three times), a subagent depth limit \\
+Observability & \ding{51} OpenTelemetry metrics, events and traces; transcripts; cost & \ding{51} OpenTelemetry, tracing spans, a trace bundle & \ding{51} structured logs, OpenTelemetry spans, per-step tokens and cost \\
 Resilience & \ding{51} retries, a fallback chain, snapshots before edits, resumption and forking & \ding{51} retries, a transport fallback, answers for aborted tools, resumption and forking from a saved log & \ding{51} retries, interrupted tools still answered, every part persisted as it streams, snapshots and revert \\
 Performance & \ding{51} prompt caching, tool search, streaming, parallel reads & \ding{51} streaming, incremental WebSocket requests, a cache key, environment diffs, parallel tools & \ding{51} cache markers, pruning and truncation, concurrent tools \\
 Evaluation & partial: \passthrough{\lstinline!claude plugin eval!}, external to the agent, for plugins and skills & \ding{55} engineering tests against a mocked model only & \ding{55} engineering tests with recorded model responses only \\
@@ -606,36 +608,48 @@ Braintrust, promptfoo, Inspect \cite{braintrust,promptfoo,inspect} & evaluation:
 
 Products are thus composed of primitives as well: each is marketed as a single capability and constructed from several.
 
-\section{Case study: an agent that wrote its own lessons}
+\section{Case study: the constructed agent at work}
 
-An earlier version of the base harness was used for substantive work on the companion artifact: the 48-line version described in §6, with working and semantic memory but not yet episodic or procedural memory. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The supporting evidence appears in Appendix D. Over four runs, quark:
+The harness of §5, unmodified, was used for ten sessions of work on the companion artifact. Claude Code operated it from a terminal, as a person would; quark had no knowledge of Claude Code. The memory stores began empty, and every session began with empty working memory, so whatever quark knew beyond its prompt came from the three stores of §5.4. Prompts were deliberately brief where the purpose was to require the use of memory. The supporting evidence appears in Appendix D; the transcripts and the final state of the stores are retained in the artifact. Over ten sessions, quark:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  read the entire repository and recorded what it learned in its memory file, producing approximately 25 KB of notes, one entry per lesson;
+  read the primitive lessons and recorded 32 facts in semantic memory;
 \item
-  in a new session with empty working memory, wrote slide decks for the four primitive lessons \emph{from memory alone}, without opening any lesson file;
+  brought the slide deck of the first lesson into line with its text and code, and recorded the method, including a checking script, as a skill;
 \item
-  wrote the six production lessons, one session per lesson, each building its \passthrough{\lstinline!quark.py!} from the preceding one, executing its code, and including the actual output;
+  in three further sessions, each prompted only ``Now do the same for Lesson \emph{N}'s slides'', retrieved and followed that skill, extending it in two of them with the difficulties it had encountered;
 \item
-  in a further new session, wrote slide decks for the six production lessons, again from memory.
+  rendered all ten decks to PDF and verified their layout without access to images, by measuring the positions of the text;
+\item
+  reviewed this paper against the artifact and corrected it;
+\item
+  recommended an order for the production layers, disagreeing with the author's proposal and giving reasons drawn from the code;
+\item
+  answered two questions about its own history.
 \end{enumerate}
 
-This account concerns those original runs. The decks for the four primitive lessons were subsequently regenerated, again by quark, from each lesson's text and code rather than from memory, so that they match the final harness of §5; the figures below for the primitive decks describe the original versions.
+The three stores of context each did observable work.
 
-The arrangement itself instantiates the decomposition. The script that ran one quark session per lesson, halting if a lesson produced no \passthrough{\lstinline!quark.py!}, is control flow at a higher level: a workflow around an agent.
+\textbf{Semantic memory carried a discrepancy across sessions.} In the first session, quark recorded that the lesson text gave the system prompt as 152 lines while the file contained about 148. In the review session it recounted, and corrected this paper's split of the harness from 82 lines of code and 152 of prompt to 86 and 148, an error in an earlier draft.
 
-The failures are the instructive part of the study, and each is attributable to a primitive.
+\textbf{Procedural memory resolved an underspecified request.} ``Now do the same'' refers to nothing in an empty working memory. In each of the three sessions, the first command read the skill whose index entry the harness had placed in the system prompt; none needed to search the episodes.
 
-\textbf{A silent stop followed by a crash: model interface and output.} The session writing the observability lesson stopped twice without producing any output. A trace of each response's \passthrough{\lstinline!stop\_reason!}, added for diagnosis (an instance of observability), identified the cause: with extended thinking enabled, an output limit of 4,096 tokens was insufficient for reasoning followed by writing a file. On the third attempt, a response reached \passthrough{\lstinline!max\_tokens!} partway through a tool call, and the harness failed with \passthrough{\lstinline!KeyError: 'cmd'!}. This is the truncated tool call that §3.3 lists among the cases in which output should not execute. The remedy was a request setting, raising \passthrough{\lstinline!max\_tokens!} to 16,384 throughout the artifact; the guard against the same failure, refusing to execute an incomplete call, is part of what the resilience layer adds to output.
+\textbf{Episodic memory answered questions about the past.} Asked what it had done, quark listed all eight earlier sessions in order from the first line of each episode. Asked which slides had overflowed and how it had found out, it located the step in the rendering session's episode at which it had measured them, and reported the coordinate at which each exceeded its page.
 
-\textbf{Self-termination: output, guardrails and sandboxing.} To test crash recovery, quark terminated its test agent with \passthrough{\lstinline!pkill -9 -f 08-resilience/quark.py!}. Its own command line contained that path, so the command also terminated quark. Its Docker container outlived it, which is the residual state the sandboxing layer had warned of for a harness that is killed abruptly. The remedy was a rule in the prompt: terminate processes by PID, never by name. A guardrail could enforce the same rule as policy. Claude Code, operating quark, subsequently made the same error with its own shell command, indicating that the hazard lies in how the action is expressed rather than in a particular agent.
+The failures are again the instructive part, and each is attributable to a primitive.
 
-\textbf{Confabulation from memory: context, detected by evaluation.} The slide decks were written from memory, and memory is a summary. The four primitive decks required 22 slides to be tightened but contained no invented content. The six production decks required 47 slides to be corrected and 5 to be removed: writing from memory, quark had filled gaps with runs that never occurred, cache figures that no run produced, and a reversed account of which model was disabled. Other slides simplified the code to the point of misstatement or assigned a mechanism to the wrong primitive. This is a context failure: the request contained a lossy summary that the model could not distinguish from fact. Only review, checking each slide against its source, detected it; that review constitutes evaluation performed manually.
+\textbf{A fact appended rather than replaced: context.} After the fourth deck was complete, semantic memory still recorded it as outdated; a later session added a fact stating that all four had been regenerated, leaving both. The prompt instructs that a changed fact be replaced. Similarly, a step of a skill found to be wrong was recorded as a fact rather than corrected in the skill. Recall was reliable; maintenance of the stores was not.
 
-\textbf{Discussion.} The 48-line version performed substantive work across many sessions: it read, wrote, executed and debugged code and documents. Every failure was attributable to a single primitive or layer, and each was a failure the artifact had already described in §3 and §6. The decomposition was therefore useful for diagnosis, not only for description. This is a single case in which both the agent and the author are participants; it illustrates the decomposition in use and does not constitute independent evidence.
+\textbf{An observation that had changed: input.} One session reported that the first deck had not been modified. The operator had committed it during the run, so \passthrough{\lstinline!git status!}, input from the world, no longer listed it, and the model inferred from an observation that no longer meant what it had.
+
+\textbf{A check that measured the wrong property: output.} quark's layout check detected text extending beyond a page but not text reduced below legibility. Two slides, on which the renderer had shrunk a single long line of output to between two and four points, passed. The operator's review detected them; that review constitutes evaluation performed manually.
+
+\textbf{An operator error: output.} While re-rendering a deck, the operator terminated a process with \passthrough{\lstinline!pkill -f!}, whose pattern matched its own command line, ending its own shell. This is the hazard against which the artifact's resilience lesson instructs termination by process identifier.
+
+\textbf{Discussion.} The constructed harness, with no production layer, performed substantive work across ten sessions using all three of its stores, and each failure was attributable to a single primitive. The decomposition was therefore useful for diagnosis, not only for description. The decks produced in the study have since been rewritten for presentation and the production layers rebuilt on the harness of §5; the study concerns the sessions as recorded. This is a single case in which both the agent and the author are participants; it illustrates the decomposition in use and does not constitute independent evidence.
 
 \section{Discussion}
 
@@ -677,8 +691,6 @@ No component required a sixth primitive, but two definitions are under strain.
   \textbf{The decompositions were AI-assisted.} Each assignment cites its evidence and can be checked, but a second, independent decomposition with a measure of inter-rater agreement would strengthen the result.
 \item
   \textbf{Some boundaries are stipulated.} The rules for backup versus routing, receiving versus rendering, the reader of an artifact, and the consumer of an answer follow from the definitions but had to be stated explicitly; alternative definitions could place these boundaries elsewhere. Their value lies in making each such choice explicit.
-\item
-  \textbf{The artifact's later parts predate its final base.} The production layers and the case study were built on an earlier, 48-line version of the base harness, before episodic and procedural memory were added to context. Their analysis concerns other primitives and is unaffected, but their code has not yet been rebased onto the final harness.
 \item
   \textbf{The model is held fixed.} Model development is excluded. Fine-tuning a model on a harness's traces shifts work between the two components, a trade-off not analyzed here.
 \end{itemize}
@@ -734,7 +746,7 @@ The framework is intended to support quantitative follow-up work, of which four 
 
 An agent is a model wrapped in a harness, and a harness consists of five primitives: input, context, the model interface and output, sequenced and terminated by control flow.
 
-Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from observability to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
+Constructed one at a time, outward from a single API call, the five primitives yield a working agent of 86 lines of code and a system prompt, with no further component required. This is the paper's central claim. The concerns a production harness adds subsequently, from sandboxing to evaluation, reduce to hardening within the same five. Three production coding agents, built by three independent teams, also decompose under them; the study refined the boundary rules and found no component requiring a sixth primitive.
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 
@@ -742,10 +754,10 @@ The claim is not that every harness should resemble quark. It is that every harn
 
 AI tools were used in three distinct roles, which we separate because two of them are part of the method.
 
-\textbf{As the object of study.} The case study (§8) concerns quark, the agent constructed in §5, running on Anthropic's Claude models. quark wrote the six production lessons and the slide decks of the companion artifact. Its output was reviewed against the source material and corrected, as reported in §8; its transcripts are retained in the artifact.
+\textbf{As the object of study.} The case study (§8) concerns quark, the agent constructed in §5, running on Anthropic's Claude models. quark revised and rendered slide decks of the companion artifact and reviewed an earlier draft of this paper, correcting errors in it; each correction was verified by the author against the artifact. Earlier versions of quark wrote the first drafts of the production lessons and slide decks. Its output was reviewed against the source material and corrected, as reported in §8; its transcripts and memory stores are retained in the artifact.
 
 \textbf{As a research instrument.} The decomposition study (§7) was carried out by an AI coding agent, Claude Code (Anthropic), under the author's direction. The agent applied the definitions of §3 and §4 to each harness and recorded every assignment with file-and-line or URL evidence. The author reviewed the assignments, and every assignment can be checked independently against the cited source (see the supplement).
 
-\textbf{As a writing tool.} Claude Code assisted the author with the artifact's README and primitive lessons, and with drafting and editing this manuscript from the artifact's content. The author reviewed and edited all text.
+\textbf{As a writing tool.} Claude Code assisted the author with the artifact's README, lessons and slide decks, and with drafting and editing this manuscript from the artifact's content. The author reviewed and edited all text.
 
 The thesis, the five primitives, their definitions and the method are the author's. No AI system is an author of this work, and the author takes full responsibility for its content.

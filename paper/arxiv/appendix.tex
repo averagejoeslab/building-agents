@@ -499,151 +499,156 @@ In earlier sessions you asked me:
 
 \section{The code each production layer adds}
 
-Each layer's \passthrough{\lstinline!quark.py!} is the previous file plus the lines below, abbreviated where marked; the layers extend the earlier 48-line base harness (§6). Comments indicate the primitive in which each element resides.
+Each layer's \passthrough{\lstinline!quark.py!} is the previous file plus the lines below, beginning from the harness of §5 (Appendix A.4); lines longer than the page are abbreviated with \passthrough{\lstinline!...!}, and \passthrough{\lstinline!\# ...!} marks omitted lines. The complete files are in the artifact.
 
-\textbf{C.1 Observability (+12 lines), in control flow.} One function, called at each point the loop already passes: the start, after each model call, after each tool, on each compaction.
+\textbf{C.1 Sandboxing (+10 lines), in output.} A container started once before the loop, removed at exit, and the tool call aimed at it.
 
 \begin{lstlisting}[language=Python]
-def trace(**event):                                    # observability: append one JSON line per event
-    os.makedirs(".quark", exist_ok=True)
-    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "run": run, **event}) + "\n")
-...
-trace(event="model", seconds=round(time.time() - start, 2), stop_reason=reply.stop_reason, input_tokens=reply.usage.input_tokens, ...)
+IMAGE, TIMEOUT = "python:3.13-slim", 30
+box = f"quark-{os.getpid()}"
+def sandbox():
+    where = os.getcwd()
+    up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", ...
+    if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
+    atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, ...
+# ...
+sandbox()                                                # first line of control flow
+# ...
+done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", ...
+if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
 \end{lstlisting}
 
-\textbf{C.2 Guardrails (+26 lines), in control flow.} A gate before each tool, and limits before each call.
+\textbf{C.2 Guardrails (+23 lines), in control flow.} A gate before each tool, asking through the input function of §5.2, and limits before each call.
 
 \begin{lstlisting}[language=Python]
 MAX_STEPS, MAX_TOKENS = 20, 200_000
 SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):                                        # allow, deny or ask a person
+def guard(cmd):
     if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
-    try: answer = input(f"allow `{cmd}`? [y/N] ").strip()
-    except EOFError: answer = ""
-    return None if answer.lower() == "y" else f"the person said no: {answer or 'no'}"
-...
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS: ...   # top of the loop: stop before another call
-...
-            if (no := guard(block.input["cmd"])):       # the refusal goes back as the tool's result
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|") ...
+    answer = read(f"allow `{cmd}`? [y/N] ")
+    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {answer}")
+# ...
+    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
+        print(f"[stopped: {steps} steps, {spent} tokens]")
+        if not chat or (input := read("\n> ")) == "/q": break
+        add(working_memory, {"role": "user", "content": input})
+        steps, spent = 0, 0
+        continue
+# ...
+            if (no := guard(block.input["cmd"])):
+                print(f"[{no}]")
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, ...
                 continue
 \end{lstlisting}
 
-\textbf{C.3 Sandboxing (+13 lines), in output.} A container started once before the loop, and the tool call aimed at it.
+\textbf{C.3 Observability (+12 lines), in control flow.} One function, called at each point the loop already passes: the start, each model call, each tool, each refusal, each limit and each compaction. Each record names the episode of the same session.
 
 \begin{lstlisting}[language=Python]
-up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1",
-                     "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only",
-                     "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}",
-                     "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], ...)
-...
-done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], ...)
+def trace(**event):
+    os.makedirs(".quark", exist_ok=True)
+    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isofor ...
+# ...
+trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, ...
+trace(event="refused", cmd=block.input["cmd"], why=no)
 \end{lstlisting}
 
-\textbf{C.4 Resilience (+53 lines), in the model interface, output and context.} SDK retries and a backup model; a saved session; interrupted requests answered on resume.
+\textbf{C.4 Resilience (+29 lines), in the model interface and output.} SDK retries and a backup model; resumption from the episode that context already keeps; interrupted and truncated requests answered, not executed.
 
 \begin{lstlisting}[language=Python]
-client = Anthropic(timeout=300, max_retries=3)         # model interface: retries with backoff
+client = Anthropic(timeout=300, max_retries=3)
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
-def ask(**request):                                    # model interface: backup model, then stop cleanly
+class Down(Exception): pass
+def call(**request):
     for model in MODELS:
         try: return client.messages.create(model=model, **request)
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
-def save(task, working_memory):                        # written atomically after each step
-    ...
-    os.replace(SESSION + ".tmp", SESSION)
-def unfinished():                                      # context: replay working memory; answer what was lost
-    ...
-        working_memory.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b["id"], "content": "interrupted: the harness stopped before this finished, so it may or may not have run. Check before repeating it.", "is_error": True} for b in lost]})
+# ...
+def unfinished():
+    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
+    if not episodes: return None
+    messages = [json.loads(line) for line in open(episodes[-1])]
+    last = messages[-1]
+    if last["role"] == "assistant" and not any(b["type"] == "tool_use" for b in last["content"]): return None
+    if read(f"unfinished session: {messages[0]['content'][:60]!r}. pick it up? [y/N] ").lower() != "y":  ...
+    return episodes[-1], messages
+# ...
+if resumed:                                              # resilience: pick up where the episode ends
+    EPISODE, working_memory = resumed
+    if working_memory[-1]["role"] == "assistant":
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", ...
+# ...
+            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):
+                print("[cut off, not run]")
+                input.append({"type": "tool_result", "tool_use_id": block.id, ...
+                continue
 \end{lstlisting}
 
-\textbf{C.5 Performance (+47 lines), in context, the model interface and output.} A cache mark on the conversation, a cap on tool results, streaming, a small model for summaries, and tools run together.
+\textbf{C.5 Performance (+24 lines net), in context, the model interface and output.} Streaming and a small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response.
 
 \begin{lstlisting}[language=Python]
-MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]   # FAST: compaction only
-def ask(models=MODELS, live=False, **request):         # model interface: stream the reply
-    ...
-            with client.messages.stream(model=model, **request) as stream: ...
-def trim(text):                                        # context: keep the start and end of a long result
-    if len(text) <= MAX_RESULT: return text
-    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + text[-MAX_RESULT // 2:]
-def cached(working_memory):                            # context: mark the end of the conversation for the cache
+MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
+class Down(Exception): pass
+def call(models=MODELS, live=False, **request):
+    for model in models:
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                shown = False
+                for text in stream.text_stream:
+                    if live: print(text, end="", flush=True); shown = True
+                if shown: print()
+                return stream.get_final_message()
+# ...
+def cached(working_memory):
     last = working_memory[-1]
-    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) else list(last["content"])
+    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], ...
     blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
     return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
-...
-    with ThreadPoolExecutor() as pool:                 # output: run the approved commands at the same time
+# ...
+    with ThreadPoolExecutor() as pool:
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 \end{lstlisting}
 
-\textbf{C.6 Evaluation (+38 lines), outside the harness.} Four cases. Each sets up a fresh folder, runs the real agent on its task, and checks what the agent left behind.
-
-\begin{lstlisting}[language=Python]
-def evaluate(names):
-    ...
-    for case in cases:
-        where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
-        subprocess.run(case["setup"], shell=True, cwd=where)
-        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, input="y\n" * 50, ..., timeout=300)
-        except subprocess.TimeoutExpired: pass
-        passed = subprocess.run(case["check"], shell=True, cwd=where, ...).returncode == 0
-        ...
-    return 1 if failed else 0
-\end{lstlisting}
-
-The baseline, and the same cases after lowering \passthrough{\lstinline!MAX\_STEPS!} from 20 to 1:
+\textbf{C.6 Evaluation (+38 lines), outside the harness.} Four cases, each graded by a shell command on the state the agent leaves, with a regression flag against the previous run. Run on the artifact, reducing the step limit from 20 to 1 left three cases passing and flagged the fourth:
 
 \begin{lstlisting}
-pass  count      2 steps    4.1s    13435 tokens
-pass  fix        3 steps    5.2s    20262 tokens
-pass  rename     2 steps    3.9s    13428 tokens
-pass  remember   2 steps    4.3s    13582 tokens
-4/4 passed
-
-pass  count      1 steps    3.0s     6687 tokens
-FAIL  fix        1 steps    2.6s     6644 tokens  kept /tmp/eval-fix-1pf3a9_w  REGRESSED: it passed last time
-pass  rename     1 steps    2.9s     6674 tokens
-pass  remember   1 steps    3.1s     6778 tokens
+pass  count      1 steps    3.7s     9439 tokens
+FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
+pass  rename     1 steps    3.6s     9440 tokens
+pass  remember   1 steps    4.0s     9520 tokens
 3/4 passed
+exit 1
 \end{lstlisting}
 
 \section{Case-study evidence}
 
-\textbf{D.1 The silent stop and the crash.} The response trace that diagnosed it, one line per model call, from the third attempt at the observability lesson (the last four of eight lines, followed by the end of the traceback). The traceback refers to the 48-line version of \passthrough{\lstinline!lessons/04-context/quark.py!} that was then current. The last response hit the cap partway through a tool request:
+The transcripts of all ten sessions and the final state of quark's memory stores are retained in the artifact (\passthrough{\lstinline!docs/quark-at-work/!}).
+
+\textbf{D.1 A discrepancy carried by semantic memory.} The fact recorded in the first session, and the one recorded in the review session that corrected the paper:
 
 \begin{lstlisting}
-[trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=3642 thinking=2498
-[trace] stop_reason=tool_use blocks=['text', 'tool_use'] out=228 thinking=0
-[trace] stop_reason=tool_use blocks=['thinking', 'tool_use'] out=148 thinking=70
-[trace] stop_reason=max_tokens blocks=['thinking', 'tool_use'] out=4096 thinking=2260
-  File "lessons/04-context/quark.py", line 37, in <module>
-    print(f"$ {block.input['cmd']}")
-KeyError: 'cmd'
+- lesson 4 (context): quark.py is 234 lines, about 82 code plus a roughly 150-line system prompt (README says 152, file body is about 148); ...
+- course: lesson 4 quark.py is 234 lines of which the system prompt text is lines 34-181 (148 lines) and the other 86 are code; ...
 \end{lstlisting}
 
-\textbf{D.2 Self-termination.} The command quark ran to test crash recovery while writing the resilience lesson. Its own command line contained \passthrough{\lstinline!08-resilience/quark.py!}, so the pattern matched quark too:
+\textbf{D.2 Procedural memory retrieved first.} The first command of each of the three sessions prompted only ``Now do the same for Lesson \emph{N}'s slides'':
 
 \begin{lstlisting}
-(yes y | uv run --project $R $R/production/08-resilience/quark.py "Run 'sleep 20; echo first > first.txt' as one command, ..." > out1.txt 2>&1 &) ; ... ; pkill -9 -f 08-resilience/quark.py; ...
+cat .quark/skills/update-lesson-slide-deck.md; ls lessons/ | head -30; grep -i "lesson\|slide" .quark/memory/memory.md | head -20
+cat .quark/skills/update-lesson-slide-deck.md; cat .quark/memory/memory.md; ls lessons
+cat .quark/skills/update-lesson-slide-deck.md; ls lessons; ls lessons/04-*; grep -i "slide\|lesson" .quark/memory/memory.md | head -20
 \end{lstlisting}
 
-\textbf{D.3 Fabrication from memory.} The two sets of decks written from memory were checked slide by slide against the lessons:
+\textbf{D.3 A fact appended rather than replaced.} Two facts present together in the final semantic store:
 
-\begin{itemize}
-\tightlist
-\item
-  \textbf{The four primitive decks:} 22 slides tightened, none invented.
-\item
-  \textbf{The six production decks:} 47 slides corrected and 5 removed.
-\end{itemize}
-
-The removed slides described runs that never happened, quoted cache numbers no run produced, or reversed which model had been disabled. The artifact keeps quark's transcripts and its memory file as they were after the runs.
+\begin{lstlisting}
+- course: slides.md decks are Marp markdown originally written from an older 48-line quark; decks for lessons 1, 2 and 3 are regenerated from README and code, lesson 4's deck is still stale
+- course: slides for lessons 1-4 were regenerated from README and code by quark (commits runs 2a-2d) so README line 67 and AGENTS.md to-do saying decks are stale are out of date
+\end{lstlisting}
 
 \section{Where each production layer lives}
 
@@ -673,10 +678,10 @@ Output
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Observability & \(\bullet\) & & & & \\
-Guardrails & \(\bullet\) & & \(\circ\) hiding denied tools & & \\
 Sandboxing & & & & & \(\bullet\) \\
-Resilience & & & \(\circ\) replaying saved memory & \(\bullet\) & \(\bullet\) \\
+Guardrails & \(\bullet\) & \(\circ\) asking a person & \(\circ\) hiding denied tools, in two harnesses & & \\
+Observability & \(\bullet\) & & & & \\
+Resilience & & & \(\circ\) reading the episode back & \(\bullet\) & \(\bullet\) \\
 Performance & \(\circ\) routing, in the fuller example & & \(\bullet\) & \(\bullet\) & \(\bullet\) \\
 Evaluation & outside the harness, built from control flow, input, model interface and output & & & & \\
 \end{longtable}
