@@ -97,7 +97,7 @@ export UV_ENV_FILE=.env
 
 ## The paper
 
-**[*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md)** · [PDF](./paper/latex/main.pdf) · [supplement](./paper/decomposition-study.md)
+**[*Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses*](./paper/agent-harness-primitives.md)** · [PDF](./paper/latex/main.pdf) · [supplement](./paper/decomposition-study.md)
 
 The paper is the course's thesis, written up for people who want the argument rather than the lessons:
 
@@ -313,9 +313,9 @@ quark never saw Claude Code. From its side, someone gave it a task in a terminal
 If you use this course, its code or its framework, please cite the paper:
 
 ```bibtex
-@misc{dovey2026fiveprimitives,
+@misc{dovey2026agentharness,
   author       = {Chase Dovey},
-  title        = {Five Primitives Are All You Need: Building an Agent Harness},
+  title        = {Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses},
   year         = {2026},
   organization = {Average Joes Lab},
   howpublished = {\url{https://github.com/averagejoeslab/building-agents}},

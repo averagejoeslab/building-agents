@@ -1,12 +1,12 @@
 # Supplement: decomposing three production harnesses
 
-This supplement belongs to *[Five Primitives Are All You Need: Building an Agent Harness](./five-primitives-are-all-you-need.md)*, §7. It gives the evidence behind each assignment, so a reader can check any line against its source.
+This supplement belongs to *[Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses](./agent-harness-primitives.md)*, §7. It gives the evidence behind each assignment, so a reader can check any line against its source.
 
 | Harness | Source read | Version |
 |---|---|---|
 | OpenAI Codex CLI | source, [github.com/openai/codex](https://github.com/openai/codex) | commit `7ac954ea24116700632906d89715f7755cd3523e` (2026-10-06) |
 | opencode | source, [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode) (formerly `sst/opencode`) | commit `652c090dc119b5f3dc1e5e0bf1c4b40d9721f0ef`, v1.18.34 (2026-10-06) |
-| Claude Code | public docs only; the source isn't published | code.claude.com/docs as of 2026-10-06 (CLI v2.1.288) |
+| Claude Code | public documentation only; the source is not published | code.claude.com/docs as of 2026-10-06 (CLI v2.1.288) |
 
 **Path conventions:**
 - Codex paths are relative to `codex-rs/`.
@@ -90,9 +90,9 @@ This supplement belongs to *[Five Primitives Are All You Need: Building an Agent
   - An approval changes how the command runs, and a sandbox denial triggers a new approval (`core/src/tools/orchestrator.rs:228–560`).
   - Each piece has one home; the layers read each other. The paper's §6 changed because of this.
 - **Guardian:** an LLM reviewer for approvals, so control flow plus a model-interface call, a nested harness.
-- **`request_user_input`:** the answer goes back to the model, so it's input. Approvals are consumed by the harness, so they're control flow.
+- **`request_user_input`:** the answer is returned to the model, so it is input. Approvals are consumed by the harness, so they're control flow.
 - **Code mode:** model-written JavaScript that calls tools without calling the model, so output, by §4's rule on programs the model writes.
-- **Plan mode:** a template (context), a disabled tool (output), and a blocking question (control flow). It's a bundle, not a part.
+- **Plan mode:** a template (context), a disabled tool (output), and a blocking question (control flow). It is a bundle, not a part.
 - **Turn diffs:** shown to the user, never sent to the model (`core/src/turn_diff_tracker.rs`; `rollout/src/policy.rs:203`), so output.
 - **`update_plan`:** shows the plan to a person and returns a constant (`core/src/tools/handlers/plan.rs:94–98`), so output.
 - **A provider-side model reroute** happens beyond the boundary. The harness only shows a warning (`core/src/session/mod.rs:3930–3960`).
@@ -156,7 +156,7 @@ This supplement belongs to *[Five Primitives Are All You Need: Building an Agent
 
 ### Hard cases
 - **Client/server:** transport and hosting, out of scope by §2.2. What crosses it is input or output.
-- **Revert:** restoring files at a person's request is the weakest fit. It's placed as resilience over output, and discussed in the paper's §9.2.
+- **Revert:** restoring files at a person's request is the weakest fit. It is assigned as resilience over output, and discussed in the paper's §9.2.
 - **GitLab Duo Workflow as a "model":** a remote agent loop behind the model interface (`llm.ts:119–206`). Read as a nested harness.
 - **A retry that spans tools:** tools run inside the streamed call, so retrying the stream may re-send a request after some tools already ran (`processor.ts:674–688`). This is a design hazard, not a new primitive.
 - **Plugins and hooks:** each hook lands on one primitive. The loader and installer are packaging, out of scope.
@@ -236,7 +236,7 @@ This supplement belongs to *[Five Primitives Are All You Need: Building an Agent
   - added context: context;
   - display rewrites: output.
 
-  One judgment call remains. `updatedInput` rewrites the model's tool arguments, so it's placed in output, but it's used as a guardrail.
+  One judgment call remains. `updatedInput` rewrites the model's tool arguments, so it is assigned to output, although it is used as a guardrail.
 - **Permissions and the sandbox read each other:**
   - the sandbox can stand in for a prompt;
   - the model can ask to leave the sandbox;
@@ -247,7 +247,7 @@ This supplement belongs to *[Five Primitives Are All You Need: Building an Agent
 - **Restore code** (`cc/checkpointing`): placed as resilience over output, the same weak fit as opencode's revert.
 - **Server-side review** (`cc/permission-modes`): harness parts on the provider's side of the boundary.
 
-**Limitation:** this decomposition rests on what the docs say. Undocumented behavior can't be checked, and the "never does" half of each definition is weaker without the code.
+**Limitation:** this decomposition rests on what the docs say. Undocumented behavior cannot be verified, and the "never does" half of each definition is weaker without the code.
 
 ---
 

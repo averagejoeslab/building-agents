@@ -1,6 +1,6 @@
 \section{The build, file by file}
 
-These are the four files of §5, in full. Each is the one before plus one primitive.
+The four files of §5 are reproduced in full. Each extends the previous file by one primitive.
 
 \subsection{The model interface alone (9 lines)}
 
@@ -79,7 +79,7 @@ while True:
 
 \subsection{Plus context: the finished harness (48 lines)}
 
-This is the full 48-line harness from §5, with the system prompt shortened to \passthrough{\lstinline!...!}. The full prompt is one long line in the artifact's \passthrough{\lstinline!lessons/04-context/quark.py!}; it holds the self, world, other-selves and body models described in §5.4, and ends with the file's own source. The comments mark which primitive each part belongs to; they aren't in the original file.
+This is the full 48-line harness from §5, with the system prompt shortened to \passthrough{\lstinline!...!}. The full prompt is one long line in the artifact's \passthrough{\lstinline!lessons/04-context/quark.py!}; it holds the self, world, other-selves and body models described in §5.4, and ends with the file's own source. The comments mark which primitive each part belongs to; they are not part of the original file.
 
 \begin{lstlisting}[language=Python]
 import subprocess, sys, os, datetime
@@ -134,7 +134,7 @@ while True:                                                             # contro
 
 \section{The runs quoted in §5}
 
-Each excerpt is from one real run. The model's wording varies from run to run.
+Each excerpt is taken from a single recorded run; the model's wording varies between runs.
 
 \textbf{B.1 The model interface alone.} The response's \passthrough{\lstinline!content!} holds an empty \passthrough{\lstinline!thinking!} block and a \passthrough{\lstinline!text!} block. The text begins:
 
@@ -204,7 +204,7 @@ Not much yet. My memory has one note about you: you prefer short answers.
 
 \section{The code each production layer adds}
 
-Each layer's \passthrough{\lstinline!quark.py!} is the previous one plus the lines below, which are shortened where marked. Where each piece lands is in the comments.
+Each layer's \passthrough{\lstinline!quark.py!} is the previous file plus the lines below, abbreviated where marked. Comments indicate the primitive in which each element resides.
 
 \textbf{C.1 Observability (+12 lines), in control flow.} One function, called at each point the loop already passes: the start, after each model call, after each tool, on each compaction.
 
@@ -348,7 +348,7 @@ KeyError: 'cmd'
   \textbf{The six production decks:} 47 slides corrected and 5 removed.
 \end{itemize}
 
-The removed slides described runs that never happened, quoted cache numbers no run produced, or reversed which model was benched. The artifact keeps quark's transcripts and its memory file as they were after the runs.
+The removed slides described runs that never happened, quoted cache numbers no run produced, or reversed which model had been disabled. The artifact keeps quark's transcripts and its memory file as they were after the runs.
 
 \section{Where each production layer lives}
 

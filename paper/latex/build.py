@@ -6,7 +6,7 @@ Needs pandoc (3.x) and a TeX Live with pdflatex, bibtex, tikz, pifont, listings,
 import re, subprocess, sys, pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
-MD = HERE.parent / "five-primitives-are-all-you-need.md"
+MD = HERE.parent / "agent-harness-primitives.md"
 PANDOC = sys.argv[1] if len(sys.argv) > 1 else "pandoc"
 REPO = "https://github.com/averagejoeslab/building-agents/blob/main/"
 

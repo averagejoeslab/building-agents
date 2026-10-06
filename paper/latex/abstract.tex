@@ -1,24 +1,24 @@
-People describe LLM agents with words that don't line up: framework, scaffold, runtime, orchestration layer, harness. Recent work argues that this outer layer drives much of how an agent performs, and that comparing agents without it misleads. But nobody has said what the layer is made of. I give an answer.
+The software that surrounds a large language model (LLM) in an agent is described in the literature and in practice under many names: framework, scaffold, runtime, orchestration layer, harness. Recent work shows that this layer accounts for a substantial share of agent performance and that comparisons which omit it are misleading. It has not, however, been characterized in terms of its constituent parts. This paper provides such a characterization.
 
-An agent is two things. \textbf{The model} is a function, \emph{TokensOut = Model(TokensIn)}. \textbf{The harness} is everything else. So \textbf{Agent = Harness(Model)}. Every harness, I argue, is made of \textbf{five mechanistic primitives}:
+We separate an agent into two components. The \textbf{model} is treated as a fixed function, \emph{TokensOut = Model(TokensIn)}. The \textbf{harness} comprises everything else, so that \textbf{Agent = Harness(Model)}. We argue that every harness is composed of \textbf{five mechanistic primitives}:
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{control flow} decides what runs, in what order, and when to stop, and it wraps the other four;
+  \textbf{control flow}, which sequences the other four and determines termination;
 \item
-  \textbf{input} gathers what goes to the model, from a person or the world;
+  \textbf{input}, which gathers what is sent to the model, from a person or from the environment;
 \item
-  \textbf{context} decides what the request holds and how it fits;
+  \textbf{context}, which determines what the request contains and fits it to the model's context window;
 \item
-  \textbf{the model interface} sends the request and gets the response back;
+  \textbf{the model interface}, which sends the request and receives the response;
 \item
-  \textbf{output} handles the response, by showing it to a person or running it as a tool.
+  \textbf{output}, which handles the response, either by presenting it to a person or by executing it as a tool call.
 \end{itemize}
 
-The method is one question, asked again and again: \emph{what is it, and by what mechanism does it work?} Each primitive is defined as much by what it never does as by what it does.
+Each primitive is defined both positively, by what it does, and negatively, by what it never does, so that the five are mutually exclusive.
 
-The core of the paper is a build. I start from a single API call and add one primitive at a time, and each step's missing piece turns out to be exactly the next primitive. The finished agent, quark, is 48 lines of Python, with nothing outside the five.
+The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 48 lines of Python containing nothing outside the five.
 
 Two results follow.
 
@@ -26,9 +26,9 @@ Two results follow.
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  \textbf{Production concerns fold back into the primitives.} Observability, guardrails, sandboxing, resilience, performance and evaluation look like new building blocks. Each is hardening inside the primitives it touches.
+  \textbf{Production concerns reduce to the primitives.} Observability, guardrails, sandboxing, resilience, performance and evaluation are shown to be hardening within the primitives they touch, not additional primitives.
 \item
-  \textbf{The vocabulary holds on real systems.} I take apart three production coding agents (Claude Code, OpenAI Codex CLI and opencode) part by part. Nothing in them needs a sixth primitive. The study also found where my original rules were too loose, and I tighten them here.
+  \textbf{The decomposition holds on production systems.} We decompose three production coding agents (Claude Code, OpenAI Codex CLI and opencode) and find no component that requires a sixth primitive. The study also identifies where the original boundary rules were underspecified, and we refine them accordingly.
 \end{enumerate}
 
-A case study, in which quark wrote much of the material that teaches it, shows the vocabulary used for diagnosis.
+A case study, in which the constructed agent produced much of its own teaching material, illustrates the use of the decomposition for failure diagnosis.
