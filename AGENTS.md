@@ -172,7 +172,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 - **Render and check:**
   ```bash
   export CHROME_PATH=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)   # or any Chrome
-  npx @marp-team/marp-cli <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files
+  npx @marp-team/marp-cli --no-stdin <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files < /dev/null   
   python3 tools/deckcheck.py <dir>
   ```
   The checker reports code lines not in the source, numbers not in the lesson, text off the page, and text under 9pt. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without running off the page: the 9pt check is what catches it. Then look at the pages.
