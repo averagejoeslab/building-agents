@@ -174,7 +174,7 @@ The longest is `./lessons/04-context/quark.py`, at 234 lines.
 
 ---
 
-# control_flow.py: a limit, and a reason for stopping
+# control_flow.py stops, and says why
 
 ```python
 MAX_STEPS = 10
@@ -197,7 +197,7 @@ else:
 
 ---
 
-# It says why it stopped
+# Two runs: done, and out of steps
 
 `uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the most files? answer in one English sentence"`
 

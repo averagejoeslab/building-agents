@@ -15,574 +15,321 @@ style: |
 
 # Guardrails
 
-### Building agents by building their harness
-Lesson 6 of 10 · Production
+### A hands-on course in building agents by building their harness
+Lesson 6
+
+<!-- Lesson 5 decided where commands run. This one decides whether they run at all. -->
 
 ---
 
-# Where we left off
+# The box limits reach, not whether
 
-Lesson 5 lets us **see** everything the agent does.
+Inside Lesson 5's box, the agent still runs whatever the model asks, as soon as it asks, for as long as it keeps asking.
 
-We can read every command it ran.
+- `rm -rf` on the mounted folder: your real project, gone
+- Stuck retrying one command: it goes on until you notice the bill
 
-After it ran.
-
----
-
-# The problem with after
-
-The trace is a record.
-
-It does not stop anything.
-
-The command has already run.
+<!-- The box makes the damage small. It doesn't stop the damage that's allowed inside it. -->
 
 ---
 
-# Remember the warning
+# The model proposes; the harness decides
 
-From Lesson 2 on, the agent runs model-written shell commands.
+Guardrails are rules about what the harness is allowed to do, checked before it does it:
 
-**With no confirmation.**
+- which commands may run
+- when a person gets a say
+- when a run has gone on long enough
 
----
+And the decision is yours.
 
-# Two things can go wrong
-
-- one **action** is harmful
-- the **run as a whole** goes on too long
-
----
-
-# One action
-
-`rm -rf` something it shouldn't.
-
-Overwrite a file.
-
-One bad command is enough.
+<!-- Keep it simple: three questions, answered before anything happens. -->
 
 ---
 
-# The whole run
+# Built on control flow
 
-The loop never stops asking for tools.
+- Control flow decides whether the next step happens at all
+- It turns a tool request into a command being run
+- It turns the result into another model call
+- A guardrail is a decision at one of those two points, so it lives there
+- A production layer adds hardening, not a new primitive
 
-Lesson 3: "A loop with no clear way to end is a bill with no clear way to end."
-
----
-
-# Guardrails
-
-**Checks that can stop the agent before it acts, or before it goes on.**
+<!-- Everything guardrails do stays inside control flow. Point at the two places the loop already passes through. -->
 
 ---
 
-# Where does it live?
+# Three checks, where the loop already passes
 
-Guardrails are **built on control flow**.
+- **A gate before each tool:** *allow* it, *ask* a person first, or *deny* it
+- **A refusal the model can read:** every tool request needs a result, so the refusal goes in that slot, marked as an error, saying why
+- **Limits before each call:** count the steps and tokens; past the limit, stop
 
----
-
-# Why control flow
-
-Control flow decides **whether to go again**.
-
-Control flow sits between a request for a tool and the tool running.
-
-That is where you put a gate.
+<!-- The rules are plain code: a list of programs safe to run unasked, and patterns that must never run. Lesson 3 said a loop with no clear end is a bill with no clear end; this is the clear end. -->
 
 ---
 
-# Two kinds of guard
+# The box comes first
 
-- a **gate** before each tool
-- **limits** at the top of the loop
+- Guardrails don't change what the model asks for, only whether the harness goes along with it
+- They're only as good as the rules: a check is code reading a command
+- A command can say the same thing many ways
+- The guard keeps out what you'd never want; the box limits what gets through
 
-Plus one more, in the richer file: an **interrupt**.
-
----
-
-# The worked example
-
-`production/06-guardrails/quark.py`
-
-Lesson 5's `quark.py` plus guards.
-
-**83 lines.**
+<!-- This is why sandboxing came before guardrails. Text checks leak; kernel walls don't. -->
 
 ---
 
-# Start with the gate
-
-Before a tool runs, the harness gives a verdict.
-
----
-
-# Three verdicts
-
-- **allow**: run it
-- **ask**: the person decides
-- **deny**: don't run it
-
----
-
-# Where the gate sits
-
-In the tool branch.
-
-**Before** the trace.
-
-**Before** `subprocess.run`.
-
----
-
-# So denied commands are not traced
-
-Lesson 5 records what ran.
-
-A denied command never ran.
-
-It never reaches `trace()`.
-
----
-
-# Four new pieces
-
-- `import re`
-- `SAFE`
-- `DENY`
-- `guard(cmd)`
-
----
-
-# SAFE
-
-A set of read-only programs: `ls`, `cat`, `wc`, `grep`…
-
-Runs unasked only if **every** piece between pipes starts with one,
-
-and nothing chains, redirects or expands: no `; & < > $`, backtick, newline or `(`.
-
----
-
-# DENY
-
-A regular expression.
-
-It matches patterns that should never run.
-
-If it matches: **deny**.
-
----
-
-# guard(cmd)
-
-Takes the command string.
-
-Returns the verdict.
-
-Three outcomes, one function.
-
----
-
-# The order of checks
-
-1. matches `DENY`? **deny**
-2. only `SAFE` programs, nothing chained or redirected? **allow**
-3. otherwise: **ask**
-
----
-
-# Why default to ask
-
-An unknown command is neither known-safe nor known-bad.
-
-So a person decides.
-
-Safe by default, not by hope.
-
----
-
-# Asking the person
-
-The harness prints the command.
-
-It waits for an answer.
-
-That's control flow deciding whether the next step runs. The answer is a decision, not a task.
-
----
-
-# What happens on yes
-
-The command runs.
-
-Everything continues as in Lesson 5.
-
----
-
-# What happens on no
-
-The command does not run.
-
-But the model asked and is **waiting**.
-
-The tool request still needs an answer.
-
----
-
-# The refusal goes back as a result
-
-A `tool_result` with `is_error` set.
-
-It says why the command was not run.
-
----
-
-# Why is_error
-
-The model reads the result.
-
-It learns that this failed and why.
-
-It can try something else.
-
----
-
-# Refusal is information
-
-Not a crash.
-
-Not silence.
-
-An ordinary tool result, marked as an error, in the slot the result would have filled.
-
----
-
-# The person can explain
-
-Type `no`, then a reason.
-
-"no, don't touch that folder"
-
-The reason goes back as an instruction.
-
----
-
-# A guard talking to the model
-
-The person steers it.
-
-Without a new task. Without restarting.
-
----
-
-# Now the limits
-
-The gate guards each action.
-
-Limits guard the **run**.
-
----
-
-# Two counters
-
-- `steps`: how many model calls
-- `spent`: how many tokens
-
-Both start at zero.
-
----
-
-# Two constants
-
-- `MAX_STEPS`
-- `MAX_TOKENS`
-
-The ceilings.
-
----
-
-# The stop check
-
-At the **top** of the loop.
-
-Before the next model call.
-
-Over a ceiling? Stop.
-
----
-
-# Why the top
-
-Stopping before the call costs nothing.
-
-Stopping after is a call you already paid for.
-
----
-
-# Counters reset per task
-
-In chat mode, a new task resets both.
-
-Each task gets its own budget.
-
----
-
-# Lesson 3 had MAX_STEPS too
-
-`control_flow.py` stopped after 10 steps.
-
-That was a counting loop in one file.
-
-Now it is a guard in the working agent.
-
----
-
-# Who stops the run
-
-The harness checks the limits.
-
-The harness stops the run.
-
-The model doesn't decide to stop.
-
----
-
-# Run it
-
-```
-uv run production/06-guardrails/quark.py \
-  "how many lines are in README.md?"
+# The policy and the gate
+
+Lesson 5's `quark.py` plus 23 lines, all in `# ── control flow ──`. At the top of the section (abridged):
+
+```python
+MAX_STEPS, MAX_TOKENS = 20, 200_000
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", ...}
+DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
+def guard(cmd):
+    if DENY.search(cmd): return "blocked by policy"
+    if not re.search(r"[;&<>$`\n(]", cmd) and all(... in SAFE ...): return None
+    answer = read(f"allow `{cmd}`? [y/N] ")
+    return None if answer.lower() == "y" else "the person said no" + ...
 ```
 
----
-
-# A command that needs asking
-
-The harness prints it and waits.
-
-You answer `y`.
+<!-- SAFE is programs that only read. DENY is sudo, recursive or forced rm, mkfs, git push, piping a download into a shell, and anything mentioning .env. They're data, so changing the policy is changing a line. -->
 
 ---
 
-# A command that gets denied
+# `guard()`: deny, allow, or ask
 
-Answer `no, <reason>`.
+It returns `None` if the command may run, or the reason it may not:
 
-Watch the model read the reason and change course.
+1. Matches `DENY`: refused outright, and no one is asked
+2. Only safe programs: it runs. No `; & < > $`, backtick, newline or `(`, and every piece between pipes starts with a `SAFE` program
+3. Anything else goes to the person with Lesson 2's `read()`; a `y` lets it run
+4. Any other answer is a no, and what they typed goes back to the model
 
----
-
-# A note on the outputs
-
-The recorded outputs were made by **piping answers into stdin**.
-
-Answers are not echoed.
-
-At the keyboard you will see your own typing.
+<!-- cat notes.txt | sh isn't safe just because it starts with cat. "no, use git status instead" is an instruction, not just a refusal. Ctrl-D counts as no. The default is the safe one: a command nobody approved doesn't run. -->
 
 ---
 
-# Seeing a limit
+# Limits, checked before every call
 
-Make a copy with `MAX_STEPS = 2`.
+At the top of the loop, and where each call is counted (abridged):
 
-Give it a task that needs more.
-
-It stops after two.
-
----
-
-# Going further
-
-`quark.py` is one way to do it.
-
-`guardrails.py` is a richer one.
-
----
-
-# guardrails.py
-
-Built on Lesson 3's `control_flow.py`.
-
-Adds structure to the verdicts.
-
----
-
-# ALLOWED and DENIED
-
-`ALLOWED`: a set of programs that may run unasked.
-
-`DENIED`: patterns that are always refused, each with its reason.
-
----
-
-# One command is many programs
-
-```
-ls && rm -rf x ; cat y | grep z
+```python
+    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
+        print(f"[stopped: {steps} steps, {spent} tokens]")
+        if not chat or (input := read("\n> ")) == "/q": break
+        add(working_memory, {"role": "user", "content": input})
+        steps, spent = 0, 0
+        continue
+    ...
+        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+        output = response.content
+        steps += 1
+        spent += response.usage.input_tokens + response.usage.output_tokens + ...
 ```
 
-Checking the first word is not enough.
+In a one-shot run, a limit is the end. In a chat it hands back to you, and the counts start again after each new input.
+
+<!-- The call now keeps the whole response, not just its content, so the count can read usage. Resetting after each input means one long chat doesn't use up a budget meant for one request. -->
 
 ---
 
-# programs()
+# A refusal goes where the result would have
 
-Splits a command on:
+In the output loop, between printing the command and running it in the box (abridged):
 
-`&&`  `||`  `;`  `|`  and newlines.
+```python
+            print(f"$ {block.input['cmd']}")
+            if (no := guard(block.input["cmd"])):
+                print(f"[{no}]")
+                input.append({"type": "tool_result", ..., "content": no, "is_error": True})
+                continue
+```
 
-Every program in the line gets checked.
+- `continue` skips the run: the command never starts, and the model's next turn still makes sense
+- A command that passes the gate runs in Lesson 5's box exactly as before
 
----
-
-# verdict()
-
-A `DENIED` pattern anywhere: **deny**.
-
-A redirect or `$`: **ask**.
-
-Any program not in `ALLOWED`: **ask**.
-
-Only a command made entirely of allowed programs runs unasked.
+<!-- Lesson 4's mechanics() puts quark's own file in its system prompt, so the model can read the policy it's under. That's self-knowledge, not this layer, and it saves the model asking for things that will be refused. -->
 
 ---
 
-# ask() with more answers
+# Safe commands run; anything else waits for you
 
-- `y`: allow once
-- `always`: allow this from now on
-- anything else: a **reason**, sent to the model
+`wc` is on the safe list, so nothing was asked:
 
----
+```
+$ wc -l notes.txt
+3 notes.txt
 
-# Dollar limit
+notes.txt has 3 lines.
+```
 
-`MAX_DOLLARS`.
+`rm` isn't, so the harness stopped at the prompt (I piped in `y`; shortened):
 
-Uses a `PRICE` dict of **example rates**.
+```
+$ rm ./*.log; ls -A
+allow `rm ./*.log; ls -A`? [y/N] .env
+.quark
+notes.txt
+```
 
-They show which run cost more, not your bill.
-
----
-
-# Repeat limit
-
-`MAX_REPEATS`.
-
-The same command again and again?
-
-Stop. The model is stuck.
+<!-- In the second run, ls -la ran unasked first. Nothing was deleted until the answer came. -->
 
 ---
 
-# Seeing the dollar limit
+# A no with a reason is an instruction
 
-Make a copy with `MAX_DOLLARS = 0.004`.
+The answers piped in were `no, put it in a folder called drafts`, then `y` (shortened):
 
-It stopped at $0.0041 against $0.004.
+```
+$ touch notes2.txt && ls -l notes2.txt
+allow `touch notes2.txt && ls -l notes2.txt`? [y/N] [the person said no: no, put it in a folder called drafts]
+$ mkdir -p drafts && touch drafts/notes2.txt && ls -l drafts/notes2.txt
+```
 
-The limit is checked before each call, so a run can end a little over.
+The model took the reason as an instruction and asked again.
 
----
-
-# Interrupt
-
-Press **Ctrl-C** while it works.
-
-Only in `guardrails.py`.
+<!-- The person's reason goes back to the model inside the refusal, so a no can redirect the run, not just block it. -->
 
 ---
 
-# The tricky part of interrupting
+# The deny list asks no one
 
-The model may have asked for tools.
+```
+$ cat .env
+[blocked by policy]
+$ rm -rf .
+[blocked by policy]
+```
 
-Every `tool_use` needs a `tool_result`.
+> I also didn't try to get around the block.
 
-Stop in the middle and the next request is **malformed**.
+The model expected it, because it can read its own harness. The folder, `.env` included, is all still there.
 
----
-
-# The handler
-
-On `KeyboardInterrupt`, it answers each unanswered tool request.
-
-Then it asks you: **what now?**
-
----
-
-# After the interrupt
-
-You type a new instruction.
-
-The model carries on, with that.
-
-Not a crash. A hand-back.
+<!-- Both were refused before they ran. -->
 
 ---
 
-# Why interrupt is control flow
+# A limit stops the run before the next call
 
-It decides whether the loop goes on.
+`MAX_STEPS` lowered to 2 in a copy, asking for three commands, one at a time:
 
-And who gets the next turn.
+```
+$ date
+Tue Oct  6 18:05:11 UTC 2026
 
-The person, this time.
+$ pwd
+/tmp/g6
 
----
+[stopped: 2 steps, 12799 tokens]
+```
 
-# Policy languages
+`MAX_TOKENS` works the same way, but at 200,000 you'll rarely reach it.
 
-Open Policy Agent and NeMo Guardrails.
-
-They express rules like these in their own language.
-
-This layer, packaged.
-
----
-
-# What guardrails can be
-
-- **what** is checked: command, path, spend
-- **who** decides: code, person, another model
-- **when**: before an action, or between steps
-- **what happens**: stop, ask, tell the model
+<!-- quark.py has no interrupt: Ctrl-C stops the program but doesn't hand the run back to you. The fuller example does that properly. -->
 
 ---
 
-# What to take away
+# Going further: what else guardrails can be
 
-**Rule:** guardrails are checks in control flow that decide whether an action runs and whether the loop goes on.
+- **How a command is judged:** text patterns, a shell parser, per-tool rules, or a second model call
+- **What the answers are:** allow once, for the session, always, or only with these arguments
+- **Who gets asked:** the terminal, someone on Slack or Telegram, a second agent, or nobody
+- **What counts as too much:** steps, tokens, dollars, wall-clock time, or repeating
+- **How a run is interrupted,** and what the model is told about a refusal
 
----
-
-# Notice what guardrails never do
-
-They never change how a request is built or sent.
-
-A refusal goes back as an ordinary tool result.
-
-They decide **whether** the next step happens.
+<!-- Asking too often trains people to hit y; asking too rarely is no guardrail. A run with nobody to ask has to fail closed. -->
 
 ---
 
-# What's missing
+# It can be a product on its own
 
-A guard decides whether a command runs.
+- Policy services like **Open Policy Agent** decide *allowed or not* for a request, as data and not code
+- Libraries like **NeMo Guardrails** and **Guardrails AI** wrap checks around what goes into and comes out of a model
 
-It does not limit **what an allowed command can reach**.
+If you're using one for what a tool may run, it's this layer.
 
-An allowed command still has the whole machine.
+<!-- Same layer, someone else's rules engine. -->
+
+---
+
+# `guardrails.py`: finer answers, more limits
+
+Built on Lesson 3's `control_flow.py`, with no system prompt:
+
+- **Judged per piece:** `cd /tmp && rm x` is judged by `cd` *and* `rm`
+- **Always:** `a` at the prompt adds those programs to `ALLOWED` for the rest of the run
+- **A spending limit** in dollars, from each response's `usage`
+- **A repeat limit:** the same command `MAX_REPEATS` times stops the run
+- **An interrupt:** Ctrl-C answers the open tool requests and asks `what now?`
+
+<!-- Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. Leave "what now?" blank and the run stops. -->
+
+---
+
+# Two questions covered five commands
+
+I answered `a` to `mkdir` and to the first `touch`:
+
+```
+$ mkdir /tmp/gdemo
+allow `mkdir /tmp/gdemo`? (mkdir isn't on the allowed list) [y]es, [a]lways, or say why not: 
+$ cat .env
+[blocked by policy: secrets files are off limits]
+$ touch /tmp/gdemo/a.txt
+allow `touch /tmp/gdemo/a.txt`? (touch isn't on the allowed list) [y]es, [a]lways, or say why not: 
+$ touch /tmp/gdemo/b.txt
+
+$ ls /tmp/gdemo
+a.txt
+b.txt
+```
+
+<!-- cat .env was denied without asking. The second touch didn't ask, because touch was by then allowed. ls was already on the list. -->
+
+---
+
+# The rule: decide before the harness does it
+
+- Check each tool request where control flow turns it into a command
+- Check the run itself where control flow chooses to go around again
+- Say no in a way the model can read
+- Give the person a way in
+
+<!-- Decide what the harness is willing to do before it does it. -->
+
+---
+
+# What guardrails never do
+
+It sits inside control flow, deciding whether the next step happens:
+
+- **Model interface:** sends and receives as before; guardrails read `usage` and the tool request
+- **Output:** an allowed command runs in the box exactly as before
+- **Context:** a refusal is an ordinary tool result in the slot the result would have filled
+- **Input:** Lesson 2's `read()`, asking a person for a decision
+
+<!-- Each piece of this layer uses the other primitives as they are, and changes none of them. -->
+
+---
+
+# What's missing: you can stop a run, not see one
+
+- How long did each step take?
+- How many tokens, and what did that cost?
+- Which command did the guard refuse, and which did the box kill?
+- The episode has every message, but it's written for the model: no timings, no token counts, no exit codes
+
+<!-- The terminal scrolled past. The person running quark needs a record of their own. That's observability. -->
 
 ---
 
 <!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
 
-# Next: Sandboxing
+# Next: Observability
 
-Lesson 7 limits what a command can reach.
+Lesson 7

@@ -128,8 +128,11 @@ trace(event="start", input=input)
 
 ```python
         start = time.time()
-        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+        response = call(...)
         trace(event="model", seconds=round(time.time() - start, 2), ...)
+```
+
+```python
             start = time.time()
             done = subprocess.run([...], ...)
             trace(event="tool", ..., seconds=round(time.time() - start, 2), exit=done.returncode, ...)
@@ -258,7 +261,7 @@ Tracing platforms like Langfuse and LangSmith are this layer: you send them span
 
 ---
 
-# One run says what happened; every run says what's normal
+# A live line per step, while it runs
 
 `observability.py "run ls /nonexistent, then run sleep 3 ..."` prints a line per step (shortened):
 
@@ -271,7 +274,15 @@ $ sleep 3
 [step 2: model 1.35s, 645 tokens in, 71 out, $0.0030]
 ```
 
-`observability.py report`, three runs (shortened):
+At the end, `row()` sums the run into one line: `prob.` 1 (one tool exited non-zero), 6.3 seconds, 3.0 of them the `sleep`.
+
+<!-- The live line comes after every model call and tool: step, time, tokens in and out, cost, exit code. You see where the time and money go while it runs. -->
+
+---
+
+# A table of every run says what's normal
+
+`observability.py report` reads the whole log: one line per run (some columns left out).
 
 | run | calls | tools | prob. | time | cost |
 |---|---|---|---|---|---|
@@ -279,7 +290,9 @@ $ sleep 3
 | 98bab13a | 4 | 3 | 0 | 5.3s | $0.0211 |
 | 47a469d6 | 2 | 2 | 1 | 6.3s | $0.0067 |
 
-<!-- prob. is 1 for the run where one tool exited non-zero, and 3.0 of its 6.3 seconds were the sleep. The run that went looking for a file with the wrong name took four calls and cost nearly five times the first. Costs are at the example rates, so they show which run was expensive, not what you were billed. -->
+The run that went looking for a file with the wrong name took four calls and cost nearly five times the first.
+
+<!-- A trace of one run tells you what happened; a table of every run tells you what's normal. The run that went looking for a file with the wrong name took four calls and cost nearly five times the first. Costs are at the example rates, so they show which run was expensive, not what you were billed. -->
 
 ---
 

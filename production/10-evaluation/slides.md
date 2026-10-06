@@ -212,7 +212,11 @@ exit 1
 $ cat /tmp/eval-fix-8ega07z3/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-8ega07z3/.quark/traces.jsonl
+```
+
+Its trace:
+
+```
 {"event":"start"}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool","cmd":"cat calc.py test.py"}

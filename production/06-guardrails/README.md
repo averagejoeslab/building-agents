@@ -35,11 +35,6 @@ def guard(cmd):                                          # guardrails: deny, all
 
 **The policy.** `SAFE` is a set of programs that only read: `ls`, `cat`, `grep`, `wc` and a few more. `DENY` is one pattern for things quark should never do, whoever asks: `sudo`, recursive or forced `rm`, `mkfs`, `git push`, piping a download into a shell, and anything that mentions `.env`, where secrets live. They're data at the top of the section, so changing the policy is changing a line.
 
-**`guard()`.** It takes the command the model asked for and returns `None` if it may run, or the reason it may not.
-1. If the command matches `DENY`, it's refused outright. No one is asked.
-2. If it's made only of safe programs, it runs. "Made only of" is checked carefully: the command has to have none of `; & < > $` or a backtick or a newline (anything that chains commands, redirects into a file, or expands something the check can't see), and every piece between pipes has to start with a safe program. `cat notes.txt | sh` isn't safe just because it starts with `cat`.
-3. Anything else is put to the person: `allow `…`? [y/N]`. A `y` lets it run. Anything else is a no, and what they typed goes back to the model, so `no, use git status instead` is an instruction, not just a refusal. Closing the input counts as no. The default is the safe one: a command nobody approved doesn't run.
-
 **`guard()`** takes the command the model asked for and returns `None` if it may run, or the reason it may not.
 1. If the command matches `DENY`, it's refused outright. No one is asked.
 2. If it's made only of safe programs, it runs. "Made only of" is checked carefully: no `; & < > $`, backtick, newline or `(` (anything that chains commands, redirects, or expands something the check can't see), and every piece between pipes has to start with a safe program. `cat notes.txt | sh` isn't safe just because it starts with `cat`.
@@ -56,6 +51,12 @@ At the top of the loop, the limits, checked before every call:
         continue
 ```
 
+The counts start at zero alongside working memory:
+
+```python
+working_memory, drop, steps, spent = [], 0, 0, 0
+```
+
 Each call is counted. The call now keeps the whole `response`, not just its `content`, so the count can read `usage`:
 
 ```python
@@ -65,7 +66,11 @@ Each call is counted. The call now keeps the whole `response`, not just its `con
         spent += response.usage.input_tokens + response.usage.output_tokens + response.usage.cache_read_input_tokens + response.usage.cache_creation_input_tokens
 ```
 
-In a one-shot run, a limit is the end. In a chat it hands back to the person, and the counts start again after each new input, so one long chat doesn't use up a budget meant for one request.
+In a one-shot run, a limit is the end. In a chat it hands back to the person, and the counts start again after each new input, with one line at the end of the loop, so one long chat doesn't use up a budget meant for one request:
+
+```python
+    steps, spent = 0, 0
+```
 
 And in the output loop, the gate, between printing the command and running it in the box:
 

@@ -100,7 +100,7 @@ Docker is the tool quark uses to make the box. It's one of several; the idea is 
 
 # The box: one container for the whole run
 
-Lesson 4's `quark.py` plus 10 lines. `atexit` joins the imports; this goes in `# ── output ──` (abridged: `...` stands for the flags on the last slide):
+Lesson 4's `quark.py` plus 10 lines. `atexit` joins the imports, and the box goes in the output section (abridged: `...` stands for the flags on the last slide):
 
 ```python
 IMAGE, TIMEOUT = "python:3.13-slim", 30
