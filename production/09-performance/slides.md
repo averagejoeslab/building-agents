@@ -15,785 +15,348 @@ style: |
 
 # Performance
 
-### Building agents by building their harness
-Lesson 9 of 10 · Production
+### A hands-on course in building agents by building their harness
+Lesson 9
 
 ---
 
-# Where we left off
+# A run that finishes can still cost too much
 
-The agent survives failures.
+- Lesson 8 made the agent keep going when something fails
+- But ten minutes and ten dollars is a run you think twice about starting
+- Over a long task two things add up: **the time you wait** and **the tokens you pay for**
 
-But it's slow and it's expensive.
-
----
-
-# Why it's slow
-
-Each step is a model call.
-
-A task is many steps.
-
-You wait on every one.
+<!-- Start from where Lesson 8 left us: the agent is robust now. Robust isn't the same as something you'd happily run all day. -->
 
 ---
 
-# Why it's expensive
+# Time and tokens come from the same place
 
-Lesson 3: each request carries **everything so far**.
+| Primitive | Where the time and tokens go |
+|---|---|
+| **Context** | what the request holds, resent on every pass |
+| **Model interface** | waiting on the model to read and write |
+| **Output** | waiting on commands to finish |
 
-Step 10 resends steps 1 to 9.
+A production layer, not a new primitive. Control flow, input and the sandbox are left as they are.
 
----
-
-# Performance
-
-**Make it faster and cheaper without changing what it does.**
-
----
-
-# Where does it live?
-
-Performance is spread across **several primitives**.
+<!-- Performance is how fast the agent responds and how much each task costs. It isn't one mechanism: it's a few small ones, spread over the three primitives where the time and the tokens go. -->
 
 ---
 
-# Three places in quark.py
+# The cost of a task is everything resent
 
-- **context**: prompt caching, small requests
-- **model interface**: streaming, a fixed smaller model for summaries
-- **output**: text shown as it arrives, tools run in parallel
+- Every pass of the loop sends the **whole** request again: tools, instructions, every message
+- Twenty steps means reading the same opening twenty times
+- **Prompt caching:** the request is a prefix, read in a fixed order
+- Mark where the remembering ends with `cache_control`; a call that starts with the same tokens only reads the new end
+- A cache read costs a tenth of normal input; a write, a quarter more; it lasts five minutes since last use
 
----
-
-# And one more place
-
-In `performance.py`, choosing a model **per task** is **control flow**.
-
-Routing, from Lesson 3.
-
-We'll get there.
+<!-- Nothing is remembered on the model's side between calls. The API can remember what it worked out for the start of a request, though, and pick up from there if the next request begins with exactly the same tokens. -->
 
 ---
 
-# The worked example
+# A cache has three catches
 
-`production/09-performance/quark.py`
+- **The match has to be exact.** One changed character early and everything after it is new. That's why Lesson 4's prompt has the date, not the time
+- **There's a minimum.** 512 to 4,096 tokens depending on the model; quark's prompt is about eight thousand
+- **It belongs to one model.** Switch models and you start again
 
-Lesson 8's `quark.py` plus a performance layer.
+The system prompt has carried a mark since Lesson 4. New here: a second mark on the **last message**.
 
-**159 lines.**
-
----
-
-# Start with context
+<!-- Anything that changes goes at the end, never at the start. A prefix under the minimum isn't cached, and nothing tells you. With the second mark, each call pays full price only for what's new: the last reply and the last result. -->
 
 ---
 
-# The expensive part
+# Send less, wait less
 
-Each request begins with the same things:
+- **Trim:** cap what one tool result may add, keeping the start and the end
+- **Stream:** the reply arrives word by word, starting after half a second, not all at once after eight
+- **Small jobs to the small model:** compaction always goes to a faster, cheaper one
+- **Run together:** several tool requests in one reply run at the same time
+- Results still go back in order, each with its id; the guard's questions come first, one at a time
 
-instructions, then the conversation so far.
-
-The model **reads all of it again**.
-
----
-
-# Prompt caching
-
-The API remembers the **start** of a request.
-
-Send the same start again: it costs far less.
+<!-- A whole file in working memory is resent on every call, cached or not. Streaming doesn't change the total time, but the wait feels completely different. The model asked for those commands together before seeing any result, so it has already decided none needs another's answer. -->
 
 ---
 
-# How a match works
-
-The cache matches a **prefix**.
-
-Same beginning, same tokens, same order.
-
-One changed token breaks the match from there on.
-
----
-
-# Why Lesson 4 had no time
-
-The system prompt says today's **date**, not the time.
-
-A timestamp would change every call.
-
-The prefix would never match.
-
----
-
-# Marking a breakpoint
-
-`cache_control` marks where the cached part **ends**.
-
-Lesson 4 put one on the system prompt.
-
----
-
-# The conversation grows
-
-The system prompt is cached.
-
-The conversation is not.
-
-Every step resends all of it at full price.
-
----
-
-# A second breakpoint
-
-`cached(working_memory)`
-
-Puts `cache_control` on the **last block of the last message**.
-
----
-
-# Why the last message
-
-Next step, the prefix is longer by one turn.
-
-Everything up to here is **already cached**.
-
-Only the new part is paid in full.
-
----
-
-# The numbers: write and read
-
-Writing to the cache costs about **1.25x**.
-
-Reading from it costs about **0.1x**.
-
----
-
-# The catches
-
-- the cache lasts about **5 minutes**
-- there is a **minimum size** to cache
-- the cache is **per model**
-
----
-
-# Seeing it work
-
-Lesson 5's trace has `cache_read` and `cache_write`.
-
-The first call writes the prompt to the cache, unless a run minutes before already did.
-
----
-
-# Each step after
-
-In the README's run: **read** 5,182, then 5,311, then 5,466.
-
-Written each time: only what's new, 129, 155 and 119 tokens.
-
----
-
-# Observability pays off
-
-You can't tune what you can't see.
-
-The trace made this a **measurement**.
-
----
-
-# Smaller requests
-
-Cheaper still: **send less**.
-
----
-
-# Trimming tool results
-
-`MAX_RESULT = 20_000`
-
-A long result is cut before it enters working memory.
-
----
-
-# Head and tail
-
-Keep the **start** and the **end**.
-
-Cut the middle.
-
-Both are where the useful part usually is.
-
----
-
-# Say what was cut
-
-```
-[... 5327 characters cut ...]
-```
-
-The model knows something is missing.
-
-It can ask for more.
-
----
-
-# Seen in the README
-
-A 25,327-character result.
-
-Trimmed to 20,000.
-
----
-
-# Lesson 4 had this
-
-`trim()` in `context.py`.
-
-Now it's in the working agent.
-
----
-
-# Now the model interface
-
----
-
-# Waiting for the whole reply
-
-Without streaming: nothing until it's done.
-
-Then it all appears.
-
----
-
-# Streaming
-
-`client.messages.stream`
-
-Text arrives **as it's generated**.
-
----
-
-# Lesson 1 already streamed
-
-For a different reason: long responses time out.
-
-Nothing was printed.
-
----
-
-# Now we print
-
-The text goes to the terminal **live**.
-
-Receiving the stream is the model interface. Showing it to you is output.
-
-Same total time. Feels much faster.
-
----
-
-# Latency you feel
-
-The time to the **first word** is what you notice.
-
-Not the total.
-
----
-
-# ask()
+# `call()` streams, model by model (abridged)
 
 ```python
-ask(models=MODELS, live=False, **request)
+MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
+class Down(Exception): pass
+def call(models=MODELS, live=False, **request):
+    for model in models:
+        try:
+            with client.messages.stream(model=model, **request) as stream:
+                shown = False
+                for text in stream.text_stream:
+                    if live: print(text, end="", flush=True); shown = True
+                if shown: print()
+                return stream.get_final_message()
 ```
 
-One function for every model call.
+Compaction asks for the small model: `call(models=FAST, ...)`.
+
+<!-- live=True prints text as it arrives, so the loop no longer prints text blocks itself. Receiving the stream is the model interface; printing each piece for the person is output. Which model a kind of request goes to is a fixed setting, like max_tokens, so it belongs here, as Lesson 8's backup model does. Choosing per task while running is routing, and that's control flow. The except branch is Lesson 8's, unchanged. -->
 
 ---
 
-# live
-
-`live=True`: print the text as it arrives, for the person.
-
-`live=False`: collect quietly.
-
----
-
-# Other requests don't need live
-
-A summary is not for a person to watch.
-
-So `compact()` calls with `live=False`.
-
----
-
-# A model per request
+# Context: trim, and cache the end (abridged)
 
 ```python
-FAST = ["claude-haiku-4-5"]
+MAX_RESULT = 20_000
+def trim(text):
+    if len(text) <= MAX_RESULT: return text
+    return text[:MAX_RESULT // 2] + f"\n[... {len(text) - MAX_RESULT} characters cut ...]\n" + ...
+
+def cached(working_memory):
+    last = working_memory[-1]
+    blocks = [{"type": "text", "text": last["content"]}] if isinstance(last["content"], str) else ...
+    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
+    return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
 ```
 
----
-
-# Compaction uses FAST
-
-Summarizing doesn't need the strongest model.
-
-`compact()` passes `models=FAST`.
-
-Faster. Cheaper.
-
----
-
-# A fixed choice
-
-In `quark.py`, this is one fixed choice for one job.
-
-Nothing is **deciding**.
-
----
-
-# A caveat
-
-The small model may have a **smaller window**.
-
-If the summary request is too long, Lesson 4's `drop` path takes over.
-
----
-
-# A caveat on our testing
-
-The README only tested compaction on the small model with a direct call.
-
-Not a full-window run.
-
-It says so.
-
----
-
-# Now output
-
----
-
-# Tools run one at a time
-
-The model asks for three commands.
-
-We run them in order.
-
-Three waits, added up.
-
----
-
-# They may not depend on each other
-
-`ls`, `wc`, `git status`.
-
-No need to wait for one to start the next.
-
----
-
-# Lesson 2 hinted at this
-
-`input_output.py` used `asyncio.gather`.
-
-Three 2-second tasks took 2 seconds, not 6.
-
----
-
-# First: tell the model
-
-The system prompt used to say **one command per response**.
-
-Now: commands that don't depend on each other can go in the same response. They **run at the same time**.
-
----
-
-# Why that matters
-
-The old line told the model *not* to ask for several at once.
-
-A harness can only run in parallel what the model asks for in parallel.
-
-Changing context can change performance.
-
----
-
-# Three passes
-
-**Pass 1**: in order: cut off, refused, or approved.
-
-**Pass 2**: the approved commands, all at once.
-
-**Pass 3**: the results, in the order the model asked.
-
----
-
-# Pass 1: sequential
-
-For each tool request:
-
-print the command, check for cut-off, **ask the guard**.
-
----
-
-# Why guard questions come first
-
-A person can only answer one question at a time.
-
-Questions one at a time, before anything runs.
-
----
-
-# The pending dict
-
-Approved commands go into `pending`.
-
-Denied or cut-off ones get their error result right away.
-
----
-
-# The parallel part
+The main call sends the marked copy, streamed live:
 
 ```python
-pool.map(execute, pending.values())
+        response = call(live=True, max_tokens=16384, ..., messages=cached(working_memory))
 ```
 
-A `ThreadPoolExecutor`.
-
-All approved commands run **at once**.
+<!-- trim() keeps the first and last 10,000 characters of a result over MAX_RESULT, and says how much it cut. cached() puts a cache_control mark on the last block of the last message, on a copy, so the next call reads everything up to there from the cache. -->
 
 ---
 
-# execute()
+# Output: one command becomes a function (abridged)
 
-The Lesson 7 `docker exec`.
-
-Plus the Lesson 5 trace.
-
-One function. One command.
-
----
-
-# Pass 2: in order
-
-Print each result.
-
-Build the `tool_result` list in the **original order**.
-
----
-
-# Why order matters
-
-Each `tool_result` names its `tool_use_id`.
-
-They go back in the order the model asked: the API checks that.
-
-Same results, no matter who finished first.
-
----
-
-# Run it
-
-Start in a scratch folder: the box mounts it.
-
-```
-uv run --project /path/to/building-agents \
-  /path/to/building-agents/production/09-performance/quark.py \
-  "Run these three commands as three separate commands: 'sleep 3; echo lint ok', 'sleep 3; echo types ok', 'sleep 3; echo tests ok'. Then say what passed, in one line."
+```python
+def execute(cmd):
+    start = time.time()
+    done = subprocess.run(["docker", "exec", box, "timeout", ..., cmd], stdout=subprocess.PIPE, ...)
+    if done.returncode == 137: done.stdout += f"\n(killed: ...)"
+    trace(event="tool", cmd=cmd, seconds=..., exit=done.returncode, chars=len(done.stdout))
+    return trim(done.stdout) or f"(exit {done.returncode})"
 ```
 
----
+One line of the prompt changes too: commands that don't depend on each other can go in the same response, *"they run at the same time."*
 
-# A note on running it
-
-`sleep` isn't on the safe list.
-
-The guard asks.
-
-So the demos pipe `y` into stdin.
+<!-- Lesson 4 asked for one command per response. Now the model is told what the harness will do with several. Running one command is a function so a thread pool can call it several times at once. -->
 
 ---
 
-# The comparison
-
-Three tools that each sleep 3 seconds.
-
-Lesson 8: **13.0 s** total.
-
-Lesson 9: **6.9 s** total.
-
----
-
-# Where the time went
-
-Lesson 9's tools ran together: about **3 seconds** each, overlapping.
-
-The rest is the two model calls.
-
----
-
-# What stayed the same
-
-The same answer.
-
-The same commands.
-
-Faster and cheaper.
-
----
-
-# Going further
-
-`quark.py` is one way to do it.
-
-`performance.py` is a richer one.
-
----
-
-# performance.py
-
-Built on Lesson 3's `control_flow.py`.
-
-**Async**: `AsyncAnthropic`.
-
----
-
-# The new idea: routing
-
-Not every task needs the strongest model.
-
-Pick the model **per task**.
-
----
-
-# Control flow, not model interface
-
-This looks like a model-interface choice.
-
-It isn't.
-
-It's a decision about **the work**.
-
----
-
-# Remember Lesson 3
-
-**Routing**: one call classifies, code sends the work down a path.
-
-One of the workflow arrangements.
-
----
-
-# It's the same pattern
-
-One cheap call classifies the task.
-
-Code picks the path.
-
-The path is a **model**.
-
----
-
-# Lesson 1's fallback
-
-Lesson 1's fallback model only covered an **outage**.
-
-Routing picks a model because of the **task**.
-
-Different decision. Different primitive.
-
----
-
-# route()
-
-Asks the small model: how hard is this task?
-
-It answers with a **tier**.
-
----
-
-# Three tiers
-
-- **quick**: Haiku
-- **standard**: Sonnet, medium effort
-- **deep**: Opus, high effort
-
----
-
-# TIERS
-
-A dict from tier name to **model and effort**.
-
-Easy to read. Easy to change.
-
----
-
-# Decided once per task
-
-Not per step.
-
----
-
-# Why once
-
-The cache is **per model**.
-
-Switch models mid-task and you lose the cache.
-
----
-
-# Routing is a trade
-
-Cheaper and faster on easy tasks.
-
-But it can **guess wrong**.
-
----
-
-# It did, in the README
-
-The parallel-tools task was routed to **deep**.
-
-That's more than it needed.
-
-The README says so, honestly.
-
----
-
-# Fixing a wrong router
-
-Measure it.
-
-That's Lesson 10.
-
----
-
-# A bigger cacheable prefix
-
-`notes()` reads `README.md` and `docs/*.md`.
-
-They go into the system prompt.
-
----
-
-# Why add notes
-
-About **10.6k tokens**.
-
-Past the cache minimum.
-
-Now caching has something to work on.
-
----
-
-# Cold, then warm
-
-First run: about half the input from cache.
-
-Second run: **all of it**.
-
-(Roughly 50%, then 100%.)
-
----
-
-# Streaming events
-
-It watches the stream's events.
-
-Records **time to first output**.
-
-The number you feel.
-
----
-
-# Step lines
-
-Each step prints the tokens by kind:
-
-**new**, **cached**, **written**.
-
-You see the cache working, live.
-
----
-
-# Parallel tools, async
-
-`asyncio.gather` runs the bash calls together.
-
-`Semaphore`, `AT_ONCE = 4`.
-
-At most four at a time.
-
----
-
-# Why a limit
-
-Fifty at once would exhaust the machine.
-
-A cap keeps it safe.
-
----
-
-# The timing line
-
-```
-3 commands: 3.0s together, 9.0s one after another
+# Decide each request first, in order (abridged)
+
+```python
+    refused, pending = {}, {}
+    for block in output:
+        if block.type == "tool_use":
+            cmd = block.input.get("cmd")
+            print(f"$ {cmd}")
+            if not cmd or (response.stop_reason == "max_tokens" and block is output[-1]):
+                refused[block.id] = "your request was cut off at the token limit, so it was not run. ..."
+            elif (no := guard(cmd)):
+                trace(event="refused", cmd=cmd, why=no)
+                refused[block.id] = no
+            else:
+                pending[block.id] = cmd
 ```
 
-Concurrent time vs the sum.
+<!-- The first pass decides each tool request in order. The guard's questions are asked one at a time, before anything starts, because you can't have three prompts talking over each other. -->
 
 ---
 
-# What performance can be
+# Then run everything allowed, at once (abridged)
 
-- **cache**: what's reused, how long
-- **size**: what's trimmed or summarized
-- **latency**: streamed or whole
-- **model**: fixed, or routed per task
-- **tools**: sequential or parallel
+```python
+    with ThreadPoolExecutor() as pool:
+        outputs = dict(zip(pending, pool.map(execute, pending.values())))
 
----
+    input = []
+    for block in output:
+        if block.type == "tool_use":
+            text = refused.get(block.id) or outputs[block.id]
+            print(f"[{text}]" if block.id in refused else text)
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, ...})
+```
 
-# What to take away
-
-**Rule:** performance is spread across the primitives: context caches and trims, the model interface streams, output runs tools in parallel, and control flow routes.
-
----
-
-# Notice what performance never does
-
-It never gathers input.
-
-It never changes the loop: same calls, same steps, same stops.
-
-It changes how, not what.
+<!-- Everything allowed runs at once in a thread pool. The second pass prints the results and sends them back in the order they were asked for, each with its request's id, because the API checks that. -->
 
 ---
 
-# And in quark.py
+# Three seconds of waiting, not nine
 
-It never touches control flow.
+Three `sleep 3` commands that don't depend on each other. This lesson's `quark.py`:
 
-The loop is the same.
+```
+$ sleep 3; echo lint ok
+allow `sleep 3; echo lint ok`? [y/N] $ sleep 3; echo types ok
+allow `sleep 3; echo types ok`? [y/N] $ sleep 3; echo tests ok
+allow `sleep 3; echo tests ok`? [y/N] lint ok
 
-Routing is the one place control flow shows up, in `performance.py`.
+types ok
+
+tests ok
+
+Lint, types, and tests all passed.
+[wall: 8.1s]
+```
+
+Lesson 8's `quark.py` ran them one after another: `[wall: 15.0s]`.
+
+<!-- All three questions come first, then the three commands run together. 8.1 seconds against 15.0 for the whole run. The wall line is from my shell's clock, not from quark. -->
 
 ---
 
-# What's missing
+# The trace shows it, and the cache too
 
-The agent is faster and cheaper.
+Lesson 8:
 
-Is it still as **good**?
+```
+{"event":"model","seconds":2.34,"input_tokens":145,"cache_read":0,"cache_write":7382}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo lint ok"}
+{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.1,"cmd":"sleep 3; echo tests ok"}
+{"event":"model","seconds":1.18,"input_tokens":447,"cache_read":7382,"cache_write":0}
+```
 
-Nothing measures that.
+This lesson:
+
+```
+{"event":"model","seconds":1.83,"input_tokens":4,"cache_read":0,"cache_write":8042}
+{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo lint ok"}
+{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.13,"cmd":"sleep 3; echo tests ok"}
+{"event":"model","seconds":1.03,"input_tokens":2,"cache_read":8042,"cache_write":264}
+```
+
+<!-- Lesson 8's tools ran one after another; here they overlap. And look at input_tokens: 145 and 447 at full price for Lesson 8, 4 and 2 here. That's cached(): everything up to the newest message was read from the cache. -->
+
+---
+
+# Each call pays full price for a handful of tokens
+
+A three-step task, one command per step:
+
+```
+{"seconds":1.5,"input_tokens":4,"output_tokens":67,"cache_read":0,"cache_write":8030}
+{"seconds":1.14,"input_tokens":2,"output_tokens":76,"cache_read":8030,"cache_write":153}
+{"seconds":1.98,"input_tokens":2,"output_tokens":164,"cache_read":8183,"cache_write":126}
+```
+
+- `input_tokens` is what was read at full price: 4, then 2, then 2
+- The first call wrote about 8,000 tokens to the cache, mostly the system prompt
+- Each later call wrote only what was new: 153 and 126 tokens
+
+<!-- The harness resent about 8,200 tokens each time and paid full price for a handful of them. -->
+
+---
+
+# A trimmed result is never resent
+
+`cat docs/the-model.md`, a file over 25,000 characters:
+
+```
+{"event":"model","seconds":1.72,"input_tokens":4,"cache_read":0,"cache_write":8000}
+{"event":"tool","seconds":0.11,"chars":25435}
+{"event":"model","seconds":2.21,"input_tokens":2,"cache_read":8000,"cache_write":6533}
+```
+
+- `chars` is the length before trimming: 25,435
+- The second call cached 6,533 tokens: the trimmed result
+- The 5,435 characters cut would otherwise be resent on every later call
+
+<!-- Two things don't show in pasted text: streaming, since a transcript can't show when text appeared, and compaction on the fast model, which only runs when working memory is full. None of these runs got near that. -->
+
+---
+
+# What else performance can be
+
+- **What gets cached:** up to four marks; a one-hour lifetime for agents that wait on people
+- **What goes in:** clear old tool results; let the model fetch what it needs
+- **How much comes back:** "be brief" does more than `max_tokens`; lower thinking effort
+- **How many at once:** cap parallel tools; the batch interface at about half the price
+- **As a product:** the API's own settings; [LiteLLM](https://www.litellm.ai) and [OpenRouter](https://openrouter.ai) choose models per request
+
+<!-- And never edit the middle of the conversation: that invalidates everything after it, which is why compaction is paid for with a full-price call. Providers also compete on speed alone. The usual trade-off: the more of the layer you hand to a product, the less of your own agent you can see. -->
+
+---
+
+# `performance.py`: a small model routes
+
+Lesson 3's loop, async, measuring itself. One call to a small model routes each task:
+
+```python
+ROUTER = "claude-haiku-4-5"
+TIERS = {                                    # tier -> (model, effort)
+    "quick":    ("claude-haiku-4-5", None),
+    "standard": ("claude-sonnet-5-5", "medium"),
+    "deep":     ("claude-opus-5-5", "high"),
+}
+```
+
+- Every call prints time to first output and how input splits: new, from cache, written
+- Its prompt holds the project's README and `docs/`, so there's something to cache
+
+<!-- Routing is control flow, Lesson 3, so this example reaches beyond quark. It's decided once per task, not per step, because the cache belongs to one model. -->
+
+---
+
+# Warm cache, cheaper bill; a guess, wrong
+
+```
+[done in 2 steps, 1.7s, 50% of input tokens read from the cache]
+[done in 2 steps, 1.9s, 100% of input tokens read from the cache]
+```
+
+Same task twice: 50% of input from the cache cold, 100% warm. The saving was in the bill, not the clock.
+
+```
+[routed to deep: claude-opus-5-5]
+[3 commands: 3.0s together, 9.0s one after another]
+```
+
+Three `echo`s sent to the deep tier: more model than they need.
+
+<!-- The router's guess can be wrong, and I can't see why it went that way. You'd tune it until its mistakes cost less than it saves, and you'd want a way to know that. That's where this course is going. -->
+
+---
+
+# The rule
+
+Don't resend what hasn't changed, don't send what isn't needed, and don't wait for things one at a time that could be waiting together.
+
+<!-- Mark the stable start and the end of the conversation. Cut tool results to what matters. Show the reply as it's written. Send the small jobs to the small model. When the model asks for several things at once, run them at once. -->
+
+---
+
+# Performance changes how, never what
+
+- **Control flow:** the same loop, the same stops, the same number of calls
+- **Input:** the person's task is read the way it always was
+- **Context** still decides what the request holds, only marked for reuse
+- **Model interface** still sends a request and gets a reply, only streamed
+- **Output** still shows the reply and runs what it asks, only sooner and together
+
+<!-- Nothing here makes the model smarter or the answer better. It makes the same work cheaper and sooner, and the one thing it has to be careful about is not making it different. -->
+
+---
+
+# Faster and cheaper, but as good?
+
+- A trimmed result might have cut the line that mattered
+- A summary from the small model might have lost a fact
+- The router might send a hard task to a weak model
+- Parallel commands can quietly depend on each other
+- The trace shows a faster, cheaper run, and not whether it did the job
+
+<!-- Every saving here is a bet. What's missing is a way to measure whether the agent still does its job, on tasks with known answers, every time you change anything. That's evaluation. -->
 
 ---
 
 <!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
 
 # Next: Evaluation
 
-Lesson 10 measures whether it still works.
+Lesson 10

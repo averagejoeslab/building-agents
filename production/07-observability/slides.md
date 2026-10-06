@@ -2,7 +2,7 @@
 marp: true
 theme: default
 paginate: true
-header: "Lesson 5 · Observability"
+header: "Lesson 7 · Observability"
 style: |
   section { font-size: 30px; }
   code { font-size: 0.85em; }
@@ -15,495 +15,314 @@ style: |
 
 # Observability
 
-### Building agents by building their harness
-Lesson 5 of 10 · Production
+### A hands-on course in building agents by building their harness
+Lesson 7
 
 ---
 
-# Where we left off
+# The terminal scrolled past, and the answers went with it
 
-Lesson 4 finished the harness.
+Lessons 5 and 6 made the harness safe to leave running. Now you run it where you can't watch it:
 
-Five primitives. 48 lines.
+- Why did that take four minutes?
+- Why did it cost that much?
+- What did it run, and in what order?
+- Which command did the guard refuse, and which did the box kill?
 
-It works.
-
----
-
-# A new kind of lesson
-
-Lessons 1 to 4 each added a **primitive**.
-
-Lessons 5 to 10 add **no new primitive**.
-
-They **harden** the five we have.
+<!-- Set this up as the questions you'll have the first time quark runs without you watching. The terminal can't answer any of them once it's scrolled. -->
 
 ---
 
-# Production, not a sixth primitive
+# A record of what the harness did, kept as it does it
 
-Each production lesson takes one concern.
+- Every call to the model
+- Every tool it ran
+- How long each took, and how many tokens each cost
+- Every time a guardrail said no
 
-It shows where that concern lives among the five.
+A harness you can't see into is one you can't trust or fix.
 
-Then it adds the smallest code that handles it.
-
----
-
-# The question for today
-
-The agent ran for a minute and gave a wrong answer.
-
-**What happened?**
+<!-- That's the whole layer. Keep it as simple as this list: what happened, how long, how much, and every no. -->
 
 ---
 
-# Or a simpler one
+# Same run, two records, two readers
 
-The agent finished.
+| | Episode (Lesson 4) | Trace (Lesson 7) |
+|---|---|---|
+| Written for | the model | you, the person running quark |
+| Holds | what working memory would have been | timings, token counts, exit codes, refusals |
+| Used to | search its own past | answer your questions afterwards |
 
-**What did that cost?**
+A record for the model is context. A record for the operator is observability.
 
----
-
-# What you can see today
-
-The final answer.
-
-That is all.
-
-The steps in between are gone.
+<!-- Someone will say Lesson 4 already did this. The episode has every message, but none of the timings or tokens, and it shouldn't: none of that helps the model think. The paper calls this the rule of who reads it. -->
 
 ---
 
-# What was in between
+# Built on control flow, and only control flow
 
-- every model call
-- every command it asked for
-- how long each took
-- how many tokens each used
+- The model interface only knows about one call
+- Output only knows about one tool
+- The loop is where a call, its tool, the guard's decision and the next call all happen, in order
+- So the loop is the one place a record of the run can be made
 
-All of it happened. None of it was kept.
+No new primitive: a production layer adds hardening.
 
----
-
-# Observability
-
-**Recording what the harness did, so you can read it afterwards.**
-
-Traces, logs, cost.
+<!-- Control flow is the one primitive that sees the whole sequence. That's why the trace lives there and nowhere else. -->
 
 ---
 
-# Where does it live?
+# Read off what's already there, and write it down
 
-Observability is **built on control flow**.
+- **A trace.** One JSON line per thing that happened, appended in order
+- **Timing.** Read the clock before and after a model call or a tool
+- **Token accounting.** Every response says tokens in, out, and read from or written to the cache
+- **Cost** is tokens times your provider's price; you keep the rates yourself
 
----
+Observability only watches. It never changes what's sent, what runs, or when the loop stops.
 
-# Why control flow
-
-Control flow is the one place that sees the **whole sequence**.
-
-Every model call and every tool run passes through the loop.
-
-So the loop is where you watch.
+<!-- The clock, the usage on the response, the exit code, the reason a command was refused: all of it already exists each time around the loop. If a trace line is wrong, you've got a wrong record, not a wrong agent. -->
 
 ---
 
-# Not the other four
+# `trace()`: one line per step, for whoever runs quark
 
-The model interface only knows one call.
-
-Output only knows one tool.
-
-Only the loop sees call, tool, call, tool, stop.
-
----
-
-# The worked example
-
-`production/05-observability/quark.py`
-
-Lesson 4's `quark.py` plus one function.
-
----
-
-# Line count
-
-Lesson 4: 48 lines.
-
-Lesson 5: **59 lines**.
-
----
-
-# The new function
+Lesson 6's `quark.py` plus 12 lines. `time` joins the imports, and at the top of `# ── control flow ──` (abridged):
 
 ```python
-trace(**event)
+def trace(**event):
+    os.makedirs(".quark", exist_ok=True)
+    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({...}) + "\n")
 ```
 
-It appends one JSON line to `.quark/traces.jsonl`.
+- Each line is `ts`, the `episode` this run is written to, and whatever you pass it
+- Append-only: a run that crashes halfway still leaves everything before the crash
+- `episode` ties the two records together
+
+<!-- The dict holds the time, the episode path and the event's fields. A file that only gets appended to is the simplest log there is, and each line stands on its own. From any trace line you can open the messages of the same run. -->
 
 ---
 
-# Why JSON lines
+# Then one call wherever something happens
 
-One event per line.
-
-Append only. No parsing the whole file to add one.
-
-Readable by `jq`, `grep`, or a ten-line script.
-
----
-
-# Three new imports
+Each is a single line next to code that was already there:
 
 ```python
-import json, time, uuid
+trace(event="start", input=input)
+        trace(event="stopped", steps=steps, tokens=spent)
+        trace(event="too_long", drop=drop)
+                trace(event="refused", cmd=block.input["cmd"], why=no)
 ```
 
-- `json` writes the line
-- `time` measures and stamps
-- `uuid` names the run
+- **start:** where a run begins and what came in
+- **stopped:** the steps and tokens a limit stopped at
+- **too_long:** the API said the prompt was too long, so compaction runs
+- **refused:** the command the guard wouldn't run, and why
+
+<!-- The indentation is the indentation in the file: each call sits next to the line it describes. -->
 
 ---
 
-# Every event carries two fields
+# The model call and the tool are timed
 
-- `ts`: when it happened
-- `run`: a run id
-
----
-
-# Why a run id
-
-`.quark/traces.jsonl` collects every run.
-
-The id lets you pull out **one** run.
-
-Without it, runs blur together.
-
----
-
-# Four kinds of event
-
-- `start`
-- `model`
-- `tool`
-- `too_long`
-
----
-
-# Event: start
-
-The run began.
-
-Marks where one run's lines begin.
-
----
-
-# Event: model
-
-One call to the model.
-
-- `seconds`
-- `stop_reason`
-- `input_tokens`
-- `output_tokens`
-- `cache_read`
-- `cache_write`
-
----
-
-# Why stop_reason
-
-Lesson 1: `end_turn` or `max_tokens`.
-
-Lesson 2: `tool_use`.
-
-Now you can see **why each call stopped**.
-
----
-
-# Why the cache fields
-
-Lesson 4 marked the system prompt for caching.
-
-`cache_read` and `cache_write` show whether it **worked**.
-
----
-
-# Event: tool
-
-One command the model asked for.
-
-- `cmd`
-- `seconds`
-- `exit`
-- `chars`
-
----
-
-# Why chars, not output
-
-The trace records **how much** came back.
-
-Not the output itself.
-
-Traces stay small. The conversation already holds the text.
-
----
-
-# Event: too_long
-
-Lesson 4's reactive compaction.
-
-The API said the prompt was too long.
-
-Now that moment is **on the record**.
-
----
-
-# Where trace() is called
-
-Inside the loop.
-
-Around the model call.
-
-Around the tool run.
-
----
-
-# Timing
-
-Take `time.time()` before.
-
-Take it again after.
-
-The difference is `seconds`.
-
----
-
-# What did not change
-
-Control flow still decides everything.
-
-`trace()` only **writes down** what it decided.
-
----
-
-# Run it
-
-```
-uv run production/05-observability/quark.py \
-  "how many lines are in README.md?"
+```python
+        start = time.time()
+        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+        trace(event="model", seconds=round(time.time() - start, 2), ...)
+            start = time.time()
+            done = subprocess.run([...], ...)
+            trace(event="tool", ..., seconds=round(time.time() - start, 2), exit=done.returncode, ...)
 ```
 
-Same agent as Lesson 4.
+(abridged)
+
+- **model** also records `stop_reason` and four counts from `response.usage`: input, output, cache read, cache write
+- **tool** also records the command and how many characters it printed
+- A failed command has a non-zero `exit`; one the box killed is `137`
+
+<!-- The four token counts are everything you need to work out cost, and the cache counts show whether Lesson 4's cache_control on the system prompt is doing anything. Nothing else changed: same request, same box, same reasons to stop. -->
 
 ---
 
-# Read the trace
+# Run it: nobody there to answer the guard
+
+`quark.py "which file in this folder has the most lines? answer in one sentence" < /dev/null`
 
 ```
-tail -n 5 .quark/traces.jsonl | jq .
+$ wc -l * 2>/dev/null | sort -rn | head -5
+allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
+$ wc -l * | sort -rn | head -5
+allow `wc -l * | sort -rn | head -5`? [y/N] [the person said no]
+$ wc -l *
+ 5000 big.txt
+    2 small.txt
+ 5002 total
+
+`big.txt` has the most lines, at 5,000.
 ```
 
-`jq` pretty-prints each line.
+<!-- A scratch folder with a two-line small.txt and a 5,000-line big.txt. The first two commands weren't on the safe list, so the guard asked, found no one, and said no. The model rewrote the command until it passed. -->
 
 ---
 
-# What to look for
+# What you see afterwards, in `.quark/traces.jsonl`
 
-- how many `model` events
-- which one had the tool call
-- how long each `tool` took
-- how the tokens grew
+| event | seconds | stop_reason | in | out | cache_read | cache_write |
+|---|---|---|---|---|---|---|
+| model | 2.42 | tool_use | 95 | 70 | 0 | 6609 |
+| model | 1.77 | tool_use | 180 | 86 | 6609 | 0 |
+| model | 1.58 | tool_use | 281 | 81 | 6609 | 0 |
+| tool `wc -l *` | 0.11 | exit 0 | | | | |
+| model | 1.0 | end_turn | 390 | 20 | 6609 | 0 |
 
----
+The trace's fields as a table; the `start` line and two `refused` lines are left out.
 
-# Tokens grow every step
-
-Each request carries everything so far.
-
-`input_tokens` rises with each model event.
-
-You can **see** the growing `working_memory`.
+<!-- Every step is there: four calls, the two refusals, the one command that ran, and how long each took. Point at the cache columns: the first call wrote the 6,609-token system prompt to the cache, and every call after read it back instead of paying again. -->
 
 ---
 
-# One run out of many
+# One JSON object per line, so you can ask it questions
 
-Filter by run id:
+Add up one run's model calls, by its episode, with `jq`:
 
 ```
-jq 'select(.run == "<id>")' .quark/traces.jsonl
+{"calls":4,"input":946,"output":257,"cache_read":19827,"cache_write":6609,"seconds":6.77}
 ```
 
----
+The whole run: four calls, 6.77 seconds, and most of what it read came from the cache.
 
-# Going further
-
-`quark.py` is one way to do it.
-
-`observability.py` is a richer one.
+<!-- The jq query in the README selects the model events with this episode and sums each column. You don't need a tool built for traces to get this; you need one line per event. -->
 
 ---
 
-# observability.py
+# A run where things go wrong
 
-Built on Lesson 3's `control_flow.py`.
-
-Same loop, with **spans** and **cost**.
-
----
-
-# From events to spans
-
-An event is a point in time.
-
-A **span** has a start, an end, and a **parent**.
-
----
-
-# The span tree
+A copy with the sandbox's `TIMEOUT` lowered to 5, and `y` piped in for the guard (shortened):
 
 ```
-run
-├── model
-├── tool
-├── model
-└── tool
+$ ls /nonexistent
+ls: cannot access '/nonexistent': No such file or directory
+
+$ sleep 60
+allow `sleep 60`? [y/N] 
+(killed: ran over 5 seconds or out of memory)
 ```
 
-Model and tool spans have the run as their parent.
+The agent told you what happened, this time. Without the trace, you'd only know if you were watching.
+
+<!-- One command fails, and the box kills the other. The model's answer said so, but you can't count on that. -->
 
 ---
 
-# span()
+# Everything that didn't go to plan, across both runs
 
-A context manager, `with span(...)`.
-
-It times the block and writes the record when the block ends.
-
----
-
-# Errors are recorded
-
-If the block raises, the span **records the error**.
-
-Then it **re-raises** it.
-
-Observing must not hide a failure.
-
----
-
-# Cost
-
-`cost()` turns token counts into dollars.
-
-It uses a `PRICE` dict.
-
----
-
-# The prices are examples
-
-The numbers in `PRICE` are **example rates**.
-
-The file says so.
-
-Look up the current price before you trust the totals.
-
----
-
-# Live step lines
-
-While it runs, it prints a line per step.
-
-You watch it **as it happens**, not afterwards.
-
----
-
-# A summary row
-
-`row()` prints one line at the end.
-
-Status, calls, tools, problems, time, tokens in and out, cached, cost.
-
-The answer to "what did that cost, and did anything fail?"
-
----
-
-# Report mode
-
-```
-uv run production/05-observability/observability.py report
+```bash
+jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces.jsonl
 ```
 
-Reads the log. Runs nothing.
+| event | cmd | seconds | exit / why |
+|---|---|---|---|
+| refused | `wc -l * 2>/dev/null \| sort -rn \| head -5` | | the person said no |
+| refused | `wc -l * \| sort -rn \| head -5` | | the person said no |
+| tool | `ls /nonexistent` | 0.12 | 2 |
+| tool | `sleep 60` | 5.11 | 137 |
+
+<!-- Two refusals, one failure and one kill. Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
 
 ---
 
-# A separate log
+# What else observability can be
 
-Spans go to `.quark/spans.jsonl`.
+- **What's recorded:** events, *spans* with a parent (a tree), or every full request and response
+- **Where it goes:** a file, the terminal, a database, an OpenTelemetry collector
+- **When you see it:** afterwards, a live line per step, or a dashboard that alerts you
+- **What's worked out:** tokens, cost, latency, cache hit rate, tool failures, steps per task
+- **How you ask and how long it's kept:** `grep` and `jq`, SQL or a trace UI; sampling, rotation, deletion
 
-`quark.py` writes `.quark/traces.jsonl`.
-
-Different file. Different format. Don't mix them up.
-
----
-
-# What observability can be
-
-- **what** it records: events, spans, tokens, cost
-- **where** it goes: a file, a service
-- **when** you read it: live or after
-- **how much** it keeps: counts or full text
+<!-- quark records a flat log, in a file, read afterwards. These are the choices you make when you build it. If you record the full requests, they contain whatever the model saw, so decide what to redact. -->
 
 ---
 
-# Tracing products
+# A product on its own, and a fuller example
 
-Services exist that collect and display this.
+Tracing platforms like Langfuse and LangSmith are this layer: you send them spans, they store them, price them and show them as a tree.
 
-They are this layer, packaged.
+`observability.py`, built on Lesson 3's `control_flow.py`, does more of that:
 
-You can hand it off. You can also write 11 lines.
+- **Spans:** `span()` records an id, a `parent`, a `start` and `seconds`; a crash is recorded and still crashes
+- **Cost:** `cost()` multiplies the four token counts by `PRICE` (example rates)
+- **A live line** per step, **a summary** per run, and **a report** across every run
 
----
-
-# What to take away
-
-**Rule:** observability records what the harness did, from the one place that sees the whole sequence: control flow.
-
-It adds no primitive.
+<!-- The run is the parent of every model call and tool, so the file is a tree, not a list. The rates in PRICE are examples: the API doesn't tell you what you pay. -->
 
 ---
 
-# Notice what observability never does
+# One run says what happened; every run says what's normal
 
-It never decides what runs, or when to stop.
+`observability.py "run ls /nonexistent, then run sleep 3 ..."` prints a line per step (shortened):
 
-It reads the clock, `usage` and exit codes, and changes none of them.
+```
+[step 1: model 1.96s, 397 tokens in, 166 out, $0.0037]
+$ ls /nonexistent
+[step 1: tool 0.0s, exit 2]
+$ sleep 3
+[step 1: tool 3.0s, exit 0]
+[step 2: model 1.35s, 645 tokens in, 71 out, $0.0030]
+```
 
-It only **watches**.
+`observability.py report`, three runs (shortened):
+
+| run | calls | tools | prob. | time | cost |
+|---|---|---|---|---|---|
+| 7941924a | 2 | 1 | 0 | 2.2s | $0.0045 |
+| 98bab13a | 4 | 3 | 0 | 5.3s | $0.0211 |
+| 47a469d6 | 2 | 2 | 1 | 6.3s | $0.0067 |
+
+<!-- prob. is 1 for the run where one tool exited non-zero, and 3.0 of its 6.3 seconds were the sleep. The run that went looking for a file with the wrong name took four calls and cost nearly five times the first. Costs are at the example rates, so they show which run was expensive, not what you were billed. -->
 
 ---
 
-# What's missing
+# The rule
 
-You can now see everything the agent does.
+Record what the harness does as it does it: each model call, each tool, each refusal, how long it took and what it cost, in a log you can search afterwards.
 
-You can see it run any command it likes.
+Do it where control flow already sees the whole sequence, read from what's already there, and keep it apart from what the model remembers.
 
-Nothing stops it.
+<!-- Three parts: record everything as it happens, read rather than change, and keep it separate from context. -->
+
+---
+
+# What observability never does
+
+- **Control flow:** it sits in the loop, but never decides what runs next or when to stop
+- **Model interface:** sends and receives exactly as before; it only reads `usage`
+- **Input:** it gathers none
+- **Context:** the trace is not in the request; that's what makes it observability
+- **Output:** runs tools the way it always did, only with a clock around them
+
+<!-- Walk the five primitives. The context line is the one people trip on: the moment the trace goes into the request, it's context. -->
+
+---
+
+# What's missing: it watches, and that's all
+
+It will faithfully record that:
+
+- the API dropped a call halfway through a long run
+- the model was cut off in the middle of a command
+- the process died and took the work with it
+
+It can tell you exactly where things broke; it can't pick up from there. A harness that runs unattended has to survive a bad day, not just describe one.
+
+<!-- That's the bridge to resilience: same failures, but now the harness has to get through them or stop somewhere it can start again. -->
 
 ---
 
 <!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
 
-# Next: Guardrails
+# Next: Resilience
 
-Lesson 6 stops it before it does harm.
+Lesson 8
