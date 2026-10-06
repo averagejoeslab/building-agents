@@ -402,6 +402,10 @@ You're unlikely to see it happen: this model can read about a million tokens, so
 
 ---
 
+<style scoped>
+table { font-size: 0.7em; }
+</style>
+
 # The four memories
 
 | Memory | Who writes it | Where | How the model sees it |
@@ -765,6 +769,10 @@ It used the move the prompt gives it: the first line of every episode is the inp
 quark keeps working memory, a system prompt, its own source, three memory stores and lazy compaction.
 
 ---
+
+<style scoped>
+section { font-size: 24px; }
+</style>
 
 # The choices you make
 

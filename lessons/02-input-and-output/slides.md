@@ -248,7 +248,8 @@ uv run lessons/02-input-and-output/input.py "how many lines are in README.md?"
 ---
 
 <style scoped>
-pre code { white-space: pre-wrap; font-size: 0.7em; }
+pre { font-size: 0.6em; line-height: 1.25; }
+pre code { white-space: pre-wrap; }
 </style>
 
 # One run: the model's request
@@ -445,6 +446,11 @@ uv run lessons/02-input-and-output/output.py
 ```
 
 ---
+
+<style scoped>
+section { font-size: 24px; }
+pre code { font-size: 0.7em; line-height: 1.25; }
+</style>
 
 # One run: `ls -la`
 
@@ -777,7 +783,8 @@ Send your bot a message.
 ---
 
 <style scoped>
-pre code { white-space: pre-wrap; font-size: 0.7em; }
+section { font-size: 24px; }
+pre code { white-space: pre-wrap; font-size: 0.62em; line-height: 1.2; }
 </style>
 
 # One run: three tools at once
