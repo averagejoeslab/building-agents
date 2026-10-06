@@ -1,6 +1,6 @@
 # Supplement: decomposing three production harnesses
 
-This supplement belongs to *[Five Primitives Are All You Need: Building an Agent Harness](./five-primitives-are-all-you-need.md)*, §7. It gives the evidence behind each assignment, so a reader can check any line against its source.
+This supplement belongs to *[Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses](./agent-harness-primitives.md)*, §7. It gives the evidence behind each assignment, so a reader can check any line against its source.
 
 | Harness | Source read | Version |
 |---|---|---|

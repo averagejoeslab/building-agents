@@ -1,10 +1,10 @@
 # The paper
 
-**Five Primitives Are All You Need: Building an Agent Harness** by Chase Dovey, Average Joes Lab.
+**Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses** by Chase Dovey, Average Joes Lab.
 
 | File | What it is |
 |---|---|
-| [`five-primitives-are-all-you-need.md`](./five-primitives-are-all-you-need.md) | The paper. This is the source of truth. |
+| [`agent-harness-primitives.md`](./agent-harness-primitives.md) | The paper. This is the source of truth. |
 | [`decomposition-study.md`](./decomposition-study.md) | Supplement: the evidence behind §7, with file-and-line or URL evidence for each harness. |
 | [`references.bib`](./references.bib) | BibTeX for every reference. |
 | [`latex/main.pdf`](./latex/main.pdf) | The typeset paper. |

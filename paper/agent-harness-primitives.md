@@ -1,4 +1,4 @@
-# Five Primitives Are All You Need: Building an Agent Harness
+# Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses
 
 **Chase Dovey**
 Average Joes Lab

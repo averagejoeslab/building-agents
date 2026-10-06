@@ -19,7 +19,7 @@ keywords:
   - primitives
 preferred-citation:
   type: article
-  title: "Five Primitives Are All You Need: Building an Agent Harness"
+  title: "Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses"
   authors:
     - given-names: Chase
       family-names: Dovey
