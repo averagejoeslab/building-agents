@@ -241,10 +241,11 @@ I don't know your name, your work, or anything else about you.
 
 # It writes a skill for the whole class of task
 
-`"I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."` (shortened)
+`"I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."`
+
+It answers, then saves this to `.quark/skills/count-python-lines.md` (shortened):
 
 ```
-$ mkdir -p .quark/skills .quark/memory && cat > .quark/skills/count-python-lines.md << 'EOF'
 ---
 name: count-python-lines
 description: count how many lines of Python are in a repo, excluding .venv (and .git)
@@ -253,7 +254,6 @@ description: count how many lines of Python are in a repo, excluding .venv (and 
 ...
 3. Optionally count files: same find piped to wc -l.
 4. Report total lines and number of files.
-EOF
 ```
 
 <!-- It answered, 1,949 lines across 24 files, and it wrote two memories: this skill, named for the class of task and not for this repo, and a fact about me that points to the skill. -->
