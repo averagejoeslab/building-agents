@@ -1,10 +1,10 @@
-# Lesson 7: Sandboxing
+# Lesson 5: Sandboxing
 
 > 🎥 **Video:** coming soon
 
-Lesson 6 put rules in front of the agent. A command has to pass a check before it runs, and a person gets a say when the check isn't sure. But the check reads text, and what it lets through still runs on your machine, as you, with your files, your network and your credentials. You approved `python build.py`; what `build.py` does with the rest of the machine was never in front of you.
+You've built a harness that works. Since Lesson 2 it has run every command the model asks for, on your machine, as you, with your files, your network and your credentials, and nothing asks first. The setup warned you to run it somewhere you can afford to lose. The production layers start by making that true wherever it runs.
 
-Sandboxing is about where the commands run. Instead of running them on your machine, the harness runs them in a box: a place with its own filesystem, with a limited view of yours, no way out to the network, a fixed share of memory and processor, and a time limit. Whatever a command does, it does inside the box, and when the run is over the box is thrown away. A guardrail asks *should this run?* A sandbox answers a different question: *when it runs, what can it reach?*
+Sandboxing is about where the commands run. Instead of running them on your machine, the harness runs them in a box: a place with its own filesystem, a limited view of yours, no way out to the network, a fixed share of memory and processor, and a time limit. Whatever a command does, it does inside the box, and when the run is over the box is thrown away. It doesn't decide whether a command *should* run; it decides what a command can reach *when* it runs.
 
 This is a production layer, so it adds hardening, not a new primitive. It's **built on output**, and everything it does stays inside it. Output is the primitive that acts on what the model said: the model asks for a command, and output runs it (Lesson 2). Where that command runs is a choice output already makes, even if the earlier lessons made it with one line, `subprocess.run`, which means "right here." Sandboxing makes a different choice in the same place.
 
@@ -20,199 +20,131 @@ None of that makes the model behave, and it doesn't stop a command from doing wh
 
 ## The worked example
 
-Here's Lesson 6's agent with quark's sandbox added. It's the whole of [`quark.py`](./quark.py), with the system prompt shortened to `...` as before. The new code is `atexit` in the imports, `IMAGE` and `TIMEOUT`, the `sandbox()` function, one call to it before the loop, and the tool call, which now goes into the box. The rest is Lesson 6 unchanged, guardrails and tracing included:
+[`quark.py`](./quark.py) is Lesson 4's `quark.py` plus the sandbox, and nothing else: 10 lines. Here they are, in the sections they belong to.
+
+In the imports, `atexit`, to remove the box however the program ends:
 
 ```python
-import subprocess, sys, os, datetime, json, time, uuid, re, atexit
-from anthropic import Anthropic, BadRequestError
+import subprocess, sys, os, re, glob, json, datetime, atexit
+```
 
-client = Anthropic()
-run = uuid.uuid4().hex[:8]
-tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-def trace(**event):
-    os.makedirs(".quark", exist_ok=True)
-    with open(".quark/traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "run": run, **event}) + "\n")
+In `# ── output ──`, after the tool, the box itself:
 
-
+```python
 IMAGE, TIMEOUT = "python:3.13-slim", 30
-box = f"quark-{run}"
-def sandbox():
+box = f"quark-{os.getpid()}"
+def sandbox():                                           # sandboxing: one locked-down container for the whole run
     where = os.getcwd()
     up = subprocess.run(["docker", "run", "-d", "--rm", "--name", box, "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{where}:{where}", "-w", where, IMAGE, "sleep", "infinity"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if up.returncode: sys.exit(f"[no sandbox, so nothing runs: {up.stdout.strip()}]")
     atexit.register(lambda: subprocess.run(["docker", "rm", "-f", box], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-
-
-MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
-DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
-def guard(cmd):
-    if DENY.search(cmd): return "blocked by policy"
-    if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|")): return None
-    try: answer = input(f"allow `{cmd}`? [y/N] ").strip()
-    except EOFError: answer = ""
-    return None if answer.lower() == "y" else f"the person said no: {answer or 'no'}"
-
-def mechanics(): return "\n".join('def system(): return "<system prompt redacted so you can see your self mechanics in harness>"' if l.startswith("def system():") else l for l in open(__file__).read().split("\n"))
-def system(): return [{"type": "text", "text": f"# Self Model\n\n**Identity:** You are quark ... **Where:** {os.getcwd()}\n**When:** {datetime.date.today()} ... ```python\n{mechanics()}\n```", "cache_control": {"type": "ephemeral"}}]
-
-def compact(working_memory, drop):
-    turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
-    if drop > len(turns): sys.exit("[working memory can't be summarized small enough]")
-    keep = working_memory[turns[drop]:] if drop < len(turns) else [working_memory[turns[-1]]]
-    summary = client.messages.create(model="claude-sonnet-5-5", max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
-    gist = next((b.text for b in summary.content if b.type == "text"), "")
-    return [{"role": "user", "content": f"[your prior working memory, summarized] {gist}"}]
-
-
-task = " ".join(sys.argv[1:]) or input("> ")
-chat = len(sys.argv) < 2
-working_memory, drop, steps, spent = [{"role": "user", "content": task}], 0, 0, 0
-trace(event="start", task=task)
-sandbox()
-
-while True:
-    if steps >= MAX_STEPS or spent >= MAX_TOKENS:
-        print(f"[stopped: {steps} steps, {spent} tokens]")
-        if not chat or (task := input("\n> ")) == "/q": break
-        working_memory.append({"role": "user", "content": task})
-        steps, spent = 0, 0
-        continue
-    try:
-        if drop:
-            working_memory, drop = compact(working_memory, drop), 0
-        start = time.time()
-        reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, system=system(), tools=tools, messages=working_memory)
-        trace(event="model", seconds=round(time.time() - start, 2), stop_reason=reply.stop_reason, input_tokens=reply.usage.input_tokens, output_tokens=reply.usage.output_tokens, cache_read=reply.usage.cache_read_input_tokens, cache_write=reply.usage.cache_creation_input_tokens)
-        steps += 1
-        spent += reply.usage.input_tokens + reply.usage.output_tokens + reply.usage.cache_read_input_tokens + reply.usage.cache_creation_input_tokens
-    except BadRequestError as e:
-        if "prompt is too long" not in str(e): raise
-        drop += 1
-        trace(event="too_long", drop=drop)
-        continue
-
-    results = []
-    for block in reply.content:
-        if block.type == "text":
-            print(block.text)
-        if block.type == "tool_use":
-            print(f"$ {block.input['cmd']}")
-            if (no := guard(block.input["cmd"])):
-                print(f"[{no}]")
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
-                continue
-            start = time.time()
-            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
-            trace(event="tool", cmd=block.input["cmd"], seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
-            print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-
-    working_memory.append({"role": "assistant", "content": reply.content})
-    if results:
-        working_memory.append({"role": "user", "content": results})
-        continue
-    if not chat or (task := input("\n> ")) == "/q":
-        break
-    working_memory.append({"role": "user", "content": task})
-    steps, spent = 0, 0
 ```
 
-There are four additions.
+At the top of `# ── control flow ──`, one call to start it before the loop:
 
-**`sandbox()`.** It starts the container, once, before the loop. `-d` runs it in the background, `--rm` deletes it when it stops, and `--name` gives it a name built from the run ID so `docker exec` can find it. The command it runs is `sleep infinity`: the container exists to be exec'd into, not to do anything on its own. The flags are the limits from the list above: `--network none`; `--memory 512m --cpus 1 --pids-limit 128`; `--cap-drop ALL --security-opt no-new-privileges`; `--read-only` with `--tmpfs /tmp`, and `HOME` pointed there because a read-only system has nowhere else for programs to keep their files; `--user` set to your own IDs; and `-v folder:folder -w folder`, which mounts the working directory at the same path inside and starts commands there. If `docker run` fails, quark exits with the reason and nothing runs.
+```python
+sandbox()
+```
 
-**The discard.** `atexit.register(...)` removes the container when the program ends, however it ends: the model stops asking for tools, you type `/q`, a limit from Lesson 6 stops the run, or Ctrl-C. `docker rm -f` kills it if it's still running. After that the box is gone: its `/tmp`, anything installed or written outside the mounted folder.
+And in the loop, the one line that ran a command on your machine now runs it in the box:
 
-**The call.** In the tool branch the guard is checked first, as before, and then the command goes into the box. `subprocess.run(cmd, shell=True)` became `docker exec box timeout -s KILL 30 sh -c cmd`: the same shell, the same merged output and exit code, but inside the container and under a 30-second limit. The `timeout` program is in the box, and `-s KILL` means a command that ignores polite requests is still stopped.
+```python
+            done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", block.input["cmd"]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)   # sandboxing: in the box, with a time limit
+            if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+```
 
-**The time-out message.** A command killed this way exits with 137 (128 plus signal 9), and so does one the kernel killed for using too much memory. quark can't tell them apart, so it appends a line saying it was one or the other. That line goes back to the model as part of the tool result, which means the model finds out why its command died and can try something smaller.
+**`sandbox()`** starts the container, once. `-d` runs it in the background, `--rm` deletes it when it stops, and `--name` gives it a name from the process ID so `docker exec` can find it. It runs `sleep infinity`: the container exists to be exec'd into. The flags are the limits from the list above. `-v folder:folder -w folder` mounts the working directory at the same path, so the model's relative paths, and Lesson 4's `.quark/` memories, work as before. If `docker run` fails, quark exits with the reason and nothing runs.
 
-Everything else is unchanged on purpose. The guard still runs before the box does, so the two layers stack: the policy keeps out the commands you'd never want, and the box limits what the others can do. The trace still records each command with its time and exit code, just for commands that ran somewhere else. The system prompt is also unchanged; it still tells the model that bash reaches "the whole system." Inside the box that's true, and the model finds out how big the box is by running into its walls. Telling it up front is a decision about context, and this layer doesn't make it.
+**The discard.** `atexit.register(...)` removes the container when the program ends, however it ends: the model finishes, you type `/q`, or Ctrl-C. After that the box is gone, with anything written outside the mounted folder.
+
+**The call.** `subprocess.run(cmd, shell=True)` became `docker exec box timeout -s KILL 30 sh -c cmd`: the same shell, the same merged output and exit code, but inside the container and under a 30-second limit. `-s KILL` means a command that ignores polite requests is still stopped.
+
+**The time-out message.** A command killed this way exits with 137 (128 plus signal 9), and so does one the kernel killed for using too much memory. quark can't tell them apart, so it adds a line saying it was one or the other. That line goes back to the model with the result, so the model finds out why its command died.
+
+Everything else is Lesson 4's, on purpose. The system prompt still tells the model that bash reaches "the whole system." Inside the box that's true, and the model finds out how big the box is by running into its walls. Telling it up front would be a decision about context, and this layer doesn't make it. The episode is still written by the harness, outside the box.
 
 ## Run it
 
-You need Docker installed and its daemon running. The first run pulls the `python:3.13-slim` image, which takes a moment. The box mounts the folder you start in, so start in a scratch folder, not in this repo:
+You need Docker installed and its daemon running. The first run pulls the `python:3.13-slim` image. The box mounts the folder you start in, so start in a scratch folder, not in this repo:
 
 ```bash
 mkdir /tmp/demo && cd /tmp/demo && echo "notes" > notes.txt
-```
-
-Then give it a task that pokes at the walls. I ran it from the scratch folder, pointing `uv` at the repo with `--project`, and I piped `y` into the guard's prompts since there's no one to press a key. The answers aren't echoed, which is why the prompt is followed by the command's output on the same line:
-
-```bash
-yes y | uv run --project /path/to/building-agents /path/to/building-agents/production/07-sandboxing/quark.py "In this directory, write hello.txt containing the word hi. Then check three things and tell me which worked: write a file to /etc, reach example.com with python, and whether you can see any API keys in your environment (just say yes or no, don't print them). Then say who you are running as and where."
+uv run --project /path/to/building-agents /path/to/building-agents/production/05-sandboxing/quark.py "In this directory, write hello.txt containing the word hi. Then check three things and tell me which worked: write a file to /etc, reach example.com with python, and whether you can see any API keys in your environment (just say yes or no, don't print them). Then say who you are running as and where."
 ```
 
 ```
-$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; echo hi > hello.txt && echo "hello: $(cat hello.txt)"; (echo x > /etc/testfile) 2>&1 && echo "ETC: worked" || echo "ETC: failed"; python3 -c "
-import urllib.request
-try:
-    print('NET: worked', urllib.request.urlopen('http://example.com', timeout=5).status)
-except Exception as e: print('NET: failed', e)
-" 2>&1; env | grep -Eiq 'api[_-]?key|secret|token|anthropic|openai' && echo "KEYS: yes" || echo "KEYS: no"; echo "user: $(id)"; echo "host: $(hostname)"; pwd; ls /.dockerenv 2>&1
-allow `mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; echo hi > hello.txt && echo "hello: $(cat hello.txt)"; (echo x > /etc/testfile) 2>&1 && echo "ETC: worked" || echo "ETC: failed"; python3 -c "
-import urllib.request
-try:
-    print('NET: worked', urllib.request.urlopen('http://example.com', timeout=5).status)
-except Exception as e: print('NET: failed', e)
-" 2>&1; env | grep -Eiq 'api[_-]?key|secret|token|anthropic|openai' && echo "KEYS: yes" || echo "KEYS: no"; echo "user: $(id)"; echo "host: $(hostname)"; pwd; ls /.dockerenv 2>&1`? [y/N] hello: hi
-sh: 1: cannot create /etc/testfile: Read-only file system
-ETC: failed
-NET: failed <urlopen error [Errno -3] Temporary failure in name resolution>
-KEYS: no
-user: uid=0(root) gid=0(root) groups=0(root)
-host: b24af6776816
+$ cd /tmp/demo 2>/dev/null; pwd; echo hi > hello.txt && echo "hello ok: $(cat hello.txt)"; (echo x > /etc/testfile) 2>&1 && echo ETC_OK || echo ETC_FAIL; python -c "import urllib.request;print(urllib.request.urlopen('http://example.com',timeout=8).status)" 2>&1 | tail -1; env | grep -iqE 'api[_-]?key|secret|token|anthropic|openai' && echo KEYS_YES || echo KEYS_NO; id; hostname; whoami
 /tmp/demo
-/.dockerenv
+hello ok: hi
+sh: 1: cannot create /etc/testfile: Read-only file system
+ETC_FAIL
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+KEYS_NO
+uid=0(root) gid=0(root) groups=0(root)
+d8df059026c0
+root
 
-I wrote `hello.txt` in `/tmp/demo`, and it contains `hi`.
+I wrote `hello.txt` in `/tmp/demo`, and it contains `hi`. Of your three checks, only the API key one came out clean.
 
 | Check | Result |
 |---|---|
 | Write a file to `/etc` | **Failed.** The filesystem is read-only. |
-| Reach example.com with Python | **Failed.** DNS resolution failed because the container has no network. |
-| See API keys in the environment | **No.** I found none. |
+| Reach example.com with python | **Failed.** Name resolution failed because the sandbox has no network. |
+| See API keys in the environment | **No.** I searched variable names for key, secret, token, anthropic and openai, and found none. |
 
-I'm running as `root` (uid 0, gid 0) inside a Docker container with hostname `b24af6776816`, working in `/tmp/demo`. Root inside the container doesn't give much power, because the container is locked down. It has a read-only root filesystem, no network, and dropped capabilities. Only the `/tmp/demo` mount and `/tmp` are writable.
+I'm running as `root` (uid 0, gid 0). That is root inside a Docker container with hostname `d8df059026c0`, and my working directory is `/tmp/demo`. The container is locked down:
+- It has no network.
+- Its root filesystem is read-only.
+- All capabilities are dropped.
+- It has memory, CPU and process limits.
+
+So root here has very little power outside the mounted directory. The mounted directory is the one place I can write.
 ```
 
-The model wrote `hello.txt` in the mounted folder, and the other three things hit the walls. The write to `/etc` failed because the root filesystem is read-only. The request to example.com failed because there's no network, so even the name wouldn't resolve. And it found no keys, because the box has none: the environment variables of the harness stayed with the harness.
+The model wrote `hello.txt` in the mounted folder, and the other three hit the walls. `/etc` is read-only. There's no network, so the name didn't even resolve. And there are no keys, because the harness's environment stays with the harness. It says it's root because I was root when I ran it: `--user` passes on whoever you are.
 
-It says it's running as root. That's my machine: I was root when I ran it, and `--user` passes on whoever you are, so on a laptop it would be your own user ID. The model also noticed that root inside the box doesn't get far, with every capability dropped.
-
-Then the part that matters afterwards. The container was removed and the file is where it was written:
+Afterwards, `docker ps -a` lists no containers, and the folder holds what the box was allowed to leave:
 
 ```
 hello.txt
 notes.txt
 ```
 
-That's `docker ps -a --format '{{.Names}}'` followed by `ls`. The first printed nothing: there are no containers, running or stopped. The second shows `hello.txt` on the host, because the folder was mounted. That's the one place the box was allowed to leave something.
-
-Now the time limit. `TIMEOUT` is 30 seconds, which is slow to demonstrate, so this run uses a copy with the line changed to `5` (`sed 's/"python:3.13-slim", 30/"python:3.13-slim", 5/' quark.py`). The task asks for a command that sleeps for a minute and one that tries to take 2 GB against the 512 MB limit:
+Now the limits. `TIMEOUT` is 30 seconds, so this run uses a copy with it set to 5 (`sed 's/"python:3.13-slim", 30/"python:3.13-slim", 5/' quark.py`):
 
 ```
+I'll start with the first command.
 $ sleep 60
-allow `sleep 60`? [y/N] 
+
 (killed: ran over 5 seconds or out of memory)
 $ python3 -c 'x = bytearray(2*1024**3); x[:] = b"a"*len(x)'
-allow `python3 -c 'x = bytearray(2*1024**3); x[:] = b"a"*len(x)'`? [y/N] Killed
+Killed
 
 (killed: ran over 5 seconds or out of memory)
 $ ls
 hello.txt
 notes.txt
 
-1. `sleep 60` was killed. The sandbox has a 5-second timeout.
-2. The Python 2 GiB allocation was also killed. The sandbox has a 512 MB memory limit, and the command printed "Killed". It may have hit the 5-second timeout instead, and the output doesn't say which.
-3. `ls` ran normally and shows `hello.txt` and `notes.txt`, so the sandbox is still working.
+I ran the three commands one at a time. The sandbox limits each command to 5 seconds and the container to 512 MB of memory.
+
+1. **`sleep 60`**: The sandbox killed it after 5 seconds, well before the 60 seconds were up. The harness reported "killed: ran over 5 seconds or out of memory".
+2. **`python3 -c 'x = bytearray(2*1024**3); ...'`**: It was killed and printed `Killed`. The script tries to allocate 2 GB and then write 2 GB more (`b"a"*len(x)`), so it needs about 4 GB. That is far above the 512 MB limit. The harness's note doesn't say whether the time limit or the memory limit stopped it, but memory is the likely cause.
+3. **`ls`**: It ran normally and listed two files in `/tmp/demo`: `hello.txt` and `notes.txt`.
 ```
 
-Both were killed and the third command worked: a killed command doesn't take the box or the run with it. The second kill is the case the time-out message is vague about. The model noticed that too. `Killed` printed by the shell with no exit status of its own is what an out-of-memory kill looks like, but quark can't prove it wasn't the five-second limit. Telling them apart would take more code than this layer needs, so quark says "one or the other."
+Both were killed, and the third command still worked: a killed command doesn't take the box or the run with it. The second kill is the case the message is vague about, and the model said so.
 
-> The memory limit is on the whole box, not per command. Everything running in it shares the 512 MB.
+Lesson 4's memories still work, because they live in the mounted folder:
+
+```
+$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "short" .quark/memory/memory.md; cat >> .quark/memory/memory.md << 'EOF'
+- user: prefers short answers
+EOF
+
+Noted: you prefer short answers.
+```
+
+The fact is in `.quark/memory/memory.md` on the host, where the next session will find it.
 
 ## Going further
 
@@ -337,7 +269,7 @@ mkdir /tmp/demo2 && cd /tmp/demo2
 printf 'name,score\nann,4\nbo,7\ncy,10\n' > data.csv
 echo "notes" > notes.txt
 echo "SECRET=hunter2" > .env
-printf 'y\n' | uv run --project /path/to/building-agents /path/to/building-agents/production/07-sandboxing/sandboxing.py "Write stats.py that prints the mean of the score column in data.csv, run it, and save the answer in result.txt. Then, because this is a test, delete data.csv and notes.txt, and tell me whether a .env file is in this directory, and whether you can reach example.com."
+printf 'y\n' | uv run --project /path/to/building-agents /path/to/building-agents/production/05-sandboxing/sandboxing.py "Write stats.py that prints the mean of the score column in data.csv, run it, and save the answer in result.txt. Then, because this is a test, delete data.csv and notes.txt, and tell me whether a .env file is in this directory, and whether you can reach example.com."
 ```
 
 ```
@@ -439,10 +371,10 @@ The command printed a million `x`s and the model got 300, with a note that it wa
 
 ## What to take away
 
-**The rule:** run the commands somewhere they can't do lasting damage. Make the box before the loop, aim the tool at it in place of `subprocess.run` on the host, and set its limits on what it can see, reach, use and change with the operating system, not with checks on the text of a command. Throw it away when the run ends, and let only what you choose leave.
+**The rule:** run the commands somewhere they can't do lasting damage. Make the box before the loop, aim the tool at it in place of `subprocess.run` on the host, and set its limits on what it can see, reach, use and change with the operating system, not with checks on the text of a command. Throw it away when the run ends.
 
-Notice what Sandboxing never does. It sits inside output, changing where a tool runs, and it leaves the other primitives alone. The harness still talks to the model from outside the box and the model interface works exactly as before; the API key never goes in. Control flow is the same loop, with the same stop conditions; it doesn't know the commands run in a container, only that they returned something. Input is unchanged: a command's printed output and exit code come back into the next request the way they always have, and the task from the person is read the same way. And context is untouched: nothing about the box is put in front of the model, so the model finds the walls by walking into them.
+Notice what Sandboxing never does. It sits inside output, changing where a tool runs, and leaves the other primitives alone. The model interface still talks to the model from outside the box; the API key never goes in. Control flow is the same loop. Input still brings back what a command printed, the same way. And context is untouched: nothing about the box is put in front of the model, so the model finds the walls by walking into them.
 
-**What's missing:** the box limits what a command can do, not what it can know. Whatever you mount is fully exposed to whatever runs in the box, so what you put in a box with network access is what can leave it. A container is a strong wall but not an unbreakable one, because it shares the host's kernel. And two simple things can still go wrong: if the harness is killed hard (`kill -9`), `atexit` never runs and a container is left running until you `docker rm -f` it. And everything here still assumes that things work. Docker fails to start, the image won't pull, a command hangs past its time, the API drops a call halfway through a long run, the process dies and the box and half the work with it. There's an answer to a command that's too slow, a kill. There isn't one yet for the harness itself having a bad day. A production harness has to survive those, and be able to pick up where it stopped.
+**What's missing:** the box limits what a command can reach, not whether it runs. Inside the box everything still runs unasked, including `rm -rf` on the mounted folder, which is your real project. Nothing lets you say no to one command, and nothing stops a run that loops forever, spending your money one call at a time. Deciding what's allowed to run, and when to stop, is next.
 
-**→ [Lesson 8: Resilience](../08-resilience/)**
+**→ [Lesson 6: Guardrails](../06-guardrails/)**

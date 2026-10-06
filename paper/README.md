@@ -9,6 +9,6 @@
 | [`decomposition-study.md`](./decomposition-study.md) | Supplement: the evidence behind §7, with file-and-line or URL evidence for each part of Claude Code, OpenAI Codex and opencode. |
 | [`references.bib`](./references.bib) | BibTeX for every reference. |
 
-The paper's case study (§8) is about the runs in [The earlier version at work](../README.md#the-earlier-version-at-work); their full transcripts are in [`docs/quark-at-work/earlier-version/`](../docs/quark-at-work/earlier-version/).
+The paper's case study (§8) is about the ten runs in [quark at work](../README.md#quark-at-work); their transcripts and quark's memory stores are in [`docs/quark-at-work/`](../docs/quark-at-work/).
 
 To cite it, see [How to cite](../README.md#how-to-cite).

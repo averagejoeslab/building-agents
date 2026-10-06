@@ -8,7 +8,7 @@ This repo has three parts, in the order to read them:
 
 1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four primitives, then six production layers. Start here.
 2. **[The paper](#the-paper).** The course's thesis, written up and tested against Claude Code, OpenAI Codex and opencode.
-3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4 doing real work on this repo, from its own memory across ten sessions: it brought the slides in line with the lessons, made their PDFs, reviewed the paper and weighed in on the order of the production lessons.
+3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4 doing real work on this repo, from its own memory across ten sessions: it brought the slides in line with the lessons, made their PDFs, reviewed the paper and weighed in on the order of the production lessons. It's the paper's case study.
 
 ## What is harness engineering?
 
@@ -68,15 +68,17 @@ Lesson 4's `quark.py` is the finished harness. By then you've built quark, and y
 
 ### The production layers
 
-A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it watchable, safe, fast and dependable. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where. The production lessons are built on an earlier, 48-line version of Lesson 4's `quark.py`, from before episodic and procedural memory. Each layer still adds exactly what its lesson says, but its `quark.py` starts from that version, not from the one you finish Lesson 4 with.
+A harness that works isn't yet a harness you'd run unattended. The production layers add hardening: things that make it safe, watchable, dependable and fast. None of it is a new primitive. Each layer folds back into the primitives it's built on, and each lesson shows where. They build on the harness you finish Lesson 4 with: each lesson's `quark.py` is the one before it plus that layer, and nothing else.
+
+The order is the order you'd want them in. First the box, so the agent can't do lasting damage; then the gate in front of it; then a record of both; then surviving failures, then cost and speed, and last, a way to tell whether any of it still works.
 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
-| 5 | [Observability](./production/05-observability/) | traces, logs and costs for every step, so you can see what the agent did and why | control flow | [slides](./production/05-observability/slides.pdf) · [md](./production/05-observability/slides.md) | 🎥 coming soon |
-| 6 | [Guardrails](./production/06-guardrails/) | approvals, interrupts, step and spending limits, policies on what may run | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
-| 7 | [Sandboxing](./production/07-sandboxing/) | tools that run somewhere they can't do lasting damage | output | [slides](./production/07-sandboxing/slides.pdf) · [md](./production/07-sandboxing/slides.md) | 🎥 coming soon |
-| 8 | [Resilience](./production/08-resilience/) | retries, backups and recovering from a failure partway through a task | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
-| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, keeping requests small, running work at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
+| 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, and step and token limits | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 7 | [Observability](./production/07-observability/) | a trace of every step, its time, tokens and outcome, for the person running it | control flow | [slides](./production/07-observability/slides.pdf) · [md](./production/07-observability/slides.md) | 🎥 coming soon |
+| 8 | [Resilience](./production/08-resilience/) | retries, a backup model, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
+| 9 | [Performance](./production/09-performance/) | prompt caching, streaming, smaller requests, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
 ## Setup
@@ -108,7 +110,7 @@ The paper is the course's thesis, written up for people who want the argument ra
 - **Beyond the course:**
   - **A test on real harnesses.** It takes apart three production coding agents, Claude Code, OpenAI Codex and opencode, part by part. Nothing in them needs a sixth primitive. The [supplement](./paper/decomposition-study.md) has the evidence for every assignment, with file and line or doc link.
   - **Rules for the hard cases,** such as where a tool call's effect lands, backup models versus routing, and who a file is for.
-  - **A case study** of an earlier version of quark writing this repo's production lessons, and failing along the way. Its runs are under [The earlier version at work](#the-earlier-version-at-work).
+  - **A case study:** the ten runs in [quark at work](#quark-at-work), read through the primitives, failures included.
 
 It's a preprint. [`paper/README.md`](./paper/README.md) lists the paper's files.
 
@@ -217,7 +219,9 @@ If the goal is "safe to run unattended first", his order works. It would mean re
 One cheap way to honour his worry without reordering: Lesson 5 could say in its opening that the agent can still run anything, and that Lesson 6 is the fix.
 ```
 
-This is shortened; [the transcript](./docs/quark-at-work/run-5-order-the-production-lessons.txt) has it in full. The order is the author's call; the lessons are unchanged for now.
+This is shortened; [the transcript](./docs/quark-at-work/run-5-order-the-production-lessons.txt) has it in full.
+
+I went with neither order exactly: sandboxing, guardrails, observability, resilience, performance, evaluation. Safety comes first, as I'd proposed, and observability comes before the layers whose effects only a trace can show, as quark argued. Its other objection, the cost of rewriting every layer's `quark.py`, went away because they were being rebuilt on the current harness anyway.
 
 </details>
 
@@ -250,17 +254,19 @@ We reviewed everything quark changed before it was merged.
 
 Memory is a summary, and a summary can be wrong in ways that read as confident. That's why the review step exists.
 
+**Since these runs.** The decks quark rebuilt matched their lessons but weren't made to be presented: 50 to 110 slides each, many with a single sentence. They've since been rewritten for teaching to a room, shorter and with speaker notes, and the production lessons have been rebuilt in a new order. What's above is the work as quark did it; the transcripts are the record.
+
 **Thin slides.** Holding to "one idea per slide" and the lesson's exact wording made the decks long, from 50 to 110 slides. Some slides are a single sentence, and a few repeat their own title. Everything on them is true, but a presenter will want to skip some.
 
 ### The earlier version at work
 
-Before episodic and procedural memory, a 48-line version of this harness did larger jobs on the repo. In four runs it wrote the six production lessons and the first slide decks for all ten lessons. Its failures along the way are what the paper's case study (§8) is about: a response cut off mid-tool-request, and an agent that killed itself with `pkill -f`. The transcripts, the failed attempts and its memory file are in [`docs/quark-at-work/earlier-version/`](./docs/quark-at-work/earlier-version/).
+Before episodic and procedural memory, a 48-line version of this harness did larger jobs on the repo. In four runs it wrote the first versions of the six production lessons and the first slide decks for all ten lessons, and failed instructively along the way: a response cut off mid-tool-request, and an agent that killed itself with `pkill -f`. The production lessons have since been rebuilt on the current harness, in a new order, but much of their explanation is still its writing. The transcripts, the failed attempts and its memory file are in [`docs/quark-at-work/earlier-version/`](./docs/quark-at-work/earlier-version/).
 
 Everything quark printed in the runs above is in [`docs/quark-at-work/`](./docs/quark-at-work/), one file per run. Its memory stores as they stand after run 6b are in [`docs/quark-at-work/stores/`](./docs/quark-at-work/stores/): the facts, the two skills, and the ten episode files, which hold every message of every session exactly as quark saw it.
 
 ### How Claude Code and quark worked together
 
-Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the work above. Claude Code also ran the paper's decomposition study under my direction and helped draft the paper.
+Two agents did this work, at different levels. [Claude Code](https://claude.com/claude-code) worked with me on the course: the README, the four primitive lessons, and every decision about how the course teaches. Then it operated quark, and quark did the work above. Claude Code also ran the paper's decomposition study under my direction, helped draft the paper, rebuilt the production lessons on the current harness, and rewrote the slide decks for presenting.
 
 What Claude Code did:
 - **Set up each run.** It started from empty memory stores and wrote the prompts. It ran Lesson 4's `quark.py` from the repo root with a shell command, the way a person would. quark got a task, its memory and a bash tool; nothing else.

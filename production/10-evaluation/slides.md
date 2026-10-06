@@ -15,766 +15,313 @@ style: |
 
 # Evaluation
 
-### Building agents by building their harness
-Lesson 10 of 10 · Production
+### A hands-on course in building agents by building their harness
+Lesson 10
 
 ---
 
-# Where we left off
+# Every change is a bet
 
-Lesson 9 made the agent faster and cheaper.
+- Lesson 9's savings: a trim might cut the line that mattered, a summary might lose a fact
+- Same for any change: a prompt line, a model, a step limit, a tool
+- After the change the agent still runs and the trace still looks normal
+- You find out the way you do for untested software: someone uses it, and it's wrong
 
-It trimmed results. It chose smaller models.
-
-Is it still **as good**?
-
----
-
-# How do you know?
-
-You ran it once. It worked.
-
-Then you changed something.
-
-You ran it once. It worked.
+<!-- Lesson 9 ended on a worry, and it's not specific to performance. Nothing in the harness tells you whether the agent can still do its job. -->
 
 ---
 
-# Why that's not enough
+# Evaluation finds out first
 
-A model's answers vary.
+Run the agent on tasks whose right outcome you already know, check what happened, and compare with before the change.
 
-One run proves little.
+1. **Tasks with known outcomes**
+2. **Grading**
+3. **Comparing**
 
-A change can break something you didn't try.
-
----
-
-# Every lesson so far
-
-Each one changed the harness.
-
-Each change could make it **worse** while looking fine.
+<!-- Three parts. We'll take them one at a time, then see the code. -->
 
 ---
 
-# Evaluation
+# Grade the world, not the words
 
-**Run the agent on tasks whose right answer you know, and check the results.**
+- A case is three things: a starting state, a task, a way to tell if the outcome is right
+- The outcome is checked **without the agent**: a file, an exit code, the folder afterwards
+- An agent that says "done" has proved nothing; a test that passes has
+- Any route that ends in the right place passes, two steps or five
+- Each case starts from a fresh folder, so cases can't affect each other
 
----
-
-# Where does it live?
-
-Evaluation is built on **the whole harness**.
-
----
-
-# Why the whole harness
-
-You're not testing one primitive.
-
-You're testing what the five do **together**.
+<!-- "This folder has a calc.py with a bug and a test.py that fails. Fix the bug." The test passing is the outcome. -->
 
 ---
 
-# From the outside
+# Grade by code where you can
 
-An evaluation runs the agent like a user would.
+- **By code:** a command whose exit status says pass or fail. Cheap, exact, the same verdict every time
+- **By a model:** for what code can't read, like an explanation. A second model gets a rubric and the output
+- A model grader has its own mistakes, so it's tested too, on answers whose grade you know
 
-Gives it a task.
+*A grade you can't trust is worse than none, because you'll believe it.*
 
-Looks at what happened.
-
----
-
-# And it's built from primitives too
-
-- **control flow**: a loop over the cases
-- **input**: the task it hands over
-- **output**: a command that checks the result
-- **model interface**: a model, when the judge is a model
+<!-- Use code whenever the right answer can be written down. A model grader is flexible, but it's another model. -->
 
 ---
 
-# Three parts
+# A count means nothing alone
 
-1. **tasks** with known outcomes
-2. **grading** by code or by model
-3. evals **on every change**
+- The model isn't deterministic: run each case several times and count the passes
+- 11 of 12 is good or bad only against something: run the same cases **before and after**
+- Record steps, tokens and time too: a change can pass everything and cost twice as much
+- Exit non-zero when something got worse, so a git hook or CI job runs it on **every** change
 
----
-
-# Part 1: tasks with known outcomes
-
----
-
-# A case
-
-A task, and a way to know if it was done right.
+<!-- An evaluation you have to remember to run gets skipped. -->
 
 ---
 
-# Four fields
+# Built on the whole harness, from the outside
 
-- `name`
-- `setup`: prepare the folder
-- `task`: what we ask the agent
-- `check`: a shell command
+- It treats the agent as a box: a task goes in, the world is changed
+- That runs all five primitives together, so it catches what only shows when they work together
+- **Control flow:** a loop that sets up, runs, grades, records, stops
+- The task goes in as **input**; the check runs as **output**; a model grader uses the **model interface**
+- Lesson 7's trace says what happened; evaluation says whether it was right
 
----
-
-# check
-
-A shell command run **after** the agent finishes.
-
-**Exit 0 means pass.**
-
-Anything else means fail.
+<!-- It's the one production layer that isn't inside any one primitive. For example, a trimmed result, context, that sends the loop, control flow, round once more. The code it adds is small and made of primitives you've seen. -->
 
 ---
 
-# Why a shell command
-
-The check doesn't trust the agent's words.
-
-It looks at the **result**.
-
-Did the file change? Does the test pass?
-
----
-
-# The worked example
-
-`production/10-evaluation/quark.py`
-
-Lesson 9's `quark.py` plus evaluation.
-
-**196 lines.**
-
----
-
-# What's new
-
-- `CASES`
-- `evaluate(names)`
-- a `--eval` flag
-
-Plus a small change to the imports.
-
----
-
-# The cases
-
-Four of them:
-
-`count`, `fix`, `rename`, `remember`
-
----
-
-# count
-
-A question with one right number.
-
----
-
-# fix
-
-A project with a bug.
-
-`calc.py` subtracts where it should add.
-
-The check runs `test.py`, and checks the assertion is still there.
-
----
-
-# rename
-
-A change across files.
-
-The check looks at the files.
-
----
-
-# remember
-
-Lesson 4's semantic memory.
-
-Tell it a fact. Then see if it was **written down**.
-
----
-
-# Part 2: running them
-
----
-
-# The key move
-
-`evaluate()` runs **`quark.py` itself**.
-
-As a subprocess.
-
-Once per case.
-
----
-
-# Why a subprocess
-
-Not a function call.
-
-The real program, from the command line.
-
-Exactly what a person would run.
-
----
-
-# A fresh folder
-
-Each case runs in a new **temp directory**.
-
-`setup` fills it.
-
-No case sees another's leftovers.
-
----
-
-# The guard
-
-Lesson 6 asks before commands.
-
-Nobody's there to answer.
-
-So the eval sends `y` fifty times on stdin.
-
----
-
-# Grading
-
-After the agent ends:
-
-run `check` on the host.
-
-Exit code, pass or fail.
-
----
-
-# Reading the trace
-
-Lesson 5 pays off again.
-
-The child writes `.quark/traces.jsonl`.
-
-The eval reads **steps** and **tokens** from it.
-
----
-
-# Pass is not the whole story
-
-Passing and costing **ten times more** is a regression too.
-
-Steps and tokens are measured.
-
----
-
-# The log
-
-Every run appends to `.quark/evals.jsonl`.
-
-A history.
-
----
-
-# REGRESSED
-
-If a case **passed last time** and fails now, it's flagged.
-
-**REGRESSED**.
-
----
-
-# Why that flag
-
-A failing case may always have failed.
-
-A regressed case is **something you broke**.
-
----
-
-# Keeping failures
-
-A failed case's temp folder is **kept**.
-
-You can open it and see what the agent did.
-
----
-
-# The exit code
-
-Any failure: **exit 1**.
-
-A script, or CI, can stop on it.
-
----
-
-# Where it hooks in
+# Four cases, each checkable afterwards (abridged)
 
 ```python
-if sys.argv[1:2] == ["--eval"]:
-    sys.exit(evaluate(...))
+CASES = [
+    {"name": "count", "setup": "seq 1 37 > numbers.txt", "task": "How many lines are in numbers.txt? ...",
+     "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
+    {"name": "fix", "setup": "printf ... > calc.py; printf ... > test.py", "task": "test.py fails. ...",
+     "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
+    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "task": "Rename every .txt file ...",
+     "check": "[ -e a.md ] && [ -e b.md ] && [ -e c.md ] && ! ls *.txt 2>/dev/null"},
+    {"name": "remember", "setup": "true", "task": "Remember that I prefer short answers.",
+     "check": "grep -qi short .quark/memory/memory.md"},
+]
 ```
 
-Before the program looks for an unfinished session.
+<!-- answer.txt holds 37; test.py passes and wasn't edited to make it; the .txt files are .md; memory.md mentions short. The fix check also looks for the assertion, because an agent could "fix" the test by deleting it. Ask of every case how the agent could pass it without doing the job. -->
 
 ---
 
-# Run it
-
-Start in a scratch folder: results are logged there.
-
-```
-uv run --project /path/to/building-agents \
-  /path/to/building-agents/production/10-evaluation/quark.py --eval
-```
-
----
-
-# The baseline
-
-**4 of 4** pass.
-
-About 18 seconds.
-
-Every future change is compared to this.
-
----
-
-# Break it on purpose
-
-A copy with `MAX_STEPS = 1`.
-
-The agent can make one model call and no more.
-
----
-
-# The result
-
-**3 of 4.**
-
-`fix` fails, flagged **REGRESSED**.
-
-Exit code 1.
-
----
-
-# Open the kept folder
-
-`calc.py` still subtracts.
-
-The trace shows **one model call**: `cat calc.py test.py`.
-
-The run stopped before the model saw what it read.
-
----
-
-# A guard did that
-
-Lesson 6's step limit.
-
-An evaluation caught a limit set too low.
-
----
-
-# Another: trim harder
-
-`MAX_RESULT = 20`.
-
-Lesson 9's trim, set tiny.
-
-Still **4 of 4**.
-
----
-
-# But the cost moved
-
-`fix` went from 3 steps to 4.
-
-Tokens went from about 20k to 27k.
-
-The pass rate hid it. The trace didn't.
-
----
-
-# What we learned
-
-Two changes, two outcomes.
-
-One broke a case. One passed everything and cost more.
-
-You need the pass rate **and** the cost to see both.
-
----
-
-# Going further
-
-`quark.py` is one way to do it.
-
-`evaluation.py` is a richer one.
-
----
-
-# evaluation.py
-
-Built on Lesson 3's `control_flow.py`.
-
-**122 lines.**
-
----
-
-# agent()
-
-The loop from `control_flow.py`, as a **function**.
-
-Call it with a task and a variant. Get a result.
-
----
-
-# Variants
-
-Different ways to run the agent.
-
-Compared **side by side**.
-
----
-
-# Three of them
-
-- **sonnet**: the baseline
-- **haiku**: a smaller model
-- **hasty**: the same model, told to use as few commands as it can and read nothing before it edits
-
----
-
-# Cases with code checks
-
-`count`, `fix`, `log`.
-
-A shell command decides. Cheap and exact.
-
----
-
-# Some tasks have no exact answer
-
-"Explain what this function does."
-
-No command can grade that.
-
----
-
-# Grading by model
-
-`explain` has a **rubric**.
-
-A model reads the answer and the rubric.
-
-It says **PASS** or **FAIL**, with one sentence why.
-
----
-
-# The judge
-
-A different, stronger model.
-
-`claude-opus-5-5`.
-
----
-
-# Can you trust the judge?
-
-A judge can be wrong.
-
----
-
-# calibrate()
-
-Give the judge **three answers whose grade you know**.
-
-Check it agrees.
-
-Before it grades anything real.
-
----
-
-# Trials
-
-`TRIALS = 3`.
-
-Each case, each variant, three times.
-
----
-
-# Why three
-
-Answers vary.
-
-One pass might be luck.
-
-Three tells you something.
-
----
-
-# A pool
-
-`AT_ONCE = 6`.
-
-Whole trials run at the same time.
-
-Running model calls in parallel is control flow, not Lesson 9's tool executor.
-
----
-
-# The table
-
-Cases down. Variants across.
-
-Passes out of trials.
-
-Steps. Tokens.
-
----
-
-# worse than
-
-If a variant does **worse than the baseline**, it's called out.
-
-And the exit code is 1.
-
----
-
-# Run it
-
-```
-uv run production/10-evaluation/evaluation.py
-```
-
-36 runs.
-
----
-
-# The result
-
-Every variant passed all 12.
-
-Haiku averaged about **3.8 steps**.
-
-**Hasty** saved nothing.
-
----
-
-# A null result
-
-`hasty` wasn't cheaper or faster.
-
-That's a finding.
-
-You'd have guessed otherwise.
-
----
-
-# Break it on purpose
-
-A copy with a fourth variant: **onestep**.
-
-One step allowed.
-
----
-
-# The result
-
-**3 of 12.**
-
-Exit code 1.
-
----
-
-# Cheaper, because it stopped early
-
-It used fewer tokens.
-
-Because it **gave up**.
-
-Cost alone would say "better".
-
----
-
-# Always read both
-
-Pass rate and cost.
-
-Either one alone misleads.
-
----
-
-# A story about a grader
-
-An earlier run: baseline Sonnet got **2 of 3** on `explain`.
-
-That looked like a real weakness.
-
----
-
-# Read the failures
-
-The judge had answered `**PASS**`.
-
-With markdown stars.
-
----
-
-# The bug was ours
-
-The parse checked `startswith("PASS")`.
-
-`**PASS**` doesn't start with `PASS`.
-
-The agent was right. The **grader** was wrong.
-
----
-
-# The fix
-
-Strip the stars and marks first:
+# Run quark itself, in a fresh folder (abridged)
 
 ```python
-lstrip("*#` ")
+    for case in cases:
+        where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
+        subprocess.run(case["setup"], shell=True, cwd=where)
+        start = time.time()
+        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, ...)
+        except subprocess.TimeoutExpired: pass
+        passed = subprocess.run(case["check"], shell=True, cwd=where, ...).returncode == 0
+        seconds = round(time.time() - start, 1)
 ```
 
----
+- Not a mock: the same file, prompt, guard, sandbox, retries and tracing
+- `input="y\n" * 50` answers the guard's questions; its policy still blocks
+- Over five minutes, it's killed and graded on what it left behind
 
-# calibrate() didn't catch it
-
-It checked the judge's judgment.
-
-Not our reading of it.
-
-A grader has bugs too.
+<!-- The working folder is the case's folder, so the sandbox mounts only that, and the .quark/ directory with memory and trace is created there too. Cases can't see each other's memory. -->
 
 ---
 
-# Another fix: the rubric
+# The cost comes from the trace (abridged)
 
-A word in it was ambiguous.
+```python
+        events = [json.loads(line) for line in open(f"{where}/.quark/traces.jsonl")] if ... else []
+        models = [e for e in events if e["event"] == "model"]
+        tokens = sum(e["input_tokens"] + e["output_tokens"] + e["cache_read"] + ... for e in models)
+...
+        if passed: shutil.rmtree(where, ignore_errors=True)
+        else: failed += 1
+    print(f"{len(cases) - failed}/{len(cases)} passed")
+    return 1 if failed else 0
 
-"returns" or "computes".
+if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
+```
 
-Reworded.
+- Steps are the child run's `model` events; tokens include cache reads
+- A failed case keeps its folder; a passed one is deleted
+- One new section, caught before `# ── input ──` reads anything
 
----
-
-# The lesson
-
-When an eval fails, **read the failure**.
-
-Before blaming the agent.
-
----
-
-# What evaluation can be
-
-- **tasks**: a few, or hundreds
-- **grading**: code, a model, a person
-- **trials**: once, or many
-- **when**: on demand, or on every change
-- **compared to**: last run, or other variants
+<!-- The token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line and appends one to .quark/evals.jsonl. The exit status is 1 if anything failed. -->
 
 ---
 
-# Part 3: on every change
+# It remembers last time
+
+```python
+    log, before = ".quark/evals.jsonl", {}
+    os.makedirs(".quark", exist_ok=True)
+    if os.path.exists(log):
+        for line in open(log): before[json.loads(line)["case"]] = json.loads(line)["passed"]
+    cases, failed = [c for c in CASES if not names or c["name"] in names], 0
+```
+
+- A case that passed last time and fails now says `REGRESSED`
+- Not "it failed", but "it used to pass"
+- Run some cases by name: `quark.py --eval fix rename`
+
+<!-- Four cases is a smoke test, not a benchmark. It can tell you quark is badly broken, and it can't tell you quark is good. -->
 
 ---
 
-# The habit
+# A baseline: what normal looks like
 
-Run it after each change.
+```
+pass  count      2 steps    5.1s    18919 tokens
+pass  fix        3 steps    7.2s    28561 tokens
+pass  rename     2 steps    5.4s    18998 tokens
+pass  remember   2 steps    5.0s    18995 tokens
+4/4 passed
+exit 0
+```
 
-Not only when something seems wrong.
+- 19,000 to 29,000 tokens for tiny tasks: the prompt is about eight thousand, read every step
+- `fix` took three steps because it read the code before changing it
 
----
-
-# The exit code makes it automatic
-
-Exit 1 on failure.
-
-A script or CI runs it on every change.
-
-A change that breaks a case you wrote is caught before it ships.
-
----
-
-# Where we've been
-
-Lesson 5: you can see what it did.
-
-Lesson 6: it asks first.
-
-Lesson 7: it's boxed.
+<!-- Within a case the later steps read the prompt from the cache. Each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. -->
 
 ---
 
-# And
+# A change that looks harmless
 
-Lesson 8: it survives failure.
+`MAX_STEPS` from 20 to 1, to cap what a run can spend:
 
-Lesson 9: it's fast and cheap.
+```
+pass  count      1 steps    3.7s     9439 tokens
+FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
+pass  rename     1 steps    3.6s     9440 tokens
+pass  remember   1 steps    4.0s     9520 tokens
+3/4 passed
+exit 1
+```
 
-Lesson 10: you **know** it still works.
-
----
-
-# Honest limits
-
-- killing it on a timeout can leave a **Docker container**
-- each case has its own folder, so cases **share no cache**
-
----
-
-# What to take away
-
-**Rule:** evaluation runs the whole harness on tasks with known outcomes, grades by code or model, and runs on every change.
+<!-- Counting, renaming and writing a note each take one command. Fix can't, because the agent reads the code first. The exit code is 1. A hand test would probably have tried one of the three that still work. -->
 
 ---
 
-# Notice what evaluation never does
+# The failed case kept its folder (shortened)
 
-It doesn't do any of the five primitives **for** the agent.
+```
+$ cat /tmp/eval-fix-8ega07z3/calc.py
+def add(a, b):
+    return a - b
+```
 
-It doesn't act as control flow, input, context, model interface, or output **in** the agent.
+Its trace:
 
-It stands **outside** and measures.
+```
+{"event":"start"}
+{"event":"model","stop_reason":"tool_use"}
+{"event":"tool","cmd":"cat calc.py test.py"}
+{"event":"stopped"}
+```
+
+The run hit the step limit before the model saw what it read.
+
+<!-- The calculator still subtracts. One model call, which asked for cat calc.py test.py, then the guardrail's stopped. Reading a failure like this is the most useful thing an evaluation gives you. -->
 
 ---
 
-# The whole course
+# What else evaluation can be
 
-Five primitives.
+- **Cases from reality:** every real mistake becomes a case, found in the traces
+- **What passes:** final state, final answer, the path taken, or what must *not* happen
+- **Noise and kinds:** pass at least once in *k*, or every time; regression cases apart from hard ones
+- **When:** on every change, on a schedule, and on a sample of live traces
+- **As a product:** Braintrust, LangSmith, promptfoo, Inspect run and grade cases, but can't give you the cases
 
-Six layers that harden them.
-
-One agent, **quark**.
+<!-- A must-not case is how you test Lesson 6's guardrails. A new model version is a change you didn't make, so schedule it. Products save you the plumbing; only you know what your agent's job is. -->
 
 ---
 
-# And a way to read any agent
+# `evaluation.py`: variants, a judge, and trials
 
-Sort its parts into the five.
+Lesson 3's loop as a function, with:
 
-Ask what each layer is built on.
+- **Three variants** to compare: `sonnet` (the baseline), `haiku`, and `hasty`
+- **Four cases:** three graded by code, `explain` graded by a model against a rubric
+- **`calibrate()`** tests the judge on three known answers before trusting it
+- **Three trials** of each case, six at a time, and a table against the baseline
 
-Tell the author what doesn't fit.
+<!-- hasty is the same model told to use few commands and never read before editing: the kind of "be efficient" line someone adds to save money. Each variant is a hypothesis: this one is as good and cheaper. -->
+
+---
+
+# Cheaper in every column, because it stopped
+
+A baseline copy with `"steps": 1`, called `onestep`:
+
+```
+               sonnet  onestep
+count             3/3      3/3
+fix               3/3      0/3
+log               3/3      0/3
+explain           3/3      0/3
+passed          12/12     3/12
+steps/run         3.2      1.0
+tokens/run      2,257      488
+seconds/run       4.8      1.3
+```
+
+<!-- The first full run had all 36 passing for all three variants, so four cases couldn't tell them apart: either they're equal on this work, or the cases are too easy. This one shows what worse looks like. onestep was cheaper because it stopped before doing the work. That's why cost is read together with pass rate and never alone. -->
+
+---
+
+# The grader had a bug
+
+- The baseline passed `explain` only 2 of 3: a sign the **grading** was wrong
+- The stored reason showed the judge said `**PASS**`, in bold
+- The code checked whether the answer started with `PASS`, so it read a fail
+- The judge also hedged: "computes" vs "returns". The rubric was ambiguous
+- Fixed both. `calibrate()` hadn't caught it: a grader can pass its check and still fail you
+
+<!-- A variant was blamed on the evidence of a grader that was wrong. That's why the file stores the judge's answer, and why a failure should be read before it's believed. -->
+
+---
+
+# The rule
+
+Write down what a right outcome looks like before you change anything, and then measure it after.
+
+<!-- Cases you can check without the agent, the whole agent run on them, the world graded and not the words, enough repeats that noise doesn't pass for a result, a baseline, cost read next to pass rate, and on every change, not when you remember. -->
+
+---
+
+# Evaluation runs the primitives, never rebuilds them
+
+- **Control flow:** the loop under test is unchanged; the evaluation's loop is a separate one around it
+- **Input:** the agent gets its task the way a person would give it
+- **Context:** it doesn't edit the prompt, the memory or the working memory
+- **Model interface:** the same calls, to the same models
+- **Output:** the tools run as always; the check is one more command beside them
+
+<!-- It sits outside the harness and treats it as a box. -->
+
+---
+
+# Only the jobs you wrote down
+
+- Four cases all passing is not a good agent; a set goes out of date
+- It says something got worse, not why: that's the traces and the episode
+- A few trials make noise look like signal
+- A model grader can be wrong; a check on it catches some of that
+- None of this is solved by a bigger harness: keep reading failures, keep adding cases
+
+<!-- That's the last production layer. There's no Lesson 11: what's next is your own agent, with its own cases, and the five primitives to take it apart with when it surprises you. -->
 
 ---
 
 <!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: "" -->
 
 # Back to the course
 
-You've built a harness, and you can measure it.
+Your own agent, its own cases, and the five primitives
