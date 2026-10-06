@@ -1,16 +1,16 @@
-import anthropic
+from anthropic import Anthropic
 
-client = anthropic.Anthropic(timeout=120, max_retries=3)
-MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]
+client = Anthropic()
 
-def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
-    for model in MODELS:
-        try:
-            with client.messages.stream(model=model, max_tokens=max_tokens, output_config={"effort": effort}, thinking={"type": "adaptive", "display": thinking}, messages=messages) as stream:
-                return stream.get_final_message()
-        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError, anthropic.OverloadedError):
-            continue
-    raise RuntimeError("no model answered")
+request = {
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 16384,
+    "messages": [{"role": "user", "content": "What's in this directory?"}],
+}
+output = client.messages.create(**request)              # one request out, one response back, all at once
 
-output = call([{"role": "user", "content": "What's in this directory?"}])
-print(output.model_dump_json(indent=2))
+for block in output.content:
+    print(f"[{block.type}]", getattr(block, "text", ""))
+print("stop_reason:", output.stop_reason)
+print("tokens in:", output.usage.input_tokens)
+print("tokens out:", output.usage.output_tokens)

@@ -27,9 +27,89 @@ Almost everything people build into harnesses is a context component, because al
 
 You don't need all of them. You need the ones your agent needs, built in whatever way fits.
 
-## The worked example
+## The concept
 
-Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 239 lines: 91 of code, and a system prompt of 148 lines. The prompt is shortened to `...` here and shown in full after the code:
+Here's the idea with nothing around it. It's [`context.py`](./context.py): Lesson 3's loop, plus two decisions about what the request holds.
+
+```python
+import subprocess, sys, os, json, datetime
+from anthropic import Anthropic
+read = input                                             # a person's input; the name input is for whatever comes in
+
+client = Anthropic()
+tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
+SAVED = ".quark/working_memory.json"
+
+def system():                                            # instructions: built fresh for every call
+    return f"You are quark, an agent whose body is bash. You're in {os.getcwd()}, and today is {datetime.date.today()}."
+
+def load():                                              # working memory: what the last session left, or nothing
+    if not os.path.exists(SAVED): return []
+    with open(SAVED) as f: return json.load(f)
+
+def save(working_memory):                                # written to disk when the session ends
+    os.makedirs(os.path.dirname(SAVED), exist_ok=True)
+    with open(SAVED, "w") as f: json.dump(working_memory, f, default=lambda b: b.model_dump(exclude_none=True))
+
+input = " ".join(sys.argv[1:]) or read("> ")
+working_memory = load() + [{"role": "user", "content": input}]
+
+while True:
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+    working_memory.append({"role": "assistant", "content": output.content})
+    input = []
+    for block in output.content:
+        if block.type == "text": print(block.text)
+        if block.type == "tool_use":
+            print(f"$ {block.input['cmd']}")
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+            print(done.stdout)
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+    if not input: break
+    working_memory.append({"role": "user", "content": input})
+
+save(working_memory)
+```
+
+Two things are new. **Instructions:** `system()` builds the system prompt fresh for every call, so it says who the model is, where it's running and what day it is, and those stay true. The model can't find out any of that on its own unless it spends a command looking. **Working memory:** the `messages` list from Lesson 3 is now called `working_memory`, and it doesn't vanish when the program ends. `save()` writes it to `.quark/working_memory.json` at the end of a session, and `load()` reads it back at the start of the next, so a new session begins with everything the last one said. That's the whole idea of context: deciding, before each call, what goes in the request.
+
+Run it once and tell it something:
+
+```bash
+uv run lessons/04-context/context.py "my favorite color is green"
+```
+
+```
+Green's a great color. It's tied to nature, growth, and calm.
+
+Is there something you'd like me to do with that? For example, I could save it to a notes file in `/home/user/building-agents`, or use it in a project. If you just wanted to tell me, that's fine too.
+```
+
+That program has ended. Run it again, as a new session:
+
+```bash
+uv run lessons/04-context/context.py "without running anything: what's my favorite color, what folder are you in, and what's the date? one line"
+```
+
+```
+Your favorite color is green, I'm in /home/user/building-agents, and today is 2026-10-06.
+```
+
+The color came from working memory, loaded back from the file. The folder and the date came from the system prompt. It ran nothing to find them. Here's the file after both sessions:
+
+```bash
+cat .quark/working_memory.json
+```
+
+```
+[{"role": "user", "content": "my favorite color is green"}, {"role": "assistant", "content": [{"text": "Green's a great color. It's tied to nature, growth, and calm.\n\nIs there something you'd like me to do with that? For example, I could save it to a notes file in `/home/user/building-agents`, or use it in a project. If you just wanted to tell me, that's fine too.", "type": "text"}]}, {"role": "user", "content": "without running anything: what's my favorite color, what folder are you in, and what's the date? one line"}, {"role": "assistant", "content": [{"text": "Your favorite color is green, I'm in /home/user/building-agents, and today is 2026-10-06.", "type": "text"}]}]
+```
+
+Every session adds to it, and all of it goes in every request. That works for a while. Then the list gets too long to send, and it's mostly things that don't matter any more. The rest of context is deciding what to keep, where, and how the model gets it back.
+
+## quark's implementation
+
+quark makes those decisions differently. Its working memory starts empty every session, as Lesson 3's did. What lasts goes into three stores on disk instead, each kept in its own way, and a much longer system prompt tells the model what it is and how to use them. Here's Lesson 3's agent with quark's context added. It's [`quark.py`](./quark.py), 239 lines: 91 of code, and a system prompt of 148 lines. The prompt is shortened to `...` here and shown in full after the code:
 
 ```python
 import subprocess, sys, os, re, glob, json, datetime
@@ -330,7 +410,7 @@ This code is your harness — shown so you know your self mechanics. The system 
 
 > quark's own version does more than this. You can interrupt it with ESC, it keeps what it had done when you do, and it retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and keeping partial work, the retries and the backup model in [Lesson 8: Resilience](../../production/08-resilience/). Streaming isn't left out: quark has streamed its responses since Lesson 1, and shown them as they arrive since Lesson 2.
 
-## Run it
+### Run it
 
 From the root of the repo, ask it what it is:
 
@@ -472,10 +552,10 @@ In earlier sessions you asked me:
 
 It used the move the prompt gives it: the first line of every episode is the input that opened that session, so one `grep` lists them all, leaving out the session it's in.
 
-## Going further
+## Other things we could do
 
-**What else context can be:** quark keeps working memory, a system prompt, its own source, three memory stores and lazy compaction. The components listed at the top of this lesson are what context is made of; these are the choices you make when you build them.
-- **Who decides what's remembered.** The model, writing it down when it thinks it matters, or harness code that saves and loads on its own.
+quark keeps working memory, a system prompt, its own source, three memory stores and lazy compaction. The components listed at the top of this lesson are what context is made of; these are the choices you make when you build them.
+- **Who decides what's remembered.** The model, writing it down when it thinks it matters, or harness code that saves and loads on its own, as `context.py` does.
 - **What it retrieves.** Nothing, or documents, code or past messages found by search and put in the request.
 - **When it fits.** After the API refuses, or before, by counting tokens against a limit.
 - **How it fits.** Summarize old turns, drop them, or cut long tool results down before they're kept.
@@ -483,165 +563,15 @@ It used the move the prompt gives it: the first line of every episode is the inp
 
 It can be a product on its own. Memory layers like [Mem0](https://github.com/mem0ai/mem0) are this primitive: they store what an agent should remember and hand back what's relevant for each request.
 
-[`context.py`](./context.py) makes different choices from quark on several of these, so you can see the alternatives side by side:
+A few of those choices are worth spelling out, because quark could have gone the other way on each.
 
-```python
-import subprocess, sys, os, json, glob, datetime
-from anthropic import Anthropic
-read = input                                             # a person's input; the name input is for whatever comes in
+**Fit before you're refused.** quark waits for the API to say "prompt is too long". You could instead count tokens before every call (the API has a `count_tokens` endpoint for this) and, once working memory passes a budget you choose, summarize everything before the latest message and keep that message as it is. It costs a count per call. In return every request stays smaller and cheaper than the model's limit, and you choose the limit: set it low and a chat gets summarized nearly every turn.
 
-client = Anthropic()
-MODEL = "claude-sonnet-5-5"
-tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
-LIMIT, KEEP = 50_000, 4_000
+**Cut long tool results.** quark keeps every tool result whole. A command that prints a megabyte of logs puts a megabyte in working memory. You could keep only the start and the end of any result over a few thousand characters and replace the middle with a note of how much was cut. The model usually needs the first lines (what ran) and the last ones (how it ended). Lesson 9 does this to quark.
 
-def system():
-    skills = "\n".join(f"- {p}: {open(p).readline().strip()}" for p in sorted(glob.glob(".quark/skills/*.md"))) or "(none yet)"
-    return f"""You are quark, an agent whose body is bash. You're in {os.getcwd()}, and today is {datetime.date.today()}.
-Past sessions are logged one message per line in .quark/episodes.jsonl. Search it when the past matters.
-Skills: before a task one of these covers, read it with cat and follow it.
-{skills}"""
+**One log for every session.** quark writes one episode file per session, named by when it started. The simplest alternative is one shared file, say `.quark/episodes.jsonl`, with every message of every session appended to it. It's less code, and one `grep` searches all of it. It's also harder to read once it grows: there's no way to list sessions or slice them by time without parsing the file.
 
-def remember(message):
-    os.makedirs(".quark", exist_ok=True)
-    with open(".quark/episodes.jsonl", "a") as f: f.write(json.dumps(message, default=lambda b: b.model_dump()) + "\n")
-
-def trim(text):
-    return text if len(text) <= KEEP else f"{text[:KEEP // 2]}\n[... {len(text) - KEEP} characters cut ...]\n{text[-KEEP // 2:]}"
-
-def fit(working_memory):
-    if client.messages.count_tokens(model=MODEL, system=system(), tools=tools, messages=working_memory).input_tokens < LIMIT: return working_memory
-    turns = [i for i, m in enumerate(working_memory) if m["role"] == "user" and isinstance(m["content"], str)]
-    if len(turns) < 2: return working_memory
-    old, recent = working_memory[:turns[-1]], working_memory[turns[-1]:]
-    summary = client.messages.create(model=MODEL, max_tokens=2048, messages=old + [{"role": "user", "content": "Summarize this session so far into a gist that preserves what matters for continuing."}])
-    gist = next((b.text for b in summary.content if b.type == "text"), "")
-    print(f"[working memory over {LIMIT} tokens: summarized {turns[-1]} messages]")
-    return [{"role": "user", "content": f"[earlier in this session, summarized] {gist}"}] + recent
-
-def add(working_memory, message):
-    working_memory.append(message); remember(message)
-
-input = " ".join(sys.argv[1:]) or read("> ")
-chat = len(sys.argv) < 2
-working_memory = []
-add(working_memory, {"role": "user", "content": input})
-
-while True:
-    working_memory = fit(working_memory)
-    output = client.messages.create(model=MODEL, max_tokens=16384, system=system(), tools=tools, messages=working_memory)
-    input = []
-    for block in output.content:
-        if block.type == "text": print(block.text)
-        if block.type == "tool_use":
-            print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-            print(done.stdout)
-            input.append({"type": "tool_result", "tool_use_id": block.id, "content": trim(done.stdout) or f"(exit {done.returncode})"})
-    add(working_memory, {"role": "assistant", "content": output.content})
-    if input:
-        add(working_memory, {"role": "user", "content": input}); continue
-    if not chat or (input := read("\n> ")) == "/q": break
-    add(working_memory, {"role": "user", "content": input})
-```
-
-- **When it fits.** quark waits for the API to refuse. `fit()` counts tokens before every call, and past `LIMIT`, a budget you choose, it summarizes everything before your latest message and keeps the rest as it is. It only summarizes earlier turns, so one long turn on its own is never fitted. It costs a count per call, and it keeps every request smaller and cheaper than the model's limit.
-- **How it fits.** quark keeps every tool result whole. `trim()` keeps the start and end of a result longer than `KEEP` characters and cuts the middle, before the result goes into working memory.
-- **Episodic memory.** quark writes one file per session. `context.py` writes every message of every session to one shared log, `.quark/episodes.jsonl`: simpler, and harder to search once it grows.
-- **Procedural memory.** quark indexes skills by a `name` and `description` header. `context.py` lists each file by its first line: less structure, and nothing to keep in a format.
-
-To try procedural memory, give it a skill:
-
-```bash
-mkdir -p .quark/skills
-printf 'How to count lines of Python in this repo\n\nUse: find . -name "*.py" -not -path "./.venv/*" | xargs wc -l\nReport the total, then the largest file.\n' > .quark/skills/count-python.md
-uv run lessons/04-context/context.py "how many lines of Python are in this repo?"
-```
-
-Here's one run:
-
-```
-Let me read the skill first.
-$ cat .quark/skills/count-python.md
-How to count lines of Python in this repo
-
-Use: find . -name "*.py" -not -path "./.venv/*" | xargs wc -l
-Report the total, then the largest file.
-
-$ find . -name "*.py" -not -path "./.venv/*" | xargs wc -l | sort -n
-    12 ./lessons/01-model-interface/quark.py
-    16 ./lessons/01-model-interface/model_interface.py
-    22 ./lessons/03-control-flow/workflow.py
-    25 ./lessons/02-input-and-output/output.py
-    27 ./lessons/02-input-and-output/input.py
-    32 ./lessons/03-control-flow/control_flow.py
-    38 ./lessons/02-input-and-output/quark.py
-    51 ./lessons/03-control-flow/quark.py
-    57 ./lessons/04-context/context.py
-    59 ./tools/deckcheck.py
-    64 ./lessons/02-input-and-output/input_output.py
-    76 ./paper/latex/build.py
-   101 ./production/07-observability/observability.py
-   105 ./production/06-guardrails/guardrails.py
-   109 ./production/09-performance/performance.py
-   114 ./production/05-sandboxing/sandboxing.py
-   141 ./production/08-resilience/resilience.py
-   161 ./production/10-evaluation/evaluation.py
-   239 ./lessons/04-context/quark.py
-   249 ./production/05-sandboxing/quark.py
-   311 ./production/06-guardrails/quark.py
-   325 ./production/07-observability/quark.py
-   356 ./production/08-resilience/quark.py
-   373 ./production/09-performance/quark.py
-   411 ./production/10-evaluation/quark.py
-  3474 total
-
-There are **3,474 lines** of Python in this repo. That excludes `.venv`.
-
-The largest file is `./production/10-evaluation/quark.py`, at 411 lines.
-```
-
-It read the skill, then followed it. That session is now in the episode log, so a new one can find it:
-
-```bash
-uv run lessons/04-context/context.py "in a past session, how many lines of Python did you count? one line"
-```
-
-```
-$ cd /tmp/pc/fxL/building-agents; grep -i -n "python" .quark/episodes.jsonl | head -50
-1:{"role": "user", "content": "how many lines of Python are in this repo?"}
-2:{"role": "assistant", "content": [{"citations": null, "text": "Let me read the skill first.", "type": "text"}, {"id": "toolu_01RGq5ihtjYCbTNZtfSt2T2f", "caller": {"type": "direct"}, "input": {"cmd": "cat .quark/skills/count-python.md"}, "name": "bash", "type": "tool_use", "toolset_name": null}]}
-3:{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01RGq5ihtjYCbTNZtfSt2T2f", "content": "How to count lines of Python in this repo\n\nUse: find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l\nReport the total, then the largest file.\n"}]}
-6:{"role": "assistant", "content": [{"citations": null, "text": "There are **3,474 lines** of Python in this repo. That excludes `.venv`.\n\nThe largest file is `./production/10-evaluation/quark.py`, at 411 lines.", "type": "text"}]}
-7:{"role": "user", "content": "in a past session, how many lines of Python did you count? one line"}
-
-$ cd /tmp/pc/fxL/building-agents; sed -n 4,5p .quark/episodes.jsonl
-{"role": "assistant", "content": [{"id": "toolu_01DGfPpYpyixjiYURBysEgxd", "caller": {"type": "direct"}, "input": {"cmd": "find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l | sort -n"}, "name": "bash", "type": "tool_use", "toolset_name": null}]}
-{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01DGfPpYpyixjiYURBysEgxd", "content": "    12 ./lessons/01-model-interface/quark.py\n    16 ./lessons/01-model-interface/model_interface.py\n    22 ./lessons/03-control-flow/workflow.py\n    25 ./lessons/02-input-and-output/output.py\n    27 ./lessons/02-input-and-output/input.py\n    32 ./lessons/03-control-flow/control_flow.py\n    38 ./lessons/02-input-and-output/quark.py\n    51 ./lessons/03-control-flow/quark.py\n    57 ./lessons/04-context/context.py\n    59 ./tools/deckcheck.py\n    64 ./lessons/02-input-and-output/input_output.py\n    76 ./paper/latex/build.py\n   101 ./production/07-observability/observability.py\n   105 ./production/06-guardrails/guardrails.py\n   109 ./production/09-performance/performance.py\n   114 ./production/05-sandboxing/sandboxing.py\n   141 ./production/08-resilience/resilience.py\n   161 ./production/10-evaluation/evaluation.py\n   239 ./lessons/04-context/quark.py\n   249 ./production/05-sandboxing/quark.py\n   311 ./production/06-guardrails/quark.py\n   325 ./production/07-observability/quark.py\n   356 ./production/08-resilience/quark.py\n   373 ./production/09-performance/quark.py\n   411 ./production/10-evaluation/quark.py\n  3474 total\n"}]}
-
-In a past session I counted 3,474 lines of Python in this repo. That excluded `.venv`, and the largest file was `./production/10-evaluation/quark.py` at 411 lines.
-```
-
-And with `LIMIT` set to 560 tokens, here's a chat where I typed four inputs (`my favorite color is green`, `what is 2+2?`, `what is 3+3?` and `what is my favorite color?`; they aren't echoed). `fit()` summarizes before each of the last three, and the fact from the first survives in the summary:
-
-```
-> Noted: your favorite color is green. 🌿
-
-If you'd like me to remember it for future sessions, I can save it somewhere in this repo, such as in `.quark/`. Just say so.
-
-> [working memory over 560 tokens: summarized 2 messages]
-2 + 2 = 4.
-
-One correction to the summary above: it says I have no tools or file access. That's wrong for this session. I can run bash in `/tmp/pc/fxL/building-agents`. I haven't looked at anything there, and nothing has been saved. If you'd like your favorite color (green) recorded somewhere, tell me and I'll do it.
-
-> [working memory over 560 tokens: summarized 3 messages]
-3 + 3 = 6.
-
-> [working memory over 560 tokens: summarized 3 messages]
-Your favorite color is green. You told me that earlier in this session.
-
-> 
-```
+**A plainer skill index.** quark indexes each skill by a `name` and a `description` at the top of its file. You could list each skill by its path and its first line instead. There's less structure, and nothing for the model to keep in a format, but the first line has to say when to use the skill, and nothing makes sure it does.
 
 ## What to take away
 

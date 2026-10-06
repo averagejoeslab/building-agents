@@ -83,7 +83,85 @@ A loop with no clear way to end is a bill with no clear way to end.
 
 ---
 
-# quark.py: Lesson 2, plus one loop
+# control_flow.py: a workflow, where your code decides
+
+```python
+def workflow(input):
+    draft = ask(f"Do this task. Reply with only the result.\n\n{input}")
+    review = ask(f"Task:\n{input}\n\nDraft:\n{draft}\n\n...")
+    output = ask(f"Task:\n{input}\n\n...Rewrite the draft...")
+```
+(abridged: the prints and most of each prompt cut)
+
+- Three calls, always in the same order: draft, review, rewrite
+- The model writes every word, but never picks the next step
+
+<!-- Here's the idea with nothing around it: who decides the next step. control_flow.py runs it both ways. call() and ask() are the model interface cut down to one line each. In workflow(), nothing the model says can add a step or skip one. -->
+
+---
+
+# control_flow.py: an agent, where the model decides
+
+```python
+    while True:
+        output = call(messages, tools=tools)
+        messages.append({"role": "assistant", "content": output})
+        ...
+                done = subprocess.run(block.input["cmd"], shell=True, ...)
+                input.append({..., "content": done.stdout or f"(exit {done.returncode})"})
+        if not input: break
+        messages.append({"role": "user", "content": input})
+```
+(abridged)
+
+- The model picks each next step by asking for a tool
+- `if not input: break`: no tool request means the model is done
+
+<!-- Call, run any tools it asked for, send the results back, call again. Your code only says "go again while there's something to send back." -->
+
+---
+
+<style scoped>pre, p { font-size: 0.8em; }</style>
+
+# Run the workflow: it rewrites even when it needn't
+
+`uv run lessons/03-control-flow/control_flow.py workflow "write one sentence about agent harnesses in which every word has exactly five letters, at least eight words long"`
+
+```
+--- draft ---
+Agent tools guide model steps while small loops check every state.
+
+--- review ---
+The draft meets every requirement, so nothing needs fixing.
+...
+--- final ---
+Agent tools guide model steps while small loops check every state.
+```
+(shortened)
+
+<!-- The draft was already right, and the review said so. The rewrite ran anyway, because the code said it would. Predictable, and it does what you laid out even when it isn't needed. -->
+
+---
+
+# Run the agent: it picks its own steps
+
+`uv run lessons/03-control-flow/control_flow.py agent "which folder in lessons has the most files? answer in one English sentence"`
+
+```
+$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5
+10 02-input-and-output/
+9 03-control-flow/
+7 04-context/
+7 01-model-interface/
+
+The `02-input-and-output` folder in `lessons` has the most files, with 10.
+```
+
+<!-- Two calls. The first asked for a command; nobody told it which. Its result went back, and the second call answered and asked for nothing, so the loop ended. I didn't plan those steps. The model did. -->
+
+---
+
+# quark.py: the agent loop, plus a chat mode
 
 ```python
 chat = len(sys.argv) < 2
@@ -100,7 +178,7 @@ while True:
 - Each pass of `while True:` is one call to the model
 - `messages` carries everything so far: the simplest context, working memory
 
-<!-- Everything above the control flow section is Lesson 2's, with one addition to input: chat. The growing messages list is how a result reaches the next call. Deciding what really goes in it is Lesson 4. -->
+<!-- quark is an agent, so its loop is agent() with Lesson 2's pieces around it. Everything above the control flow section is Lesson 2's, with one addition to input: chat. The growing messages list is how a result reaches the next call. Deciding what really goes in it is Lesson 4. -->
 
 ---
 
@@ -159,7 +237,7 @@ The longest one is `./lessons/04-context/quark.py`, at 239 lines.
 
 ---
 
-# Control flow can be much more than one loop
+# Other things we could do
 
 - **Its shape:** single call, chat, workflow, agent loop, agents handing off, a loop woken by a message or a schedule
 - **When it stops:** model stops asking, step count, spending limit, refusal, a person says stop
@@ -172,50 +250,15 @@ The longest one is `./lessons/04-context/quark.py`, at 239 lines.
 
 ---
 
-# control_flow.py stops, and says why
+# Two ways to stop that quark leaves out
 
-```python
-MAX_STEPS = 10
-...
-for step in range(1, MAX_STEPS + 1):
-    ...
-    if output.stop_reason == "refusal":
-        print("[stopped: the model declined]")
-        break
-    ...
-    if not input:
-        print(f"[done in {step} steps]")
-        break
-    messages.append({"role": "user", "content": input})
-else:
-    print(f"[stopped: hit the {MAX_STEPS}-step limit]")
-```
+- **A step limit:** stop after, say, ten calls, even if the model is still asking
+- **A refusal:** if `stop_reason` is `"refusal"`, the model declined; going around again won't help
+- Either way, say which way it stopped
 
-<!-- It stops in three ways: at MAX_STEPS calls, when the model is done, or when it declines with a refusal, and it says which. It hands back to no one: there's no chat mode. -->
+"Done", "out of steps" and "declined" look the same from outside if it doesn't.
 
----
-
-# Two runs: done, and out of steps
-
-`uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the most files? answer in one English sentence"`
-
-```
-The `02-input-and-output` folder in `lessons` has the most files, with 7.
-[done in 2 steps]
-```
-
-With `MAX_STEPS` set to 1, it stops before the model sees the result:
-
-```
-$ git --version
-git version 2.43.0
-
-[stopped: hit the 1-step limit]
-```
-
-(first run shortened)
-
-<!-- Two steps: one command, then the answer. With a one-step limit, the same harness stops after the first command. -->
+<!-- A step limit is the simplest guard against a loop that never ends: if the model keeps asking for tools, you still get a bill with an end. When it hits the limit, say so, so whoever reads the output knows the task may not be done. -->
 
 ---
 
@@ -229,30 +272,7 @@ git version 2.43.0
 
 From Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents).
 
-<!-- Two things to keep straight when you read it. The augmented LLM isn't control flow: retrieval and memory are context, tools are output. And routing stays control flow even when it picks a cheaper model; Lesson 1's backup model only steps in when the first is down, so it belongs to the model interface. -->
-
----
-
-# workflow.py: your code decides the order
-
-- Draft, judge, rewrite, judge: no tools, no loop the model steers
-- Stops when the judge replies `PASS`, or after three rounds
-- One run (shortened):
-
-```
---- draft 1 ---
-Agent rigs wrap model calls while tools guide small tasks.
-
---- evaluator ---
-**Fails.** Two words are not five letters long:
-...
---- draft 2 ---
-Agent frame holds model parts while tools guide small tasks.
-
-[evaluator: pass]
-```
-
-<!-- quark.py and control_flow.py are both agents. This is an evaluator–optimizer workflow. The first draft missed, the judging call said exactly why, and the rewrite passed. Every step was one the code laid out in advance. -->
+<!-- Prompt chaining is our workflow(). The evaluator–optimizer is closest to it: make the review answer PASS when the draft is fine, stop when it does, otherwise rewrite and review again, up to a few rounds. Two things to keep straight when you read it. The augmented LLM isn't control flow: retrieval and memory are context, tools are output. And routing stays control flow even when it picks a cheaper model; a backup model that only steps in when the first is down belongs to the model interface. -->
 
 ---
 
@@ -273,7 +293,7 @@ Arranged differently, the same four pieces are a single call, a chatbot, an agen
 
 Control flow only decides what runs, in what order, and when to stop.
 
-<!-- That includes the growing messages list and the prompts in workflow.py: what a request holds is context, not control flow. -->
+<!-- That includes the growing messages list and the prompts in workflow(): what a request holds is context, not control flow. -->
 
 ---
 

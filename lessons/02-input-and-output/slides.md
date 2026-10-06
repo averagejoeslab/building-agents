@@ -213,7 +213,7 @@ $ wc -l README.md
 
 ---
 
-# What else input and output can be
+# Other things we could do
 
 - **Input from a person:** command line, a prompt, a pipe, a chat app, a webhook, a schedule; text, images, files
 - **Input from the world:** what a tool printed, its exit code, whether it failed
@@ -221,47 +221,19 @@ $ wc -l README.md
 - **Tools:** one general tool or many routed by name; run here, in a container, remotely; one by one or all at once
 - **A product:** [MCP](https://modelcontextprotocol.io) servers package tools behind one protocol, output you plug in
 
-<!-- quark gathers input from a terminal and runs one tool on the same machine. Other harnesses hold more: asking again for a blank message, not running a tool request that was cut off, stopping a tool that hangs. MCP lets a harness run tools someone else built without writing them. -->
+<!-- quark gathers input from a terminal and runs one tool on the same machine. Other harnesses hold more. MCP lets a harness run tools someone else built without writing them. -->
 
 ---
 
-# input_output.py: Telegram, tools at once (abridged)
+# A few worth picturing
 
-```python
-async def execute(block, cut_off):
-    if cut_off:
-        out, failed = "cut off before it was finished, so it was not run", True
-    elif block.name not in executors:
-        out, failed = f"no tool named {block.name}", True
-    else:
-        out, failed = await executors[block.name](block.input)
-    return {"type": "tool_result", "tool_use_id": block.id, ...}
-```
+- **A chat app as both ends:** messages come in from Telegram, words and results go back to the same chat
+- **Tools routed by name:** `bash` and `read_file`; an unknown name gets an error back, not a crash
+- **Every request at once:** three two-second commands take two seconds, not six
+- **Don't run what was cut off:** if the response hit `max_tokens`, its last request may be half-written
+- **Stop what hangs:** kill a command after 30 seconds; failures come back marked `is_error`
 
-- `receive()` takes a Telegram message; `send()` posts back to the chat
-- `executors` routes `bash` and `read_file` by name
-- `asyncio.gather` runs every tool request at once
-
-<!-- Three commands that each take two seconds finish in two seconds, not six. If the response hit max_tokens, its last tool request may be incomplete, so it isn't run. bash is stopped after 30 seconds, and failures come back with is_error set. -->
-
----
-
-# One message, three tools, run together
-
-Sent: "check the python3 version, the git version and the first line of pyproject.toml, all three at once"
-
-```
-[bot → telegram] → bash {"cmd": "python3 --version"}
-Python 3.13.14
-[bot → telegram] → bash {"cmd": "git --version"}
-git version 2.43.0
-[bot → telegram] → bash {"cmd": "head -n 1 pyproject.toml"}
-[project]
-```
-
-One real run (shortened), Telegram swapped for a stand-in that prints each message; the model and tools were real
-
-<!-- One message asked for three things, the model asked for three tools in one response, and the executor ran them together. As with quark.py, the model never sees the results. -->
+<!-- A chat app is for when the person isn't at your machine. Taking one message is input; answering message after message would be control flow. Narrow tools are easier for the model to use well and easier for you to limit. Each result still names the request it answers. -->
 
 ---
 

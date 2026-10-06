@@ -63,14 +63,50 @@ You need the ones your agent needs, built in whatever way fits.
 
 ---
 
+# context.py: the idea with nothing around it
+
+```python
+def system():
+    return f"You are quark ... You're in {os.getcwd()}, and today is {datetime.date.today()}."
+
+working_memory = load() + [{"role": "user", "content": input}]
+...
+save(working_memory)
+```
+
+(abridged)
+
+- **Instructions:** `system()` is built fresh for every call: who, where, when
+- **Working memory:** `load()` at the start of a session, `save()` at the end
+
+<!-- This is Lesson 3's loop plus two decisions about what the request holds. The model can't know the folder or the date unless the harness puts them there. And the messages list no longer vanishes when the program ends: it's saved to .quark/working_memory.json and loaded back next time. That's the whole idea of context. -->
+
+---
+
+# A second session remembers the first
+
+`uv run lessons/04-context/context.py "my favorite color is green"`
+
+> Green's a great color. It's tied to nature, growth, and calm. ... (shortened)
+
+A new session:
+
+`"without running anything: what's my favorite color, what folder are you in, and what's the date? one line"`
+
+> Your favorite color is green, I'm in /home/user/building-agents, and today is 2026-10-06.
+
+<!-- The color came from working memory, loaded back from the file. The folder and the date came from the system prompt; it ran nothing to find them. But every session adds to that file, and all of it goes in every request. Soon it's too long, and mostly things that don't matter any more. The rest of context is deciding what to keep, where, and how the model gets it back. -->
+
+---
+
 # quark.py: Lesson 3, plus a context section
 
 - 239 lines: 91 of code, and a system prompt of 148
-- `messages` is renamed `working_memory`; `append` becomes `add()`
+- Working memory starts empty every session, as in Lesson 3
+- What lasts goes into three stores on disk instead
 - The call is wrapped in `try`, to catch "prompt is too long"
-- The new section, context, has eight components
 
-<!-- Everything outside the context section is Lesson 3's, with those two changes in the loop. quark's own version also lets you interrupt it with ESC, keeps what it had done when you do, and retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: ESC comes back in Lesson 6; partial work, retries and the backup model in Lesson 8. Streaming isn't left out: quark has streamed since Lesson 1. -->
+<!-- quark makes those decisions differently. Everything outside the context section is Lesson 3's: messages is renamed working_memory, and append becomes add(). quark's own version also lets you interrupt it with ESC, keeps what it had done when you do, and retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: ESC comes back in Lesson 6; partial work, retries and the backup model in Lesson 8. Streaming isn't left out: quark has streamed since Lesson 1. -->
 
 ---
 
@@ -296,7 +332,7 @@ In earlier sessions you asked me:
 
 ---
 
-# Context can be built many ways
+# Other things we could do
 
 - **Who decides what's remembered:** the model, or harness code
 - **What it retrieves:** nothing, or documents, code, past messages
@@ -310,20 +346,14 @@ Memory layers like [Mem0](https://github.com/mem0ai/mem0) are this primitive alo
 
 ---
 
-# context.py makes the other choices
+# Where quark could have gone the other way
 
-- `fit()` counts tokens before every call and summarizes past `LIMIT`
-- `trim()` keeps the start and end of a long tool result
-- One shared episode log, `.quark/episodes.jsonl`; skills listed by first line
+- **Fit before you're refused:** count tokens every call, summarize past a budget
+- **Cut long tool results:** keep the start and the end, note what was cut
+- **One log for every session:** less code, harder to read as it grows
+- **A plainer skill index:** each skill's first line, no front matter
 
-With `LIMIT` set to 560 tokens, after three summaries (shortened):
-
-```
-> [working memory over 560 tokens: summarized 3 messages]
-Your favorite color is green. You told me that earlier in this session.
-```
-
-<!-- Counting costs a call each time, and it keeps every request smaller and cheaper than the model's limit. In this chat I told it my favorite color first; fit() summarized before each of the last three inputs, and the fact survived in the summary. -->
+<!-- Counting costs a call each time, but keeps every request smaller and cheaper than the model's limit. Cutting results keeps the first lines, what ran, and the last ones, how it ended; Lesson 9 does this to quark. One shared log is one grep to search, but you can't list sessions or slice them by time without parsing it. A first-line index needs nothing kept in a format, but nothing makes sure that line says when to use the skill. -->
 
 ---
 
