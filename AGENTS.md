@@ -155,6 +155,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 | `README.md` | readers | Entry point: thesis, lesson tables, setup, how to present the slides, the paper, the proof, citation, license. |
 | `lessons/01–04/` | learners | The primitives. Each README is the lesson; `quark.py` is the lineage; other `.py` files are fuller examples. |
 | `lessons/*/slides.md`, `production/*/slides.md` | presenters | Marp decks for teaching each lesson in a workshop or video. Written by quark from memory, corrected by hand. |
+| `lessons/*/slides.pdf`, `production/*/slides.pdf` | presenters | Each deck rendered by Marp, so it opens and presents straight from GitHub. Regenerate after any `slides.md` change: `CHROME_PATH=<chromium> npx @marp-team/marp-cli <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files`. Then check every page fits: no word below y=482pt or right of x=901pt in `pdftotext -bbox` (page number excepted). A slide that overflows needs a `<style scoped>` block (smaller font), never changed text. |
 | `production/05–10/` | learners | The production layers, written by quark (run 3). |
 | `docs/the-model.md`, `assets/*.svg` | learners | Optional deep dive on what's inside the model; the SVGs illustrate it. |
 | `docs/quark-at-work/` | readers checking the proof | Verbatim transcripts and memory from the four runs. |
