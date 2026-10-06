@@ -51,16 +51,12 @@ That gap costs something:
 - **Comparison.** You can't compare two systems whose authors describe them differently.
 - **The market.** The field keeps meeting the same few ideas as new products: memory layers, gateways, tool protocols, tracing platforms, sandboxes, evaluation suites. Without a map, it's hard to tell whether each is new or an old idea renamed.
 
-The outer layer now has a name and a literature. A run of 2026 papers works on *harness engineering*:
+The outer layer now has a name, *harness engineering*, and evidence that it matters:
 
-- an empirical study of harness design for coding agents [6];
-- harnesses for auditable enterprise agents [4];
-- deterministic execution constraints [7];
-- reusable tool primitives inside a harness [8];
-- a survey of code as an agent harness [9];
-- a position paper arguing that agents shouldn't be compared without disclosing their harness [5].
+- Zhang et al. [4] argue that, among comparable frontier models, the harness can drive more of the variance in performance than the choice of model, so agents shouldn't be compared without disclosing their harness.
+- Fan et al. [5] hold a coding harness's loop fixed and vary three of its parts: planning, the action space and context management. Each one changes how the agent behaves.
 
-They all treat the harness as what matters. None says what a harness is made of.
+Both treat the harness as what matters. Fan et al. pick parts of a harness to vary. I ask what the complete set of parts is.
 
 My answer is **reductive**: take an agent apart until the parts stop being shared across systems. It is also **mechanistic**: define each part by what it does on the path from a request to a response, not by what it's called or who sells it.
 
@@ -313,7 +309,7 @@ The same file can serve two readers. Claude Code's session transcript is read by
 
 **The "augmented LLM."** The building block of a model with retrieval, tools and memory [3] isn't a primitive. It splits into context (retrieval, memory) and output (tools) around a model interface.
 
-**Tool protocols.** MCP [14] is mostly output you plug in: tools someone else built, behind one protocol. Its other features land elsewhere:
+**Tool protocols.** MCP [10] is mostly output you plug in: tools someone else built, behind one protocol. Its other features land elsewhere:
 
 - resources and prompts decide what the model sees, so they're **context**;
 - *sampling* borrows the client's **model interface**;
@@ -482,9 +478,9 @@ For each harness:
 
 | Harness | Source | Version |
 |---|---|---|
-| **OpenAI Codex CLI** [26] | source code, [github.com/openai/codex](https://github.com/openai/codex) (Rust, `codex-rs/`) | commit `7ac954e`, 2026-10-06 |
-| **opencode** [27] | source code, [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode) (TypeScript; formerly `sst/opencode`) | commit `652c090`, v1.18.34, 2026-10-06 |
-| **Claude Code** [28] | public documentation only (code.claude.com/docs and Anthropic engineering posts); its source isn't published | docs as of 2026-10-06 (CLI v2.1.288) |
+| **OpenAI Codex CLI** [22] | source code, [github.com/openai/codex](https://github.com/openai/codex) (Rust, `codex-rs/`) | commit `7ac954e`, 2026-10-06 |
+| **opencode** [23] | source code, [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode) (TypeScript; formerly `sst/opencode`) | commit `652c090`, v1.18.34, 2026-10-06 |
+| **Claude Code** [24] | public documentation only (code.claude.com/docs and Anthropic engineering posts); its source isn't published | docs as of 2026-10-06 (CLI v2.1.288) |
 
 The work was done with AI assistance, in my own way of working: an agent read the code or docs with the paper's definitions in hand and produced the assignments with file-and-line or URL evidence, so every assignment can be checked against its source. The full tables, with the evidence for every assignment, are in the [supplement](./decomposition-study.md).
 
@@ -555,16 +551,16 @@ The same holds for products. Each one *centres on* a primitive or a layer, and m
 
 | Product | Centres on | Also touches |
 |-----|--------|--------|
-| LiteLLM, OpenRouter (gateways) [10, 11] | the model interface: one API over many providers, load balancing, failover to backup models, retries, rate-limit handling | spend limits (guardrails), logging (observability), response caching (performance); OpenRouter's Auto Router picks a model per prompt, which is routing, so control flow |
-| MCP [14] | output you plug in: tools behind one protocol | resources and prompts (context), sampling (model interface), elicitation (input) |
-| Mem0 [12] | context: store what to remember, return what's relevant per request | its extraction is its own model call |
-| LangGraph [13] | control flow: steps and edges laid out as a graph and run | its checkpointer serves resilience, working memory (context) and approval pauses (guardrails) |
-| Langfuse, LangSmith [15, 16] | observability, so built on control flow | evaluation; versioned prompts served at run time (context) |
-| Open Policy Agent [17] | the decision part of guardrails; the harness still enforces it | none |
-| NeMo Guardrails [18] | guardrails in control flow: allow or block around each call | input and retrieval rails that edit what the request holds (context) |
-| E2B, Daytona, Modal Sandboxes [19–21] | sandboxing, so built on output | snapshot and resume (resilience) |
-| Temporal [22] | resilience: record each step, retry it, replay to resume | it runs your workflow code, so it also hosts control flow |
-| Braintrust, promptfoo, Inspect [23–25] | evaluation: run cases, grade them, keep the history or logs | production tracing (Braintrust); Inspect also supplies the agent under test |
+| LiteLLM, OpenRouter (gateways) [6, 7] | the model interface: one API over many providers, load balancing, failover to backup models, retries, rate-limit handling | spend limits (guardrails), logging (observability), response caching (performance); OpenRouter's Auto Router picks a model per prompt, which is routing, so control flow |
+| MCP [10] | output you plug in: tools behind one protocol | resources and prompts (context), sampling (model interface), elicitation (input) |
+| Mem0 [8] | context: store what to remember, return what's relevant per request | its extraction is its own model call |
+| LangGraph [9] | control flow: steps and edges laid out as a graph and run | its checkpointer serves resilience, working memory (context) and approval pauses (guardrails) |
+| Langfuse, LangSmith [11, 12] | observability, so built on control flow | evaluation; versioned prompts served at run time (context) |
+| Open Policy Agent [13] | the decision part of guardrails; the harness still enforces it | none |
+| NeMo Guardrails [14] | guardrails in control flow: allow or block around each call | input and retrieval rails that edit what the request holds (context) |
+| E2B, Daytona, Modal Sandboxes [15–17] | sandboxing, so built on output | snapshot and resume (resilience) |
+| Temporal [18] | resilience: record each step, retry it, replay to resume | it runs your workflow code, so it also hosts control flow |
+| Braintrust, promptfoo, Inspect [19–21] | evaluation: run cases, grade them, keep the history or logs | production tracing (Braintrust); Inspect also supplies the agent under test |
 
 So products are made of primitives too. They're sold as one thing and built from several.
 
@@ -651,7 +647,7 @@ Nothing in the study needed a sixth primitive. Two definitions do strain.
 - **A shared vocabulary.**
   - "Our agent uses memory" becomes a claim about context: which components, assembled how, and fitted how.
   - "Our agent is reliable" becomes claims about resilience in the model interface and output, and about evaluation outside them.
-- **Something to disclose.** Calls to disclose the harness when comparing agents [5] need a schema for what to disclose. The five primitives and the layers are one. §7.2 is what such a disclosure looks like for three agents.
+- **Something to disclose.** Calls to disclose the harness when comparing agents [4] need a schema for what to disclose. The five primitives and the layers are one. §7.2 is what such a disclosure looks like for three agents.
 - **Buying vs. building.** Every product in §7.5 replaces part of a primitive or a layer. Choosing one is choosing which part of your harness you can no longer see.
 
 ---
@@ -669,20 +665,19 @@ They line up like this:
 
 The model interface as a primitive, and the production layers as a category, have no direct counterpart in CoALA.
 
-**Agent primitives for multi-agent systems.** Jin et al. [2] break multi-agent systems into recurring latent patterns: review, voting and selection, planning and execution. The patterns pass information through the KV cache instead of text, and an organizer composes them for each query. Their primitives are patterns *of* model calls. In my terms they're shapes of control flow, the organizer included. Passing state as KV cache is a choice that sits at the boundary of context and the model interface. The two views are complementary.
+**Agent primitives for multi-agent systems.** "Primitives" means something different there, so the distinction needs drawing. Jin et al. [2] break multi-agent systems into recurring latent patterns: review, voting and selection, planning and execution. The patterns pass information through the KV cache instead of text, and an organizer composes them for each query. Their primitives are patterns *of* model calls. In my terms they're shapes of control flow, the organizer included. Passing state as KV cache is a choice that sits at the boundary of context and the model interface. The two views are complementary.
 
 **Workflows and agents.** Schluntz and Zhang [3] distinguish workflows from agents by who decides the path. They name five workflow patterns built on an "augmented LLM": prompt chaining, routing, parallelization, orchestrator–workers and evaluator–optimizer. I adopt their workflow/agent line as a property of control flow, and I split the augmented LLM into context, output and the model interface (§4).
 
-**Harness engineering.** A growing body of 2026 work studies the harness directly:
+**Harness engineering.** Two papers supply this one's premise, and one of them also gives it an outside check.
 
-- **Fan et al.** [6] hold a coding harness's loop fixed and vary planning, action space and context management across four models. Each choice changes trajectories in a different way. In my terms they're varying choices inside control flow, output and context.
-- **Zhang et al.** [5] argue that harness configuration can drive more performance variance than model choice, and propose a disclosure standard.
-- **Ahn and Kim** [4] move enterprise agents' guarantees out of prompts and into code-owned contracts.
-- **Dhage** [7] measures deterministic execution constraints.
-- **Jin et al.** [8] build a planner/router/verifier harness over reusable tool primitives.
-- **Ning et al.** [9] survey code as the harness through which agents act.
+- **Zhang et al.** [4] argue that harness configuration can drive more performance variance than model choice. They propose a standard for disclosing the harness. Their argument is the premise of this paper: if the harness matters that much, it needs a vocabulary. §9.4 offers the five primitives as the schema their disclosure needs.
+- **Fan et al.** [5] hold a coding harness's loop fixed and vary planning, the action space and context management across four models. Each choice changes the agent's trajectories in a different way. They chose those three parts on their own terms, and each lands inside one of the five here:
+  - planning is control flow;
+  - the action space is output;
+  - context management is context.
 
-These papers treat the harness as the thing to study. Mine says what that thing contains.
+  That's an independent decomposition falling inside this one. Their result also supports the claim in §7.2 that harnesses differ by the choices made *inside* each primitive.
 
 ---
 
@@ -719,55 +714,47 @@ The thesis, the five primitives, their definitions, and the course's method are 
 
 [3] E. Schluntz, B. Zhang. Building Effective Agents. Anthropic Engineering, December 19, 2024. https://www.anthropic.com/engineering/building-effective-agents
 
-[4] J. Ahn, M. Kim. From Prompts to Contracts: Harness Engineering for Auditable Enterprise LLM Agents. arXiv:2607.08028, 2026.
+[4] Y. Zhang, J. Wang, Y. Ge, W. Xu, J. Hamm, C. K. Reddy. Stop Comparing LLM Agents Without Disclosing the Harness. arXiv:2605.23950, 2026.
 
-[5] Y. Zhang, J. Wang, Y. Ge, W. Xu, J. Hamm, C. K. Reddy. Stop Comparing LLM Agents Without Disclosing the Harness. arXiv:2605.23950, 2026.
+[5] R.-Z. Fan, Z. Zhang, S. Ma, Y. Hu, S. Wang, K. Song, F. Liu, H. Zamani, X. Wang. An Empirical Study of Harness Design for Coding Agents. arXiv:2609.20804, 2026.
 
-[6] R.-Z. Fan, Z. Zhang, S. Ma, Y. Hu, S. Wang, K. Song, F. Liu, H. Zamani, X. Wang. An Empirical Study of Harness Design for Coding Agents. arXiv:2609.20804, 2026.
+[6] LiteLLM. Router: load balancing and fallbacks. https://docs.litellm.ai/docs/routing
 
-[7] S. Dhage. Harness Engineering for Predictable Agentic Systems: An Empirical Study of Deterministic Execution Constraints. arXiv:2608.26197, 2026.
+[7] OpenRouter. Model fallbacks; Auto Router. https://openrouter.ai/docs/guides/routing/model-fallbacks
 
-[8] H. Jin, S. Wang, X. Yu, H. Luo, H. Wang. Harness Engineering in LLM Tool Use via Agent-Native Reusable Tool Primitives. arXiv:2609.01736, 2026.
+[8] Mem0. Memory operations. https://docs.mem0.ai/core-concepts/memory-operations/add
 
-[9] X. Ning, K. Tieu, D. Fu, T. Wei, Z. Li, Y. Bei, et al. Code as Agent Harness: Toward Executable, Verifiable, and Stateful Agent Systems. arXiv:2605.18747, 2026.
+[9] LangGraph. Persistence. https://docs.langchain.com/oss/python/langgraph/persistence
 
-[10] LiteLLM. Router: load balancing and fallbacks. https://docs.litellm.ai/docs/routing
+[10] Model Context Protocol. Architecture overview. https://modelcontextprotocol.io/docs/learn/architecture
 
-[11] OpenRouter. Model fallbacks; Auto Router. https://openrouter.ai/docs/guides/routing/model-fallbacks
+[11] Langfuse. https://github.com/langfuse/langfuse
 
-[12] Mem0. Memory operations. https://docs.mem0.ai/core-concepts/memory-operations/add
+[12] LangSmith. Observability. https://docs.langchain.com/langsmith/observability
 
-[13] LangGraph. Persistence. https://docs.langchain.com/oss/python/langgraph/persistence
+[13] Open Policy Agent. Documentation. https://www.openpolicyagent.org/docs
 
-[14] Model Context Protocol. Architecture overview. https://modelcontextprotocol.io/docs/learn/architecture
+[14] NVIDIA NeMo Guardrails. Guardrail types. https://docs.nvidia.com/nemo/guardrails/latest/about/rail-types.html
 
-[15] Langfuse. https://github.com/langfuse/langfuse
+[15] E2B. Documentation. https://e2b.dev/docs
 
-[16] LangSmith. Observability. https://docs.langchain.com/langsmith/observability
+[16] Daytona. Sandboxes. https://www.daytona.io/docs/en/sandboxes/
 
-[17] Open Policy Agent. Documentation. https://www.openpolicyagent.org/docs
+[17] Modal. Sandboxes. https://modal.com/docs/guide/sandboxes
 
-[18] NVIDIA NeMo Guardrails. Guardrail types. https://docs.nvidia.com/nemo/guardrails/latest/about/rail-types.html
+[18] Temporal. Event History. https://docs.temporal.io/encyclopedia/event-history
 
-[19] E2B. Documentation. https://e2b.dev/docs
+[19] Braintrust. Evaluate. https://www.braintrust.dev/docs/evaluate
 
-[20] Daytona. Sandboxes. https://www.daytona.io/docs/en/sandboxes/
+[20] promptfoo. Introduction. https://www.promptfoo.dev/docs/intro/
 
-[21] Modal. Sandboxes. https://modal.com/docs/guide/sandboxes
+[21] UK AI Security Institute. Inspect. https://inspect.aisi.org.uk/
 
-[22] Temporal. Event History. https://docs.temporal.io/encyclopedia/event-history
+[22] OpenAI. Codex CLI. https://github.com/openai/codex (commit 7ac954e).
 
-[23] Braintrust. Evaluate. https://www.braintrust.dev/docs/evaluate
+[23] opencode. https://github.com/anomalyco/opencode (commit 652c090).
 
-[24] promptfoo. Introduction. https://www.promptfoo.dev/docs/intro/
-
-[25] UK AI Security Institute. Inspect. https://inspect.aisi.org.uk/
-
-[26] OpenAI. Codex CLI. https://github.com/openai/codex (commit 7ac954e).
-
-[27] opencode. https://github.com/anomalyco/opencode (commit 652c090).
-
-[28] Anthropic. Claude Code documentation. https://code.claude.com/docs (accessed 2026-10-06).
+[24] Anthropic. Claude Code documentation. https://code.claude.com/docs (accessed 2026-10-06).
 
 ---
 

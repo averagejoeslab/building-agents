@@ -29,7 +29,8 @@ pip install pypandoc-binary   # bundles a pandoc binary
 
 Verify these yourself.
 
-- [ ] **References [5] and [9].** Check them directly on arXiv: the venue and track for "Stop Comparing LLM Agents Without Disclosing the Harness", and the full author list for "Code as Agent Harness". These couldn't be loaded from where the paper was drafted.
+- [ ] **Reference [4].** Check the venue and track for "Stop Comparing LLM Agents Without Disclosing the Harness" directly on arXiv or the ICML site. It couldn't be loaded from where the paper was drafted.
+- [ ] **Every reference earns its place.** Each one is cited for something the paper uses: the closest prior framework (CoALA), a name to tell apart (*Agent Primitives*), the workflow/agent line (Schluntz and Zhang), the premise and the disclosure schema (Zhang et al.), an independent decomposition that lands inside the five (Fan et al.), the source for each product claim, and the three harnesses studied. Keep it that way: don't add a reference you don't use.
 - [ ] **Product URLs in §7.5.** They were found by searching each vendor's own docs. Open each one once.
 - [ ] **The study's evidence.** Spot-check the Codex and opencode file:line evidence in the supplement against the pinned commits, and the Claude Code doc links.
 - [ ] **The whole paper.** Read it end to end in your own voice.

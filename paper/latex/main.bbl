@@ -1,4 +1,4 @@
-\begin{thebibliography}{29}
+\begin{thebibliography}{25}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -12,47 +12,19 @@ Chase Dovey.
 \newblock \url{https://github.com/averagejoeslab/building-agents}, 2026.
 \newblock Average Joes Lab.
 
-\bibitem[Fan et~al.(2026)Fan, Zhang, Ma, Hu, Wang, Song, Liu, Zamani, and
-  Wang]{fan2026empirical}
-Run-Ze Fan, Zihao Zhang, Simin Ma, Yebowen Hu, Shouju Wang, Kaiqiang Song, Fei
-  Liu, Hamed Zamani, and Xiaoyang Wang.
-\newblock An empirical study of harness design for coding agents.
-\newblock \emph{arXiv preprint arXiv:2609.20804}, 2026.
-
-\bibitem[Ahn and Kim(2026)]{ahn2026prompts}
-Joongho Ahn and Moonsoo Kim.
-\newblock From prompts to contracts: Harness engineering for auditable
-  enterprise {LLM} agents.
-\newblock \emph{arXiv preprint arXiv:2607.08028}, 2026.
-
-\bibitem[Dhage(2026)]{dhage2026harness}
-Saransh Dhage.
-\newblock Harness engineering for predictable agentic systems: An empirical
-  study of deterministic execution constraints.
-\newblock \emph{arXiv preprint arXiv:2608.26197}, 2026.
-
-\bibitem[Jin et~al.(2026{\natexlab{a}})Jin, Wang, Yu, Luo, and
-  Wang]{jin2026heart}
-Haibo Jin, Suijin Wang, Xucheng Yu, Haojing Luo, and Haohan Wang.
-\newblock Harness engineering in {LLM} tool use via agent-native reusable tool
-  primitives.
-\newblock \emph{arXiv preprint arXiv:2609.01736}, 2026{\natexlab{a}}.
-
-\bibitem[Ning et~al.(2026)Ning, Tieu, Fu, Wei, Li, Bei,
-  et~al.]{ning2026codeasharness}
-Xuying Ning, Katherine Tieu, Dongqi Fu, Tianxin Wei, Zihao Li, Yuanchen Bei,
-  et~al.
-\newblock Code as agent harness: Toward executable, verifiable, and stateful
-  agent systems.
-\newblock \emph{arXiv preprint arXiv:2605.18747}, 2026.
-\newblock Survey; full author list to confirm.
-
 \bibitem[Zhang et~al.(2026)Zhang, Wang, Ge, Xu, Hamm, and Reddy]{zhang2026stop}
 Yunbei Zhang, Janet Wang, Yingqiang Ge, Weijie Xu, Jihun Hamm, and Chandan~K.
   Reddy.
 \newblock Stop comparing {LLM} agents without disclosing the harness.
 \newblock \emph{arXiv preprint arXiv:2605.23950}, 2026.
 \newblock Position paper; listed at ICML 2026 (venue and track to confirm).
+
+\bibitem[Fan et~al.(2026)Fan, Zhang, Ma, Hu, Wang, Song, Liu, Zamani, and
+  Wang]{fan2026empirical}
+Run-Ze Fan, Zihao Zhang, Simin Ma, Yebowen Hu, Shouju Wang, Kaiqiang Song, Fei
+  Liu, Hamed Zamani, and Xiaoyang Wang.
+\newblock An empirical study of harness design for coding agents.
+\newblock \emph{arXiv preprint arXiv:2609.20804}, 2026.
 
 \bibitem[Schluntz and Zhang(2024)]{schluntz2024building}
 Erik Schluntz and Barry Zhang.
@@ -188,13 +160,13 @@ Theodore~R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas~L. Griffiths.
 \newblock URL \url{https://openreview.net/forum?id=1i6ZCvflQJ}.
 \newblock arXiv:2309.02427.
 
-\bibitem[Jin et~al.(2026{\natexlab{b}})Jin, Kuang, Yu, Yuan, and
+\bibitem[Jin et~al.(2026)Jin, Kuang, Yu, Yuan, and
   Wang]{jin2026agentprimitives}
 Haibo Jin, Peng Kuang, Ye~Yu, Xiaopeng Yuan, and Haohan Wang.
 \newblock Agent primitives: Reusable latent building blocks for multi-agent
   systems.
 \newblock In \emph{Proceedings of the 43rd International Conference on Machine
-  Learning (ICML)}, 2026{\natexlab{b}}.
+  Learning (ICML)}, 2026.
 \newblock arXiv:2602.03695.
 
 \end{thebibliography}

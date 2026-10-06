@@ -28,25 +28,17 @@ That gap costs something:
   \textbf{The market.} The field keeps meeting the same few ideas as new products: memory layers, gateways, tool protocols, tracing platforms, sandboxes, evaluation suites. Without a map, it's hard to tell whether each is new or an old idea renamed.
 \end{itemize}
 
-The outer layer now has a name and a literature. A run of 2026 papers works on \emph{harness engineering}:
+The outer layer now has a name, \emph{harness engineering}, and evidence that it matters:
 
 \begin{itemize}
 \tightlist
 \item
-  an empirical study of harness design for coding agents \cite{fan2026empirical};
+  Zhang et al.~\cite{zhang2026stop} argue that, among comparable frontier models, the harness can drive more of the variance in performance than the choice of model, so agents shouldn't be compared without disclosing their harness.
 \item
-  harnesses for auditable enterprise agents \cite{ahn2026prompts};
-\item
-  deterministic execution constraints \cite{dhage2026harness};
-\item
-  reusable tool primitives inside a harness \cite{jin2026heart};
-\item
-  a survey of code as an agent harness \cite{ning2026codeasharness};
-\item
-  a position paper arguing that agents shouldn't be compared without disclosing their harness \cite{zhang2026stop}.
+  Fan et al.~\cite{fan2026empirical} hold a coding harness's loop fixed and vary three of its parts: planning, the action space and context management. Each one changes how the agent behaves.
 \end{itemize}
 
-They all treat the harness as what matters. None says what a harness is made of.
+Both treat the harness as what matters. Fan et al.~pick parts of a harness to vary. I ask what the complete set of parts is.
 
 My answer is \textbf{reductive}: take an agent apart until the parts stop being shared across systems. It is also \textbf{mechanistic}: define each part by what it does on the path from a request to a response, not by what it's called or who sells it.
 
@@ -1098,29 +1090,31 @@ They line up like this:
 
 The model interface as a primitive, and the production layers as a category, have no direct counterpart in CoALA.
 
-\textbf{Agent primitives for multi-agent systems.} Jin et al.~\cite{jin2026agentprimitives} break multi-agent systems into recurring latent patterns: review, voting and selection, planning and execution. The patterns pass information through the KV cache instead of text, and an organizer composes them for each query. Their primitives are patterns \emph{of} model calls. In my terms they're shapes of control flow, the organizer included. Passing state as KV cache is a choice that sits at the boundary of context and the model interface. The two views are complementary.
+\textbf{Agent primitives for multi-agent systems.} ``Primitives'' means something different there, so the distinction needs drawing. Jin et al.~\cite{jin2026agentprimitives} break multi-agent systems into recurring latent patterns: review, voting and selection, planning and execution. The patterns pass information through the KV cache instead of text, and an organizer composes them for each query. Their primitives are patterns \emph{of} model calls. In my terms they're shapes of control flow, the organizer included. Passing state as KV cache is a choice that sits at the boundary of context and the model interface. The two views are complementary.
 
 \textbf{Workflows and agents.} Schluntz and Zhang \cite{schluntz2024building} distinguish workflows from agents by who decides the path. They name five workflow patterns built on an ``augmented LLM'': prompt chaining, routing, parallelization, orchestrator--workers and evaluator--optimizer. I adopt their workflow/agent line as a property of control flow, and I split the augmented LLM into context, output and the model interface (§4).
 
-\textbf{Harness engineering.} A growing body of 2026 work studies the harness directly:
+\textbf{Harness engineering.} Two papers supply this one's premise, and one of them also gives it an outside check.
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Fan et al.} \cite{fan2026empirical} hold a coding harness's loop fixed and vary planning, action space and context management across four models. Each choice changes trajectories in a different way. In my terms they're varying choices inside control flow, output and context.
+  \textbf{Zhang et al.} \cite{zhang2026stop} argue that harness configuration can drive more performance variance than model choice. They propose a standard for disclosing the harness. Their argument is the premise of this paper: if the harness matters that much, it needs a vocabulary. §9.4 offers the five primitives as the schema their disclosure needs.
 \item
-  \textbf{Zhang et al.} \cite{zhang2026stop} argue that harness configuration can drive more performance variance than model choice, and propose a disclosure standard.
-\item
-  \textbf{Ahn and Kim} \cite{ahn2026prompts} move enterprise agents' guarantees out of prompts and into code-owned contracts.
-\item
-  \textbf{Dhage} \cite{dhage2026harness} measures deterministic execution constraints.
-\item
-  \textbf{Jin et al.} \cite{jin2026heart} build a planner/router/verifier harness over reusable tool primitives.
-\item
-  \textbf{Ning et al.} \cite{ning2026codeasharness} survey code as the harness through which agents act.
-\end{itemize}
+  \textbf{Fan et al.} \cite{fan2026empirical} hold a coding harness's loop fixed and vary planning, the action space and context management across four models. Each choice changes the agent's trajectories in a different way. They chose those three parts on their own terms, and each lands inside one of the five here:
 
-These papers treat the harness as the thing to study. Mine says what that thing contains.
+  \begin{itemize}
+  \tightlist
+  \item
+    planning is control flow;
+  \item
+    the action space is output;
+  \item
+    context management is context.
+  \end{itemize}
+
+  That's an independent decomposition falling inside this one. Their result also supports the claim in §7.2 that harnesses differ by the choices made \emph{inside} each primitive.
+\end{itemize}
 
 \section{Conclusion}
 

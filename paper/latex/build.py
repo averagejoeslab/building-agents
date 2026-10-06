@@ -10,12 +10,11 @@ MD = HERE.parent / "five-primitives-are-all-you-need.md"
 PANDOC = sys.argv[1] if len(sys.argv) > 1 else "pandoc"
 REPO = "https://github.com/averagejoeslab/building-agents/blob/main/"
 
-KEYS = {1: "sumers2024cognitive", 2: "jin2026agentprimitives", 3: "schluntz2024building", 4: "ahn2026prompts",
-        5: "zhang2026stop", 6: "fan2026empirical", 7: "dhage2026harness", 8: "jin2026heart",
-        9: "ning2026codeasharness", 10: "litellm", 11: "openrouter", 12: "mem0", 13: "langgraph", 14: "mcp",
-        15: "langfuse", 16: "langsmith", 17: "opa", 18: "nemo", 19: "e2b", 20: "daytona", 21: "modal",
-        22: "temporal", 23: "braintrust", 24: "promptfoo", 25: "inspect", 26: "codex", 27: "opencode",
-        28: "claudecode"}
+KEYS = {1: "sumers2024cognitive", 2: "jin2026agentprimitives", 3: "schluntz2024building", 4: "zhang2026stop",
+        5: "fan2026empirical", 6: "litellm", 7: "openrouter", 8: "mem0", 9: "langgraph", 10: "mcp",
+        11: "langfuse", 12: "langsmith", 13: "opa", 14: "nemo", 15: "e2b", 16: "daytona", 17: "modal",
+        18: "temporal", 19: "braintrust", 20: "promptfoo", 21: "inspect", 22: "codex", 23: "opencode",
+        24: "claudecode"}
 
 def cites(m):
     nums = []
