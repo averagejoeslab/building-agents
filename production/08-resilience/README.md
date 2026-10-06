@@ -78,7 +78,7 @@ There's no agent loop. `resilience.py ask "..."` sends one question to the model
 
 **`call()`** is the model interface's half. The client is made with `max_retries=2`, so the SDK tries each call up to three times, with backoff, before it raises. `call()` wraps that in a loop over `MODELS`: if what's raised is transient (a lost connection or timeout, 429, or any 5xx), it says so and moves to the next model. Anything else is raised at once: a bad key or a bad request will fail the same way on every model. The test is on the status code, not a list of exception classes, because the SDK has a class for each and it's easy to miss 529, the overloaded error, which is the one you most want to catch. If every model fails, it says so.
 
-**`run()`** is output's half. It runs the command, and if it fails it asks Jev two questions in one call, about the command and the last 4,000 characters of what it printed. `FAILURE` is the kind of failure: `transient` (likely to work if run again unchanged), `permanent` (will fail the same way) or `partial` (it got part of the way, so some of its changes may have happened). `KIND` is whether the command only reads. Each option has a sentence saying exactly what it covers, because Jev reads literally; "queries" is in the `read` option because a `select` is a query, and with the word there Jev was surer of it. Then:
+**`run()`** is output's half. It runs the command, and if it fails it asks Jev two questions in one call, about the command and the last 4,000 characters of what it printed. `FAILURE` is the kind of failure: `transient` (likely to work if run again unchanged), `permanent` (will fail the same way) or `partial` (it got part of the way, so some of its changes may have happened). `KIND` is whether the command only reads. Each option has a sentence saying exactly what it covers, because Jev reads literally; "queries" is in the `read` option because a `select` is a query, and with the word there Jev was surer of it. Then: (Its `KIND` is simpler than Lesson 6's, with two options; quark reuses Lesson 6's.)
 
 - **Sure it's transient, and sure it only reads:** run it once more, a second later. A read is safe to run twice; a write never is, unless doing it twice is the same as doing it once, and nobody can promise that from outside.
 - **Sure it's partial:** say so, with the warning "it may have partly run: check before repeating it".
@@ -173,7 +173,7 @@ I start the holder, and stop it (by its process ID) as soon as `resilience.py` p
 python3 makedb.py
 python3 hold.py & HOLDER=$!
 (until grep -q "Jev:" out.txt; do sleep 0.05; done; kill $HOLDER) &
-resilience.py run 'python3 -m sqlite3 shop.db "select count(*) from orders"' > out.txt; cat out.txt
+PYTHONUNBUFFERED=1 resilience.py run 'python3 -m sqlite3 shop.db "select count(*) from orders"' > out.txt; cat out.txt
 ```
 
 ```
@@ -362,6 +362,8 @@ And the command itself now runs inside a loop of at most two tries:
             if lent: bridge(False)
             if why == "partial": done.stdout += "\n(it may have partly run: check before repeating it)"
 ```
+
+The clock now starts inside the loop, after Lesson 5's network question, so each try's `seconds` in the trace is the command's own.
 
 Most of that is Lesson 6's, moved in one level. What's new:
 
@@ -689,6 +691,6 @@ A few ideas worth knowing if you build more of it yourself:
 
 Notice what resilience never does. It sits in the model interface and output, and for recovery it reads the record context already keeps; it adds no store of its own. Its question to Jev goes through Lesson 5's `ask()`, like every question before it. Control flow is the same loop with the same stop conditions: a retry happens inside one call or one command, so the loop sees a step that took longer, and the only new way out is `Down`. Input is untouched apart from one question at startup, asked with the same `read()`. And what the model is shown changes only in what it's told about its own work: the "interrupted" result, the cut-off one, the partial warning, and the partial work an ESC used to throw away, each written like any other message.
 
-**What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation, and only the system prompt is cached, so the messages are paid for in full every time. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other, because quark asks for one at a time and runs them one after another. And when working memory fills up, the summary is written by the same big model as everything else. Making each step smaller, faster and cheaper is its own layer.
+**What's missing:** resilience keeps a run alive and recoverable; it doesn't make it fast or cheap. Every call re-sends the whole conversation, and only the system prompt is cached, so the messages are paid for in full every time. A command that prints a megabyte puts a megabyte in the next request. Three commands that could run side by side wait for each other, because quark asks for one at a time and runs them one after another. And when working memory fills up, the summary is written by the same big model as everything else, and every request, a one-line lookup or a redesign, goes to that same big model. Making each step smaller, faster and cheaper is its own layer.
 
 **→ [Lesson 9: Performance](../09-performance/)**

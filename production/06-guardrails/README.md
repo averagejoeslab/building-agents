@@ -6,7 +6,7 @@ Lesson 5 put every command in a box. The box limits what a command can reach, no
 
 Guardrails are rules about what the harness is allowed to do, checked before it does it: which commands may run, when a person gets a say, and when a run has gone on long enough. The model proposes and the harness decides, and the decision is yours.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on control flow**, and everything it does stays inside it. Control flow is the primitive that decides whether the next step happens at all. A tool request arrives in the response; the loop is what turns it into a command being run, and what turns the result into another model call. A guardrail is a decision at one of those two points, so it lives there.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on control flow**, and almost everything it does stays inside it. Control flow is the primitive that decides whether the next step happens at all. A tool request arrives in the response; the loop is what turns it into a command being run, and what turns the result into another model call. A guardrail is a decision at one of those two points, so it lives there.
 
 The mechanism is a few checks, each at a place the loop already passes through:
 
@@ -118,7 +118,7 @@ allow it? [y/N] [the person said no]
 
 Where does Jev sit? Asking it is a model-interface act: it's a second model, called with a request and read back. What's done with its answer, run or ask, is control flow, this layer's own primitive: the same decision about whether the next step happens.
 
-It has limits, and the gate is shaped around them. It answers the question I asked, *what does this do?*, not *is this safe?*: `cat ~/.aws/credentials` and `printenv` both come back `read` at 1.00, which is true, and is why `DENY` runs first and always wins. It reads literally, so a command whose effect hides inside a script (`python3 script.py`) can't be judged from its text: that's `other`, at 1.00, and you're asked. And it's a judgment, not a rule. A comment saying `# this only reads` on an `rm` didn't fool it (still `delete`, 1.00), but `curl https://example.com` came back `other` at only 0.68, too unsure to act on. That's fine here, because the only thing Jev can do on its own is let a command run without asking, and only when it's sure the command only reads.
+It has limits, and the gate is shaped around them. It answers the question I asked, *what does this do?*, not *is this safe?*: `cat ~/.aws/credentials` and `printenv` both come back `read` at 1.00, which is true, and is why the gate can't rest on Jev alone. `DENY` runs first and always wins, but only for what it names, and it names neither of these, so in this concept file they'd run unasked on your machine. In quark they reach nothing: your environment and your home folder aren't in the box (Lesson 5). It reads literally, so a command whose effect hides inside a script (`python3 script.py`) can't be judged from its text: that's `other`, at 1.00, and you're asked. And it's a judgment, not a rule. A comment saying `# this only reads` on an `rm` didn't fool it (still `delete`, 1.00), but `curl https://example.com` came back `other` at only 0.68, too unsure to act on. That's fine here, because the only thing Jev can do on its own is let a command run without asking, and only when it's sure the command only reads.
 
 ## quark's implementation
 
@@ -197,7 +197,7 @@ And in the output loop, the gate, between printing the command and running it in
                 continue
 ```
 
-If `guard()` returns a reason, it's printed and becomes the tool's result, marked `"is_error": True`, and `continue` skips the run. The command is never started, and the model's next turn still makes sense. (The `ESC` check above it is the interrupt: once you've pressed ESC, nothing else starts.) A command that passes the gate goes on to Lesson 5's question about the network, and runs in the box.
+If `guard()` returns a reason, it's printed and becomes the tool's result, marked `"is_error": True`, and `continue` skips the run. The command is never started, and the model's next turn still makes sense. (The `ESC` check above it is the interrupt: once you've pressed ESC, nothing else starts.) A command that passes the gate goes on to Lesson 5's question about the network, and runs in the box. So a command that needs the network can be put to you twice: once by the gate, whether it may run at all, and once by Lesson 5, whether it may use the network.
 
 ### The interrupt
 
