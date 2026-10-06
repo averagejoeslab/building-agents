@@ -55,7 +55,10 @@ from anthropic import Anthropic
 # ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
 MODEL = "claude-sonnet-5-5"
-def call(**request): return client.messages.create(model=MODEL, **request)
+def call(each=lambda event: None, **request):
+    with client.messages.stream(model=MODEL, **request) as stream:
+        for event in stream: each(event)
+        return stream.get_final_message()
 
 output = call(max_tokens=16384, messages=[...])
 print(output.model_dump_json(indent=2))
@@ -63,7 +66,7 @@ print(output.model_dump_json(indent=2))
 
 The `messages` list holds one `user` message: "What's in this directory?"
 
-<!-- This is the call at the center of quark, with nothing around it. Nine lines. The messages list is cut short on the slide; it's one user message asking what's in this directory. -->
+<!-- This is the call at the center of quark, with nothing around it. Twelve lines. Two things are cut on the slide: the comment on the def line, and the messages list, which is one user message asking what's in this directory. -->
 
 ---
 
@@ -76,6 +79,17 @@ The `messages` list holds one `user` message: "What's in this directory?"
 - **`output`**: the response, printed whole
 
 <!-- The SDK reads your key from ANTHROPIC_API_KEY. The section heading, model interface, stays at the top of quark.py through every lesson; each lesson adds a section of its own. -->
+
+---
+
+# The response streams back
+
+- **`client.messages.stream(...)`**: the response arrives piece by piece, as it's produced
+- A long response that arrives all at once can time out while you wait; one that streams can't
+- **`for event in stream: each(event)`**: each piece goes to `each()` as it arrives; here, `each` ignores them
+- **`stream.get_final_message()`**: the whole response, put back together
+
+<!-- So call hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2. -->
 
 ---
 
@@ -110,7 +124,7 @@ One real run (shortened)
 - **`content`**: the tokens out, as a list of blocks: first its `thinking`, then the `text` of its reply
 - Thinking comes back empty by default, with only a `signature`, an encrypted copy only the API can read
 - **`stop_reason`**: `end_turn` means it finished; `max_tokens` means it hit the cap
-- **`usage`**: `input_tokens` 15 is TokensIn, `output_tokens` 242 is TokensOut, thinking included
+- **`usage`**: `input_tokens` 15 is TokensIn, `output_tokens` 240 is TokensOut, thinking included
 
 <!-- This model thinks before it answers, so the first block is thinking. usage counts both sides of the function. -->
 
@@ -167,7 +181,7 @@ def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
     raise RuntimeError("no model answered")
 ```
 
-<!-- timeout=120 gives up after two minutes. max_retries=3 has the SDK retry dropped connections, rate limits and server errors. If every retry fails, call moves on to the next model in MODELS. stream receives the response as it's produced, and get_final_message hands back the whole thing. The stream line also passes effort and thinking settings; I've cut them here. -->
+<!-- timeout=120 gives up after two minutes. max_retries=3 has the SDK retry dropped connections, rate limits and server errors. If every retry fails, call moves on to the next model in MODELS. It streams, and get_final_message hands back the whole response once it's done. The stream line also passes effort and thinking settings; I've cut them here. -->
 
 ---
 
@@ -175,10 +189,10 @@ def call(messages, max_tokens=16384, effort="high", thinking="summarized"):
 
 - **When a request fails:** `timeout=120`, and `max_retries=3` retries with longer waits
 - **Which model answers:** if every retry fails, the next model in `MODELS`
-- **How the response arrives:** `stream`, then `get_final_message()` for the whole response
+- **How the response arrives:** it streams, like `quark.py`; `get_final_message()` hands back the whole response
 - **Settings:** `max_tokens`, `effort` and `thinking` are arguments; `"summarized"` asks for a summary of the thinking
 
-<!-- Nothing is printed along the way; showing it to a person would be output. The raw thinking itself is never returned. -->
+<!-- There's no each() here: nothing looks at the pieces along the way. The raw thinking itself is never returned. -->
 
 ---
 
