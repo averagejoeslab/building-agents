@@ -174,16 +174,16 @@ if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
 # A baseline: what normal looks like
 
 ```
-pass  count      2 steps    4.7s    21100 tokens
-pass  fix        3 steps   11.4s    31825 tokens
-pass  rename     2 steps    5.0s    21131 tokens
-pass  remember   2 steps    4.8s    21176 tokens
+pass  count      2 steps    7.2s    21342 tokens
+pass  fix        3 steps    6.6s    32208 tokens
+pass  rename     2 steps    5.8s    21385 tokens
+pass  remember   2 steps    4.7s    21422 tokens
 4/4 passed
 exit 0
 ```
 
 - 21,000 to 32,000 tokens for tiny tasks: the prompt is about nine thousand, read every step
-- `fix` took three steps because it read the code before changing it
+- `fix` took a step more: it reads the code before changing it
 
 <!-- Within a case the later steps read the prompt from the cache. Each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. -->
 
@@ -194,10 +194,10 @@ exit 0
 `MAX_STEPS` from 20 to 1, to cap what a run can spend:
 
 ```
-pass  count      1 steps    3.4s    10529 tokens
-FAIL  fix        1 steps    3.4s    10499 tokens  kept /tmp/eval-fix-217shuyh  REGRESSED: it passed last time
-pass  rename     1 steps    3.6s    10529 tokens
-pass  remember   1 steps    3.7s    10575 tokens
+pass  count      1 steps    3.4s    10654 tokens
+FAIL  fix        1 steps    4.6s    10623 tokens  kept /tmp/eval-fix-effj187m  REGRESSED: it passed last time
+pass  rename     1 steps    3.5s    10654 tokens
+pass  remember   1 steps    4.1s    10700 tokens
 3/4 passed
 exit 1
 ```
@@ -209,7 +209,7 @@ exit 1
 # The failed case kept its folder (shortened)
 
 ```
-$ cat /tmp/eval-fix-217shuyh/calc.py
+$ cat /tmp/eval-fix-effj187m/calc.py
 def add(a, b):
     return a - b
 ```
