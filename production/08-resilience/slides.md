@@ -170,9 +170,7 @@ Each unanswered request gets: *"interrupted: the harness stopped before this fin
 ```python
     except Down:
         sys.exit("[the model isn't answering. ...]")
-```
-
-```python
+...
             cmd = block.input.get("cmd")
             print(f"$ {cmd}")
             if not cmd or (response.stop_reason == "max_tokens" and ...):
@@ -181,7 +179,7 @@ Each unanswered request gets: *"interrupted: the harness stopped before this fin
                 continue
 ```
 
-(abridged) Cut off means `max_tokens` and this is the last block. The result says: *"your request was cut off at the token limit, so it was not run. Send it again, shorter."* And `errors="replace"` turns bytes that aren't text into `�`.
+(abridged) Cut off: `max_tokens`, last block. The model is told to *"Send it again, shorter."* And `errors="replace"` turns bytes that aren't text into `�`.
 
 <!-- block.input.get means a request with no command is answered, not a KeyError. Without errors="replace", a UnicodeDecodeError would kill the harness. -->
 

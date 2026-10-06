@@ -151,7 +151,7 @@ The `text` block, in part:
 
 ---
 
-# model_interface.py: retries, backups, streaming (abridged)
+# model_interface.py does more (abridged)
 
 ```python
 client = anthropic.Anthropic(timeout=120, max_retries=3)

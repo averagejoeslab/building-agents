@@ -175,7 +175,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
   npx @marp-team/marp-cli --no-stdin <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files < /dev/null   
   python3 tools/deckcheck.py <dir>
   ```
-  The checker reports code lines not in the source, numbers not in the lesson, text off the page, and text under 9pt. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without running off the page: the 9pt check is what catches it. Then look at the pages.
+  The checker reports code lines not in the source, numbers not in the lesson, text off the page, and text under 9pt. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without running off the page: the 9pt check is what catches it. Text pushed past the bottom edge can be clipped out of the PDF entirely, so no check sees it: always look at the pages.
 
 ## Artifacts and who they're for
 

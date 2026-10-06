@@ -126,6 +126,8 @@ trace(event="start", input=input)
 
 # The model call and the tool are timed
 
+Both read the clock before and after (abridged):
+
 ```python
         start = time.time()
         response = call(...)
@@ -135,14 +137,11 @@ trace(event="start", input=input)
 ```python
             start = time.time()
             done = subprocess.run([...], ...)
-            trace(event="tool", ..., seconds=round(time.time() - start, 2), exit=done.returncode, ...)
+            trace(event="tool", ..., seconds=round(time.time() - start, 2), ...)
 ```
 
-(abridged)
-
 - **model** also records `stop_reason` and four counts from `response.usage`: input, output, cache read, cache write
-- **tool** also records the command and how many characters it printed
-- A failed command has a non-zero `exit`; one the box killed is `137`
+- **tool** also records the command, characters printed and `exit`: non-zero if it failed, `137` if the box killed it
 
 <!-- The four token counts are everything you need to work out cost, and the cache counts show whether Lesson 4's cache_control on the system prompt is doing anything. Nothing else changed: same request, same box, same reasons to stop. -->
 
@@ -218,7 +217,7 @@ The agent told you what happened, this time. Without the trace, you'd only know 
 
 ---
 
-# Everything that didn't go to plan, across both runs
+# Everything that didn't go to plan
 
 ```bash
 jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces.jsonl
@@ -231,7 +230,7 @@ jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces
 | tool | `ls /nonexistent` | 0.12 | 2 |
 | tool | `sleep 60` | 5.11 | 137 |
 
-<!-- Two refusals, one failure and one kill. Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
+<!-- Across both runs. Two refusals, one failure and one kill. Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
 
 ---
 
