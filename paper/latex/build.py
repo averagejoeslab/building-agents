@@ -14,7 +14,7 @@ KEYS = {1: "sumers2024cognitive", 2: "jin2026agentprimitives", 3: "schluntz2024b
         5: "fan2026empirical", 6: "litellm", 7: "openrouter", 8: "mem0", 9: "langgraph", 10: "mcp",
         11: "langfuse", 12: "langsmith", 13: "opa", 14: "nemo", 15: "e2b", 16: "daytona", 17: "modal",
         18: "temporal", 19: "braintrust", 20: "promptfoo", 21: "inspect", 22: "codex", 23: "opencode",
-        24: "claudecode"}
+        24: "claudecode", 25: "course"}
 
 def cites(m):
     nums = []
@@ -27,8 +27,9 @@ def cites(m):
 
 def prep(md):
     md = re.sub(r"\n---\n", "\n", md)
-    md = re.sub(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\](?!\()", cites, md)
-    md = re.sub(r"^(#{2,3}) (?:Appendix [A-Z]\. |\d+(?:\.\d+)*\.? )", r"\1 ", md, flags=re.M)
+    parts = re.split(r"(```.*?```)", md, flags=re.S)
+    md = "".join(x if x.startswith("```") else re.sub(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\](?!\()", cites, x) for x in parts)
+    md = re.sub(r"^(#{2,3}) (?:Appendix [A-Z]\. |[A-Z]\.\d+ |\d+(?:\.\d+)*\.? )", r"\1 ", md, flags=re.M)
     md = re.sub(r"```\ncontrol flow          how information flows.*?```", r"\\input{fig-tree}", md, flags=re.S)
     md = re.sub(r"```\nperson or world ─►.*?```", r"\\input{fig-path}", md, flags=re.S)
     md = md.replace("](./decomposition-study.md)", "](" + REPO + "paper/decomposition-study.md)")
