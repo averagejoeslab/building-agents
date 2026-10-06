@@ -1,4 +1,4 @@
-import subprocess, sys, os, re, glob, json, datetime, atexit, time
+import subprocess, sys, os, re, glob, json, datetime, atexit, termios, tty, threading, select, contextlib, time
 from anthropic import Anthropic, BadRequestError, APIConnectionError, APIStatusError
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,10 +11,11 @@ def call(models=MODELS, live=False, **request):          # resilience: retries, 
         try:
             with client.messages.stream(model=model, **request) as stream:   # performance: streamed, shown as it arrives
                 shown = False
-                for text in stream.text_stream:
-                    if live: print(text, end="", flush=True); shown = True
+                for event in stream:
+                    if ESC.is_set(): break               # guardrails: with a stream, ESC stops it mid-thought or mid-sentence
+                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta": print(event.delta.text, end="", flush=True); shown = True
                 if shown: print()
-                return stream.get_final_message()
+                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
@@ -33,8 +34,14 @@ def sandbox():                                           # sandboxing: one locke
 
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
     start = time.time()
-    done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+    doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    while True:
+        try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
+        except subprocess.TimeoutExpired:
+            if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
+    done.returncode = doing.returncode
+    if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+    elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
     trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
     return trim(done.stdout) or f"(exit {done.returncode})"
 
@@ -245,6 +252,21 @@ def read(prompt):                                        # input: from a person
         if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
         if line.strip(): return line.rstrip("\n")        # Enter on an empty line: a fresh prompt, as in a terminal
         prompt = "> "
+ESC = threading.Event()                                  # input: a person pressing ESC while quark works
+SAYING = "[other self interrupted what you were saying — acknowledge]"
+DOING = "[other self interrupted what you were doing — acknowledge]"
+def watch(stop):
+    while not stop.is_set():
+        if select.select([sys.stdin], [], [], 0.1)[0] and os.read(sys.stdin.fileno(), 1) == b"\x1b":
+            if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
+            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)   # an arrow key, not ESC
+@contextlib.contextmanager
+def listening():                                         # input: watch the keyboard only while quark thinks or acts
+    if not sys.stdin.isatty(): yield; return
+    attrs, stop = termios.tcgetattr(sys.stdin), threading.Event()
+    tty.setcbreak(sys.stdin); watcher = threading.Thread(target=watch, args=(stop,), daemon=True); watcher.start()
+    try: yield
+    finally: stop.set(); watcher.join(0.2); termios.tcsetattr(sys.stdin, termios.TCSADRAIN, attrs)
 resumed = unfinished()
 input = "" if resumed else " ".join(sys.argv[1:]) or read("> ")
 if input == "/q": sys.exit()
@@ -286,9 +308,10 @@ while True:
         if drop:
             working_memory, drop = compact(working_memory, drop), 0
         start = time.time()
-        response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
+        with listening():
+            response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
         trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens, cache_read=response.usage.cache_read_input_tokens, cache_write=response.usage.cache_creation_input_tokens)
-        output = response.content
+        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]   # performance: a stream cut by ESC leaves partial blocks; keep the whole ones
         steps += 1
         spent += response.usage.input_tokens + response.usage.output_tokens + response.usage.cache_read_input_tokens + response.usage.cache_creation_input_tokens
     except BadRequestError as e:
@@ -299,7 +322,12 @@ while True:
     except Down:
         sys.exit("[the model isn't answering. Everything so far is in the episode; run quark again to pick it up]")
 
-    add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+    if output: add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+    if ESC.is_set():                                     # guardrails: ESC while it thought or said; keep what it said, run nothing
+        trace(event="interrupted", during="saying")
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": "[your doing never reached the world]"} for b in output if b.type == "tool_use"] + [{"type": "text", "text": SAYING}]})
+        ESC.clear()
+        continue
 
     refused, pending = {}, {}
     for block in output:                                 # output: decide each tool request, in order
@@ -313,7 +341,7 @@ while True:
                 refused[block.id] = no
             else:
                 pending[block.id] = cmd
-    with ThreadPoolExecutor() as pool:                   # performance: everything allowed runs at the same time
+    with listening(), ThreadPoolExecutor() as pool:      # performance: everything allowed runs at the same time
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 
     input = []
@@ -323,6 +351,11 @@ while True:
             print(f"[{text}]" if block.id in refused else text)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": text, **({"is_error": True} if block.id in refused else {})})  # input: from the world
 
+    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+        trace(event="interrupted", during="acting")
+        add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
+        ESC.clear()
+        continue
     if input:
         add(working_memory, {"role": "user", "content": input})
         continue

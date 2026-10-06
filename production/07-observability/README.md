@@ -20,7 +20,7 @@ Observability only watches. It never changes what's sent, what runs, or when the
 
 ## The worked example
 
-[`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace, and nothing else: 12 lines. `time` joins the imports, and at the top of `# ── control flow ──` there's the function that writes the record:
+[`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace, and nothing else: 14 lines. `time` joins the imports, and at the top of `# ── control flow ──` there's the function that writes the record:
 
 ```python
 def trace(**event):                                      # observability: one line per step, for whoever runs quark
@@ -35,8 +35,10 @@ trace(event="start", input=input)
         trace(event="stopped", steps=steps, tokens=spent)
         trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens, cache_read=response.usage.cache_read_input_tokens, cache_write=response.usage.cache_creation_input_tokens)
         trace(event="too_long", drop=drop)
+        trace(event="interrupted", during="saying")
                 trace(event="refused", cmd=block.input["cmd"], why=no)
             trace(event="tool", cmd=block.input["cmd"], seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
+        trace(event="interrupted", during="acting")
 ```
 
 **`trace()`** appends one JSON object to `.quark/traces.jsonl`: the time, the **episode** this run is being written to, and whatever else you pass it. A file that only ever gets appended to is the simplest log there is, and each line stands on its own, so a run that crashes halfway still leaves everything before the crash. The `episode` field ties the two records together: from any trace line you can open the messages of the same run.
@@ -47,7 +49,7 @@ trace(event="start", input=input)
 
 **Each tool** records the command, how long it took, its exit code and how many characters it printed. A failed command is a line with a non-zero `exit`; one the box killed is `137`.
 
-**Each refusal** records the command the guard wouldn't run, and why. **Each limit** records the steps and tokens it stopped at. **Each compaction** records that the API said the prompt was too long.
+**Each refusal** records the command the guard wouldn't run, and why. **Each interrupt** records that you pressed ESC, and whether quark was saying or doing something at the time. **Each limit** records the steps and tokens it stopped at. **Each compaction** records that the API said the prompt was too long.
 
 Nothing else changed. The request is built by the same code, the same commands run in the same box, and the loop stops for the same reasons.
 
@@ -62,39 +64,41 @@ uv run --project /path/to/building-agents /path/to/building-agents/production/07
 ```
 $ wc -l * 2>/dev/null | sort -rn | head -5
 allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
-$ wc -l * | sort -rn | head -5
-allow `wc -l * | sort -rn | head -5`? [y/N] [the person said no]
-$ wc -l *
+$ ls
+big.txt
+small.txt
+
+$ wc -l big.txt small.txt
  5000 big.txt
     2 small.txt
  5002 total
 
-`big.txt` has the most lines, at 5,000.
+`big.txt` has the most lines, at 5,000 (`small.txt` has 2).
 ```
 
-The first two commands weren't on the safe list (`2>` redirects, and `sort` isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model rewrote the command until it passed. Here's what the person running it sees afterwards, in `.quark/traces.jsonl`:
+The first command wasn't on the safe list (`2>` redirects, and `sort` isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. Here's what the person running it sees afterwards, in `.quark/traces.jsonl`:
 
 ```
-{"ts": "2026-10-06T18:06:10", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
-{"ts": "2026-10-06T18:06:12", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "model", "seconds": 2.42, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 70, "cache_read": 0, "cache_write": 6609}
-{"ts": "2026-10-06T18:06:12", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "refused", "cmd": "wc -l * 2>/dev/null | sort -rn | head -5", "why": "the person said no"}
-{"ts": "2026-10-06T18:06:14", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "model", "seconds": 1.77, "stop_reason": "tool_use", "input_tokens": 180, "output_tokens": 86, "cache_read": 6609, "cache_write": 0}
-{"ts": "2026-10-06T18:06:14", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "refused", "cmd": "wc -l * | sort -rn | head -5", "why": "the person said no"}
-{"ts": "2026-10-06T18:06:15", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "model", "seconds": 1.58, "stop_reason": "tool_use", "input_tokens": 281, "output_tokens": 81, "cache_read": 6609, "cache_write": 0}
-{"ts": "2026-10-06T18:06:15", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "tool", "cmd": "wc -l *", "seconds": 0.11, "exit": 0, "chars": 42}
-{"ts": "2026-10-06T18:06:16", "episode": ".quark/episodes/2026-10-06T18-06-09.jsonl", "event": "model", "seconds": 1.0, "stop_reason": "end_turn", "input_tokens": 390, "output_tokens": 20, "cache_read": 6609, "cache_write": 0}
+{"ts": "2026-10-06T19:16:13", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "start", "input": "which file in this folder has the most lines? answer in one sentence"}
+{"ts": "2026-10-06T19:16:15", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.69, "stop_reason": "tool_use", "input_tokens": 95, "output_tokens": 70, "cache_read": 0, "cache_write": 7665}
+{"ts": "2026-10-06T19:16:15", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "refused", "cmd": "wc -l * 2>/dev/null | sort -rn | head -5", "why": "the person said no"}
+{"ts": "2026-10-06T19:16:17", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.53, "stop_reason": "tool_use", "input_tokens": 180, "output_tokens": 81, "cache_read": 7665, "cache_write": 0}
+{"ts": "2026-10-06T19:16:17", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "tool", "cmd": "ls", "seconds": 0.09, "exit": 0, "chars": 18}
+{"ts": "2026-10-06T19:16:18", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.36, "stop_reason": "tool_use", "input_tokens": 276, "output_tokens": 59, "cache_read": 7665, "cache_write": 0}
+{"ts": "2026-10-06T19:16:18", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "tool", "cmd": "wc -l big.txt small.txt", "seconds": 0.11, "exit": 0, "chars": 42}
+{"ts": "2026-10-06T19:16:19", "episode": ".quark/episodes/2026-10-06T19-16-13.jsonl", "event": "model", "seconds": 1.24, "stop_reason": "end_turn", "input_tokens": 363, "output_tokens": 31, "cache_read": 7665, "cache_write": 0}
 ```
 
-Every step is there: four calls, the two refusals, the one command that ran, and how long each took. Read the cache columns: the first call wrote the 6,609-token system prompt to the cache, and every call after that read it back instead of paying for it again.
+Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Read the cache columns: the first call wrote the 7,665-token system prompt to the cache, and every call after that read it back instead of paying for it again.
 
 Because it's one JSON object per line, you can ask the file questions with `jq`. Add up one run, by its episode:
 
 ```bash
-jq -c -s --arg e ".quark/episodes/2026-10-06T18-06-09.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
+jq -c -s --arg e ".quark/episodes/2026-10-06T19-16-13.jsonl" 'map(select(.episode==$e and .event=="model")) | {calls: length, input: (map(.input_tokens)|add), output: (map(.output_tokens)|add), cache_read: (map(.cache_read)|add), cache_write: (map(.cache_write)|add), seconds: (map(.seconds)|add)}' .quark/traces.jsonl
 ```
 
 ```
-{"calls":4,"input":946,"output":257,"cache_read":19827,"cache_write":6609,"seconds":6.77}
+{"calls":4,"input":914,"output":241,"cache_read":22995,"cache_write":7665,"seconds":5.82}
 ```
 
 Now a run where things go wrong: a command that fails, and one the box kills. This uses a copy with the sandbox's `TIMEOUT` lowered to 5, and `y` piped in for the guard:
@@ -106,7 +110,7 @@ ls: cannot access '/nonexistent': No such file or directory
 $ sleep 60
 allow `sleep 60`? [y/N] 
 (killed: ran over 5 seconds or out of memory)
-`ls /nonexistent` failed with "No such file or directory", and `sleep 60` was killed after the sandbox's 5-second timeout, so it never ran the full minute.
+`ls /nonexistent` failed because the path doesn't exist, and `sleep 60` was killed after the sandbox's 5-second timeout, so it never ran the full 60 seconds.
 ```
 
 The agent told you what happened, this time. Without the trace, you'd only know if you were watching. Here's everything that didn't go to plan, across both runs:
@@ -116,13 +120,37 @@ jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces
 ```
 
 ```
-{"ts":"2026-10-06T18:06:12","episode":".quark/episodes/2026-10-06T18-06-09.jsonl","event":"refused","cmd":"wc -l * 2>/dev/null | sort -rn | head -5","why":"the person said no"}
-{"ts":"2026-10-06T18:06:14","episode":".quark/episodes/2026-10-06T18-06-09.jsonl","event":"refused","cmd":"wc -l * | sort -rn | head -5","why":"the person said no"}
-{"ts":"2026-10-06T18:06:30","episode":".quark/episodes/2026-10-06T18-06-27.jsonl","event":"tool","cmd":"ls /nonexistent","seconds":0.12,"exit":2,"chars":60}
-{"ts":"2026-10-06T18:06:35","episode":".quark/episodes/2026-10-06T18-06-27.jsonl","event":"tool","cmd":"sleep 60","seconds":5.11,"exit":137,"chars":46}
+{"ts":"2026-10-06T19:16:15","episode":".quark/episodes/2026-10-06T19-16-13.jsonl","event":"refused","cmd":"wc -l * 2>/dev/null | sort -rn | head -5","why":"the person said no"}
+{"ts":"2026-10-06T19:16:23","episode":".quark/episodes/2026-10-06T19-16-21.jsonl","event":"tool","cmd":"ls /nonexistent","seconds":0.1,"exit":2,"chars":60}
+{"ts":"2026-10-06T19:16:28","episode":".quark/episodes/2026-10-06T19-16-21.jsonl","event":"tool","cmd":"sleep 60","seconds":5.09,"exit":137,"chars":46}
 ```
 
-Two refusals, one failure (`exit` 2) and one kill (`exit` 137, after 5.11 seconds). Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
+A refusal, a failure (`exit` 2) and a kill (`exit` 137, after 5.09 seconds). Each line names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step.
+
+And when you break in. In a terminal, I asked for `sleep 30`, said `y`, and pressed ESC three seconds later:
+
+```
+> run sleep 30 as one command
+$ sleep 30
+allow `sleep 30`? [y/N] y
+
+[your doing stopped before done]
+You interrupted `sleep 30` before it finished, so I stopped it. I haven't run it again. Do you want me to retry? The sandbox kills any command at 30 seconds, so `sleep 30` may get cut off right at the limit even if you don't interrupt it.
+
+> /q
+```
+
+The trace of that run, with only the fields that matter here:
+
+```
+{"event":"start"}
+{"event":"model","seconds":2.31}
+{"event":"tool","cmd":"sleep 30","seconds":3.24,"exit":137}
+{"event":"interrupted","during":"acting"}
+{"event":"model","seconds":1.81}
+```
+
+The command was stopped at 3.24 seconds (`exit` 137, the box's kill), and the next line says why: you interrupted it while it was acting. Then one more call, for the model to acknowledge it.
 
 > The trace file only grows. Delete or rotate it when it gets big.
 

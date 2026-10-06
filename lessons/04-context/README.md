@@ -321,7 +321,7 @@ This code is your harness — shown so you know your self mechanics. The system 
 
 </details>
 
-> quark's own version also lets you interrupt it with ESC, and retries the summary if the network fails. Those are hardening, so they're left out here.
+> quark's own version also lets you interrupt it with ESC, and retries the summary if the network fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and the retries in [Lesson 8: Resilience](../../production/08-resilience/).
 
 ## Run it
 

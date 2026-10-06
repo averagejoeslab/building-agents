@@ -56,41 +56,27 @@ for step in range(1, MAX_STEPS + 1):
     if asked and max(asked.values()) >= MAX_REPEATS:
         print(f"[stopped: asked for the same command {MAX_REPEATS} times]")
         break
-    input, replied = [], False
-    try:
-        output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
-        replied = True
-        messages.append({"role": "assistant", "content": output.content})
-        spent += cost(output.usage)
-        if output.stop_reason == "refusal":
-            print("[stopped: the model declined]")
-            break
-        for block in output.content:
-            if block.type == "text":
-                print(block.text)
-            if block.type == "tool_use":
-                cmd = block.input["cmd"]
-                print(f"$ {cmd}")
-                asked[cmd] += 1
-                if (no := guard(cmd)):
-                    print(f"[{no}]")
-                    input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
-                    continue
-                done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                print(done.stdout)
-                input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
-    except KeyboardInterrupt:
-        print("\n[interrupted]")
-        if replied:
-            answered = {r["tool_use_id"] for r in input}
-            input += [{"type": "tool_result", "tool_use_id": b.id, "content": "interrupted by the person", "is_error": True} for b in output.content if b.type == "tool_use" and b.id not in answered]
-        try: say = read("what now? (blank to stop) > ").strip()
-        except EOFError: say = ""
-        if not say:
-            print("[stopped: interrupted]")
-            break
-        messages.append({"role": "user", "content": input + [{"type": "text", "text": say}] if replied else say})
-        continue
+    input = []
+    output = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    messages.append({"role": "assistant", "content": output.content})
+    spent += cost(output.usage)
+    if output.stop_reason == "refusal":
+        print("[stopped: the model declined]")
+        break
+    for block in output.content:
+        if block.type == "text":
+            print(block.text)
+        if block.type == "tool_use":
+            cmd = block.input["cmd"]
+            print(f"$ {cmd}")
+            asked[cmd] += 1
+            if (no := guard(cmd)):
+                print(f"[{no}]")
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": no, "is_error": True})
+                continue
+            done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            print(done.stdout)
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:
         print(f"[done in {step} steps, ${spent:.4f}]")
         break

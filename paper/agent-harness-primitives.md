@@ -322,10 +322,10 @@ The second part of the artifact tests this corollary one layer at a time, on the
 | Layer | Resides in | Rationale | Mechanism | Net lines |
 |----|----|------|------------|----|
 | Sandboxing | output | where a tool executes was always output's decision | commands executed via `docker exec` in a container with no network, capped resources, a read-only root and only the working directory mounted, so that the kernel, not a textual check, enforces the limits | +10 |
-| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits and handling of interruption) | +23 |
-| Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage`, exit codes and refusals already present; appends one JSON record per event, each naming the episode of the same session | +12 |
+| Guardrails | control flow (primarily) | control flow already decides whether a request becomes a command and whether to iterate | allow, ask or deny before each tool, asking through the existing input function; refusals returned as readable tool results; step and token limits (the artifact's fuller example adds cost and repetition limits); an interrupt by which the person stops thinking, saying or acting, the partial work being kept and the model informed | +59 |
+| Observability | control flow | the only primitive with visibility of the whole sequence | reads the clock, `usage`, exit codes, refusals and interruptions already present; appends one JSON record per event, each naming the episode of the same session | +14 |
 | Resilience | model interface, output | where the environment can fail | retries with backoff, a backup model and clean termination; an answer for every tool call, including malformed ones; resumption from the episode that context already keeps, marking interrupted commands as *may or may not have run* | +29 |
-| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tool execution (output) | +24 |
+| Performance | context, model interface, output | where tokens and latency are incurred | cache markers and trimming (context); streaming, which also makes the interrupt immediate, and a fixed small model for summaries (model interface); concurrent tool execution (output) | +19 |
 | Evaluation | outside the harness | it treats the agent as a black box | an outer loop that prepares a case, runs the real agent, grades the resulting state, and compares with the previous run | +38 |
 
 Several entries require qualification.
@@ -334,7 +334,7 @@ Several entries require qualification.
 
 **The same events can have two readers.** The base harness's episodic memory and the observability layer's trace record the same session. The episode is written for the model, which searches it, and is context; the trace, with timings, token counts, exit codes and refusals, is written for the operator, and is observability (the rule of who reads it, §4). Each trace record names its episode, so the two remain distinct but linked.
 
-**Guardrails reside primarily, but not exclusively, in control flow.** In opencode and Claude Code, denied tools are also removed from the request, and that element is context. The decision retains a single home, while its enforcement may extend into another primitive.
+**Guardrails reside primarily, but not exclusively, in control flow.** In opencode and Claude Code, denied tools are also removed from the request, and that element is context. In the artifact, the person's means of intervening, an approval typed in answer to a question or an interruption by a key, are received through input; the decision each triggers, not to run a command or not to continue a step, is control flow. The decision retains a single home, while its enforcement may extend into another primitive.
 
 **Layers are not mutually independent.** An earlier formulation of the corollary stated that each layer leaves the other primitives unchanged. The production harnesses show this to be too strong. In Codex, the approval policy and the sandbox policy are mutually dependent: (i) the approval requirement is computed from the sandbox setting; (ii) an approval alters how the command executes; and (iii) a sandbox denial triggers a further approval. Claude Code is similar: its sandbox can substitute for a permission prompt, and the model can request to leave the sandbox, which routes the request back through the guardrails. Each element still resides in one primitive. The primitives remain disjoint; the layers do not remain independent.
 
@@ -1123,17 +1123,17 @@ done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEO
 if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
 ```
 
-**C.2 Guardrails (+23 lines), in control flow.** A gate before each tool, asking through the input function of §5.2, and limits before each call.
+**C.2 Guardrails (+59 lines), in control flow, with the interrupt received through input.** A gate before each tool, asking through the input function of §5.2; limits before each call; and an interrupt. A key (ESC) is watched only while the model is called and while commands run; on it, a running command is stopped inside the sandbox with its partial output kept, commands not yet started are answered as never having run, and the model is told it was interrupted.
 
 ```python
 MAX_STEPS, MAX_TOKENS = 20, 200_000
-SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", "uniq"}
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo", "du", "df", "stat", "file", ...
 DENY = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|mkfs|git\s+push|(curl|wget).*\|\s*(ba)?sh|\.env\b")
 def guard(cmd):
     if DENY.search(cmd): return "blocked by policy"
     if not re.search(r"[;&<>$`\n(]", cmd) and all((p.split() or [""])[0] in SAFE for p in cmd.split("|") ...
     answer = read(f"allow `{cmd}`? [y/N] ")
-    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {answer}")
+    return None if answer.lower() == "y" else "the person said no" + ("" if answer == "/q" else f": {ans ...
 # ...
     if steps >= MAX_STEPS or spent >= MAX_TOKENS:
         print(f"[stopped: {steps} steps, {spent} tokens]")
@@ -1148,7 +1148,39 @@ def guard(cmd):
                 continue
 ```
 
-**C.3 Observability (+12 lines), in control flow.** One function, called at each point the loop already passes: the start, each model call, each tool, each refusal, each limit and each compaction. Each record names the episode of the same session.
+```python
+ESC = threading.Event()                                  # input: a person pressing ESC while quark works
+SAYING = "[other self interrupted what you were saying — acknowledge]"
+DOING = "[other self interrupted what you were doing — acknowledge]"
+def watch(stop):
+    while not stop.is_set():
+        if select.select([sys.stdin], [], [], 0.1)[0] and os.read(sys.stdin.fileno(), 1) == b"\x1b":
+            if not select.select([sys.stdin], [], [], 0.02)[0]: ESC.set(); return
+            while select.select([sys.stdin], [], [], 0.01)[0]: os.read(sys.stdin.fileno(), 64)
+# ...  listening(): watch the keyboard only inside its with-block, and only on a terminal
+    if ESC.is_set():
+        for block in output:
+            if block.type == "text": print(block.text)
+        add(working_memory, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, ...
+        ESC.clear()
+        continue
+# ...
+            with listening():
+                doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), ...
+                while True:
+                    try: done = subprocess.CompletedProcess(doing.args, 0, ...
+                    except subprocess.TimeoutExpired:
+                        if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", ...
+            done.returncode = doing.returncode
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+# ...
+    if ESC.is_set():                                     # guardrails: ESC while it acted; keep what it did
+        add(working_memory, {"role": "user", "content": input + [{"type": "text", "text": DOING}]})
+        ESC.clear()
+        continue
+```
+
+**C.3 Observability (+14 lines), in control flow.** One function, called at each point the loop already passes: the start, each model call, each tool, each refusal, each limit, each interruption and each compaction. Each record names the episode of the same session.
 
 ```python
 def trace(**event):
@@ -1157,6 +1189,7 @@ def trace(**event):
 # ...
 trace(event="model", seconds=round(time.time() - start, 2), stop_reason=response.stop_reason, ...
 trace(event="refused", cmd=block.input["cmd"], why=no)
+trace(event="interrupted", during="acting")
 ```
 
 **C.4 Resilience (+29 lines), in the model interface and output.** SDK retries and a backup model; resumption from the episode that context already keeps; interrupted and truncated requests answered, not executed.
@@ -1193,7 +1226,7 @@ if resumed:                                              # resilience: pick up w
                 continue
 ```
 
-**C.5 Performance (+24 lines net), in context, the model interface and output.** Streaming and a small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response.
+**C.5 Performance (+19 lines net), in context, the model interface and output.** Streaming, which also lets the interrupt stop a response mid-sentence, and a small model for summaries; a cache marker on the newest message and trimming of long results; concurrent execution of the tool calls in one response.
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
@@ -1203,10 +1236,11 @@ def call(models=MODELS, live=False, **request):
         try:
             with client.messages.stream(model=model, **request) as stream:
                 shown = False
-                for text in stream.text_stream:
-                    if live: print(text, end="", flush=True); shown = True
+                for event in stream:
+                    if ESC.is_set(): break
+                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta" ...
                 if shown: print()
-                return stream.get_final_message()
+                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
 # ...
 def cached(working_memory):
     last = working_memory[-1]
@@ -1214,7 +1248,8 @@ def cached(working_memory):
     blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
     return working_memory[:-1] + [{"role": last["role"], "content": blocks}]
 # ...
-    with ThreadPoolExecutor() as pool:
+        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking"  ...
+    with listening(), ThreadPoolExecutor() as pool:
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 ```
 
@@ -1260,7 +1295,7 @@ cat .quark/skills/update-lesson-slide-deck.md; ls lessons; ls lessons/04-*; grep
 | Layer | Control flow | Input | Context | Model interface | Output |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Sandboxing | | | | | ● |
-| Guardrails | ● | ○ asking a person | ○ hiding denied tools, in two harnesses | | |
+| Guardrails | ● | ○ asking a person; hearing an interrupt | ○ hiding denied tools, in two harnesses | | |
 | Observability | ● | | | | |
 | Resilience | | | ○ reading the episode back | ● | ● |
 | Performance | ○ routing, in the fuller example | | ● | ● | ● |

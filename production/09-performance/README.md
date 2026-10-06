@@ -13,7 +13,7 @@ The mechanism, first in context, because it's where most of the tokens go. Remem
 **Prompt caching** is the fix, and it works because the request is a *prefix*. The model reads the request in a fixed order: the tools, then the instructions, then the messages. The API can remember what it already worked out for the start of a request, and if the next request begins with exactly the same tokens, it picks up from there and only reads the new end. You mark where you want the remembering to end with a `cache_control` block. Reading from the cache costs a fraction of normal input (a tenth, at the time of writing) and is faster, and writing to it costs a little more than normal (a quarter more). So the first call pays slightly extra and every call after it, within five minutes of the last one, gets a discount on the part that hasn't changed. Three consequences follow:
 
 - *The match has to be exact.* One changed character early in the request and everything after it is new. That's why Lesson 4's system prompt has the date and not the time: a timestamp would make every call a miss. Anything that changes goes at the end, never at the start.
-- *There's a minimum.* A prefix shorter than a minimum, from 512 to 4,096 tokens depending on the model (512 for this course's Sonnet 5.5, 4,096 for Haiku 4.5), isn't cached, and nothing tells you. quark's system prompt is about eight thousand tokens, mostly the copy of its own code, so it qualifies.
+- *There's a minimum.* A prefix shorter than a minimum, from 512 to 4,096 tokens depending on the model (512 for this course's Sonnet 5.5, 4,096 for Haiku 4.5), isn't cached, and nothing tells you. quark's system prompt is about nine thousand tokens, mostly the copy of its own code, so it qualifies.
 - *The cache belongs to one model.* Switch models and you start again.
 
 The system prompt has been marked since Lesson 4. What's new is the other end: the conversation. A second mark on the last message means each call pays full price only for what's new since the previous call: the last reply and the last result.
@@ -38,17 +38,18 @@ def call(models=MODELS, live=False, **request):          # resilience: retries, 
         try:
             with client.messages.stream(model=model, **request) as stream:   # performance: streamed, shown as it arrives
                 shown = False
-                for text in stream.text_stream:
-                    if live: print(text, end="", flush=True); shown = True
+                for event in stream:
+                    if ESC.is_set(): break               # guardrails: with a stream, ESC stops it mid-thought or mid-sentence
+                    if live and event.type == "content_block_delta" and event.delta.type == "text_delta": print(event.delta.text, end="", flush=True); shown = True
                 if shown: print()
-                return stream.get_final_message()
+                return stream.current_message_snapshot if ESC.is_set() else stream.get_final_message()
         except (APIConnectionError, APIStatusError) as e:
             if isinstance(e, APIStatusError) and e.status_code < 500 and e.status_code != 429: raise
             trace(event="model_failed", model=model, error=type(e).__name__)
     raise Down()
 ```
 
-`live=True` prints each piece of text as it arrives, so the loop no longer prints text blocks itself. `models=FAST` sends a request to the small model; only compaction asks for it:
+`live=True` prints each piece of text as it arrives, so the loop no longer prints text blocks itself. The stream also makes Lesson 6's interrupt immediate: `call()` checks `ESC` at every piece that arrives and stops reading the moment you press it, mid-thought or mid-sentence, and hands back what had arrived so far, `stream.current_message_snapshot`. `models=FAST` sends a request to the small model; only compaction asks for it:
 
 ```python
     summary = call(models=FAST, max_tokens=2048, system=system(), messages=keep + [{"role": "user", "content": "Your working memory is full. Summarize into a gist that preserves what matters for continuing."}])
@@ -72,8 +73,21 @@ def cached(working_memory):                              # performance: cache ev
 **`trim()`** keeps the first and last 10,000 characters of a result over `MAX_RESULT`, and says how much it cut. **`cached()`** puts a `cache_control` mark on the last block of the last message, on a copy, so the next call reads everything up to there from the cache. The system prompt has carried its own mark since Lesson 4. The main call now sends the marked copy, streamed live:
 
 ```python
-        response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
+        with listening():
+            response = call(live=True, max_tokens=16384, system=system(), tools=tools, messages=cached(working_memory))
 ```
+
+A stream cut short leaves partial blocks: a sentence half written, a thought with no signature yet. The loop keeps the ones the API will accept back:
+
+```python
+        output = [b for b in response.content if (b.type != "text" or b.text) and (b.type != "thinking" or b.signature)]   # performance: a stream cut by ESC leaves partial blocks; keep the whole ones
+```
+
+```python
+    if output: add(working_memory, {"role": "assistant", "content": output})   # on disk before any tool runs
+```
+
+Text that was said, up to where you stopped it, stays in working memory and the episode. Thinking that wasn't finished is dropped, because the API only takes back thinking it signed. If nothing at all had arrived, there's no assistant message to keep, and only the interrupt goes in. Lesson 6's interrupt branch prints the text it kept; here it was already printed as it arrived, so that print goes.
 
 One line of the system prompt changes too. Lesson 4 asked for one command per response; now the model is told what the harness will do with several:
 
@@ -81,18 +95,24 @@ One line of the system prompt changes too. Lesson 4 asked for one command per re
 Prefer focused actions to keep results small. Commands that don't depend on each other can go in the same response: they run at the same time.
 ```
 
-In `# ── output ──`, running one command becomes a function, so several can run at once:
+In `# ── output ──`, running one command becomes a function, so several can run at once. It keeps Lesson 6's way of running a command, so ESC still stops it and keeps what it printed:
 
 ```python
 def execute(cmd):                                        # performance: one command in the box, so several can run at once
     start = time.time()
-    done = subprocess.run(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
+    doing = subprocess.Popen(["docker", "exec", box, "timeout", "-s", "KILL", str(TIMEOUT), "sh", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    while True:
+        try: done = subprocess.CompletedProcess(doing.args, 0, doing.communicate(timeout=0.1)[0]); break
+        except subprocess.TimeoutExpired:
+            if ESC.is_set(): subprocess.run(["docker", "exec", box, "sh", "-c", "kill -9 -1"], capture_output=True)   # every command in the box, not the box
+    done.returncode = doing.returncode
+    if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+    elif done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} seconds or out of memory)"
     trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
     return trim(done.stdout) or f"(exit {done.returncode})"
 ```
 
-And in the loop, the tool requests are handled in two passes. The first decides each one in order, asking the guard's questions one at a time, before anything starts. Then everything allowed runs at once in a thread pool, and the second pass prints the results and sends them back in the order they were asked for, each with its request's id:
+And in the loop, the tool requests are handled in two passes. The first decides each one in order, asking the guard's questions one at a time, before anything starts. Then everything allowed runs at once in a thread pool, inside `listening()`, so one ESC stops every command that's running, and the second pass prints the results and sends them back in the order they were asked for, each with its request's id:
 
 ```python
     refused, pending = {}, {}
@@ -107,7 +127,7 @@ And in the loop, the tool requests are handled in two passes. The first decides 
                 refused[block.id] = no
             else:
                 pending[block.id] = cmd
-    with ThreadPoolExecutor() as pool:                   # performance: everything allowed runs at the same time
+    with listening(), ThreadPoolExecutor() as pool:      # performance: everything allowed runs at the same time
         outputs = dict(zip(pending, pool.map(execute, pending.values())))
 
     input = []
@@ -141,17 +161,17 @@ $ sleep 3; echo tests ok
 allow `sleep 3; echo tests ok`? [y/N] tests ok
 
 Lint, types and tests all passed.
-[wall: 15.0s]
+[wall: 14.6s]
 ```
 
 The trace shows the model asked for all three in one reply, and Lesson 8 ran them one after another:
 
 ```
-{"event":"model","seconds":2.34,"input_tokens":145,"cache_read":0,"cache_write":7382}
-{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo lint ok"}
-{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo types ok"}
-{"event":"tool","seconds":3.1,"cmd":"sleep 3; echo tests ok"}
-{"event":"model","seconds":1.18,"input_tokens":447,"cache_read":7382,"cache_write":0}
+{"event":"model","seconds":2.35,"input_tokens":145,"cache_read":0,"cache_write":8438}
+{"event":"tool","seconds":3.09,"cmd":"sleep 3; echo lint ok"}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo types ok"}
+{"event":"tool","seconds":3.11,"cmd":"sleep 3; echo tests ok"}
+{"event":"model","seconds":1.12,"input_tokens":407,"cache_read":8438,"cache_write":0}
 ```
 
 Three seconds each, nine in total. Now the same task with this lesson's `quark.py`:
@@ -167,18 +187,18 @@ types ok
 tests ok
 
 Lint, types, and tests all passed.
-[wall: 8.1s]
+[wall: 8.0s]
 ```
 
 ```
-{"event":"model","seconds":1.83,"input_tokens":4,"cache_read":0,"cache_write":8042}
+{"event":"model","seconds":1.73,"input_tokens":4,"cache_read":0,"cache_write":9130}
 {"event":"tool","seconds":3.12,"cmd":"sleep 3; echo lint ok"}
-{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo types ok"}
-{"event":"tool","seconds":3.13,"cmd":"sleep 3; echo tests ok"}
-{"event":"model","seconds":1.03,"input_tokens":2,"cache_read":8042,"cache_write":264}
+{"event":"tool","seconds":3.12,"cmd":"sleep 3; echo tests ok"}
+{"event":"tool","seconds":3.13,"cmd":"sleep 3; echo types ok"}
+{"event":"model","seconds":1.24,"input_tokens":2,"cache_read":9130,"cache_write":264}
 ```
 
-All three questions come first, then the three commands run together: three seconds of waiting instead of nine, 8.1 seconds against 15.0 for the whole run. Look at `input_tokens` too: 145 and 447 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
+All three questions come first, then the three commands run together: three seconds of waiting instead of nine, 8.0 seconds against 14.6 for the whole run. Look at `input_tokens` too: 145 and 407 at full price for Lesson 8, 4 and 2 here. That's `cached()`: everything up to the newest message was read from the cache.
 
 **Caching.** A task of three steps, in a folder holding a copy of `lessons/`, one command per step:
 
@@ -187,19 +207,19 @@ Find the quark.py files under lessons/ and count the lines in each. Then grep th
 ```
 
 ```
-$ find lessons -name quark.py -exec wc -l {} +
-allow `find lessons -name quark.py -exec wc -l {} +`? [y/N]    46 lessons/03-control-flow/quark.py
+$ find lessons/ -name quark.py -exec wc -l {} +
+allow `find lessons/ -name quark.py -exec wc -l {} +`? [y/N]    46 lessons/03-control-flow/quark.py
   234 lessons/04-context/quark.py
    33 lessons/02-input-and-output/quark.py
     9 lessons/01-model-interface/quark.py
   322 total
 
-$ grep -nE '^\s*(import|from) ' lessons/04-context/quark.py
-allow `grep -nE '^\s*(import|from) ' lessons/04-context/quark.py`? [y/N] 1:import subprocess, sys, os, re, glob, json, datetime
+$ grep -nE "^\s*(import|from) " lessons/04-context/quark.py
+allow `grep -nE "^\s*(import|from) " lessons/04-context/quark.py`? [y/N] 1:import subprocess, sys, os, re, glob, json, datetime
 2:from anthropic import Anthropic, BadRequestError
 
-The longest file, `lessons/04-context/quark.py` (234 lines), imports only the standard library plus the `anthropic` SDK. That tells me it is a small, self-contained agent. It runs shell commands (`subprocess`), reads and writes files (`glob`, `json`, `os`), parses text (`re`) and timestamps sessions (`datetime`). It talks to the Claude API through `Anthropic`, and it handles `BadRequestError` for cases like a prompt that is too long.
-[wall: 7.0s]
+The longest file is `lessons/04-context/quark.py` at 234 lines, and its imports show an agent that calls the Anthropic API and handles its errors, runs shell commands with `subprocess`, and uses `json`, `glob`, `re` and `datetime` to read and write files, such as episode logs and skill files.
+[wall: 7.9s]
 ```
 
 ```
@@ -207,12 +227,12 @@ jq -c 'select(.event=="model") | {seconds,input_tokens,output_tokens,cache_read,
 ```
 
 ```
-{"seconds":1.5,"input_tokens":4,"output_tokens":67,"cache_read":0,"cache_write":8030}
-{"seconds":1.14,"input_tokens":2,"output_tokens":76,"cache_read":8030,"cache_write":153}
-{"seconds":1.98,"input_tokens":2,"output_tokens":164,"cache_read":8183,"cache_write":126}
+{"seconds":1.9,"input_tokens":4,"output_tokens":69,"cache_read":0,"cache_write":9118}
+{"seconds":1.74,"input_tokens":2,"output_tokens":75,"cache_read":9118,"cache_write":155}
+{"seconds":2.19,"input_tokens":2,"output_tokens":105,"cache_read":9273,"cache_write":125}
 ```
 
-`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 8,000 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last reply and its result, 153 and 126 tokens. The harness resent about 8,200 tokens each time and paid full price for a handful of them.
+`input_tokens` is what was read at full price: 4, then 2, then 2. The first call wrote about 9,100 tokens to the cache, mostly the system prompt with quark's own code in it. Each later call read what the previous one had written and wrote only what was new: the last reply and its result, 155 and 125 tokens. The harness resent about 9,300 tokens each time and paid full price for a handful of them.
 
 **Trimming.** A command that prints a lot. The folder has a copy of `docs/`, and the task is:
 
@@ -229,16 +249,79 @@ $ cat docs/the-model.md
 [... 5435 characters cut ...]
 oops the loss back to the model with the annotation 'gradient → tweak weights → repeat'." width="720
 ...
-The first heading, "The model: what the harness wraps", introduces the model as the first of an agent's two primitives (TokensOut = Model(TokensIn)), the thing a harness wraps.
+The first heading is "The model: what the harness wraps," and it introduces the model as the first of an agent's two primitives (TokensOut = Model(TokensIn)), the thing the harness wraps.
 ```
 
 ```
-{"event":"model","seconds":1.72,"input_tokens":4,"cache_read":0,"cache_write":8000}
+{"event":"model","seconds":1.54,"input_tokens":4,"cache_read":0,"cache_write":9088}
 {"event":"tool","seconds":0.11,"chars":25435}
-{"event":"model","seconds":2.21,"input_tokens":2,"cache_read":8000,"cache_write":6533}
+{"event":"model","seconds":2.16,"input_tokens":2,"cache_read":9088,"cache_write":6533}
 ```
 
 The trace's `chars` is the length before trimming, 25,435. The second call wrote 6,533 tokens to the cache, which is what the trimmed result came to: the 5,435 characters that were cut are characters that every later call would otherwise have resent.
+
+**The interrupt, now immediate.** These ran in a real terminal, driven by a script, in chat mode ending with `/q`. First I asked for a 600-word essay with no commands and pressed ESC nine seconds in. The essay's middle is cut here, at the `...`:
+
+```
+> Without using any commands, write a 600-word essay about why agent harnesses matter.
+# Why Agent Harnesses Matter
+
+A language model on its own can only produce text. It can describe how to fix a bug, plan a trip, or analyze a spreadsheet, but it cannot touch anything. An agent harness is the code that changes this. It wraps the model in a loop of observing, thinking, and acting, and it connects the model's words to real tools and real consequences. The model supplies the judgment. The harness supplies nearly everything else, and the quality of that "everything else" often decides whether an agent is useful, safe, or a liability.
+...
+**Memory and continuity are engineering problems.** Models have finite context windows and no inherent persistence. A harness decides what happens when working memory fills up: whether the conversation is summarized, whether the originals are preserved, and whether the agent can recover them later. It can log every message to disk so a crashed session can be resumed. It can give the agent stores for facts, skills, and past episodes, so lessons outlast a single conversation. Without this infrastructure, every
+You interrupted me, so I stopped. I'd covered capability, safety, and memory, and I was partway through the memory section. I still owed you the sections on observability and human oversight, plus a conclusion, so the essay is under 600 words as it stands.
+
+Do you want me to finish it from where I stopped, restart it shorter, or change direction? I'll still use no commands.
+
+> /q
+```
+
+The stream stopped mid-sentence ("Without this infrastructure, every"), the text so far stayed in working memory, and the model knew exactly where it had stopped. Next, ESC 0.8 seconds after a question, while it was still thinking:
+
+```
+> Think carefully, then tell me the 30th prime number.
+Noted: you interrupted me mid-answer, so here is the answer in full.
+
+The 30th prime is **113**.
+
+Here are the primes in order, in groups of ten:
+- 1st to 10th: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29
+- 11th to 20th: 31, 37, 41, 43, 47, 53, 59, 61, 67, 71
+- 21st to 30th: 73, 79, 83, 89, 97, 101, 103, 107, 109, **113**
+
+> /q
+```
+
+Nothing had been said yet, so only the interrupt went in, and the model answered anyway. Last, ESC four seconds into two commands running at once, both approved with `y`:
+
+```
+> Run these two as separate commands, at the same time: for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done   and   for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done
+$ for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done
+allow `for i in 1 2 3 4 5 6 7 8 9; do echo a$i; sleep 1; done`? [y/N] y
+$ for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done
+allow `for i in 1 2 3 4 5 6 7 8 9; do echo b$i; sleep 1; done`? [y/N] y
+a1
+a2
+a3
+a4
+a5
+
+[your doing stopped before done]
+b1
+b2
+b3
+b4
+b5
+
+[your doing stopped before done]
+You interrupted me, so I stopped both commands. They had been running in parallel, and each got through 5 of its 9 iterations (a1–a5 and b1–b5). Neither loop finished.
+
+Should I run them again from the start, or leave it?
+
+> /q
+```
+
+One ESC stopped both, and each kept what it had printed: five lines apiece.
 
 Two things from this layer don't show in pasted text. **Streaming** is the text appearing as it's written, and a transcript can't show when it appeared; the fuller example below measures it. And **compaction on the fast model** only runs when working memory is full, which none of these runs got near.
 

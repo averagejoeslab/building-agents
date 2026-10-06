@@ -12,7 +12,7 @@ Evaluation is how you find out first. It runs the agent on tasks whose right out
 
 **Comparing.** One run proves little, because the model isn't deterministic: the same agent on the same case can pass once and fail the next time. So each case is run several times and the passes are counted. And a count means little by itself, since 11 of 12 is good or bad only against something. So you run the same cases before a change and after it, and the difference is what the change did. Pass or fail isn't the only thing that moves: a change can leave every case passing and make the agent twice as expensive, so each run also records its steps, its tokens and its time. Finally, the whole thing is a command that exits non-zero when something got worse. That's what lets a script, a git hook or a CI job run it on *every* change, and refuse the ones that break the agent. An evaluation you have to remember to run gets skipped.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on the whole harness**, and it's the one layer that isn't inside any one primitive. It sits outside the agent and treats it as a single box: a task goes in, and the world is changed. That runs all five primitives together, which is why it can catch problems that only appear when they work together, like a trimmed result (context) that sends the loop (control flow) round once more. The code the layer adds is small and made of primitives you've seen. It's control flow: a loop, like Lesson 3's workflow, that sets up a case, runs it, grades it, records it, and stops. The task is handed to the agent as input, the way a person's task would be. The check is run as output, a command run on the machine. And a model grader goes through the model interface. Lesson 5's trace says what happened in a run; evaluation says whether what happened was right.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on the whole harness**, and it's the one layer that isn't inside any one primitive. It sits outside the agent and treats it as a single box: a task goes in, and the world is changed. That runs all five primitives together, which is why it can catch problems that only appear when they work together, like a trimmed result (context) that sends the loop (control flow) round once more. The code the layer adds is small and made of primitives you've seen. It's control flow: a loop, like Lesson 3's workflow, that sets up a case, runs it, grades it, records it, and stops. The task is handed to the agent as input, the way a person's task would be. The check is run as output, a command run on the machine. And a model grader goes through the model interface. Lesson 7's trace says what happened in a run; evaluation says whether what happened was right.
 
 ## The worked example
 
@@ -74,23 +74,23 @@ You need Docker running, as in Lesson 5. Start in a scratch folder, not in this 
 **A baseline.** This is the number everything is compared with:
 
 ```
-pass  count      2 steps    5.1s    18919 tokens
-pass  fix        3 steps    7.2s    28561 tokens
-pass  rename     2 steps    5.4s    18998 tokens
-pass  remember   2 steps    5.0s    18995 tokens
+pass  count      2 steps    4.7s    21100 tokens
+pass  fix        3 steps   11.4s    31825 tokens
+pass  rename     2 steps    5.0s    21131 tokens
+pass  remember   2 steps    4.8s    21176 tokens
 4/4 passed
 exit 0
 ```
 
-The last line is the exit status. Four cases, four passes, and what each one cost: two or three steps, five to seven seconds, and 19,000 to 29,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about eight thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it read the code before changing it. That's what normal looks like for this agent, and now it's written down.
+The last line is the exit status. Four cases, four passes, and what each one cost: two or three steps, five to eleven seconds, and 21,000 to 32,000 tokens. That's a lot of tokens for tasks this small, and the reason is that quark's system prompt, with its memory instructions and its copy of its own code, is about nine thousand tokens and is read again on every step. Within a case, the later steps read it from the cache (Lesson 9); each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The `fix` case took three steps because it read the code before changing it. That's what normal looks like for this agent, and now it's written down.
 
 **A change that breaks something.** Suppose someone wants to cap what a run can spend, and lowers `MAX_STEPS` from 20 to 1. Nothing about the change looks dangerous, and running quark on a simple task by hand, it still works. I made the change in a copy of the file, `sed 's/^MAX_STEPS, MAX_TOKENS = 20, /MAX_STEPS, MAX_TOKENS = 1, /'`, and ran the same cases in the same folder:
 
 ```
-pass  count      1 steps    3.7s     9439 tokens
-FAIL  fix        1 steps    3.6s     9412 tokens  kept /tmp/eval-fix-8ega07z3  REGRESSED: it passed last time
-pass  rename     1 steps    3.6s     9440 tokens
-pass  remember   1 steps    4.0s     9520 tokens
+pass  count      1 steps    3.4s    10529 tokens
+FAIL  fix        1 steps    3.4s    10499 tokens  kept /tmp/eval-fix-217shuyh  REGRESSED: it passed last time
+pass  rename     1 steps    3.6s    10529 tokens
+pass  remember   1 steps    3.7s    10575 tokens
 3/4 passed
 exit 1
 ```
@@ -100,17 +100,17 @@ Three of the four still pass: counting lines, renaming files and writing a note 
 The failed case kept its folder. To see why it failed:
 
 ```
-$ ls -a /tmp/eval-fix-8ega07z3
+$ ls -a /tmp/eval-fix-217shuyh
 .
 ..
 .quark
 __pycache__
 calc.py
 test.py
-$ cat /tmp/eval-fix-8ega07z3/calc.py
+$ cat /tmp/eval-fix-217shuyh/calc.py
 def add(a, b):
     return a - b
-$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-8ega07z3/.quark/traces.jsonl
+$ jq -c '{event,stop_reason,cmd}|with_entries(select(.value!=null))' /tmp/eval-fix-217shuyh/.quark/traces.jsonl
 {"event":"start"}
 {"event":"model","stop_reason":"tool_use"}
 {"event":"tool","cmd":"cat calc.py test.py"}
@@ -122,7 +122,7 @@ The calculator still subtracts. The trace shows one model call, which asked for 
 ## Going further
 
 **What else evaluation can be:** quark has four hand-written cases, graded by code, run once each, on demand. These are the choices you make when you build it.
-- **Where cases come from.** Written by hand, as in quark, which is how you start. Better is to grow them from reality: every time the agent gets something wrong in real use, turn it into a case, so that it can never silently come back. Lesson 5's traces are where you find those. A model can also write candidate cases, but a person has to read them, because a case with a wrong answer key is worse than none.
+- **Where cases come from.** Written by hand, as in quark, which is how you start. Better is to grow them from reality: every time the agent gets something wrong in real use, turn it into a case, so that it can never silently come back. Lesson 7's traces are where you find those. A model can also write candidate cases, but a person has to read them, because a case with a wrong answer key is worse than none.
 - **What counts as a pass.** The state of the world afterwards, as in quark. Or the final answer, if the task is a question. Or the path the agent took, such as "it must read the file before it edits it" or "it must not call this tool", which is fragile, since a different route that works would fail. And a case can test what the agent must *not* do: a file that has to be untouched, a command that has to be refused. That's how you test Lesson 6's guardrails.
 - **How it's graded.** Code where you can. A model where you can't, as in the fuller example, with a rubric strict enough that two graders agree, and a check on the grader. A person for the cases that matter most or that nothing else can read. A model can also compare two outputs ("which is better?") more reliably than it can score one on a scale. Partial credit, such as "four of the five required files were made", tells you more than pass or fail when tasks are big.
 - **How noise is handled.** Each case several times, as in the fuller example, and then a choice: count a case as passed if it passes *at least once* in *k* runs (a measure of what the agent can do), or only if it passes *every* time (a measure of whether you can rely on it). With a handful of runs, a difference of one is often noise, as you'll see below.

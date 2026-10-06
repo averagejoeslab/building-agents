@@ -75,7 +75,7 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 | # | Lesson | What it adds | Built on | Slides | Video |
 |---|---|---|---|---|---|
 | 5 | [Sandboxing](./production/05-sandboxing/) | commands that run in a box where they can't do lasting damage | output | [slides](./production/05-sandboxing/slides.pdf) · [md](./production/05-sandboxing/slides.md) | 🎥 coming soon |
-| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, and step and token limits | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
+| 6 | [Guardrails](./production/06-guardrails/) | allow, ask or deny before each command, step and token limits, and ESC to interrupt | control flow | [slides](./production/06-guardrails/slides.pdf) · [md](./production/06-guardrails/slides.md) | 🎥 coming soon |
 | 7 | [Observability](./production/07-observability/) | a trace of every step, its time, tokens and outcome, for the person running it | control flow | [slides](./production/07-observability/slides.pdf) · [md](./production/07-observability/slides.md) | 🎥 coming soon |
 | 8 | [Resilience](./production/08-resilience/) | retries, a backup model, and picking a crashed session back up from its episode | model interface, output | [slides](./production/08-resilience/slides.pdf) · [md](./production/08-resilience/slides.md) | 🎥 coming soon |
 | 9 | [Performance](./production/09-performance/) | prompt caching, streaming, smaller requests, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |

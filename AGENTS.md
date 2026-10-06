@@ -11,7 +11,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 - **Author and credit:** Chase Dovey, Average Joes Lab. Credit him by name in anything that carries a byline.
 - **Licenses:** code (every `.py` file, and code shown in the lessons) is MIT ([`LICENSE`](./LICENSE)). Content (lesson text, slides, paper, docs, diagrams, videos) is CC BY-NC-SA 4.0 ([`LICENSE-CONTENT`](./LICENSE-CONTENT)). Commercial use, such as a book or paid course, needs permission. A book is planned.
 - **Citation:** [`CITATION.cff`](./CITATION.cff) and the BibTeX in the README must agree.
-- **Example agent:** quark ([averagejoeslab/quark](https://github.com/averagejoeslab/quark)) is the upstream agent the course teaches from. The course version leaves out quark's hardening (ESC interrupt, retrying the summary on network failure), and Lesson 4 says so.
+- **Example agent:** quark ([averagejoeslab/quark](https://github.com/averagejoeslab/quark)) is the upstream agent the course teaches from. Lessons 1–4 leave out quark's hardening (ESC interrupt, retrying the summary on network failure), and Lesson 4 says so; the ESC interrupt comes back in Lesson 6.
 - **Second harness for readers:** [averagejoeslab/nanoagent](https://github.com/averagejoeslab/nanoagent), a small TypeScript agent that Lesson 4's ending suggests as the first harness to take apart.
 
 ## The thesis
@@ -69,12 +69,18 @@ This file is for the people and agents who **build** this repo. Everything a **r
 **The production layers' design decisions.**
 - **Sandboxing:** one container per run, started at the top of control flow; the working folder is mounted at the same path, so Lesson 4's `.quark/` memories work through the box. No fallback to the host if Docker fails.
 - **Guardrails:** `guard()` asks through Lesson 2's `read()` (so a blank Enter re-asks, Ctrl-D is no). Limits are per person-turn.
-- **Observability:** each trace record carries `episode`, linking the operator's record (trace) to the model's (episode). Records start, model, tool, refused, stopped, too_long, and (from Lesson 8) model_failed.
+- **The interrupt (Guardrails, made immediate by Performance):** ESC, as in upstream quark, interrupts thinking, saying and acting and keeps the partials. Ctrl-C has no code: it's just how you kill a program. `/q` is the graceful exit.
+  - `watch()` and `listening()` live in `# ── input ──`. The keyboard is watched only around the model call and the commands, never while `read()` waits, and not at all when stdin isn't a terminal (pipes, evaluation).
+  - After ESC, the model gets `[other self interrupted what you were saying — acknowledge]` or `…doing…`. Unrun commands get `[your doing never reached the world]`; a stopped one keeps its output plus `[your doing stopped before done]`.
+  - Commands run with `Popen` and are stopped with `kill -9 -1` inside the box: every command, never the box (its PID 1 can't be killed that way).
+  - Lessons 6–8 wait for the whole response, so ESC during a model call takes effect when it arrives. Lesson 9's stream stops at once, keeps text and signed thinking, and drops unsigned thinking.
+  - Interrupts are traced from Lesson 7 (`interrupted`, `during`). To demo ESC, drive a pseudo-terminal: a pipe can't send keys.
+- **Observability:** each trace record carries `episode`, linking the operator's record (trace) to the model's (episode). Records start, model, tool, refused, stopped, too_long, interrupted, and (from Lesson 8) model_failed.
 - **Resilience:** the backup model lives in Lesson 1's `call()`. There is no save file: `unfinished()` reads the newest episode back into working memory and continues in that same file. Unanswered tool requests get the "may or may not have run" result. Listed as built on model interface and output; the read-back is context's record, and the paper says so (§6).
 - **Performance:** `call(models=..., live=...)` streams; text is printed live, so the loop no longer prints text blocks. One prompt line changes (parallel commands). Compaction uses `FAST`.
 - **Evaluation:** its section sits before `# ── input ──` so `--eval` is caught before anything is read. Cases run the real file in a temp folder, with `y` answered fifty times.
 
-**Fuller examples** (`model_interface.py`, `input_output.py`, `control_flow.py`, `workflow.py`, `context.py`, and in `production/` `sandboxing.py` through `evaluation.py`) are standalone files showing what else a primitive or layer can be. They don't follow the `quark.py` lineage, but they use the same names: `input` for what comes in, `output` for the model's response. Where one reads from a person with Python's `input()`, it's bound once as `read = input` after the imports, so the name `input` stays free. Two data labels keep the word "task" because they appear in recorded output: the `task` field and column of `observability.py`'s spans and report. `resilience.py`'s checkpoint holds only the messages; the opening input is the first of them.
+**Fuller examples** (`model_interface.py`, `input_output.py`, `control_flow.py`, `workflow.py`, `context.py`, and in `production/` `sandboxing.py` through `evaluation.py`) are standalone files showing what else a primitive or layer can be. They don't follow the `quark.py` lineage, but they use the same names: `input` for what comes in, `output` for the model's response. Where one reads from a person with Python's `input()`, it's bound once as `read = input` after the imports, so the name `input` stays free. `guardrails.py` has no interrupt of its own; Ctrl-C there just kills it. Two data labels keep the word "task" because they appear in recorded output: the `task` field and column of `observability.py`'s spans and report. `resilience.py`'s checkpoint holds only the messages; the opening input is the first of them.
 
 ## Real output only
 
@@ -92,7 +98,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
           print(r, os.path.basename(best), [l for l in lines if l not in files[best]][:3])
   PY
   ```
-- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (86 of code, 148 of prompt), and the 1,949 total in Lesson 4's demo. Production `quark.py`: 244, 267, 279, 308, 332, 370 (net +10, +23, +12, +29, +24, +38), quoted in each production README and in the paper's §6 table and Appendix C.
+- **Line counts are quoted in many places:** 9, 33, 46 and 234 lines (86 of code, 148 of prompt), and the 1,949 total in Lesson 4's demo. Production `quark.py`: 244, 303, 317, 346, 365, 403 (net +10, +59, +14, +29, +19, +38), quoted in each production README and in the paper's §6 table and Appendix C.
   - They appear in the lesson READMEs (including demo output) and the top-level README.
   - In the paper: the abstract, §5 headings, §5.5, §6, the conclusion, Appendix A/B, and `paper/arxiv/METADATA.txt`.
   - If a `quark.py` changes length, re-run the demos and update every one of them.
@@ -198,10 +204,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 
 ## Work still to do
 
-- **Terminal polish belongs in a production lesson, not in the primitives.** Candidates:
-  - a "thinking…" indicator;
-  - a clean Ctrl-C exit;
-  - `stdin=subprocess.DEVNULL` so interactive commands fail fast instead of hanging.
+- **A "thinking…" indicator** before the first word arrives would belong in Lesson 9 (perceived speed). Interactive commands already can't hang: the box gives them no stdin.
 - **Record the videos;** every lesson has a "coming soon" placeholder.
 - **Rename the repo** to `harness-engineering`, then update URLs in the README, `CITATION.cff`, the paper, `build.py` (`REPO`) and `METADATA.txt`.
 - **Finish the arXiv submission** (checklist above).

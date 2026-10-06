@@ -88,7 +88,7 @@ Observability only watches. It never changes what's sent, what runs, or when the
 
 # `trace()`: one line per step, for whoever runs quark
 
-Lesson 6's `quark.py` plus 12 lines. `time` joins the imports, and at the top of `# ── control flow ──` (abridged):
+Lesson 6's `quark.py` plus 14 lines. `time` joins the imports, and at the top of `# ── control flow ──` (abridged):
 
 ```python
 def trace(**event):
@@ -106,37 +106,38 @@ def trace(**event):
 
 # Then one call wherever something happens
 
-Each is a single line next to code that was already there:
-
 ```python
 trace(event="start", input=input)
         trace(event="stopped", steps=steps, tokens=spent)
         trace(event="too_long", drop=drop)
+        trace(event="interrupted", during="saying")
                 trace(event="refused", cmd=block.input["cmd"], why=no)
+        trace(event="interrupted", during="acting")
 ```
 
 - **start:** where a run begins and what came in
 - **stopped:** the steps and tokens a limit stopped at
 - **too_long:** the API said the prompt was too long, so compaction runs
 - **refused:** the command the guard wouldn't run, and why
+- **interrupted:** you pressed ESC, and whether quark was saying or doing something
 
-<!-- The indentation is the indentation in the file: each call sits next to the line it describes. -->
+<!-- Each is a single line next to code that was already there. The indentation is the indentation in the file: each call sits next to the line it describes. The interrupt is Lesson 6's ESC: now it leaves a line in the trace too. -->
 
 ---
 
-# The model call and the tool are timed
-
-Both read the clock before and after (abridged):
+# Both read the clock before and after (abridged)
 
 ```python
         start = time.time()
-        response = call(...)
+        with listening():
+            response = call(...)
         trace(event="model", seconds=round(time.time() - start, 2), ...)
 ```
 
 ```python
             start = time.time()
-            done = subprocess.run([...], ...)
+            with listening():
+                doing = subprocess.Popen([...], ...)
             trace(event="tool", ..., seconds=round(time.time() - start, 2), ...)
 ```
 
@@ -154,33 +155,38 @@ Both read the clock before and after (abridged):
 ```
 $ wc -l * 2>/dev/null | sort -rn | head -5
 allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
-$ wc -l * | sort -rn | head -5
-allow `wc -l * | sort -rn | head -5`? [y/N] [the person said no]
-$ wc -l *
+$ ls
+big.txt
+small.txt
+
+$ wc -l big.txt small.txt
  5000 big.txt
     2 small.txt
  5002 total
 
-`big.txt` has the most lines, at 5,000.
+`big.txt` has the most lines, at 5,000 (`small.txt` has 2).
 ```
 
-<!-- A scratch folder with a two-line small.txt and a 5,000-line big.txt. The first two commands weren't on the safe list, so the guard asked, found no one, and said no. The model rewrote the command until it passed. -->
+<!-- A scratch folder with a two-line small.txt and a 5,000-line big.txt. The first command wasn't on the safe list (2> redirects, and sort isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. -->
 
 ---
 
 # What you see afterwards, in `.quark/traces.jsonl`
 
+<style scoped>table { font-size: 0.85em; }</style>
+
 | event | seconds | stop_reason | in | out | cache_read | cache_write |
 |---|---|---|---|---|---|---|
-| model | 2.42 | tool_use | 95 | 70 | 0 | 6609 |
-| model | 1.77 | tool_use | 180 | 86 | 6609 | 0 |
-| model | 1.58 | tool_use | 281 | 81 | 6609 | 0 |
-| tool `wc -l *` | 0.11 | exit 0 | | | | |
-| model | 1.0 | end_turn | 390 | 20 | 6609 | 0 |
+| model | 1.69 | tool_use | 95 | 70 | 0 | 7665 |
+| model | 1.53 | tool_use | 180 | 81 | 7665 | 0 |
+| tool `ls` | 0.09 | exit 0 | | | | |
+| model | 1.36 | tool_use | 276 | 59 | 7665 | 0 |
+| tool `wc -l big.txt small.txt` | 0.11 | exit 0 | | | | |
+| model | 1.24 | end_turn | 363 | 31 | 7665 | 0 |
 
-The trace's fields as a table; the `start` line and two `refused` lines are left out.
+The trace's fields as a table; the `start` line and the `refused` line are left out.
 
-<!-- Every step is there: four calls, the two refusals, the one command that ran, and how long each took. Point at the cache columns: the first call wrote the 6,609-token system prompt to the cache, and every call after read it back instead of paying again. -->
+<!-- Every step is there: four calls, the refusal, the two commands that ran, and how long each took. Point at the cache columns: the first call wrote the 7,665-token system prompt to the cache, and every call after read it back instead of paying again. -->
 
 ---
 
@@ -189,10 +195,10 @@ The trace's fields as a table; the `start` line and two `refused` lines are left
 Add up one run's model calls, by its episode, with `jq`:
 
 ```
-{"calls":4,"input":946,"output":257,"cache_read":19827,"cache_write":6609,"seconds":6.77}
+{"calls":4,"input":914,"output":241,"cache_read":22995,"cache_write":7665,"seconds":5.82}
 ```
 
-The whole run: four calls, 6.77 seconds, and most of what it read came from the cache.
+The whole run: four calls, 5.82 seconds, and most of what it read came from the cache.
 
 <!-- The jq query in the README selects the model events with this episode and sums each column. You don't need a tool built for traces to get this; you need one line per event. -->
 
@@ -226,11 +232,32 @@ jq -c 'select((.event=="tool" and .exit!=0) or .event=="refused")' .quark/traces
 | event | cmd | seconds | exit / why |
 |---|---|---|---|
 | refused | `wc -l * 2>/dev/null \| sort -rn \| head -5` | | the person said no |
-| refused | `wc -l * \| sort -rn \| head -5` | | the person said no |
-| tool | `ls /nonexistent` | 0.12 | 2 |
-| tool | `sleep 60` | 5.11 | 137 |
+| tool | `ls /nonexistent` | 0.1 | 2 |
+| tool | `sleep 60` | 5.09 | 137 |
 
-<!-- Across both runs. Two refusals, one failure and one kill. Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
+The trace's fields as a table, across both runs.
+
+<!-- A refusal, a failure (exit 2) and a kill (exit 137, after 5.09 seconds). Each line also names its episode, so you can go from "what went wrong" to "what the model was thinking" in one step. And the trace file only grows: delete or rotate it when it gets big. -->
+
+---
+
+# Press ESC, and the trace says why it stopped
+
+In a terminal: `sleep 30`, `y` to the guard, ESC three seconds later. The trace, with only the fields that matter here:
+
+```
+{"event":"start"}
+{"event":"model","seconds":2.31}
+{"event":"tool","cmd":"sleep 30","seconds":3.24,"exit":137}
+{"event":"interrupted","during":"acting"}
+{"event":"model","seconds":1.81}
+```
+
+- Stopped at 3.24 seconds: `exit` 137, the box's kill
+- The next line says why: you interrupted it while it was acting
+- Then one more call, for the model to acknowledge it
+
+<!-- The terminal showed "[your doing stopped before done]" and the model offered to retry. Without the interrupted line, this would look exactly like a timeout kill: same exit code. The during field says whether quark was saying or doing something when you pressed ESC. -->
 
 ---
 

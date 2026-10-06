@@ -35,37 +35,26 @@ Inside Lesson 5's box, the agent still runs whatever the model asks, as soon as 
 
 # The model proposes; the harness decides
 
-Guardrails are rules about what the harness is allowed to do, checked before it does it:
+Guardrails are rules about what the harness is allowed to do, checked before it does it: which commands may run, when a person gets a say, when a run has gone on long enough.
 
-- which commands may run
-- when a person gets a say
-- when a run has gone on long enough
+**Built on control flow**, which decides whether the next step happens at all:
 
-And the decision is yours.
-
-<!-- Keep it simple: three questions, answered before anything happens. -->
-
----
-
-# Built on control flow
-
-- Control flow decides whether the next step happens at all
 - It turns a tool request into a command being run
 - It turns the result into another model call
 - A guardrail is a decision at one of those two points, so it lives there
-- A production layer adds hardening, not a new primitive
 
-<!-- Everything guardrails do stays inside control flow. Point at the two places the loop already passes through. -->
+<!-- The decision is yours. A production layer adds hardening, not a new primitive: everything guardrails do stays inside control flow. Point at the two places the loop already passes through. -->
 
 ---
 
-# Three checks, where the loop already passes
+# A few checks, where the loop already passes
 
 - **A gate before each tool:** *allow* it, *ask* a person first, or *deny* it
-- **A refusal the model can read:** every tool request needs a result, so the refusal goes in that slot, marked as an error, saying why
+- **A refusal the model can read:** the refusal goes in the result's slot, marked as an error, saying why
 - **Limits before each call:** count the steps and tokens; past the limit, stop
+- **An interrupt:** press ESC and quark stops, keeps what it had done, tells the model, and hands the run back to you
 
-<!-- The rules are plain code: a list of programs safe to run unasked, and patterns that must never run. Lesson 3 said a loop with no clear end is a bill with no clear end; this is the clear end. -->
+<!-- The rules are plain code: a list of programs safe to run unasked, and patterns that must never run. Every tool request needs a result (Lesson 2), so a refusal fills that slot. Lesson 3 said a loop with no clear end is a bill with no clear end; this is the clear end. ESC is quark's own key. Ctrl-C isn't special: it's how you kill any program, quark included. /q is the graceful way out, as it has been since Lesson 2. -->
 
 ---
 
@@ -82,7 +71,7 @@ And the decision is yours.
 
 # The policy and the gate
 
-Lesson 5's `quark.py` plus 23 lines, all in `# ── control flow ──`. At the top of the section (abridged):
+Lesson 5's `quark.py` plus 59 lines, mostly in `# ── control flow ──`. At the top of the section (abridged):
 
 ```python
 MAX_STEPS, MAX_TOKENS = 20, 200_000
@@ -95,7 +84,7 @@ def guard(cmd):
     return None if answer.lower() == "y" else "the person said no" + ...
 ```
 
-<!-- SAFE is programs that only read. DENY is sudo, recursive or forced rm, mkfs, git push, piping a download into a shell, and anything mentioning .env. They're data, so changing the policy is changing a line. -->
+<!-- SAFE is programs that only read. DENY is sudo, recursive or forced rm, mkfs, git push, piping a download into a shell, and anything mentioning .env. They're data, so changing the policy is changing a line. The interrupt also needs a way to hear ESC, which is input from a person, so part of it is in # ── input ──. -->
 
 ---
 
@@ -124,7 +113,8 @@ At the top of the loop, and where each call is counted (abridged):
         steps, spent = 0, 0
         continue
     ...
-        response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
+        with listening():
+            response = call(max_tokens=16384, system=system(), tools=tools, messages=working_memory)
         output = response.content
         steps += 1
         spent += response.usage.input_tokens + response.usage.output_tokens + ...
@@ -132,7 +122,7 @@ At the top of the loop, and where each call is counted (abridged):
 
 In a one-shot run, a limit is the end. In a chat it hands back to you, and the counts start again after each new input.
 
-<!-- The call now keeps the whole response, not just its content, so the count can read usage. Resetting after each input means one long chat doesn't use up a budget meant for one request. -->
+<!-- The call now keeps the whole response, not just its content, so the count can read usage. The with listening(): around it is the interrupt, coming up. Resetting after each input means one long chat doesn't use up a budget meant for one request. -->
 
 ---
 
@@ -151,7 +141,54 @@ In the output loop, between printing the command and running it in the box (abri
 - `continue` skips the run: the command never starts, and the model's next turn still makes sense
 - A command that passes the gate runs in Lesson 5's box exactly as before
 
-<!-- Lesson 4's mechanics() puts quark's own file in its system prompt, so the model can read the policy it's under. That's self-knowledge, not this layer, and it saves the model asking for things that will be refused. -->
+<!-- Lesson 4's mechanics() puts quark's own file in its system prompt, so the model can read the policy it's under. That's self-knowledge, not this layer, and it saves the model asking for things that will be refused. Just above the gate there's also an ESC check: once you've pressed ESC, nothing else starts. -->
+
+---
+
+# The interrupt: listening for ESC
+
+ESC is input from a person, so in `# ── input ──`, after `read()` (abridged):
+
+```python
+ESC = threading.Event()
+SAYING = "[other self interrupted what you were saying — acknowledge]"
+DOING = "[other self interrupted what you were doing — acknowledge]"
+def watch(stop):
+    ...
+@contextlib.contextmanager
+def listening():
+    if not sys.stdin.isatty(): yield; return
+    ...
+```
+
+- `watch()` reads one key at a time in a thread; an ESC on its own sets `ESC`
+- quark listens only while it thinks or acts, never while `read()` waits for you
+
+<!-- Arrow keys also start with the ESC byte, but more bytes follow at once, so those are read and ignored. listening() puts the terminal into a mode where keys arrive one at a time without Enter, starts the thread, and puts everything back afterwards. With no terminal (a pipe, a script, an evaluation) there's no keyboard to watch and it does nothing. -->
+
+---
+
+# The interrupt: keep the work, tell the model
+
+After an ESC (abridged):
+
+```python
+    if ESC.is_set():           # while it thought or said: keep what it said, run nothing
+        ... "[your doing never reached the world]" ... SAYING ...
+    ...
+                doing = subprocess.Popen([...], stdout=subprocess.PIPE, ...)
+                ...
+                        if ESC.is_set(): subprocess.run([..., "kill -9 -1"], ...)
+            ...
+            if ESC.is_set(): done.stdout += "\n[your doing stopped before done]"
+    ...
+    if ESC.is_set():           # while it acted: keep what it did
+        add(working_memory, {"role": "user", "content": input + [..., DOING]})
+```
+
+Then the loop goes around: the model acknowledges it, and the run hands back to you.
+
+<!-- While it thinks or says: what was said is kept, every command it asked for gets a result saying it never reached the world, because the API needs an answer to each. This lesson's call waits for the whole response, so ESC takes effect when it arrives; Lesson 9 streams, and there ESC stops it mid-sentence. While it acts: the command now starts with Popen and quark waits a tenth of a second at a time. kill -9 -1 inside the box stops every command there; the box survives, because a container's first process can't be killed that way. What it printed so far goes back, with the note. -->
 
 ---
 
@@ -169,13 +206,13 @@ notes.txt has 3 lines.
 `rm` isn't, so the harness stopped at the prompt (I piped in `y`; shortened):
 
 ```
-$ rm ./*.log; ls -A
-allow `rm ./*.log; ls -A`? [y/N] .env
+$ rm a.log b.log; ls -A
+allow `rm a.log b.log; ls -A`? [y/N] .env
 .quark
 notes.txt
 ```
 
-<!-- In the second run, ls -la ran unasked first. Nothing was deleted until the answer came. -->
+<!-- In the second run the model looked first with ls -la; find ..., and because that chains two commands with ;, the guard asked for that too. Nothing was deleted until the answer came. -->
 
 ---
 
@@ -200,15 +237,13 @@ The model took the reason as an instruction and asked again.
 ```
 $ cat .env
 [blocked by policy]
-$ rm -rf .
-[blocked by policy]
 ```
 
-> I also didn't try to get around the block.
+> I managed to do nothing from your request. Policy blocked `cat .env`, and I didn't try `rm -rf .` because the same policy forbids it. I also didn't try to get around either block.
 
 The model expected it, because it can read its own harness. The folder, `.env` included, is all still there.
 
-<!-- Both were refused before they ran. -->
+<!-- cat .env was refused before it ran. The model didn't even try rm -rf ., since it could read the policy. -->
 
 ---
 
@@ -218,17 +253,38 @@ The model expected it, because it can read its own harness. The folder, `.env` i
 
 ```
 $ date
-Tue Oct  6 18:05:11 UTC 2026
+Tue Oct  6 19:15:44 UTC 2026
 
 $ pwd
 /tmp/g6
 
-[stopped: 2 steps, 12799 tokens]
+[stopped: 2 steps, 14843 tokens]
 ```
 
 `MAX_TOKENS` works the same way, but at 200,000 you'll rarely reach it.
 
-<!-- quark.py has no interrupt: Ctrl-C stops the program but doesn't hand the run back to you. The fuller example does that properly. -->
+<!-- The check is at the top of the loop, so the run ends before spending another call. -->
+
+---
+
+# ESC stops the command, and keeps what it printed
+
+Count to ten, `y`, then ESC four and a half seconds later (shortened):
+
+```
+$ for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done
+1
+2
+3
+4
+5
+
+[your doing stopped before done]
+```
+
+> You interrupted the count, so it stopped after 5 and never reached 10. Do you want me to run it again from the start, or leave it there?
+
+<!-- ESC needs a terminal: this ran in chat mode, in a pseudo-terminal driven by a script, so the key presses are exact. The 5 lines it had printed went back to the model with the note. In the second run, ESC 0.6 seconds after asking for a file: the command was never run, and the model said notes.txt doesn't exist yet. Nothing reached the folder. -->
 
 ---
 
@@ -263,9 +319,8 @@ Built on Lesson 3's `control_flow.py`, with no system prompt:
 - **Always:** `a` at the prompt adds those programs to `ALLOWED` for the rest of the run
 - **A spending limit** in dollars, from each response's `usage`
 - **A repeat limit:** the same command `MAX_REPEATS` times stops the run
-- **An interrupt:** Ctrl-C answers the open tool requests and asks `what now?`
 
-<!-- Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. Leave "what now?" blank and the run stops. -->
+<!-- Tokens are what you can count; dollars are what you care about. A model going round in circles is spending your money without getting anywhere. -->
 
 ---
 
@@ -293,25 +348,16 @@ b.txt
 
 # The rule: decide before the harness does it
 
-- Check each tool request where control flow turns it into a command
-- Check the run itself where control flow chooses to go around again
-- Say no in a way the model can read
-- Give the person a way in
+**The rule:** check each tool request where control flow turns it into a command, and the run where it goes around again. Say no in a way the model can read, and give the person a way in.
 
-<!-- Decide what the harness is willing to do before it does it. -->
-
----
-
-# What guardrails never do
-
-It sits inside control flow, deciding whether the next step happens:
+What guardrails never do, from inside control flow:
 
 - **Model interface:** sends and receives as before; guardrails read `usage` and the tool request
 - **Output:** an allowed command runs in the box exactly as before
-- **Context:** a refusal is an ordinary tool result in the slot the result would have filled
-- **Input:** Lesson 2's `read()`, asking a person for a decision
+- **Context:** a refusal is an ordinary tool result in the result's slot
+- **Input:** Lesson 2's `read()`, plus a watcher that hears ESC while quark works
 
-<!-- Each piece of this layer uses the other primitives as they are, and changes none of them. -->
+<!-- Decide what the harness is willing to do before it does it. Each piece of this layer uses the other primitives as they are, and changes none of them. -->
 
 ---
 
