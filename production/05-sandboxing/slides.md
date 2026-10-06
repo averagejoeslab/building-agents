@@ -233,7 +233,7 @@ def bridge(on):
 
 # One line moves the command into the box
 
-`subprocess.run(cmd, shell=True)` became this, with the way out around it (abridged):
+`subprocess.run(cmd, shell=True)` became this (abridged):
 
 ```python
 lent = lend(block.input["cmd"])
@@ -246,7 +246,7 @@ if lent: bridge(False)
 ```
 
 - Same shell, same merged output and exit code, but in the box under a 30-second limit
-- Exit 137 is a time-out *or* out of memory; quark can't tell, so it tells the model both
+- Exit 137: a time-out *or* out of memory; quark tells the model both
 
 <!-- 137 is 128 plus signal 9. That line goes back with the result, so the model finds out why its command died. -->
 
