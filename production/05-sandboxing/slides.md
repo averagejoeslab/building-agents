@@ -149,27 +149,30 @@ if done.returncode == 137: done.stdout += f"\n(killed: ran over {TIMEOUT} second
 
 # Run it: one write works, three hit walls
 
-In a scratch folder: write `hello.txt`, then try `/etc`, example.com and the API keys. The model's one long command is cut (shortened):
+In a scratch folder: write `hello.txt`, then try `/etc`, example.com and the API keys. The model's one long command and its answer are cut (shortened):
 
 ```
-/tmp/demo
-hello ok: hi
-sh: 1: cannot create /etc/testfile: Read-only file system
-ETC_FAIL
+hi
+--- etc
+sh: 1: cannot create /etc/testfile: Read-only file systemexit 2
+--- net
 urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
-KEYS_NO
+--- keys
+no
+--- who
 uid=0(root) gid=0(root) groups=0(root)
-d8df059026c0
 root
+/tmp/demo
+/.dockerenv
 ```
 
-<!-- It says it's root because I was root when I ran it: --user passes on whoever you are. -->
+<!-- /etc is read-only. There's no network, so the name didn't even resolve. There are no keys, because the harness's environment stays with the harness. It says it's root because I was root when I ran it: --user passes on whoever you are. -->
 
 ---
 
 # Afterwards: no box, and only what it was allowed to leave
 
-> So root here has very little power outside the mounted directory. The mounted directory is the one place I can write.
+> Being root didn't let me write to `/etc`, because the filesystem is read-only. The network is cut off as well. The sandbox limits what I can do, not the user account.
 
 `docker ps -a` lists no containers. The folder holds:
 
@@ -291,7 +294,7 @@ It sits inside output, changing where a tool runs, and leaves the other primitiv
 
 - The box limits what a command can reach, not whether it runs
 - Inside it everything still runs unasked, including `rm -rf` on the mounted folder: your real project
-- Nothing lets you say no to one command
+- Nothing lets you say no to one command, or break in while it works
 - Nothing stops a run that loops forever, spending your money one call at a time
 
 <!-- Deciding what's allowed to run, and when to stop, is next. -->
