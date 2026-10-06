@@ -239,13 +239,13 @@ def compact(working_memory, drop):                       # lazy: runs only after
 
 # ── evaluation: a harness around this one ───────────────────────────────────
 CASES = [
-    {"name": "count", "setup": "seq 1 37 > numbers.txt", "task": "How many lines are in numbers.txt? Write only the number into answer.txt.",
+    {"name": "count", "setup": "seq 1 37 > numbers.txt", "input": "How many lines are in numbers.txt? Write only the number into answer.txt.",
      "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
-    {"name": "fix", "setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py", "task": "test.py fails. Fix the bug in calc.py, not the test.",
+    {"name": "fix", "setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py", "input": "test.py fails. Fix the bug in calc.py, not the test.",
      "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
-    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "task": "Rename every .txt file in this folder to .md.",
+    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "input": "Rename every .txt file in this folder to .md.",
      "check": "[ -e a.md ] && [ -e b.md ] && [ -e c.md ] && ! ls *.txt 2>/dev/null"},
-    {"name": "remember", "setup": "true", "task": "Remember that I prefer short answers.",
+    {"name": "remember", "setup": "true", "input": "Remember that I prefer short answers.",
      "check": "grep -qi short .quark/memory/memory.md"},
 ]
 def evaluate(names):                                     # evaluation: run every case in a fresh folder, and grade what's left
@@ -258,7 +258,7 @@ def evaluate(names):                                     # evaluation: run every
         where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
         subprocess.run(case["setup"], shell=True, cwd=where)
         start = time.time()
-        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, input="y\n" * 50, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["input"]], cwd=where, input="y\n" * 50, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
         except subprocess.TimeoutExpired: pass
         passed = subprocess.run(case["check"], shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
         seconds = round(time.time() - start, 1)

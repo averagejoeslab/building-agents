@@ -94,13 +94,13 @@ Run the agent on tasks whose right outcome you already know, check what happened
 
 ```python
 CASES = [
-    {"name": "count", "setup": "seq 1 37 > numbers.txt", "task": "How many lines are in numbers.txt? ...",
+    {"name": "count", "setup": "seq 1 37 > numbers.txt", "input": "How many lines are in numbers.txt? ...",
      "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
-    {"name": "fix", "setup": "printf ... > calc.py; printf ... > test.py", "task": "test.py fails. ...",
+    {"name": "fix", "setup": "printf ... > calc.py; printf ... > test.py", "input": "test.py fails. ...",
      "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
-    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "task": "Rename every .txt file ...",
+    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "input": "Rename every .txt file ...",
      "check": "[ -e a.md ] && [ -e b.md ] && [ -e c.md ] && ! ls *.txt 2>/dev/null"},
-    {"name": "remember", "setup": "true", "task": "Remember that I prefer short answers.",
+    {"name": "remember", "setup": "true", "input": "Remember that I prefer short answers.",
      "check": "grep -qi short .quark/memory/memory.md"},
 ]
 ```
@@ -116,7 +116,7 @@ CASES = [
         where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
         subprocess.run(case["setup"], shell=True, cwd=where)
         start = time.time()
-        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, ...)
+        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["input"]], cwd=where, ...)
         except subprocess.TimeoutExpired: pass
         passed = subprocess.run(case["check"], shell=True, cwd=where, ...).returncode == 0
         seconds = round(time.time() - start, 1)

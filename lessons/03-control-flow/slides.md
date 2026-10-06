@@ -181,14 +181,14 @@ MAX_STEPS = 10
 ...
 for step in range(1, MAX_STEPS + 1):
     ...
-    if reply.stop_reason == "refusal":
+    if output.stop_reason == "refusal":
         print("[stopped: the model declined]")
         break
     ...
-    if not results:
+    if not input:
         print(f"[done in {step} steps]")
         break
-    messages.append({"role": "user", "content": results})
+    messages.append({"role": "user", "content": input})
 else:
     print(f"[stopped: hit the {MAX_STEPS}-step limit]")
 ```

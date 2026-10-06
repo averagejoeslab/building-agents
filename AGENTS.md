@@ -45,7 +45,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 **Code conventions in `quark.py`.**
 - Section headings, kept from lesson to lesson: `# ── model interface ──`, `# ── output: the one tool ──`, `# ── context ──`, `# ── input ──`, `# ── control flow ──`. Each is padded with `─` to 78 characters.
 - One model-interface function, `call(**request)`. Everything calls the model through it.
-- **Generic names only.** What comes in is `input` (from a person or from the world: the tool results list is also `input`). What comes back is `output`. Never `task`, `user_input`, `reply`, `results` in the `quark.py` files. Input isn't assumed to be a task.
+- **Generic names only, in every `.py` file.** What comes in is `input` (from a person or from the world: the tool results list is also `input`). What comes back is `output`. Never `task`, `user_input`, `reply`, `results` as names. Input isn't assumed to be a task. English in prompts and comments can still say "task".
 - `read(prompt)` is input from a person:
   - Enter on an empty line prints a fresh `> ` and sends nothing;
   - EOF (Ctrl-D) returns `/q`;
@@ -74,7 +74,7 @@ This file is for the people and agents who **build** this repo. Everything a **r
 - **Performance:** `call(models=..., live=...)` streams; text is printed live, so the loop no longer prints text blocks. One prompt line changes (parallel commands). Compaction uses `FAST`.
 - **Evaluation:** its section sits before `# ── input ──` so `--eval` is caught before anything is read. Cases run the real file in a temp folder, with `y` answered fifty times.
 
-**Fuller examples** (`model_interface.py`, `input_output.py`, `control_flow.py`, `workflow.py`, `context.py`) are standalone files showing what else a primitive can be. They don't follow the `quark.py` lineage and still use names like `task` and `reply`. Whether to rename them to `input`/`output` is an open decision for Chase.
+**Fuller examples** (`model_interface.py`, `input_output.py`, `control_flow.py`, `workflow.py`, `context.py`, and in `production/` `sandboxing.py` through `evaluation.py`) are standalone files showing what else a primitive or layer can be. They don't follow the `quark.py` lineage, but they use the same names: `input` for what comes in, `output` for the model's response. Where one reads from a person with Python's `input()`, it's bound once as `read = input` after the imports, so the name `input` stays free. Two data labels keep the word "task" because they appear in recorded output: the `task` field and column of `observability.py`'s spans and report. `resilience.py`'s checkpoint holds only the messages; the opening input is the first of them.
 
 ## Real output only
 
@@ -198,7 +198,6 @@ This file is for the people and agents who **build** this repo. Everything a **r
 
 ## Work still to do
 
-- **Decide on the fuller examples' naming** (`task`/`reply` vs `input`/`output`); see above.
 - **Terminal polish belongs in a production lesson, not in the primitives.** Candidates:
   - a "thinking…" indicator;
   - a clean Ctrl-C exit;

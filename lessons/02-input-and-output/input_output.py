@@ -52,13 +52,13 @@ async def execute(block, cut_off):
     return {"type": "tool_result", "tool_use_id": block.id, "content": out or "(no output)", "is_error": failed}
 
 async def main():
-    chat, task = await receive()
-    reply = await client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=[{"role": "user", "content": task}])
-    if words := "\n".join(b.text for b in reply.content if b.type == "text"):
+    chat, input = await receive()
+    output = await client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=[{"role": "user", "content": input}])
+    if words := "\n".join(b.text for b in output.content if b.type == "text"):
         await send(chat, words)
-    calls = [b for b in reply.content if b.type == "tool_use"]
-    results = await asyncio.gather(*(execute(b, reply.stop_reason == "max_tokens" and b is reply.content[-1]) for b in calls))
-    for call, result in zip(calls, results):
+    calls = [b for b in output.content if b.type == "tool_use"]
+    input = await asyncio.gather(*(execute(b, output.stop_reason == "max_tokens" and b is output.content[-1]) for b in calls))
+    for call, result in zip(calls, input):
         await send(chat, f"→ {call.name} {json.dumps(call.input)}\n{result['content']}")
 
 asyncio.run(main())

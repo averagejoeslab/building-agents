@@ -20,13 +20,13 @@ This is a production layer, so it adds hardening, not a new primitive. It's **bu
 
 ```python
 CASES = [
-    {"name": "count", "setup": "seq 1 37 > numbers.txt", "task": "How many lines are in numbers.txt? Write only the number into answer.txt.",
+    {"name": "count", "setup": "seq 1 37 > numbers.txt", "input": "How many lines are in numbers.txt? Write only the number into answer.txt.",
      "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
-    {"name": "fix", "setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py", "task": "test.py fails. Fix the bug in calc.py, not the test.",
+    {"name": "fix", "setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py", "input": "test.py fails. Fix the bug in calc.py, not the test.",
      "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
-    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "task": "Rename every .txt file in this folder to .md.",
+    {"name": "rename", "setup": "touch a.txt b.txt c.txt", "input": "Rename every .txt file in this folder to .md.",
      "check": "[ -e a.md ] && [ -e b.md ] && [ -e c.md ] && ! ls *.txt 2>/dev/null"},
-    {"name": "remember", "setup": "true", "task": "Remember that I prefer short answers.",
+    {"name": "remember", "setup": "true", "input": "Remember that I prefer short answers.",
      "check": "grep -qi short .quark/memory/memory.md"},
 ]
 def evaluate(names):                                     # evaluation: run every case in a fresh folder, and grade what's left
@@ -39,7 +39,7 @@ def evaluate(names):                                     # evaluation: run every
         where = tempfile.mkdtemp(prefix=f"eval-{case['name']}-")
         subprocess.run(case["setup"], shell=True, cwd=where)
         start = time.time()
-        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, input="y\n" * 50, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+        try: subprocess.run([sys.executable, os.path.abspath(__file__), case["input"]], cwd=where, input="y\n" * 50, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
         except subprocess.TimeoutExpired: pass
         passed = subprocess.run(case["check"], shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
         seconds = round(time.time() - start, 1)
@@ -57,9 +57,9 @@ def evaluate(names):                                     # evaluation: run every
 if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
 ```
 
-**`CASES`.** Four of them, each a dictionary: a `name`, a `setup` (a shell command that makes the starting folder), a `task`, and a `check` (a shell command that exits 0 if the outcome is right). Three change files and one writes to memory, and all four have an outcome that can be looked at afterwards: `answer.txt` holds 37; `python3 test.py` passes and `test.py` hasn't been edited to make it; the `.txt` files are `.md` files; `memory.md` mentions `short`. The `fix` check does two things on purpose. An agent that "fixes" a failing test by deleting the assertion makes `test.py` pass, so the check also looks for the assertion that was supposed to stay. It's worth asking of every case you write how the agent could pass it without doing the job.
+**`CASES`.** Four of them, each a dictionary: a `name`, a `setup` (a shell command that makes the starting folder), an `input` (the task), and a `check` (a shell command that exits 0 if the outcome is right). Three change files and one writes to memory, and all four have an outcome that can be looked at afterwards: `answer.txt` holds 37; `python3 test.py` passes and `test.py` hasn't been edited to make it; the `.txt` files are `.md` files; `memory.md` mentions `short`. The `fix` check does two things on purpose. An agent that "fixes" a failing test by deleting the assertion makes `test.py` pass, so the check also looks for the assertion that was supposed to stay. It's worth asking of every case you write how the agent could pass it without doing the job.
 
-**`evaluate()`.** For each case it makes a new folder with `tempfile.mkdtemp()` and runs the setup in it. Then it runs *quark itself* on the task: `subprocess.run([sys.executable, os.path.abspath(__file__), case["task"]], cwd=where, ...)`. That's the whole point: it isn't a mock or a copy of the loop, it's the same file, with the same prompt, guard, sandbox, retries and tracing, started the way a person would start it with a task on the command line. Because the working folder is the case's folder, the sandbox mounts only that, and the `.quark/` directory with the memory and the trace is created there too, so cases can't see each other's memory. The guard still asks before anything it doesn't recognize runs, and `input="y\n" * 50` answers it, fifty times over. That isn't a way around Lesson 6: the policy that blocks `rm -rf` and `.env` still blocks them, and only the questions are answered. And because it runs under Lesson 5's sandbox, an agent that does something strange does it in a container holding a throwaway folder. A run that goes over five minutes is killed and then graded like any other, on what it left behind. (Killing it that way skips its cleanup, so its container can be left running, the gap Lesson 5 noted for a harness that is killed.)
+**`evaluate()`.** For each case it makes a new folder with `tempfile.mkdtemp()` and runs the setup in it. Then it runs *quark itself* on the task: `subprocess.run([sys.executable, os.path.abspath(__file__), case["input"]], cwd=where, ...)`. That's the whole point: it isn't a mock or a copy of the loop, it's the same file, with the same prompt, guard, sandbox, retries and tracing, started the way a person would start it with a task on the command line. Because the working folder is the case's folder, the sandbox mounts only that, and the `.quark/` directory with the memory and the trace is created there too, so cases can't see each other's memory. The guard still asks before anything it doesn't recognize runs, and `input="y\n" * 50` answers it, fifty times over. That isn't a way around Lesson 6: the policy that blocks `rm -rf` and `.env` still blocks them, and only the questions are answered. And because it runs under Lesson 5's sandbox, an agent that does something strange does it in a container holding a throwaway folder. A run that goes over five minutes is killed and then graded like any other, on what it left behind. (Killing it that way skips its cleanup, so its container can be left running, the gap Lesson 5 noted for a harness that is killed.)
 
 Then comes the grade. The `check` runs on this machine, in the case's folder, with its output thrown away: pass is exit 0. The cost comes from somewhere that already exists. The child run wrote a trace (Lesson 7) into its folder, so `evaluate()` reads the `model` events out of it, and counts them as steps, and adds up their tokens. Note that the token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line, and a line is appended to `.quark/evals.jsonl`, where the next run will look. A case that failed keeps its folder, and the line says where it is, so you can open it and see what the agent did: its trace, and its episode, with every message the model saw and wrote. A case that passed has its folder deleted.
 
@@ -158,45 +158,45 @@ JUDGE = "claude-opus-5-5"                    # grades the cases that code can't
 # A "check" is a shell command: exit 0 means pass. A "rubric" is a sentence a model checks the file named in "read" against.
 CASES = {
     "count": {"setup": "seq 1 37 > numbers.txt",
-              "task": "How many lines are in numbers.txt? Write only the number into answer.txt.",
+              "input": "How many lines are in numbers.txt? Write only the number into answer.txt.",
               "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
     "fix": {"setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py",
-            "task": "test.py fails. Fix the bug in calc.py, not the test.",
+            "input": "test.py fails. Fix the bug in calc.py, not the test.",
             "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
     "log": {"setup": "awk 'BEGIN{for(i=1;i<=2000;i++){ if(i%400==0) print \"ERROR E\" (100+(i/400)%3) \" at line \" i; else print \"INFO ok \" i}}' > app.log",
-            "task": "How many different error codes appear in app.log? Write only the number into answer.txt.",
+            "input": "How many different error codes appear in app.log? Write only the number into answer.txt.",
             "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 3 ]"},
     "explain": {"setup": "printf 'def f(n):\\n    a, b = 0, 1\\n    for _ in range(n):\\n        a, b = b, a + b\\n    return a\\n' > mystery.py",
-                "task": "Explain what mystery.py computes, in one or two sentences, in explanation.txt.",
+                "input": "Explain what mystery.py computes, in one or two sentences, in explanation.txt.",
                 "read": "explanation.txt",
                 "rubric": "It says the function computes or returns the n-th Fibonacci number, and it is no longer than two sentences."},
 }
 
-def agent(variant, task, where):
+def agent(variant, input, where):
     # The agent under test: Lesson 3's loop, as a function, working in its own folder. It returns what it cost.
-    messages, tokens, steps = [{"role": "user", "content": task}], 0, 0
+    messages, tokens, steps = [{"role": "user", "content": input}], 0, 0
     for steps in range(1, variant["steps"] + 1):
-        reply = client.messages.create(model=variant["model"], max_tokens=16384, system=variant["system"], tools=tools, messages=messages)
-        tokens += reply.usage.input_tokens + reply.usage.output_tokens
-        messages.append({"role": "assistant", "content": reply.content})
-        results = []
-        for block in reply.content:
+        output = client.messages.create(model=variant["model"], max_tokens=16384, system=variant["system"], tools=tools, messages=messages)
+        tokens += output.usage.input_tokens + output.usage.output_tokens
+        messages.append({"role": "assistant", "content": output.content})
+        input = []
+        for block in output.content:
             if block.type == "tool_use":
                 try:
                     done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
                     out = done.stdout or f"(exit {done.returncode})"
                 except (subprocess.TimeoutExpired, KeyError):
                     out = "stopped: it ran over 30 seconds, or the request was cut off"
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
-        if not results: break
-        messages.append({"role": "user", "content": results})
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
+        if not input: break
+        messages.append({"role": "user", "content": input})
     return steps, tokens
 
 def judge(rubric, text):
     # Grading by a model: it reads the file and the rubric and says PASS or FAIL. It's a second model, so it's checked too (below).
-    reply = client.messages.create(model=JUDGE, max_tokens=1024, messages=[{"role": "user", "content":
+    output = client.messages.create(model=JUDGE, max_tokens=1024, messages=[{"role": "user", "content":
         f"Grade this file against the rubric. Be strict.\n\nRubric: {rubric}\n\nFile:\n{text}\n\nReply with PASS or FAIL on the first line, then one short sentence of reason."}])
-    said = next((b.text.strip() for b in reply.content if b.type == "text"), "FAIL")
+    said = next((b.text.strip() for b in output.content if b.type == "text"), "FAIL")
     return said.lstrip("*#` ").upper().startswith("PASS"), said
 
 def calibrate():
@@ -215,7 +215,7 @@ def trial(name, case_name):
     case, where = CASES[case_name], tempfile.mkdtemp(prefix="eval-")
     subprocess.run(case["setup"], shell=True, cwd=where)
     start = time.time()
-    steps, tokens = agent(VARIANTS[name], case["task"], where)
+    steps, tokens = agent(VARIANTS[name], case["input"], where)
     seconds = time.time() - start
     why = ""
     if "check" in case:

@@ -20,45 +20,45 @@ JUDGE = "claude-opus-5-5"                    # grades the cases that code can't
 # A "check" is a shell command: exit 0 means pass. A "rubric" is a sentence a model checks the file named in "read" against.
 CASES = {
     "count": {"setup": "seq 1 37 > numbers.txt",
-              "task": "How many lines are in numbers.txt? Write only the number into answer.txt.",
+              "input": "How many lines are in numbers.txt? Write only the number into answer.txt.",
               "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 37 ]"},
     "fix": {"setup": "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\nassert add(-1, 1) == 0\\n' > test.py",
-            "task": "test.py fails. Fix the bug in calc.py, not the test.",
+            "input": "test.py fails. Fix the bug in calc.py, not the test.",
             "check": "python3 test.py && grep -q 'add(2, 3)' test.py"},
     "log": {"setup": "awk 'BEGIN{for(i=1;i<=2000;i++){ if(i%400==0) print \"ERROR E\" (100+(i/400)%3) \" at line \" i; else print \"INFO ok \" i}}' > app.log",
-            "task": "How many different error codes appear in app.log? Write only the number into answer.txt.",
+            "input": "How many different error codes appear in app.log? Write only the number into answer.txt.",
             "check": "[ \"$(tr -d ' \\n' < answer.txt)\" = 3 ]"},
     "explain": {"setup": "printf 'def f(n):\\n    a, b = 0, 1\\n    for _ in range(n):\\n        a, b = b, a + b\\n    return a\\n' > mystery.py",
-                "task": "Explain what mystery.py computes, in one or two sentences, in explanation.txt.",
+                "input": "Explain what mystery.py computes, in one or two sentences, in explanation.txt.",
                 "read": "explanation.txt",
                 "rubric": "It says the function computes or returns the n-th Fibonacci number, and it is no longer than two sentences."},
 }
 
-def agent(variant, task, where):
+def agent(variant, input, where):
     # The agent under test: Lesson 3's loop, as a function, working in its own folder. It returns what it cost.
-    messages, tokens, steps = [{"role": "user", "content": task}], 0, 0
+    messages, tokens, steps = [{"role": "user", "content": input}], 0, 0
     for steps in range(1, variant["steps"] + 1):
-        reply = client.messages.create(model=variant["model"], max_tokens=16384, system=variant["system"], tools=tools, messages=messages)
-        tokens += reply.usage.input_tokens + reply.usage.output_tokens
-        messages.append({"role": "assistant", "content": reply.content})
-        results = []
-        for block in reply.content:
+        output = client.messages.create(model=variant["model"], max_tokens=16384, system=variant["system"], tools=tools, messages=messages)
+        tokens += output.usage.input_tokens + output.usage.output_tokens
+        messages.append({"role": "assistant", "content": output.content})
+        input = []
+        for block in output.content:
             if block.type == "tool_use":
                 try:
                     done = subprocess.run(block.input["cmd"], shell=True, cwd=where, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
                     out = done.stdout or f"(exit {done.returncode})"
                 except (subprocess.TimeoutExpired, KeyError):
                     out = "stopped: it ran over 30 seconds, or the request was cut off"
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
-        if not results: break
-        messages.append({"role": "user", "content": results})
+                input.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
+        if not input: break
+        messages.append({"role": "user", "content": input})
     return steps, tokens
 
 def judge(rubric, text):
     # Grading by a model: it reads the file and the rubric and says PASS or FAIL. It's a second model, so it's checked too (below).
-    reply = client.messages.create(model=JUDGE, max_tokens=1024, messages=[{"role": "user", "content":
+    output = client.messages.create(model=JUDGE, max_tokens=1024, messages=[{"role": "user", "content":
         f"Grade this file against the rubric. Be strict.\n\nRubric: {rubric}\n\nFile:\n{text}\n\nReply with PASS or FAIL on the first line, then one short sentence of reason."}])
-    said = next((b.text.strip() for b in reply.content if b.type == "text"), "FAIL")
+    said = next((b.text.strip() for b in output.content if b.type == "text"), "FAIL")
     return said.lstrip("*#` ").upper().startswith("PASS"), said
 
 def calibrate():
@@ -77,7 +77,7 @@ def trial(name, case_name):
     case, where = CASES[case_name], tempfile.mkdtemp(prefix="eval-")
     subprocess.run(case["setup"], shell=True, cwd=where)
     start = time.time()
-    steps, tokens = agent(VARIANTS[name], case["task"], where)
+    steps, tokens = agent(VARIANTS[name], case["input"], where)
     seconds = time.time() - start
     why = ""
     if "check" in case:
