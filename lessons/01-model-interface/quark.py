@@ -1,9 +1,9 @@
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
-reply = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16384,
-    messages=[{"role": "user", "content": "What's in this directory?"}],
-)
-print(reply.model_dump_json(indent=2))
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+output = call(max_tokens=16384, messages=[{"role": "user", "content": "What's in this directory?"}])
+print(output.model_dump_json(indent=2))

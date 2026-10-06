@@ -27,50 +27,68 @@ Whatever the shape, control flow does two things. It **sequences** the other pri
 
 ## The worked example
 
-Here's Lesson 2's input, model interface and output inside quark's loop. `max_tokens` is 16384, the same as Lesson 2. It's the whole of [`quark.py`](./quark.py):
+Here's Lesson 2's input, model interface and output inside quark's loop. It's the whole of [`quark.py`](./quark.py):
 
 ```python
 import subprocess, sys
 from anthropic import Anthropic
 
+# ── model interface ─────────────────────────────────────────────────────────
 client = Anthropic()
+MODEL = "claude-sonnet-5-5"
+def call(**request): return client.messages.create(model=MODEL, **request)
+
+# ── output: the one tool ────────────────────────────────────────────────────
 tools = [{"name": "bash", "description": "Run shell command — the whole system is in reach", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
-task = " ".join(sys.argv[1:]) or input("> ")
+# ── input ───────────────────────────────────────────────────────────────────
+def read(prompt):                                        # input: from a person
+    while True:
+        print(prompt, end="", flush=True)
+        line = sys.stdin.readline()
+        if not line: return "/q"                         # end of input (Ctrl-D): nothing more is coming
+        if line.strip(): return line.rstrip("\n")        # a blank line just asks again
+        prompt = "> "
+input = " ".join(sys.argv[1:]) or read("> ")
+if input == "/q": sys.exit()
 chat = len(sys.argv) < 2
-messages = [{"role": "user", "content": task}]
+
+# ── control flow ────────────────────────────────────────────────────────────
+messages = [{"role": "user", "content": input}]
 
 while True:
-    reply = client.messages.create(model="claude-sonnet-5-5", max_tokens=16384, tools=tools, messages=messages)
+    output = call(max_tokens=16384, tools=tools, messages=messages).content
+    messages.append({"role": "assistant", "content": output})
 
-    results = []
-    for block in reply.content:
+    input = []
+    for block in output:                                 # output: show text, run tool requests
         if block.type == "text":
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
             done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             print(done.stdout)
-            results.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
+            input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})  # input: from the world
 
-    messages.append({"role": "assistant", "content": reply.content})
-    if results:
-        messages.append({"role": "user", "content": results})
+    if input:
+        messages.append({"role": "user", "content": input})
         continue
-    if not chat or (task := input("\n> ")) == "/q":
+    if not chat or (input := read("\n> ")) == "/q":
         break
-    messages.append({"role": "user", "content": task})
+    messages.append({"role": "user", "content": input})
 ```
+
+Everything above `# ── control flow ──` is Lesson 2's, with one addition to input: **`chat`**, which is true when nothing came in on the command line. The new section is the loop.
 
 **`while True:`** means go again. Each pass is one call to the model.
 
-**`messages.append(...)`** is the arrow back around: it's how a result reaches the next call. Sending it back means putting it in the next request, and quark does that the simplest way: it appends the response and the results to `messages`, so each request carries everything so far. That growing list is the simplest form of context, working memory. Deciding what really goes in it is Lesson 4.
+**`messages`** is how a result reaches the next call. The first entry is the input that started the run. Right after each call, the model's `output` is appended; if the model asked for tools, the `input` they produced is appended after it. Each request carries everything so far. That growing list is the simplest form of context, working memory. Deciding what really goes in it is Lesson 4.
 
-**`if results: ... continue`** is the agent loop. If the model asked for anything, the results go back and the loop calls again.
+**`if input: ... continue`** is the agent loop. If the model asked for anything, what came back goes in and the loop calls again.
 
-**No results** is termination. The model decides it's done by not asking for a tool. quark doesn't count steps or look for a magic word.
+**No input from the world** is termination. The model decides it's done by not asking for a tool. quark doesn't count steps or look for a magic word.
 
-**`chat`** gives one loop two modes. With a task on the command line, quark runs until the model stops asking for tools, then exits. With no task, it's a chat: when the model's turn ends, it hands back to you with `> `, and `/q` quits.
+**`chat`** gives one loop two modes. With input on the command line, quark runs until the model stops asking for tools, then exits. With none, it's a chat: when the model's turn ends, it hands back to you with `> `, `read()` gathers your next input, and `/q` (or Ctrl-D) quits.
 
 Notice what the loop doesn't have: a step limit. quark trusts the model to finish. That's a choice, and if the model never stops asking, quark never stops.
 
@@ -85,17 +103,17 @@ uv run lessons/03-control-flow/quark.py "which quark.py in the lessons folder is
 Here's one run:
 
 ```
-$ find . -path "*lessons*" -name "quark.py" -exec wc -l {} + 2>/dev/null | sort -n
-   9 ./lessons/01-model-interface/quark.py
-  21 ./lessons/02-input-and-output/quark.py
-  30 ./lessons/03-control-flow/quark.py
-  48 ./lessons/04-context/quark.py
- 108 total
+$ find . -ipath '*lessons*' -name 'quark.py' -exec wc -l {} + 2>/dev/null | sort -n
+    9 ./lessons/01-model-interface/quark.py
+   33 ./lessons/02-input-and-output/quark.py
+   46 ./lessons/03-control-flow/quark.py
+  234 ./lessons/04-context/quark.py
+  322 total
 
-The longest is `./lessons/04-context/quark.py`, at 48 lines.
+The longest is `./lessons/04-context/quark.py`, at 234 lines.
 ```
 
-That's two calls. The first asked for a command. Its result went back, and the second call answered from what it found. Run it with no task to chat with it instead.
+That's two calls. The first asked for a command. Its result went back, and the second call answered from what it found. Run it with no input to chat with it instead.
 
 ## Going further
 
