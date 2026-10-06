@@ -16,11 +16,11 @@ Here's where they sit around Lesson 1's call:
 person or world ─► input ─► request ─► model interface ─► response ─► output ─► person or world
 ```
 
-In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes each end real on its own, in a small file with nothing else in it: [`input.py`](./input.py) for input, [`output.py`](./output.py) for output. Then it puts them together, the way quark does.
+In Lesson 1, both ends were stubs: a hardcoded question going in, and a raw dump of the response coming out. This lesson makes each end real on its own, in a small file of its own: [`input.py`](./input.py) for input, [`output.py`](./output.py) for output. Then it puts them together, the way quark does.
 
 ## Input
 
-Here's input with nothing around it: Lesson 1's call, with real input going in. The output is still Lesson 1's stub. It's the whole of [`input.py`](./input.py):
+Here's input with nothing around it: Lesson 1's call, with real input going in. The output is still Lesson 1's stub. The request also describes one tool, so the model can ask for it. It's the whole of [`input.py`](./input.py):
 
 ```python
 import sys
@@ -266,7 +266,7 @@ quark gathers input from a terminal and runs one tool on the same machine. Input
 Input:
 - **Where a person's input comes from.** Command-line arguments, a prompt, a pipe, a chat app, a webhook, a schedule.
 - **What it can be.** Text, images, files.
-- **What happens to bad input.** A blank message can be asked for again instead of sent.
+- **What happens to bad input.** quark gives a fresh prompt for a blank line; a harness can also refuse or cut down input that's too long, or a file it can't read, before it's sent.
 - **What comes back from the world.** What a tool printed, its exit code, and whether it failed.
 
 Output:

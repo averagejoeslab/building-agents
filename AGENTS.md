@@ -101,7 +101,7 @@ The lessons' order: 1 model interface, 2 input and output (taught together: two 
 - **Procedural memory** is `.quark/skills/<name>.md` with `name`/`description` front matter, **generalized** (the method with placeholders, named for the class of task). `skills()` is harness code that puts the header index in the prompt on every call.
 - **Every store in the prompt gets the same parts:** store, initialize, format, an exact write recipe with placeholders (quoted heredocs), what's worth writing, read moves, rules. Read moves are "moves, not a menu".
 - **Recall ladder:** semantic → procedural → episodic, most distilled to most complete.
-- **Compaction is lazy:** only after the API says "prompt is too long" (`BadRequestError`); no token counting, no `LIMIT`. `drop` counts up and `compact()` drops that many oldest turns and summarizes the rest; the summary points at the episode file, so nothing is lost. (`context.py` shows the alternatives: `fit()` counting tokens against `LIMIT`, `trim()`, one shared `.quark/episodes.jsonl`, a first-line skill index.)
+- **Compaction is lazy:** only after the API says "prompt is too long" (`BadRequestError`); no token counting, no `LIMIT`. `drop` counts up and `compact()` drops that many oldest turns and summarizes the rest; the summary points at the episode file, so nothing is lost. (Lesson 4's "Other things we could do" describes the alternatives in prose: counting tokens against a budget, cutting long results, one shared log, a first-line skill index. `context.py` is the concept file: working memory saved to `.quark/working_memory.json` and a dated system prompt.)` counting tokens against `LIMIT`, `trim()`, one shared `.quark/episodes.jsonl`, a first-line skill index.)
 - **The full system prompt stays** (Self Model, Memory, World Model, Other Selves Model, Body Operations, Mechanics); Chase wanted the long version. It uses `cache_control` and carries the **date but not the time** so the cache can hit.
 - **`mechanics()`** shows the model its own file with `system()` replaced by a one-line placeholder, using the regex `^def system\(\):.*?(?=^def )`. So `def system()` must stay directly followed by another top-level `def` (it is `compact`), and anything inside the f-string that is a literal brace must be doubled (`{{ }}`, as in the episode-format lines) or the file breaks. Any edit to `quark.py` changes the prompt the model sees, because the file is in it.
 
@@ -148,7 +148,7 @@ The lessons' order: 1 model interface, 2 input and output (taught together: two 
 ### Numbers quoted everywhere
 
 If a `quark.py` changes length, update every quote and re-run the demos that print it:
-- the lesson's README (worked-example intro, and demo output such as Lesson 3's `wc -l` listing and Lesson 9's mention of 239);
+- the lesson's README (the intro to `## quark's implementation`, and demo output such as Lesson 3's `wc -l` listing and Lesson 9's mention of 239);
 - the top-level README ("today's 239 lines" etc.);
 - the paper: abstract, §5 headings and §5.5 table, §6 table (net lines), conclusion, Appendix A headings, Appendix C headings, and `paper/latex/*.tex`, `paper/arxiv/*`, `METADATA.txt`;
 - the decks.

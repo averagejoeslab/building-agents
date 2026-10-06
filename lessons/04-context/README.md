@@ -500,7 +500,7 @@ This repo has **3,335 lines of Python** across 25 `.py` files, not counting `.ve
 I saved the method as a skill, so next time I can reuse it.
 ```
 
-(The repo has grown since these runs, so the count you get will be higher.)
+(The repo has changed since these runs, so the count you get will be different.)
 
 It answered, and it wrote two memories: a skill, named for the whole class of task and not for this repo, and a fact about you that points to the skill. In a new session:
 

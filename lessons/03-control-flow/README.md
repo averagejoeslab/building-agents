@@ -4,6 +4,8 @@
 
 Control flow is how information flows between the other four primitives. They all sit inside it: it decides what runs, in what order, and whether to go again.
 
+In Lesson 2, the `301` sat in `input` and nothing sent it. Sending it back is control flow's job.
+
 Here's the path one pass takes, with the pieces from Lessons 1 and 2:
 
 ```
@@ -115,6 +117,8 @@ $ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $
 The `02-input-and-output` folder in `lessons` has the most files, with 10.
 ```
 
+(The folders held more files when this ran, and the count includes Python's `__pycache__`, so your numbers will differ.)
+
 Two calls. The first asked for a command; nobody told it which. Its result went back, and the second call answered and asked for nothing, so the loop ended. I didn't plan those steps. The model did.
 
 ## quark's implementation
@@ -185,7 +189,7 @@ Everything above `# ── control flow ──` is Lesson 2's, with one addition
 
 **No input from the world** is termination. The model decides it's done by not asking for a tool. quark doesn't count steps or look for a magic word.
 
-**`chat`** gives one loop two modes. With input on the command line, quark runs until the model stops asking for tools, then exits. With none, it's a chat: when the model's turn ends, it hands back to you with `> `, `read()` gathers your next input, and `/q` (or Ctrl-D) quits.
+**`chat`** gives one loop two modes. With input on the command line, quark runs until the model stops asking for tools, then exits. With none, it's a chat: when the model's turn ends, it hands back to you with `> `, `read()` gathers your next input, and `/q` (or Ctrl-D) quits. (`input := read(...)` reads your next input and checks it for `/q` in the same step.)
 
 Notice what the loop doesn't have: a step limit. quark trusts the model to finish. That's a choice, and if the model never stops asking, quark never stops.
 

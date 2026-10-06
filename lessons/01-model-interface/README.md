@@ -62,7 +62,7 @@ tokens in: 15
 tokens out: 239
 ```
 
-Two blocks came back. The first is `thinking`: this model thinks before it answers, and by default its thinking comes back empty (more on that below). The second is the `text` of its reply. It stopped with `end_turn`, which means it finished; `max_tokens` would mean it hit the cap. Fifteen tokens went in, 239 came out, thinking included.
+Two blocks came back. The first is `thinking`: this model can think before it answers, and here it did. It prints empty because a thinking block has no `text`, and by default its thinking comes back with no readable text anyway (more on that below). The second is the `text` of its reply. It stopped with `end_turn`, which means it finished; `max_tokens` would mean it hit the cap. Fifteen tokens went in, 239 came out, thinking included.
 
 ## quark's implementation
 
@@ -149,7 +149,7 @@ Here's one run:
 
 Yours will be worded differently; the model's output varies from run to run. (The long `signature` is shortened here.) It's the same response the concept printed parts of, now in full. Three fields matter:
 
-- **`content`** is the tokens out, as a list of blocks. The first block is its `thinking` and the second is the `text` of its reply. Here you can see why the thinking printed empty: by default it comes back with no text, only a `signature`, an encrypted copy of the reasoning that only the API can read.
+- **`content`** is the tokens out, as a list of blocks. The first block is its `thinking` and the second is the `text` of its reply. Here you can see what's in it: by default it comes back with no text, only a `signature`, an encrypted copy of the reasoning that only the API can read.
 - **`stop_reason`** is why it stopped. `end_turn` means it finished; `max_tokens` would mean it hit the cap.
 - **`usage`** counts both sides: `input_tokens` is TokensIn, `output_tokens` is TokensOut, thinking included.
 
