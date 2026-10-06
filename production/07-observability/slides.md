@@ -150,16 +150,12 @@ trace(event="start", input=input)
 
 # Run it: nobody there to answer the guard
 
-`quark.py "which file in this folder has the most lines? answer in one sentence" < /dev/null`
+`quark.py "which file in this folder has the most lines? answer in one sentence" < /dev/null` (shortened)
 
 ```
 $ wc -l * 2>/dev/null | sort -rn | head -5
 allow `wc -l * 2>/dev/null | sort -rn | head -5`? [y/N] [the person said no]
 $ ls -la
-total 36
-drwxr-xr-x 3 root root  4096 Oct  6 20:30 .
-drwxr-xr-x 3 root root    60 Oct  6 20:30 ..
-drwxr-xr-x 3 root root  4096 Oct  6 20:30 .quark
 -rw-r--r-- 1 root root 23893 Oct  6 20:30 big.txt
 -rw-r--r-- 1 root root     8 Oct  6 20:30 small.txt
 
@@ -167,9 +163,9 @@ $ wc -l big.txt small.txt
  5000 big.txt
     2 small.txt
  5002 total
-```
 
-(shortened: the one-sentence answer names `big.txt`, at 5,000 lines)
+`big.txt` has the most lines, at 5,000, compared with 2 in `small.txt`.
+```
 
 <!-- A scratch folder with a two-line small.txt and a 5,000-line big.txt. The first command wasn't on the safe list (2> redirects, and sort isn't a reader the guard knows), so the guard asked, found no one there, and said no. The model switched to commands that were. -->
 
@@ -260,9 +256,9 @@ In a terminal: `sleep 30`, `y` to the guard, ESC three seconds later. The trace,
 - Stopped at 3.23 seconds: `exit` 137, the box's kill
 - The next line says why: you interrupted it while it was acting
 - Then one more call, for the model to acknowledge it
-- The model said it "didn't get an exit status": the trace knows more about that command than the model does
+- The trace knows more about that command than the model does
 
-<!-- The terminal showed "[your doing stopped before done]" and the model offered to run it again. Since Lesson 6, a stopped command's result is just that one line, so the model never sees the exit code. Without the interrupted line, this would look exactly like a timeout kill: same exit code. The during field says whether quark was saying or doing something when you pressed ESC. -->
+<!-- The terminal showed "[your doing stopped before done]" and the model offered to run it again. Since Lesson 6, a stopped command's result is just that one line, so the model never sees the exit code: its answer says it "didn't get an exit status". Without the interrupted line, this would look exactly like a timeout kill: same exit code. The during field says whether quark was saying or doing something when you pressed ESC. -->
 
 ---
 
