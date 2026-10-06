@@ -6,7 +6,7 @@ from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5)                          # a second model, asked one question about each tool result
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, asked one question about each tool result
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 MAX_STEPS = 10
 LOG = ".quark/spans.jsonl"

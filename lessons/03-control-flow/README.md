@@ -156,7 +156,7 @@ for step in range(1, MAX_STEPS + 1):
             print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": done.stdout or f"(exit {done.returncode})"})
     if not input:
@@ -179,14 +179,13 @@ uv run lessons/03-control-flow/control_flow.py "which folder in lessons has the 
 Here's one run:
 
 ```
-$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5; pwd
-5 02-input-and-output/
-4 03-control-flow/
-3 04-context/
-3 01-model-interface/
-/home/user/building-agents/lessons
+$ cd lessons 2>/dev/null && for d in */; do echo "$(find "$d" -type f | wc -l) $d"; done | sort -rn | head -5
+7 02-input-and-output/
+6 03-control-flow/
+5 04-context/
+5 01-model-interface/
 
-The `02-input-and-output` folder in `lessons` has the most files, with 5.
+The `02-input-and-output` folder in `lessons` has the most files, with 7.
 [done in 2 steps]
 ```
 

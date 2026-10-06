@@ -535,7 +535,7 @@ while True:
         if block.type == "text": print(block.text)
         if block.type == "tool_use":
             print(f"$ {block.input['cmd']}")
-            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            done = subprocess.run(block.input["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
             print(done.stdout)
             input.append({"type": "tool_result", "tool_use_id": block.id, "content": trim(done.stdout) or f"(exit {done.returncode})"})
     add(working_memory, {"role": "assistant", "content": output.content})
@@ -558,9 +558,10 @@ printf 'How to count lines of Python in this repo\n\nUse: find . -name "*.py" -n
 uv run lessons/04-context/context.py "how many lines of Python are in this repo?"
 ```
 
-Here's one run. It was recorded on an earlier version of the repo, so its file list and totals are older than the ones above:
+Here's one run:
 
 ```
+Let me read the skill first.
 $ cat .quark/skills/count-python.md
 How to count lines of Python in this repo
 
@@ -568,35 +569,36 @@ Use: find . -name "*.py" -not -path "./.venv/*" | xargs wc -l
 Report the total, then the largest file.
 
 $ find . -name "*.py" -not -path "./.venv/*" | xargs wc -l | sort -n
-     9 ./lessons/01-model-interface/quark.py
+    12 ./lessons/01-model-interface/quark.py
     16 ./lessons/01-model-interface/model_interface.py
-    20 ./lessons/02-input-and-output/output.py
-    21 ./lessons/03-control-flow/workflow.py
-    24 ./lessons/02-input-and-output/input.py
-    31 ./lessons/03-control-flow/control_flow.py
-    33 ./lessons/02-input-and-output/quark.py
-    46 ./lessons/03-control-flow/quark.py
-    56 ./lessons/04-context/context.py
-    59 ./production/05-observability/quark.py
+    22 ./lessons/03-control-flow/workflow.py
+    25 ./lessons/02-input-and-output/output.py
+    27 ./lessons/02-input-and-output/input.py
+    32 ./lessons/03-control-flow/control_flow.py
+    38 ./lessons/02-input-and-output/quark.py
+    51 ./lessons/03-control-flow/quark.py
+    57 ./lessons/04-context/context.py
+    59 ./tools/deckcheck.py
     64 ./lessons/02-input-and-output/input_output.py
-    66 ./paper/latex/build.py
-    83 ./production/06-guardrails/quark.py
-    84 ./production/05-observability/observability.py
-    87 ./production/07-sandboxing/sandboxing.py
-    94 ./production/07-sandboxing/quark.py
-    98 ./production/06-guardrails/guardrails.py
-   100 ./production/09-performance/performance.py
-   112 ./production/08-resilience/resilience.py
-   122 ./production/10-evaluation/evaluation.py
-   135 ./production/08-resilience/quark.py
-   159 ./production/09-performance/quark.py
-   196 ./production/10-evaluation/quark.py
-   234 ./lessons/04-context/quark.py
-  1949 total
+    76 ./paper/latex/build.py
+   101 ./production/07-observability/observability.py
+   105 ./production/06-guardrails/guardrails.py
+   109 ./production/09-performance/performance.py
+   114 ./production/05-sandboxing/sandboxing.py
+   141 ./production/08-resilience/resilience.py
+   161 ./production/10-evaluation/evaluation.py
+   239 ./lessons/04-context/quark.py
+   249 ./production/05-sandboxing/quark.py
+   311 ./production/06-guardrails/quark.py
+   325 ./production/07-observability/quark.py
+   356 ./production/08-resilience/quark.py
+   373 ./production/09-performance/quark.py
+   411 ./production/10-evaluation/quark.py
+  3474 total
 
-There are **1,949 lines** of Python in this repo. I excluded `.venv/`, as the skill says to.
+There are **3,474 lines** of Python in this repo. That excludes `.venv`.
 
-The largest file is `lessons/04-context/quark.py`, at 234 lines.
+The largest file is `./production/10-evaluation/quark.py`, at 411 lines.
 ```
 
 It read the skill, then followed it. That session is now in the episode log, so a new one can find it:
@@ -606,17 +608,18 @@ uv run lessons/04-context/context.py "in a past session, how many lines of Pytho
 ```
 
 ```
-$ cd /home/user/building-agents; grep -i -n "lines" .quark/episodes.jsonl | head -50; cat .quark/skills/count-python.md
+$ cd /tmp/pc/fxL/building-agents; grep -i -n "python" .quark/episodes.jsonl | head -50
 1:{"role": "user", "content": "how many lines of Python are in this repo?"}
-3:{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01G3mxniBy7p1gLWEpAR2HMZ", "content": "How to count lines of Python in this repo\n\nUse: find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l\nReport the total, then the largest file.\n"}]}
-6:{"role": "assistant", "content": [{"citations": null, "text": "There are **1,949 lines** of Python in this repo. I excluded `.venv/`, as the skill says to.\n\nThe largest file is `lessons/04-context/quark.py`, at 234 lines.", "type": "text"}]}
+2:{"role": "assistant", "content": [{"citations": null, "text": "Let me read the skill first.", "type": "text"}, {"id": "toolu_01RGq5ihtjYCbTNZtfSt2T2f", "caller": {"type": "direct"}, "input": {"cmd": "cat .quark/skills/count-python.md"}, "name": "bash", "type": "tool_use", "toolset_name": null}]}
+3:{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01RGq5ihtjYCbTNZtfSt2T2f", "content": "How to count lines of Python in this repo\n\nUse: find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l\nReport the total, then the largest file.\n"}]}
+6:{"role": "assistant", "content": [{"citations": null, "text": "There are **3,474 lines** of Python in this repo. That excludes `.venv`.\n\nThe largest file is `./production/10-evaluation/quark.py`, at 411 lines.", "type": "text"}]}
 7:{"role": "user", "content": "in a past session, how many lines of Python did you count? one line"}
-How to count lines of Python in this repo
 
-Use: find . -name "*.py" -not -path "./.venv/*" | xargs wc -l
-Report the total, then the largest file.
+$ cd /tmp/pc/fxL/building-agents; sed -n 4,5p .quark/episodes.jsonl
+{"role": "assistant", "content": [{"id": "toolu_01DGfPpYpyixjiYURBysEgxd", "caller": {"type": "direct"}, "input": {"cmd": "find . -name \"*.py\" -not -path \"./.venv/*\" | xargs wc -l | sort -n"}, "name": "bash", "type": "tool_use", "toolset_name": null}]}
+{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01DGfPpYpyixjiYURBysEgxd", "content": "    12 ./lessons/01-model-interface/quark.py\n    16 ./lessons/01-model-interface/model_interface.py\n    22 ./lessons/03-control-flow/workflow.py\n    25 ./lessons/02-input-and-output/output.py\n    27 ./lessons/02-input-and-output/input.py\n    32 ./lessons/03-control-flow/control_flow.py\n    38 ./lessons/02-input-and-output/quark.py\n    51 ./lessons/03-control-flow/quark.py\n    57 ./lessons/04-context/context.py\n    59 ./tools/deckcheck.py\n    64 ./lessons/02-input-and-output/input_output.py\n    76 ./paper/latex/build.py\n   101 ./production/07-observability/observability.py\n   105 ./production/06-guardrails/guardrails.py\n   109 ./production/09-performance/performance.py\n   114 ./production/05-sandboxing/sandboxing.py\n   141 ./production/08-resilience/resilience.py\n   161 ./production/10-evaluation/evaluation.py\n   239 ./lessons/04-context/quark.py\n   249 ./production/05-sandboxing/quark.py\n   311 ./production/06-guardrails/quark.py\n   325 ./production/07-observability/quark.py\n   356 ./production/08-resilience/quark.py\n   373 ./production/09-performance/quark.py\n   411 ./production/10-evaluation/quark.py\n  3474 total\n"}]}
 
-In a past session I counted 1,949 lines of Python, excluding `.venv/`. The largest file was `lessons/04-context/quark.py` at 234 lines.
+In a past session I counted 3,474 lines of Python in this repo. That excluded `.venv`, and the largest file was `./production/10-evaluation/quark.py` at 411 lines.
 ```
 
 And with `LIMIT` set to 560 tokens, here's a chat where I typed four inputs (`my favorite color is green`, `what is 2+2?`, `what is 3+3?` and `what is my favorite color?`; they aren't echoed). `fit()` summarizes before each of the last three, and the fact from the first survives in the summary:
@@ -624,22 +627,20 @@ And with `LIMIT` set to 560 tokens, here's a chat where I typed four inputs (`my
 ```
 > Noted: your favorite color is green. 🌿
 
-Do you want me to save that somewhere, like a notes file in the repo, or was it just for me to know for this conversation?
+If you'd like me to remember it for future sessions, I can save it somewhere in this repo, such as in `.quark/`. Just say so.
 
 > [working memory over 560 tokens: summarized 2 messages]
 2 + 2 = 4.
 
+One correction to the summary above: it says I have no tools or file access. That's wrong for this session. I can run bash in `/tmp/pc/fxL/building-agents`. I haven't looked at anything there, and nothing has been saved. If you'd like your favorite color (green) recorded somewhere, tell me and I'll do it.
+
 > [working memory over 560 tokens: summarized 3 messages]
 3 + 3 = 6.
 
-The open question from earlier is still unanswered. Do you want your favorite color (green) saved somewhere, or should I just keep it in mind for this conversation?
-
 > [working memory over 560 tokens: summarized 3 messages]
-Your favorite color is green, going by what you told me earlier in this session.
+Your favorite color is green. You told me that earlier in this session.
 
-I also need to correct something from earlier. The summary says I have no files or tools, but I do have a bash shell in `/home/user/building-agents`. I could save your preference there if you want. Should I save it, or keep it in this conversation only?
-
->
+> 
 ```
 
 ## What to take away

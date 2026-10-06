@@ -1,10 +1,10 @@
-import subprocess, sys, re, collections
+import subprocess, sys, os, re, collections
 from anthropic import Anthropic
 from typesafe_sdk import TypeSafeClient, Choice
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5)                          # a second model that decides, reads TYPESAFE_API_KEY
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model that decides; no key, and every command asks
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 MAX_STEPS, MAX_DOLLARS, MAX_REPEATS = 10, 0.05, 3
 PRICE = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75}  # dollars per million tokens: example rates, use your provider's

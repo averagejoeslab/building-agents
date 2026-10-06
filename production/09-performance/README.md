@@ -316,7 +316,7 @@ tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"
 
 # Control flow: which model answers is chosen per task, by asking Jev how much work it is. That's routing (Lesson 3). (The cache belongs to
 # one model, so this is decided once per task, not once per step: switching mid-task would start the cache over.)
-jev = AsyncTypeSafeClient(timeout=5)         # Jev, a decision model: answers typed questions, writes no text (reads TYPESAFE_API_KEY)
+jev = AsyncTypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev, a decision model: answers typed questions, writes no text
 TIERS = {                                    # how much work -> (model, effort)
     "lookup": ("claude-haiku-4-5", None),
     "edit":   ("claude-sonnet-5-5", "medium"),
@@ -433,7 +433,7 @@ It's still a guess, and Jev has known weak spots: it reads the words you wrote, 
 
 **`main()`.** Route, then loop. After each step it adds up the tokens read from the cache against all the input tokens, and prints that share when the task is done. When there are several commands in a reply, `asyncio.gather` starts them all and returns the results in order, and a line compares the time they took together with the sum of their times alone.
 
-Running it needs `TYPESAFE_API_KEY` as well as the Anthropic key; without it, every task goes to the middle tier, as the last run below shows.
+It uses `TYPESAFE_API_KEY` as well as the Anthropic key; without a working one, every task goes to the middle tier, as the last run below shows.
 
 Two runs on the same task, first with nothing cached and then with the cache warm. Both were run in a folder holding a copy of this repo's `README.md` and `docs/`, one I'd never run it in before so that its system prompt was new to the cache:
 

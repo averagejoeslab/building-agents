@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
 from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
-client, jev = Anthropic(), TypeSafeClient(timeout=10)
+client, jev = Anthropic(), TypeSafeClient(timeout=10) if os.environ.get("TYPESAFE_API_KEY") else None
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 
 # What is being tested. A variant is one way of configuring the agent: the thing you change, and then measure.

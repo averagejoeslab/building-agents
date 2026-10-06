@@ -330,13 +330,13 @@ It can be a product on its own. Rule engines and policy services like [Open Poli
 Here's a guardrail that does more of that, in [`guardrails.py`](./guardrails.py). It's built on Lesson 3's `control_flow.py`, so it has the step limit, and it has no system prompt, so its requests are just the task. It also asks a second model which commands only read, in place of a hand-written list. That model is Jev, which I introduced in [Lesson 5](../05-sandboxing/#asking-jev): it writes no text, it answers typed questions about a state you give it, and it needs `TYPESAFE_API_KEY`.
 
 ```python
-import subprocess, sys, re, collections
+import subprocess, sys, os, re, collections
 from anthropic import Anthropic
 from typesafe_sdk import TypeSafeClient, Choice
 read = input                                             # a person's input; the name input is for whatever comes in
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5)                          # a second model that decides, reads TYPESAFE_API_KEY
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model that decides; no key, and every command asks
 tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}]
 MAX_STEPS, MAX_DOLLARS, MAX_REPEATS = 10, 0.05, 3
 PRICE = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75}  # dollars per million tokens: example rates, use your provider's

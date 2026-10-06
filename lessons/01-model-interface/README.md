@@ -49,17 +49,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011Cfmo5ETdNJ28reosFF3dn",
+  "id": "msg_011CfmchdJHXQnQ1gNhjXJjf",
   "container": null,
   "content": [
     {
-      "signature": "CAQSwgUKEAgSGAI4AUIIdGhpbmtpbmcSDBCegPorSEbHzhLnbBoMD3bANjNq4stHLo66IjBy...",
-      "thinking": "I don't actually have access to their file system or any tools here, so I can't see what's in a directory. I should let them know and suggest they paste the contents or describe it so I can help.\n\n",
+      "signature": "CAQSzwUKEAgSGAI4AUIIdGhpbmtpbmcSDAgH/jj7KMlOglfI8hoMai9nd4Mi9EZhjvr2IjBn...",
+      "thinking": "",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory because I don't have access to your file system in this conversation. Here are some ways to find out what's in it:\n\n**Command line**\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -lah` for human-readable sizes\n- **Windows (Command Prompt):** `dir`\n- **Windows (PowerShell):** `Get-ChildItem` or `ls`\n- **Tree view:** `tree` (Linux/macOS, may need installing) or `tree /f` (Windows)\n\n**Graphical**\n- Open the folder in Finder, File Explorer, or your file manager.\n\nIf you paste the output here, I can help you:\n- Explain what the files and folders are for\n- Work out what kind of project it is\n- Find something specific, clean up, or organize it\n- Write a script or command to do something with the contents\n\nWhat are you trying to do?",
+      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared with me.\n\nYou can list the contents yourself with one of these:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n\nIf you paste the output here, I can help you interpret it, find something specific, or decide what to do next. If you're using a tool or IDE that's supposed to give me file access, it may not be set up for this chat.",
       "type": "text"
     }
   ],
@@ -79,9 +79,9 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 323,
+    "output_tokens": 240,
     "output_tokens_details": {
-      "thinking_tokens": 39
+      "thinking_tokens": 41
     },
     "server_tool_use": null,
     "service_tier": "standard"
@@ -146,17 +146,17 @@ Here's one run:
 
 ```json
 {
-  "id": "msg_011Cfjmr2xbFAE1MRszzzWWX",
+  "id": "msg_011Cfmo5ETdNJ28reosFF3dn",
   "container": null,
   "content": [
     {
-      "signature": "CAQS0AUKEAgSGAI4AUIIdGhpbmtpbmcSDJo1AOU3Q8nzeKwLQRoMqA3M2GGFMP3dZLX+IjCE...",
-      "thinking": "I don't actually have access to this user's file system, so I can't see what's in their directory—I should explain that and suggest they paste the listing or output here instead.\n\n",
+      "signature": "CAQSwgUKEAgSGAI4AUIIdGhpbmtpbmcSDBCegPorSEbHzhLnbBoMD3bANjNq4stHLo66IjBy...",
+      "thinking": "I don't actually have access to their file system or any tools here, so I can't see what's in a directory. I should let them know and suggest they paste the contents or describe it so I can help.\n\n",
       "type": "thinking"
     },
     {
       "citations": null,
-      "text": "I can't see your directory. I don't have file system access in this conversation, and nothing has been shared with me besides your message.\n\nTo find out what's in it, you can run one of these yourself:\n\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -R` (recursive)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n- **Tree view:** `tree` (on Linux/macOS you may need to install it first)\n\nIf you paste the output here, I can help you make sense of it, such as explaining what the files are, finding something specific, or cleaning things up.",
+      "text": "I can't see your directory because I don't have access to your file system in this conversation. Here are some ways to find out what's in it:\n\n**Command line**\n- **macOS/Linux:** `ls -la` (includes hidden files), or `ls -lah` for human-readable sizes\n- **Windows (Command Prompt):** `dir`\n- **Windows (PowerShell):** `Get-ChildItem` or `ls`\n- **Tree view:** `tree` (Linux/macOS, may need installing) or `tree /f` (Windows)\n\n**Graphical**\n- Open the folder in Finder, File Explorer, or your file manager.\n\nIf you paste the output here, I can help you:\n- Explain what the files and folders are for\n- Work out what kind of project it is\n- Find something specific, clean up, or organize it\n- Write a script or command to do something with the contents\n\nWhat are you trying to do?",
       "type": "text"
     }
   ],
@@ -176,9 +176,9 @@ Here's one run:
     "cache_read_input_tokens": 0,
     "inference_geo": "global",
     "input_tokens": 15,
-    "output_tokens": 257,
+    "output_tokens": 323,
     "output_tokens_details": {
-      "thinking_tokens": 41
+      "thinking_tokens": 39
     },
     "server_tool_use": null,
     "service_tier": "standard"

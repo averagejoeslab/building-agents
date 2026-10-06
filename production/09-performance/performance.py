@@ -8,7 +8,7 @@ tools = [{"name": "bash", "description": "Run shell command", "input_schema": {"
 
 # Control flow: which model answers is chosen per task, by asking Jev how much work it is. That's routing (Lesson 3). (The cache belongs to
 # one model, so this is decided once per task, not once per step: switching mid-task would start the cache over.)
-jev = AsyncTypeSafeClient(timeout=5)         # Jev, a decision model: answers typed questions, writes no text (reads TYPESAFE_API_KEY)
+jev = AsyncTypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev, a decision model: answers typed questions, writes no text
 TIERS = {                                    # how much work -> (model, effort)
     "lookup": ("claude-haiku-4-5", None),
     "edit":   ("claude-sonnet-5-5", "medium"),

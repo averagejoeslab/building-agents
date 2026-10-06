@@ -320,7 +320,7 @@ With `LIMIT` set to 560 tokens, after three summaries (shortened):
 
 ```
 > [working memory over 560 tokens: summarized 3 messages]
-Your favorite color is green, going by what you told me earlier in this session.
+Your favorite color is green. You told me that earlier in this session.
 ```
 
 <!-- Counting costs a call each time, and it keeps every request smaller and cheaper than the model's limit. In this chat I told it my favorite color first; fit() summarized before each of the last three inputs, and the fact survived in the summary. -->
