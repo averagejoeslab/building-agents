@@ -34,4 +34,4 @@ Verify these yourself.
 - [ ] **Product URLs in §7.5.** They were found by searching each vendor's own docs. Open each one once.
 - [ ] **The study's evidence.** Spot-check the Codex and opencode file:line evidence in the supplement against the pinned commits, and the Claude Code doc links.
 - [ ] **The whole paper.** Read it end to end in your own voice.
-- [ ] **arXiv packaging.** arXiv wants a flat source folder. Copy `references.bib` and `latex/main.bbl` next to `main.tex`, and change `\bibliography{../references}` to `\bibliography{references}`. Category: cs.SE, cross-listed to cs.AI. A first-time submitter needs an endorsement.
+- [x] **arXiv packaging.** `arxiv/` is the flat upload folder and `arxiv-source.zip` is the same files zipped. `main.tex` starts with `\pdfoutput=1`, `main.bbl` is included because arXiv doesn't run BibTeX, and there are no TeX comments. After changing the paper, rebuild, copy `latex/*.tex` and `references.bib` into `arxiv/`, point `\bibliography` at `references`, re-run BibTeX there, and re-zip.

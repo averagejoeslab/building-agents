@@ -39,8 +39,12 @@ def prep(md):
     return md
 
 def pandoc(md):
-    return subprocess.run([PANDOC, "-f", "markdown-auto_identifiers", "-t", "latex", "--listings", "--wrap=preserve", "--shift-heading-level-by=-1"],
-                          input=md, capture_output=True, text=True, check=True).stdout
+    return strip_comments(subprocess.run([PANDOC, "-f", "markdown-auto_identifiers", "-t", "latex", "--listings", "--wrap=preserve", "--shift-heading-level-by=-1"],
+                          input=md, capture_output=True, text=True, check=True).stdout)
+
+def strip_comments(tex):
+    # arXiv archives the source, so drop TeX comments pandoc adds (an unescaped % to end of line).
+    return "\n".join(re.sub(r"(?<!\\)%.*$", "", line) for line in tex.split("\n"))
 
 text = MD.read_text()
 abstract = text.split("## Abstract", 1)[1].split("\n---", 1)[0]

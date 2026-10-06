@@ -1,0 +1,34 @@
+The software that surrounds a large language model (LLM) in an agent is described in the literature and in practice under many names: framework, scaffold, runtime, orchestration layer, harness. Recent work shows that this layer accounts for a substantial share of agent performance and that comparisons which omit it are misleading. It has not, however, been characterized in terms of its constituent parts. This paper provides such a characterization.
+
+We separate an agent into two components. The \textbf{model} is treated as a fixed function, \emph{TokensOut = Model(TokensIn)}. The \textbf{harness} comprises everything else, so that \textbf{Agent = Harness(Model)}. We argue that every harness is composed of \textbf{five mechanistic primitives}:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{control flow}, which sequences the other four and determines termination;
+\item
+  \textbf{input}, which gathers what is sent to the model, from a person or from the environment;
+\item
+  \textbf{context}, which determines what the request contains and fits it to the model's context window;
+\item
+  \textbf{the model interface}, which sends the request and receives the response;
+\item
+  \textbf{output}, which handles the response, either by presenting it to a person or by executing it as a tool call.
+\end{itemize}
+
+Each primitive is defined both positively, by what it does, and negatively, by what it never does, so that the five are mutually exclusive.
+
+The central argument is constructive. Starting from a single API call and adding one primitive at a time, we show that the deficiency at each step is precisely the next primitive. The result is a working agent of 48 lines of Python containing nothing outside the five.
+
+Two results follow.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Production concerns reduce to the primitives.} Observability, guardrails, sandboxing, resilience, performance and evaluation are shown to be hardening within the primitives they touch, not additional primitives.
+\item
+  \textbf{The decomposition holds on production systems.} We decompose three production coding agents (Claude Code, OpenAI Codex CLI and opencode) and find no component that requires a sixth primitive. The study also identifies where the original boundary rules were underspecified, and we refine them accordingly.
+\end{enumerate}
+
+A case study, in which the constructed agent produced much of its own teaching material, illustrates the use of the decomposition for failure diagnosis.
