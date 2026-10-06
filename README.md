@@ -81,16 +81,18 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 | 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time | context, model interface, output | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
+Each production lesson also has a fuller example that does more of its layer, and each of those asks [Jev](./production/05-sandboxing/#asking-jev), a small model that makes decisions instead of writing text, one question about its job: what a command needs from the box, whether it only reads, whether a tool failed, whether a failure will pass, how big a request is, and whether the agent finished. It's a way to see where a second model fits in a harness, and what it can and can't be trusted with.
+
 ## Setup
 
 Everything you need to run the lessons.
 
-macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key.
+macOS or Linux · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · an Anthropic API key. The production lessons (5–10) also need [Docker](https://docs.docker.com/get-docker/), and their fuller examples ask [Jev](https://docs.typesafe.ai), a small decision model, so they use a TypeSafe key too; without one, they fall back to deciding the old way.
 
 Put your key in a `.env` file at the root of the repo (it's gitignored), and tell uv to load it:
 
 ```bash
-cp .env.example .env        # then add your key to .env
+cp .env.example .env        # then add your keys to .env
 export UV_ENV_FILE=.env
 ```
 
