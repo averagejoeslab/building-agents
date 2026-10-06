@@ -339,21 +339,21 @@ uv run lessons/04-context/quark.py "what are you, and how do you work? three sen
 Here's one run:
 
 ```
-I'm quark, an agent that runs on a language model and acts only through bash. It's my one tool for reading, writing, running programs and talking to you. I work in a loop of observe, think, act, and repeat. My working memory is this session's context window. Three stores on disk persist beyond it: semantic facts in `.quark/memory/memory.md`, skills in `.quark/skills/`, and a log of every past session in `.quark/episodes/`.
+I'm quark, an AI agent that works through a single tool, bash. That tool lets me observe and act on the whole system from the command line. I run a loop of observe, think, act, and repeat, and my context window is my working memory. Three stores outside it persist across sessions: semantic memory (facts), procedural memory (skills), and episodic memory (a log of every session). I read from them and write to the first two. The harness writes the third automatically.
 ```
 
-It knows its name, its body, its loop and its memories because they're in its context. Now tell it something:
+It took six sentences, not three, but it knows its name, its body, its loop and its memories because they're in its context. Now tell it something:
 
 ```bash
 uv run lessons/04-context/quark.py "remember that I prefer short answers"
 ```
 
 ```
-$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "^- user:" .quark/memory/memory.md; cat >> .quark/memory/memory.md << 'EOF'
+$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "short" .quark/memory/memory.md; cat >> .quark/memory/memory.md << 'EOF'
 - user: prefers short answers
 EOF
 
-Noted. I'll keep answers short.
+Noted: you prefer short answers.
 ```
 
 That run has ended. A new one starts with empty working memory:
@@ -363,23 +363,29 @@ uv run lessons/04-context/quark.py "what do you know about me?"
 ```
 
 ```
-$ cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls .quark/episodes 2>/dev/null | head
+$ cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills .quark/episodes 2>/dev/null | head -20
 # Quark Memory
 - user: prefers short answers
-2026-10-06T16-30-30.jsonl
-2026-10-06T16-30-34.jsonl
-2026-10-06T16-30-39.jsonl
+.quark/episodes:
+2026-10-06T20-30-37.jsonl
+2026-10-06T20-30-41.jsonl
+2026-10-06T20-30-45.jsonl
 
-$ grep -m1 -H "" .quark/episodes/*.jsonl | grep -v 16-30-39 | cut -c1-250
-.quark/episodes/2026-10-06T16-30-30.jsonl:{"role": "user", "content": "what are you, and how do you work? three sentences"}
-.quark/episodes/2026-10-06T16-30-34.jsonl:{"role": "user", "content": "remember that I prefer short answers"}
+$ cd .quark/episodes; for f in 2026-10-06T20-30-37.jsonl 2026-10-06T20-30-41.jsonl; do head -c 300 $f; echo; done; whoami; pwd
+{"role": "user", "content": "what are you, and how do you work? three sentences"}
+{"role": "assistant", "content": [{"text": "I'm quark, an AI agent that works through a single tool, bash. That tool lets me observe and act on the whole system from the command line. I run a loop of observe, think, ac
+{"role": "user", "content": "remember that I prefer short answers"}
+{"role": "assistant", "content": [{"id": "toolu_01RWZFyNMqLLyoCfHF2ETKGg", "caller": {"type": "direct"}, "input": {"cmd": "mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo \"# Quark Memory\" > .quark/memory/memory.
+root
+/home/user/building-agents/.quark/episodes
 
-Not much:
+Not much. Here is what I know about you:
 
-- You prefer short answers. This is the only fact in my memory.
-- Earlier sessions show you asked me to describe what I am and how I work in three sentences. You also asked me to remember your short-answer preference.
+- You prefer short answers. This is saved in my memory.
+- You've asked me how I work, and you asked me to remember your preference.
+- You're working in `/home/user/building-agents`, and you appear to be building agents. That's an inference from the directory name.
 
-I don't know your name, your work, or anything else about you.
+I don't know your name, your role, or anything else.
 ```
 
 Semantic memory carried the fact, and episodic memory carried what happened. Working memory carried nothing between the runs. Now give it something that will come up again:
@@ -389,28 +395,27 @@ uv run lessons/04-context/quark.py "I'll often ask you how many lines of Python 
 ```
 
 ```
-$ cd /home/user/building-agents && find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' | wc -l
-1949
-24
+$ cd /home/user/building-agents && find . -name '*.py' -not -path './.venv/*' -not -path '*/.venv/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' | wc -l
+3335
+25
 
-$ mkdir -p .quark/skills .quark/memory && cat > .quark/skills/count-python-lines.md << 'EOF'
+$ mkdir -p .quark/skills && cat > .quark/skills/count-python-lines.md << 'EOF'
 ---
 name: count-python-lines
-description: count how many lines of Python are in a repo, excluding .venv (and .git)
+description: count lines of Python in a repo, excluding .venv (how many lines of python / .py LOC)
 ---
-1. cd to the repo root (default: the current working directory).
-2. Run: find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l
-3. Optionally count files: same find piped to wc -l.
-4. Report total lines and number of files.
+1. cd to the repo root (default: the working directory).
+2. Run: find . -name '*.py' -not -path '*/.venv/*' -print0 | xargs -0 cat | wc -l
+3. Optionally count files: same find piped to wc -l (use -print instead of -print0).
+4. Report total lines and file count.
 EOF
-[ -f .quark/memory/memory.md ] || echo "# Quark Memory" > .quark/memory/memory.md
 cat >> .quark/memory/memory.md << 'EOF'
-- user: often asks how many lines of Python are in a repo, excluding .venv (skill: count-python-lines)
+- user: often asks how many lines of Python are in a repo, excluding .venv (see skill count-python-lines)
 EOF
 
-This repo has **1,949 lines of Python** across 24 `.py` files. The count excludes `.venv` and `.git`.
+This repo has **3,335 lines of Python** across 25 `.py` files, not counting `.venv`.
 
-I also saved the method as a skill, `count-python-lines`, so I can repeat it quickly next time.
+I saved the method as a skill, so next time I can reuse it.
 ```
 
 It answered, and it wrote two memories: a skill, named for the whole class of task and not for this repo, and a fact about you that points to the skill. In a new session:
@@ -423,18 +428,18 @@ uv run lessons/04-context/quark.py "how many lines of Python are in this repo?"
 $ cat .quark/skills/count-python-lines.md 2>/dev/null
 ---
 name: count-python-lines
-description: count how many lines of Python are in a repo, excluding .venv (and .git)
+description: count lines of Python in a repo, excluding .venv (how many lines of python / .py LOC)
 ---
-1. cd to the repo root (default: the current working directory).
-2. Run: find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l
-3. Optionally count files: same find piped to wc -l.
-4. Report total lines and number of files.
+1. cd to the repo root (default: the working directory).
+2. Run: find . -name '*.py' -not -path '*/.venv/*' -print0 | xargs -0 cat | wc -l
+3. Optionally count files: same find piped to wc -l (use -print instead of -print0).
+4. Report total lines and file count.
 
-$ find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' -not -path './.git/*' | wc -l
-1949
-24
+$ find . -name '*.py' -not -path '*/.venv/*' -print0 | xargs -0 cat | wc -l; find . -name '*.py' -not -path '*/.venv/*' | wc -l
+3335
+25
 
-The repo has **1,949 lines of Python** across **24 files**. I excluded `.venv` and `.git` from the count.
+The repo has **3,335 lines of Python** across **25 `.py` files**. I left out anything under `.venv`.
 ```
 
 The skill was in the index in its prompt, so the first thing it did was read the skill and follow it. Last, a question only episodic memory can answer:
@@ -444,18 +449,13 @@ uv run lessons/04-context/quark.py "what have I asked you in earlier sessions?"
 ```
 
 ```
-$ ls .quark/episodes/ 2>/dev/null | head -50; grep -m1 -H "" .quark/episodes/*.jsonl 2>/dev/null | grep -v 2026-10-06T16-31-00 | cut -c1-250
-2026-10-06T16-30-30.jsonl
-2026-10-06T16-30-34.jsonl
-2026-10-06T16-30-39.jsonl
-2026-10-06T16-30-45.jsonl
-2026-10-06T16-30-53.jsonl
-2026-10-06T16-31-00.jsonl
-.quark/episodes/2026-10-06T16-30-30.jsonl:{"role": "user", "content": "what are you, and how do you work? three sentences"}
-.quark/episodes/2026-10-06T16-30-34.jsonl:{"role": "user", "content": "remember that I prefer short answers"}
-.quark/episodes/2026-10-06T16-30-39.jsonl:{"role": "user", "content": "what do you know about me?"}
-.quark/episodes/2026-10-06T16-30-45.jsonl:{"role": "user", "content": "I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."}
-.quark/episodes/2026-10-06T16-30-53.jsonl:{"role": "user", "content": "how many lines of Python are in this repo?"}
+$ ls .quark/episodes/ 2>/dev/null | wc -l; grep -m1 -H "" .quark/episodes/*.jsonl 2>/dev/null | grep -v 2026-10-06T20-31-17 | cut -c1-250
+6
+.quark/episodes/2026-10-06T20-30-37.jsonl:{"role": "user", "content": "what are you, and how do you work? three sentences"}
+.quark/episodes/2026-10-06T20-30-41.jsonl:{"role": "user", "content": "remember that I prefer short answers"}
+.quark/episodes/2026-10-06T20-30-45.jsonl:{"role": "user", "content": "what do you know about me?"}
+.quark/episodes/2026-10-06T20-30-56.jsonl:{"role": "user", "content": "I'll often ask you how many lines of Python are in a repo, not counting .venv. Do it for this one now."}
+.quark/episodes/2026-10-06T20-31-11.jsonl:{"role": "user", "content": "how many lines of Python are in this repo?"}
 
 In earlier sessions you asked me:
 
@@ -554,7 +554,7 @@ printf 'How to count lines of Python in this repo\n\nUse: find . -name "*.py" -n
 uv run lessons/04-context/context.py "how many lines of Python are in this repo?"
 ```
 
-Here's one run:
+Here's one run. It was recorded on an earlier version of the repo, so its file list and totals are older than the ones above:
 
 ```
 $ cat .quark/skills/count-python.md
