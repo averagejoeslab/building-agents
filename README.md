@@ -2,6 +2,10 @@
 
 **A hands-on course in building agents by building their harness.**
 
+Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoeslab)
+
+> **The paper:** [*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md) sets out this course's thesis: every agent harness reduces to five primitives, and every production concern folds back into them.
+
 ## What is harness engineering?
 
 I'm not going to give you a definition. People are bad at saying what they mean and good at showing it, and I'm no exception. I've seen it at conferences: talk after talk, people use different words for the same thing — framework, scaffold, runtime, orchestration layer — while the thing itself is still evolving. The words don't line up, but when they show you how it works, it's the same thing every time. A definition only says what something is; a mechanism shows it.
@@ -281,6 +285,26 @@ export UV_ENV_FILE=.env
 
 **→ [Start with Lesson 1](./lessons/01-model-interface/)**
 
+## How to cite
+
+If you use this course, its code or its framework, please cite the paper:
+
+```bibtex
+@misc{dovey2026fiveprimitives,
+  author       = {Chase Dovey},
+  title        = {Five Primitives Are All You Need: Building an Agent Harness},
+  year         = {2026},
+  organization = {Average Joes Lab},
+  howpublished = {\url{https://github.com/averagejoeslab/building-agents}},
+  note         = {Companion course: harness-engineering}
+}
+```
+
+GitHub's **Cite this repository** button gives the same, from [`CITATION.cff`](./CITATION.cff).
+
 ## License
 
-MIT.
+© 2026 Chase Dovey, Average Joes Lab.
+
+- **Code** (every `.py` file, and the code shown in the lessons): [MIT](./LICENSE). Use it for anything, keeping the copyright notice.
+- **Content** (the lessons' text, slides, paper, docs, diagrams and videos): [CC BY-NC-SA 4.0](./LICENSE-CONTENT). Share and adapt it with credit to Chase Dovey, Average Joes Lab, for non-commercial use, under the same license. Commercial use, such as a book or a paid course, needs permission.
