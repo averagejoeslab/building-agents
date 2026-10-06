@@ -27,9 +27,9 @@ print(output.model_dump_json(indent=2))
 
 **`client = Anthropic()`** is where the request goes: Anthropic's hosted API, through the official SDK, which reads your key from `ANTHROPIC_API_KEY`.
 
-**`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson calls the model through this one function, so the primitive stays in one place.
+**`call()`** is the model interface, all of it: it sends a request to `MODEL` and returns the response. Every later lesson's `quark.py` calls the model through this one function, so the primitive stays in one place.
 
-**`client.messages.stream(...)`** is how the response comes back: streamed, piece by piece, as the model produces it, instead of all at once at the end. A long response that arrives all at once can time out while you wait; one that streams can't. **`for event in stream: each(event)`** hands each piece, as it arrives, to `each()`. Here nothing is done with the pieces: `each` defaults to a function that ignores them. **`stream.get_final_message()`** then returns the whole response, put back together, so `call()` hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2.
+**`client.messages.stream(...)`** is how the response comes back: streamed, piece by piece, as the model produces it, instead of all at once at the end. A long response that arrives all at once can time out while you wait for it; one that streams keeps arriving, so it doesn't sit waiting. **`for event in stream: each(event)`** hands each piece, as it arrives, to `each()`. Here nothing is done with the pieces: `each` defaults to a function that ignores them. **`stream.get_final_message()`** then returns the whole response, put back together, so `call()` hands back the same response it would have if it had waited for all of it. What to do with the pieces as they arrive, like showing words as they're written, is output's job, and it comes in Lesson 2.
 
 **`messages=[...]`** is the tokens in: a list of messages, each with a `role` and `content`. `max_tokens` caps the tokens out; the model stops there, even mid-sentence.
 
@@ -103,7 +103,7 @@ Read the `text`. The model knows the right next step is `ls`. It just can't take
 - **Where the request goes.** A hosted API, a model on your own machine, a gateway in front of several providers.
 - **How it travels.** An official SDK, raw HTTP, or a layer that speaks several providers' formats so the rest of the harness doesn't have to.
 - **Which model answers.** One model, or a backup that takes over when the first is unavailable.
-- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response can't time out. quark streams.
+- **How the response arrives.** All at once, or streamed piece by piece as it's produced, so a long response doesn't sit waiting to time out. quark streams.
 - **How many go at once.** One request, or a batch of them.
 - **What happens when a request fails.** Retry it, wait out a rate limit, give up after a timeout.
 - **The request's settings.** How many tokens out, how much the model thinks first, whether you see a summary of its thinking.

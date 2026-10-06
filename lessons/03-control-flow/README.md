@@ -190,7 +190,7 @@ The `02-input-and-output` folder in `lessons` has the most files, with 5.
 [done in 2 steps]
 ```
 
-Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, the same harness stops after the first command, before the model sees its result:
+Two steps: one command, then the answer, and the loop says why it stopped. With `MAX_STEPS` set to 1, and an input that asks for the git version, the same harness stops after the first command, before the model sees its result:
 
 ```
 $ git --version
@@ -206,7 +206,7 @@ Anthropic's [Building effective agents](https://www.anthropic.com/engineering/bu
 - **Orchestrator–workers.** One call breaks the task into pieces as it goes, other calls do the pieces, and the results are combined.
 - **Evaluator–optimizer.** One call produces something, another judges it against the task, and the loop repeats until the judge passes it.
 
-Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike Lesson 1's backup model, which only steps in when the first is down and belongs to the model interface.
+Two things to keep straight when you read it. The article's building block, the *augmented LLM*, is a model with retrieval, tools and memory, and that isn't control flow: retrieval and memory are context, and tools are output. And routing stays control flow even when the path it picks is a cheaper model: that's a decision about the work, unlike the backup model in Lesson 1's `model_interface.py`, which only steps in when the first is down and belongs to the model interface.
 
 `quark.py` and `control_flow.py` are both agents: the model decides what happens next. Here's a workflow instead, an evaluator–optimizer, in [`workflow.py`](./workflow.py):
 

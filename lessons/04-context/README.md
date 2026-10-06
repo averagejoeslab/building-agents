@@ -126,7 +126,7 @@ while True:
     add(working_memory, {"role": "user", "content": input})
 ```
 
-Everything outside `# ── context ──` is Lesson 3's, with two changes in the loop. The `messages` list is renamed `working_memory`, and every `messages.append(...)` becomes `add(working_memory, ...)`. The call is now wrapped in `try`, so quark can catch "prompt is too long". The new section is context, and it has eight components.
+Everything outside `# ── context ──` is Lesson 3's, with a few changes in the loop. The `messages` list is renamed `working_memory`, and every `messages.append(...)` becomes `add(working_memory, ...)`. The call now sends `system=system()`, and it's wrapped in `try`, so quark can catch "prompt is too long" and compact on the next pass. The new section is context, and it has eight components.
 
 **Working memory.** Lesson 3's `messages` list, renamed `working_memory`, because that's what it is: everything that has happened in this session, sent in full on every call. It's how the model knows what it did two passes ago.
 
@@ -172,6 +172,8 @@ Each memory store gets the same parts: the store, how to initialize it, the form
 
 <details>
 <summary>The whole prompt</summary>
+
+It's shown as written in `system()`, except that the file doubles the literal braces in the episode format (`{{ }}`), because the prompt is a Python f-string.
 
 ````
 # Self Model
@@ -326,7 +328,7 @@ This code is your harness — shown so you know your self mechanics. The system 
 
 </details>
 
-> quark's own version does more than this. You can interrupt it with ESC, it keeps what it had done when you do, and it retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and keeping partial work, the retries and the backup model in [Lesson 8: Resilience](../../production/08-resilience/). Streaming isn't left out: quark has streamed its answers since Lesson 1.
+> quark's own version does more than this. You can interrupt it with ESC, it keeps what it had done when you do, and it retries or switches to a backup model when the network or the API fails. Those are hardening, so they're left out here: the ESC interrupt arrives in [Lesson 6: Guardrails](../../production/06-guardrails/), and keeping partial work, the retries and the backup model in [Lesson 8: Resilience](../../production/08-resilience/). Streaming isn't left out: quark has streamed its responses since Lesson 1, and shown them as they arrive since Lesson 2.
 
 ## Run it
 
@@ -417,6 +419,8 @@ This repo has **3,335 lines of Python** across 25 `.py` files, not counting `.ve
 
 I saved the method as a skill, so next time I can reuse it.
 ```
+
+(The repo has grown since these runs, so the count you get will be higher.)
 
 It answered, and it wrote two memories: a skill, named for the whole class of task and not for this repo, and a fact about you that points to the skill. In a new session:
 
@@ -541,7 +545,7 @@ while True:
     add(working_memory, {"role": "user", "content": input})
 ```
 
-- **When it fits.** quark waits for the API to refuse. `fit()` counts tokens before every call, and past `LIMIT`, a budget you choose, it summarizes everything before your latest message and keeps the rest as it is. It costs a count per call, and it keeps every request smaller and cheaper than the model's limit.
+- **When it fits.** quark waits for the API to refuse. `fit()` counts tokens before every call, and past `LIMIT`, a budget you choose, it summarizes everything before your latest message and keeps the rest as it is. It only summarizes earlier turns, so one long turn on its own is never fitted. It costs a count per call, and it keeps every request smaller and cheaper than the model's limit.
 - **How it fits.** quark keeps every tool result whole. `trim()` keeps the start and end of a result longer than `KEEP` characters and cuts the middle, before the result goes into working memory.
 - **Episodic memory.** quark writes one file per session. `context.py` writes every message of every session to one shared log, `.quark/episodes.jsonl`: simpler, and harder to search once it grows.
 - **Procedural memory.** quark indexes skills by a `name` and `description` header. `context.py` lists each file by its first line: less structure, and nothing to keep in a format.

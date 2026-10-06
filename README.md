@@ -6,7 +6,7 @@ Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoesl
 
 This repo has three parts, in the order to read them:
 
-1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four primitives, then six production layers. Start here.
+1. **[The course](#what-is-harness-engineering).** What a harness is made of, then ten lessons that build one: four that build its five primitives, then six production layers. Start here.
 2. **[The paper](#the-paper).** The course's thesis, written up and tested against Claude Code, OpenAI Codex and opencode.
 3. **[quark at work](#quark-at-work).** The harness you build in Lesson 4 doing real work on this repo, from its own memory across ten sessions: it brought the slides in line with the lessons, made their PDFs, reviewed the paper and weighed in on the order of the production lessons. It's the paper's case study.
 
@@ -47,7 +47,7 @@ Input and output are built independently, but they're two ends of the same excha
 
 You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
-The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add the primitive the last one was missing, and each one's `quark.py` is the previous lesson's plus that primitive.
+The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add what the last one was missing (input and output, then control flow, then context), and each one's `quark.py` is the previous lesson's plus that.
 
 The course is **the primitives**, Lessons 1–4: they build a working harness, and they're the part to learn first. **The production layers**, Lessons 5–10, come after. They harden that harness for running unattended, and every one of them folds back into the primitives you already built.
 
@@ -116,7 +116,7 @@ It's a preprint. [`paper/README.md`](./paper/README.md) lists the paper's files.
 
 ## quark at work
 
-This is the proof. It's the `quark.py` you finish Lesson 4 with, nothing added, doing real work on this repo. These runs came just before quark started streaming, so their `quark.py` is 234 lines and prints each response once it's complete. Everything else is the same as today's 239 lines. In ten sessions, it:
+This is the proof. It's the `quark.py` you finish Lesson 4 with, nothing added, doing real work on this repo. These runs came just before quark started streaming, so their `quark.py` is 234 lines and prints each response once it's complete. Apart from that, and the decoding fix described under [Writing AGENTS.md](#writing-agentsmd), it's the same as today's 239 lines. In ten sessions, it:
 - brought the four primitive lessons' slide decks into line with the lessons;
 - turned all ten decks into PDFs;
 - reviewed the paper;
@@ -189,7 +189,7 @@ On tone, it found the paper already academic, apart from one heading and one con
 
 ### Ordering the production lessons
 
-We asked for a recommendation, and gave it Chase's view to argue with: sandboxing, guardrails, resilience, performance, evaluation, observability.
+At the time, the production lessons were in a different order (observability, guardrails, sandboxing, resilience, performance, evaluation), so the lesson numbers in quark's answer below follow that order. We asked for a recommendation, and gave it my view to argue with: sandboxing, guardrails, resilience, performance, evaluation, observability.
 
 <details>
 <summary>quark's recommendation</summary>
@@ -254,7 +254,7 @@ We reviewed everything quark changed before it was merged.
 **What we fixed by hand.**
 - **The 86/148 split outside the paper.** quark only changed the paper, as asked, and pointed out that Lesson 4's README, its deck and `AGENTS.md` still said 82/152. We changed them.
 - **Two unreadable slides.** Marp shrinks a code block until its longest line fits. On one Lesson 1 slide and one Lesson 4 slide, a single very long line of output shrank to a size no one could read. quark's check measured whether anything ran off the page, not whether it could be read, so it missed them. We showed one as a quote and shortened the other, saying so on the slide.
-- A few slides elsewhere have code at about 6 points. That's small, but readable full-screen.
+- A few slides elsewhere had code at about 6 points. The decks have since been rewritten, and none is that small now.
 
 **Where its memory slipped.**
 - **A fact it didn't replace.** After run 2d finished the last deck, its notes still said Lesson 4's deck was out of date. The prompt says to replace a fact when it changes, and it added new facts instead.
@@ -265,8 +265,6 @@ We reviewed everything quark changed before it was merged.
 Memory is a summary, and a summary can be wrong in ways that read as confident. That's why the review step exists.
 
 **Since these runs.** The decks quark rebuilt matched their lessons but weren't made to be presented: 50 to 110 slides each, many with a single sentence. They've since been rewritten for teaching to a room, shorter and with speaker notes, and the production lessons have been rebuilt in a new order. What's above is the work as quark did it; the transcripts are the record.
-
-**Thin slides.** Holding to "one idea per slide" and the lesson's exact wording made the decks long, from 50 to 110 slides. Some slides are a single sentence, and a few repeat their own title. Everything on them is true, but a presenter will want to skip some.
 
 ### The earlier version at work
 

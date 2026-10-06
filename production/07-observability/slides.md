@@ -283,6 +283,7 @@ Tracing platforms like Langfuse and LangSmith are this layer: you send them span
 - **Spans:** `span()` records an id, a `parent`, a `start` and `seconds`; a crash is recorded and still crashes
 - **Cost:** `cost()` multiplies the four token counts by `PRICE` (example rates)
 - **A live line** per step, **a summary** per run, and **a report** across every run
+- **A second opinion:** Jev, a small decision model, says whether each tool failed
 
 <!-- The run is the parent of every model call and tool, so the file is a tree, not a list. The rates in PRICE are examples: the API doesn't tell you what you pay. -->
 
@@ -293,17 +294,54 @@ Tracing platforms like Langfuse and LangSmith are this layer: you send them span
 `observability.py "run ls /nonexistent, then run sleep 3 ..."` prints a line per step (shortened):
 
 ```
-[step 1: model 1.96s, 397 tokens in, 166 out, $0.0037]
+[step 1: model 2.76s, 397 tokens in, 233 out, $0.0047]
 $ ls /nonexistent
-[step 1: tool 0.0s, exit 2]
+[step 1: tool 0.0s, exit 2, Jev: failed 0.98]
 $ sleep 3
-[step 1: tool 3.0s, exit 0]
-[step 2: model 1.35s, 645 tokens in, 71 out, $0.0030]
+[step 1: tool 3.0s, exit 0, Jev: failed 0.02]
+[step 2: model 0.97s, 712 tokens in, 52 out, $0.0029]
 ```
 
-At the end, `row()` sums the run into one line: `prob.` 1 (one tool exited non-zero), 6.3 seconds, 3.0 of them the `sleep`.
+At the end, `row()` sums the run into one line: `prob.` 1 (one tool exited non-zero), `jev` 1, 6.7 seconds, 3.0 of them the `sleep`.
 
-<!-- The live line comes after every model call and tool: step, time, tokens in and out, cost, exit code. You see where the time and money go while it runs. -->
+<!-- The live line comes after every model call and tool: step, time, tokens in and out, cost, exit code, and Jev's answer. You see where the time and money go while it runs. -->
+
+---
+
+# A second opinion: did that tool fail? (abridged)
+
+```python
+def failed(cmd, result):
+    try:
+        return round(jev.system_one({"command": cmd, "result": result}, ERROR).nouls["error"].noul, 2)
+    except Exception:
+        return None
+```
+
+- `ERROR` asks Jev: does `result` show that the command failed or hit an error?
+- The answer goes in its own `jev` span, child of the tool's, beside the exit code
+- The `jev` column counts tools Jev was at least `SURE` (0.9) sure failed
+- Asking is model interface; writing it down is observability. It never changes a run
+
+<!-- An exit code is a rough signal: grep exits 1 when it finds nothing, and a pipe exits with its last stage. Jev is the decision model from Lesson 5; it needs TYPESAFE_API_KEY. If it doesn't answer, the span says None and nothing is counted. -->
+
+---
+
+# Where the exit code and Jev disagree
+
+`observability.py "run grep -rn FIXME ..., then run ls /nonexistent | head -1, ..."` (shortened):
+
+```
+$ grep -rn FIXME production/07-observability
+[step 1: tool 0.0s, exit 1, Jev: failed 0.76]
+$ ls /nonexistent | head -1
+ls: cannot access '/nonexistent': No such file or directory
+[step 1: tool 0.0s, exit 0, Jev: failed 0.97]
+```
+
+The exit code counts the `grep` that found nothing. Jev counts the `ls` the pipe hid. Jev still gave the `grep` 0.76: a probability, not a fact, so it sits beside the exit code.
+
+<!-- Both columns said 1 for this run, but they were counting different tools. Only SURE kept the grep out of Jev's count. -->
 
 ---
 
@@ -311,15 +349,16 @@ At the end, `row()` sums the run into one line: `prob.` 1 (one tool exited non-z
 
 `observability.py report` reads the whole log: one line per run (some columns left out).
 
-| run | calls | tools | prob. | time | cost |
-|---|---|---|---|---|---|
-| 7941924a | 2 | 1 | 0 | 2.2s | $0.0045 |
-| 98bab13a | 4 | 3 | 0 | 5.3s | $0.0211 |
-| 47a469d6 | 2 | 2 | 1 | 6.3s | $0.0067 |
+| run | calls | tools | prob. | jev | time | cost |
+|---|---|---|---|---|---|---|
+| 0348969a | 2 | 1 | 0 | 0 | 2.2s | $0.0045 |
+| ff40e40a | 4 | 3 | 0 | 0 | 7.4s | $0.0228 |
+| 6dae6b62 | 2 | 2 | 1 | 1 | 6.7s | $0.0076 |
+| c0808f2d | 2 | 2 | 1 | 1 | 2.6s | $0.0058 |
 
-The run that went looking for a file with the wrong name took four calls and cost nearly five times the first.
+The run that went looking for a file with the wrong name took four calls and cost about five times the first.
 
-<!-- A trace of one run tells you what happened; a table of every run tells you what's normal. The run that went looking for a file with the wrong name took four calls and cost nearly five times the first. Costs are at the example rates, so they show which run was expensive, not what you were billed. -->
+<!-- A trace of one run tells you what happened; a table of every run tells you what's normal. The run that went looking for a file with the wrong name took four calls and cost about five times the first. Costs are at the example rates, so they show which run was expensive, not what you were billed. -->
 
 ---
 

@@ -148,7 +148,7 @@ for block in output:                                     # output: run tool requ
 
 **`show()`** is output that shows text as it's written. Lesson 1's `call()` hands each piece of the streaming response to `each()`; here `call(show, ...)` makes that `show`. Each piece of text is printed the moment it arrives, so you watch the words appear instead of waiting for the whole response, and when a text block ends, `show()` ends the line. Every other piece, like thinking or a tool request being written, it lets pass.
 
-**`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` is 16384 here and from now on, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
+**`output`** is now the content of the response, `call(...).content`: a list of blocks, the whole response once it's done. Its text has already been shown, so **`for block in output`** only looks for `tool_use` blocks: requests to run something. Thinking blocks go nowhere. `max_tokens` stays at Lesson 1's 16384, to leave room for the model to think before it asks: a response cut off in the middle of a tool request would leave `block.input` without a `cmd`, and this code would crash. `input_output.py`, further down, checks for that instead.
 
 **`subprocess.run(...)`** runs the command. `stderr=subprocess.STDOUT` merges errors into the output, in the order they happened. `errors="replace"` turns any bytes that aren't valid text into `�`, so a command that prints half a character can't crash the harness. The command and what it printed go to the person, so they can see what ran.
 
@@ -252,6 +252,8 @@ $ wc -l README.md
 ```
 
 It's the same input as `input.py`, and the model asked for the same `wc -l README.md`. This time output ran it. The model didn't say anything before asking; sometimes it does. Run it with no input on the command line and it prompts you with `> ` instead.
+
+(README.md has grown since this run, so you'll see a bigger number.)
 
 Notice what never happens: the model never sees the 301. It's sitting in `input`, and nothing sends it.
 

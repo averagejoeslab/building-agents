@@ -294,43 +294,47 @@ Then the model: *"You interrupted me with ESC, so I stopped both commands."*
 
 ---
 
-# `performance.py`: a small model routes
+# `performance.py`: Jev routes
 
-Lesson 3's loop, async, measuring itself. One call to a small model routes each task:
+Lesson 3's loop, async, measuring itself. Jev sizes each task: `lookup` → Haiku, `edit` → Sonnet, `work` → Opus (abridged):
 
 ```python
-ROUTER = "claude-haiku-4-5"
-TIERS = {                                    # tier -> (model, effort)
-    "quick":    ("claude-haiku-4-5", None),
-    "standard": ("claude-sonnet-5-5", "medium"),
-    "deep":     ("claude-opus-5-5", "high"),
-}
+DEFAULT, SURE = "edit", 0.7
+async def size(input):
+    try:
+        answer = (await jev.system_one({"input": input}, {"size": SIZE})).choices["size"]
+    except Exception as e:
+        return DEFAULT, f"no answer from Jev ({type(e).__name__})"
+    if answer.confidence < SURE: return DEFAULT, f"Jev: {answer.choice}, {answer.confidence:.2f}, not sure enough"
+    return answer.choice, f"Jev: {answer.choice}, {answer.confidence:.2f}"
 ```
 
-- Every call prints time to first output and how input splits: new, from cache, written
-- Its prompt holds the project's README and `docs/`, so there's something to cache
+- Asking is model interface; acting on the answer is routing, control flow
+- Not sure, or no answer: the middle tier
 
-<!-- Routing is control flow, Lesson 3, so this example reaches beyond quark. It's decided once per task, not per step, because the cache belongs to one model. Its commands run together, up to four at a time. -->
+<!-- Jev is the decision model from Lesson 5: it writes no text, answers typed questions in about a fifth of a second, with a confidence. The answer says what; the confidence says whether to act on it. It's decided once per task, not per step, because the cache belongs to one model. Every call prints time to first output and how input splits: new, from cache, written. Its prompt holds the project's README and docs, so there's something to cache. -->
 
 ---
 
-# Warm cache, cheaper bill; a guess, wrong
+# Warm cache, cheaper bill; a guess, caught
 
 ```
-[done in 2 steps, 1.7s, 50% of input tokens read from the cache]
-[done in 2 steps, 1.9s, 100% of input tokens read from the cache]
+[routed to lookup: claude-haiku-4-5 (Jev: lookup, 0.99)]
+[done in 2 steps, 2.1s, 50% of input tokens read from the cache]
+[done in 3 steps, 2.8s, 99% of input tokens read from the cache]
 ```
 
-Same task twice: 50% of input from the cache cold, 100% warm. The saving was in the bill, not the clock.
+Same task twice (shortened): cold, then warm. The saving was in the bill, not the clock.
 
 ```
-[routed to deep: claude-opus-5-5]
+[routed to edit: claude-sonnet-5-5 (Jev: work, 0.49, not sure enough)]
 [3 commands: 3.0s together, 9.0s one after another]
+[routed to work: claude-opus-5-5 (Jev: work, 0.94)]
 ```
 
-Three `echo`s sent to the deep tier: more model than they need.
+Three `echo`s: not sure, so the middle tier. Making `slow.py` fast: sure, so Opus.
 
-<!-- The router's guess can be wrong, and I can't see why it went that way. You'd tune it until its mistakes cost less than it saves, and you'd want a way to know that. That's where this course is going. -->
+<!-- Three echos: Jev leaned towards work but wasn't sure, so the bar sent them to the middle tier, not to Opus. A real performance fix in slow.py: work, 0.94, Opus, 4.2 seconds down to 0.03. With a key Jev doesn't accept, the task still ran, on the middle tier. Jev reads literally: adding "Answer in two sentences; don't edit anything." to a question pulled its confidence from 0.94 to 0.63. -->
 
 ---
 
