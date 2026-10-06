@@ -471,7 +471,7 @@ Version
 \end{longtable}
 }
 
-The decomposition was performed with AI assistance. An agent read the source code or documentation with the definitions of this paper and recorded each assignment with file-and-line or URL evidence, so that every assignment can be verified against its source. The complete tables, with the evidence for each assignment, are provided in the \href{https://github.com/averagejoeslab/building-agents/blob/main/paper/decomposition-study.md}{supplement}.
+The decomposition was carried out with an AI coding agent as a research instrument (see the Disclosure of AI use). The agent applied the definitions of §3 and §4 to the source code or documentation of each harness and recorded every assignment with file-and-line or URL evidence; the author reviewed the assignments, and each can be verified against its source. The complete tables, with the evidence for each assignment, are provided in the \href{https://github.com/averagejoeslab/building-agents/blob/main/paper/decomposition-study.md}{supplement}.
 
 \subsection{Design choices within each primitive}
 
@@ -728,16 +728,14 @@ Constructed one at a time, outward from a single API call, the five primitives y
 
 The claim is not that every harness should resemble quark. It is that every harness, irrespective of scale, can be analyzed with five questions, and that each of its design decisions belongs to exactly one of them. Five primitives suffice to build an agent harness and to take one apart.
 
-\section*{Acknowledgments and disclosure of AI use}
+\section*{Disclosure of AI use}
 
-The companion artifact was developed with two AI agents, and we disclose this because the case study depends on it.
+AI tools were used in three distinct roles, which we separate because two of them are part of the method.
 
-\begin{itemize}
-\tightlist
-\item
-  \textbf{Claude Code} (Anthropic) assisted the author with the artifact's README and primitive lessons, operated quark and reviewed its output, conducted the decomposition study of §7 under the author's direction, and assisted in drafting this paper from the artifact's content.
-\item
-  \textbf{quark}, the agent constructed in §5, running on Anthropic's Claude models, wrote the six production lessons and the slide decks, which were subsequently reviewed and corrected as described in §8.
-\end{itemize}
+\textbf{As the object of study.} The case study (§8) concerns quark, the agent constructed in §5, running on Anthropic's Claude models. quark wrote the six production lessons and the slide decks of the companion artifact. Its output was reviewed against the source material and corrected, as reported in §8; its transcripts are retained in the artifact.
 
-The thesis, the five primitives, their definitions and the method are the author's, and the author is responsible for every claim in this paper. Every run quoted here is excerpted in the appendices and reproduced in full, with transcripts, in the artifact.
+\textbf{As a research instrument.} The decomposition study (§7) was carried out by an AI coding agent, Claude Code (Anthropic), under the author's direction. The agent applied the definitions of §3 and §4 to each harness and recorded every assignment with file-and-line or URL evidence. The author reviewed the assignments, and every assignment can be checked independently against the cited source (see the supplement).
+
+\textbf{As a writing tool.} Claude Code assisted the author with the artifact's README and primitive lessons, and with drafting and editing this manuscript from the artifact's content. The author reviewed and edited all text.
+
+The thesis, the five primitives, their definitions and the method are the author's. No AI system is an author of this work, and the author takes full responsibility for its content.
