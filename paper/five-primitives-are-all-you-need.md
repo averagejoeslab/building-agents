@@ -3,88 +3,135 @@
 **Chase Dovey**
 Average Joes Lab
 
-October 2026 · Draft
+October 2026 · Preprint draft
 
-Companion course and code: [harness-engineering](../README.md)
+Companion course and code: [harness-engineering](https://github.com/averagejoeslab/building-agents) · Decomposition study: [supplement](./decomposition-study.md)
 
 ---
 
 ## Abstract
 
-People describe LLM agents with words that don't line up: framework, scaffold, runtime, orchestration layer, harness. Recent work argues that this outer layer decides much of how an agent performs, and that comparisons which leave it out mislead. But the field has no shared account of what the layer *is*. This paper gives one. Its starting point is a split into two parts: **the model** is a function, *TokensOut = Model(TokensIn)*, and **the harness** is everything else, so **Agent = Harness(Model)**. I then argue that every harness reduces to **five mechanistic primitives**:
+People describe LLM agents with words that don't line up: framework, scaffold, runtime, orchestration layer, harness. Recent work argues that this outer layer drives much of how an agent performs, and that comparing agents without it misleads. But nobody has said what the layer is made of. I give an answer.
 
-- **control flow** decides what runs, in what order, and when to stop, and wraps the other four;
+An agent is two things. **The model** is a function, *TokensOut = Model(TokensIn)*. **The harness** is everything else. So **Agent = Harness(Model)**. Every harness, I argue, is made of **five mechanistic primitives**:
+
+- **control flow** decides what runs, in what order, and when to stop, and it wraps the other four;
 - **input** gathers what goes to the model, from a person or the world;
 - **context** decides what the request holds and how it fits;
 - **the model interface** sends the request and gets the response back;
 - **output** handles the response, by showing it to a person or running it as a tool.
 
-The reduction uses one method throughout: ask of any agent part *what is it, and by what mechanism does it work?* Then define each primitive as much by what it never does as by what it does.
+The method is one question, asked again and again: *what is it, and by what mechanism does it work?* Each primitive is defined as much by what it never does as by what it does.
 
-The core of the paper is a constructive argument. A working agent, quark, is built outward from a single API call, one primitive at a time. Each step's missing piece is exactly the next primitive, and the finished harness is 48 lines of Python with nothing outside the five.
+The core of the paper is a build. I start from a single API call and add one primitive at a time, and each step's missing piece turns out to be exactly the next primitive. The finished agent, quark, is 48 lines of Python, with nothing outside the five.
 
-A corollary follows. Production concerns (observability, guardrails, sandboxing, resilience, performance and evaluation) look like new building blocks, but each one is hardening that folds back into the primitives it touches. Evaluation is the one layer outside the harness, and it is the same primitives arranged one level up. A case study, in which the finished agent wrote much of its own course, shows the vocabulary in use: each failure along the way landed on a specific primitive.
+Two results follow.
 
-The result is a small vocabulary that can take apart any harness and place every product in the field. It also turns "what is a harness?" into a claim anyone can test: find a part that fits none of the five.
+1. **Production concerns fold back into the primitives.** Observability, guardrails, sandboxing, resilience, performance and evaluation look like new building blocks. Each is hardening inside the primitives it touches.
+2. **The vocabulary holds on real systems.** I take apart three production coding agents (Claude Code, OpenAI Codex CLI and opencode) part by part. Nothing in them needs a sixth primitive. The study also found where my original rules were too loose, and I tighten them here.
+
+A case study, in which quark wrote much of its own course, shows the vocabulary used for diagnosis.
 
 ---
 
 ## 1. Introduction
 
-Watch enough talks about agents and a pattern shows up. Speakers use different words for the same thing: the *framework*, the *scaffold*, the *runtime*, the *orchestration layer*, the *harness*. Yet when they show how their system works, the mechanism is the same every time. A model is called. Something decides what goes into the call. Something acts on what comes back. Something decides whether to go again. The words disagree, but the mechanisms don't.
+I've watched a lot of talks about agents. Speaker after speaker uses a different word for the same thing: the *framework*, the *scaffold*, the *runtime*, the *orchestration layer*, the *harness*. But when they show how their system works, it's the same mechanism every time.
 
-That gap is a practical problem. A team that can't name the parts of its agent can't say which part caused a failure. Readers can't compare two systems whose authors describe them in different terms. And the field keeps meeting the same handful of ideas as new products: memory layers, gateways, tool protocols, tracing platforms, sandboxes, evaluation suites. With no map, it's unclear whether each one is new or an old idea in new clothes.
+- A model is called.
+- Something decides what goes into the call.
+- Something acts on what comes back.
+- Something decides whether to go again.
 
-Interest in the outer layer is now explicit. A run of 2026 papers works on *harness engineering*: harness design for coding agents, harnesses for auditable enterprise agents, deterministic execution constraints, reusable tool primitives, code as a harness. One argues outright that agents shouldn't be compared without disclosing their harness [10–15]. These papers treat the harness as decisive. None of them says what a harness is made of.
+The words don't line up. The mechanisms do.
 
-This paper's answer is reductive and mechanistic. It is **reductive** because it takes an agent apart until the parts stop being shared across systems. It is **mechanistic** because each part is defined by what it *does* in the path from a request to a response, not by what it's called or which product provides it.
+That gap costs something:
 
-**Contributions.** The paper's main contribution is the first three items. The rest follow from them.
+- **Diagnosis.** If you can't name the parts of your agent, you can't say which part failed.
+- **Comparison.** You can't compare two systems whose authors describe them differently.
+- **The market.** The field keeps meeting the same few ideas as new products: memory layers, gateways, tool protocols, tracing platforms, sandboxes, evaluation suites. Without a map, it's hard to tell whether each is new or an old idea renamed.
 
-1. **A two-part split of agents.** The model is a fixed function and the harness is everything around it: *Agent = Harness(Model)* (§2).
-2. **Five primitives of a harness,** each defined positively and negatively, with rules for the cases at their boundaries (§3–4).
-3. **A constructive argument that the five are enough:** a working agent built one primitive at a time, where each step's missing piece is exactly the next primitive (§5).
-4. **A corollary for production:** observability, guardrails, sandboxing, resilience, performance and evaluation are hardening that folds back into the primitives, not new ones (§6).
-5. **A way to take apart existing systems and products,** sorting each under the primitive it implements (§7).
-6. **A case study** in which the agent built in this paper wrote much of the course that teaches it (§8).
+The outer layer now has a name and a literature. A run of 2026 papers works on *harness engineering*:
 
-The paper comes with an open course and code base, [harness-engineering](../README.md). Every code listing and every run quoted here is reproduced there in full, with real output.
+- an empirical study of harness design for coding agents [6];
+- harnesses for auditable enterprise agents [4];
+- deterministic execution constraints [7];
+- reusable tool primitives inside a harness [8];
+- a survey of code as an agent harness [9];
+- a position paper arguing that agents shouldn't be compared without disclosing their harness [5].
+
+They all treat the harness as what matters. None says what a harness is made of.
+
+My answer is **reductive**: take an agent apart until the parts stop being shared across systems. It is also **mechanistic**: define each part by what it does on the path from a request to a response, not by what it's called or who sells it.
+
+**Contributions.** The first three are the paper. The rest follow from them.
+
+1. **Agent = Harness(Model):** the model is a fixed function, and everything around it is harness (§2).
+2. **Five primitives of a harness,** each defined by what it does and what it never does, with rules for the hard cases at their boundaries (§3–4).
+3. **A build showing the five are enough:** a working agent, built one primitive at a time, where each step's missing piece is the next primitive (§5).
+4. **Production hardening folds back** into the primitives instead of adding new ones (§6).
+5. **A decomposition of three production harnesses,** Claude Code, Codex and opencode. Nothing needs a sixth primitive, and the study sharpens the rules (§7).
+6. **A case study** in which the agent built here wrote much of the course that teaches it (§8).
+
+Everything here comes from an open course, [harness-engineering](https://github.com/averagejoeslab/building-agents). Every listing and every run I quote is there in full, with real output.
 
 ---
 
 ## 2. Two primitives: the model and the harness
 
-Start with the agent and ask what it is made of. There are two parts.
+Start with an agent and ask what it's made of. Two things.
 
-**The model predicts.** Given a sequence of tokens, it produces the tokens most likely to come next:
+**The model predicts.** Given tokens, it produces the tokens most likely to come next:
 
 > **TokensOut = Model(TokensIn)**
 
-Seen from outside, the model is a function. It has no memory between calls, it can't read a terminal, it can't run a command, and it can't decide to be called again. Everything it knows about the present moment is in the tokens it's given. The model is built by *model development*: training data, compute, and methods to train and evaluate. That is a separate discipline, and this paper treats its output as fixed.
+From the outside, the model is a function. Between calls it has no memory. It can't read a terminal or run a command. It can't decide to be called again. All it knows about this moment is in the tokens it's handed. Building it is *model development*: training data, compute, and the methods to train and evaluate a model. That's its own discipline, and I treat what it produces as fixed.
 
 **The harness does everything else.** It decides:
 
-- how inputs are gathered,
-- how they're presented to the model,
-- how the model is called,
-- how the model's outputs are handled,
-- how information flows between all of these.
+- how inputs are gathered;
+- how they're presented to the model;
+- how the model is called;
+- how its outputs are handled;
+- how information flows between all of them.
 
 > **Agent = Harness(Model)**
 
-The model goes inside, and the harness wraps it. *Harness engineering* is the work of building the second part.
+The model goes inside, and the harness wraps it. Harness engineering is building that second part.
 
-This split is deliberately blunt, and it has a consequence: anything that isn't the model's weights is harness. A system prompt is harness. A tool is harness. A retry policy is harness. So is a memory store. Two agents built on the same model differ only in their harnesses, and that is why a comparison that leaves out the harness compares the wrong thing.
+The split is blunt on purpose. Anything that isn't the model's weights is harness: a system prompt, a tool, a retry policy, a memory store. Two agents on the same model differ only in their harnesses, so a comparison that leaves out the harness is comparing the wrong thing.
 
 ### 2.1 Method
 
-The method is a single question, applied again and again:
+The method is one question:
 
 > *What is it, and by what mechanistic primitives does it work?*
 
-Apply it to an agent and you get a model and a harness. Apply it to a harness and you get five primitives (§3). Apply it once more, to a primitive, and the answers stop being shared. One harness's input reads a terminal, another's reads a Slack channel, and a third's reads a webhook. That is where taking apart ends. A primitive, in this sense, is the deepest level at which every harness still has the same parts.
+Asking it gives a sequence of answers:
 
-Each primitive is then defined in two ways. The **positive** definition says what it does. The **negative** definition says what it never does, by naming which other primitive owns that job. The negative definitions do most of the work. They make the primitives disjoint, so that any piece of harness code has exactly one home.
+1. **Ask it of an agent** and you get a model and a harness.
+2. **Ask it of a harness** and you get five primitives (§3).
+3. **Ask it once more,** of a primitive, and the answers stop being shared. One harness's input reads a terminal, another's reads a Slack channel, and a third's reads a webhook.
+
+That's where taking apart ends. A primitive is the deepest level at which every harness still has the same parts.
+
+Each primitive gets two definitions:
+
+- **positive:** what it does;
+- **negative:** what it never does, naming which other primitive owns that job.
+
+The negative definitions do most of the work. They make the primitives disjoint, so every piece of harness code has exactly one home. A piece is placed by **what it does, not where the code sits** or what it's called (§4).
+
+### 2.2 Scope
+
+The primitives describe what happens on the path of a request at run time. Some of what ships with a harness never runs on that path, and I leave it out of scope the way I leave out model development:
+
+- **Transport and hosting:** a client/server split, a remote workspace, the process that serves the UI.
+- **Persistence:** the database.
+- **Event wiring:** an internal event bus.
+- **Configuration and packaging:** loading settings, installing plugins.
+
+They carry, store or configure the primitives without being a step in a pass. Where they do something on the path, such as a saved transcript the harness replays, that piece is placed like any other.
 
 ---
 
@@ -98,7 +145,7 @@ control flow          how information flows between the other four: run once, a 
 └── output            how the model's outputs are handled: shown to a person, or run as tools
 ```
 
-One pass through a harness follows a single path:
+One pass through a harness follows one path:
 
 ```
 person or world ─► input ─► context ─► request ─► model interface ─► response ─► output ─► person or world
@@ -106,33 +153,42 @@ person or world ─► input ─► context ─► request ─► model interfac
                      └─────────────────────────── result ───────────────────────────┘
 ```
 
-Input gathers what goes in. Context assembles it into a request and makes it fit. The model interface sends the request and receives the response. Output handles the response, by showing it to a person or running a tool. A tool's result comes back as input. Control flow decides what happens at the end of the path: the result goes around again, a person gets a turn, or everything stops.
+1. Input gathers what goes in.
+2. Context assembles it into a request and makes it fit.
+3. The model interface sends the request and gets the response.
+4. Output handles the response, by showing it to a person or running a tool. A tool's result comes back as input.
+5. Control flow decides what happens at the end: go around again, give a person a turn, or stop.
 
 ### 3.1 Model interface
 
 **Does:** sends tokens to the model as a request and gets tokens back as a response.
 
-**Never does:** decide *when* to call (control flow), gather what goes in (input), decide how it's presented (context), or act on what comes back (output).
+**Never does:** decide when to call (control flow), gather what goes in (input), decide how it's presented (context), or act on what comes back (output).
 
-The model interface is the thinnest primitive, and that follows from where it sits. The other four live on the harness's side. The model interface is the boundary itself: in *Agent = Harness(Model)*, it is the parentheses. Its minimal form is one SDK call. Richer forms vary along a handful of axes:
+It's the thinnest primitive, because of where it sits. The other four live on the harness's side. The model interface is the boundary: in *Agent = Harness(Model)*, it's the parentheses. At its smallest it's one SDK call. Bigger ones vary along a few lines:
 
-- where the request goes (a hosted API, a local model, a gateway);
-- how it travels (an SDK, raw HTTP, a translation layer between providers);
-- which model answers (one, or a backup for when the first is unavailable);
-- how the response arrives (all at once, or streamed);
-- how many requests go at once (one, or a batch);
-- what happens on failure (retry, back off, time out);
-- the request's settings (output cap, thinking effort, whether a thinking summary is returned).
+- **Where the request goes:** a hosted API, a local model, a gateway.
+- **How it travels:** an SDK, raw HTTP, a layer that translates between providers.
+- **Which model answers:** one model, or a backup for when the first is down.
+- **How the response arrives:** all at once, or streamed.
+- **How many requests go:** one at a time, or a batch.
+- **What happens when a request fails:** retry, wait, time out.
+- **The request's settings:** output cap, thinking effort, whether you get a summary of the thinking.
 
-All of these concern getting one request there and one response back.
+All of it is about getting one request there and one response back.
 
 ### 3.2 Input
 
-**Does:** gathers what goes to the model, from a **person** (a task, a question, a message) or from **the world** (what happened when a tool ran: its output, its exit code, whether it failed).
+**Does:** gathers what goes to the model, from a **person** (a task, a question, a message) or from **the world** (what happened when a tool ran: what it printed, its exit code, whether it failed).
 
 **Never does:** decide how what it gathered is laid out in the request (context), send it (model interface), or decide whether to go again (control flow).
 
-Input is the harness's afferent pathway: it carries signals in. Its sources vary (command-line arguments, a prompt, a pipe, a chat app, a webhook, a schedule), and so do its forms (text, images, files). Its one invariant is that it brings something from outside the harness to the edge of the request.
+Input is the harness's afferent pathway, carrying signals in.
+
+- **Where it comes from:** command-line arguments, a prompt, a pipe, a chat app, a webhook, a schedule.
+- **What it can be:** text, images, files.
+
+Wherever it comes from, input does one thing: it brings something from outside the harness to the edge of the request.
 
 ### 3.3 Output
 
@@ -140,32 +196,32 @@ Input is the harness's afferent pathway: it carries signals in. Its sources vary
 
 **Never does:** decide whether a tool's result goes back to the model (control flow), or what the next request holds (context).
 
-Output is the efferent pathway: it carries actions out. The model can't act, but it can *ask*. Its response can include a request to use a tool, given as a name and arguments in a shape the harness described to it. Output runs the request, and what happened comes back as input: **the model asks; the harness acts.** Output's choices include:
+Output is the efferent pathway, carrying actions out. The model can't act, but it can ask. Its response can include a request to use a tool: a name and arguments, in a shape the harness described to it. Output runs the request, and what happened comes back as input. **The model asks; the harness acts.** Output's choices include:
 
-- which tools exist (one general tool or many specific ones);
-- where they run (the same machine, a container, a remote host, the provider);
-- whether several requests run in sequence or at once;
-- when *not* to run (a request cut off mid-generation is incomplete, and running half a command is worse than running none);
-- what happens when a tool fails or hangs.
+- **Which tools exist:** one general tool, or many specific ones.
+- **Where they run:** this machine, a container, a remote host, the provider.
+- **How they run:** one after another, or at the same time.
+- **When not to run:** a request cut off mid-generation is incomplete, and running half a command is worse than running none.
+- **What happens when a tool fails or hangs.**
 
-Input and output are built independently, but they are two ends of one exchange, and they meet at the tool. A tool needs both: output to run it, and input to bring its result back.
+Input and output are built separately, but they're two ends of one exchange, and they meet at the tool. A tool needs both: output to run it, and input to bring back what happened.
 
 ### 3.4 Control flow
 
-**Does:** **sequences** the other four primitives, passing what one produced to the next, and **terminates**, deciding when to stop or hand back to a person.
+**Does:** **sequences** the other four, passing what one produced to the next, and **terminates**, deciding when to stop or hand back to a person.
 
 **Never does:** send the request (model interface), gather (input), present (context), or handle the response (output).
 
-Control flow is the one primitive that wraps the others. How it arranges them decides what has been built:
+Control flow is the one primitive that wraps the others. How it arranges them decides what you've built:
 
 | Shape | Arrangement | Who decides what happens next |
 |---|---|---|
 | Single call | input → call → output, stop | nobody; it's fixed |
 | Chat loop | call, show, hand back to the person, repeat | the person |
-| Workflow | code lays out the calls: draft, judge, rewrite | the harness's code |
-| Agent loop | call; while the model asks for tools, run them, send results back, call again | the model |
+| Workflow | your code lays out the calls: draft, judge, rewrite | your code |
+| Agent loop | call; while the model asks for tools, run them, send the results back, call again | the model |
 
-In this framing, the line between a *workflow* and an *agent* is a fact about control flow: who decides the next step [3]. Termination is part of the definition and not an afterthought: *a loop with no clear way to end is a bill with no clear way to end.* The minimal agent loop ends when the model stops asking for tools. Richer ones also stop on a step limit, a spending limit, a refusal, or a person saying stop.
+So the line between a *workflow* and an *agent* [3] is a fact about control flow: who decides the next step. Termination is half the definition, not an afterthought. A loop with no clear way to end is a bill with no clear way to end. The smallest agent loop ends when the model stops asking for tools. Bigger ones also stop on a step limit, a spending limit, a refusal, or a person saying stop.
 
 ### 3.5 Context
 
@@ -173,96 +229,160 @@ In this framing, the line between a *workflow* and an *agent* is a fact about co
 
 **Never does:** gather inputs (input), send the request (model interface), or decide when to call (control flow).
 
-Every call starts from nothing. The model doesn't know where it's running, what day it is, who it is, what it did a minute ago, or what it was told last week, unless the harness puts it in the request. That's why so much of what people build into harnesses turns out to be context. These components are all ways of deciding what the model sees:
+Every call starts from nothing. The model doesn't know where it's running, what day it is, who it is, what it did a minute ago, or what you told it last week, unless the harness puts it in the request. That's why so much of what people build into harnesses turns out to be context. These components are all ways of deciding what the model sees:
 
 - **instructions:** the system prompt;
 - **working memory:** this session;
 - **episodic memory:** past sessions;
-- **semantic memory:** durable facts;
+- **semantic memory:** facts that last;
 - **procedural memory:** skills, recipes, playbooks;
-- **retrieval:** search results placed in the request;
+- **retrieval:** search results put in the request;
 - **compaction:** a summary in place of history that no longer fits;
-- **self-knowledge:** the agent's own description or source.
+- **self-knowledge:** the agent's own description, or its own source.
 
-**Input and context are distinct.** Input brings a thing to the edge of the request. Context decides whether it goes in, where, in what form, and what gets dropped to make room.
+Input and context aren't the same thing. Input brings something to the edge of the request. Context decides whether it goes in, where, in what form, and what gets dropped to make room.
 
 ### 3.6 Summary
 
 | Primitive | Does | Never does |
 |---|---|---|
 | Model interface | request out, response back | decide when, gather, present, act |
-| Input | gather from a person or the world | present, send, decide to repeat |
+| Input | gather from a person or the world | present, send, decide to go again |
 | Output | show the response, or run a tool | decide whether results return, shape the next request |
 | Control flow | sequence and terminate | send, gather, present, handle |
 | Context | assemble and fit the request | gather, send, decide when |
 
 ---
 
-## 4. Boundary cases
+## 4. Rules for the hard cases
 
-A taxonomy is only as good as its hard cases. The ones below come up in practice. Each is settled by the negative definitions in §3, not by convention.
+A taxonomy is only as good as its hard cases. The rules below settle the ones that come up. Each follows from the negative definitions in §3. Several were sharpened by the decomposition study in §7, and I mark those.
 
-**Backup model vs. routing.** A backup model that takes over *because the first is unavailable* is part of the model interface: it changes only how one request gets a response. Choosing a cheaper model for a task *because the task is simple* is routing, a decision about the work, and so it's control flow. Both change which model answers, but they differ in *why*.
+**Place by what it does, not where it lives.** Code that decides what the model sees is context, even inside a tool. Examples:
 
-**A fixed model for one kind of request.** A harness that always sends its compaction summary to a smaller model is applying a fixed setting of that request, like `max_tokens`. That belongs to the model interface. If the choice is made at run time, per task or per step, it is routing again, and so control flow.
+- opencode attaches nested AGENTS.md files to the Read tool's result;
+- Claude Code's WebFetch runs a separate model call to shrink a page before the model sees it.
+
+A guardrail decision is control flow even when it runs inside a tool's execution, as Codex's approval routine does. *(Sharpened by §7.)*
+
+**"Is a tool" doesn't mean "is output."** In all three production harnesses, the model drives other primitives through tool calls: spawning a subagent, entering plan mode, writing a task list, searching for tools, scheduling a wake-up, asking for a new context window. The tool call is output. Its effect lands on the primitive it changes: control flow, context or input. *(From §7.)*
+
+**Backup or routing: ask what triggered the switch.**
+
+- **The request couldn't be served** by the first model, because it was down, overloaded, or refused the request: switching to another model is the **model interface**. It only changes how one request gets a response.
+- **The switch is keyed to the work:** this task is simple, this phase is planning. That's **routing**, which is **control flow**, because it's a decision about the work.
+
+Some cases to check the rule against:
+
+- *A fixed model for one kind of request,* such as compaction summaries, is a request setting. That's the model interface.
+- *Claude Code's `opusplan`* uses one model to plan and another to execute. It's keyed to the phase, so it's control flow.
+- *A content-classifier fallback* that retries a flagged request on another model is the model interface. Keeping the second model for the rest of the session is a separate, control-flow decision.
+
+*(Sharpened by §7.)*
 
 **Streaming.** *Receiving* a response as a stream is the model interface. *Printing* each piece as it arrives is output.
 
-**Parallelism.** Running several *tool requests* from one response at the same time is output: it's how those requests are executed. Making several *model calls* at the same time (fanning out subtasks, or voting) is a way of arranging the work, so it's control flow.
+**Parallelism.** Running several *tool requests* from one response at once is output: it's how those requests get executed. Making several *model calls* at once, to fan out subtasks or to vote, is a way of arranging the work, so it's control flow.
 
-**Memory vs. traces.** An episode log the agent can search in a later session is **context**, because it exists for the model. A trace of every call and tool, kept for a person to read, is **observability** (§6), because it exists for the operator. The two files can look the same. What separates them is who reads them.
+**Who reads it.**
 
-**A question to a person mid-run.** When a guardrail asks "allow this command? [y/N]", the person's answer is not a new task. It is read as a decision inside control flow. Input is unchanged.
+- Something kept **for the model**, such as an episode log the agent can search later, is **context**.
+- Something kept **for the operator**, such as a trace of every call, is **observability** (§6).
+- Something made **for the user**, such as a per-turn diff of changed files, is **output**: showing to a person.
 
-**The "augmented LLM."** The common building block of a model with retrieval, tools and memory [3] is not a primitive. It splits into context (retrieval, memory) and output (tools) around a model interface.
+The same file can serve two readers. Claude Code's session transcript is read by the operator and replayed by the harness on resume. In that case each use is placed separately. *(Sharpened by §7.)*
 
-**Tool protocols.** A protocol that packages tools behind a common interface, such as MCP [16], provides output that can be plugged in. Its server is where the tool runs; deciding to call it, and sending its result back, stay where they were.
+**Who uses a person's answer.**
 
-**Multiple agents.** One agent handing a task to another is a shape of control flow, the outer harness sequencing inner ones. Delegation adds no new primitive. It nests harnesses.
+- When the **harness** consumes the answer, as with "allow this command? [y/N]", it's a **control-flow** decision, not new input.
+- When the **model** consumes it, as when the model asks the person a question and gets the answer back as a tool result, it's **input** from a person.
+
+*(From §7: Codex's `request_user_input`, opencode's question tool, Claude Code's AskUserQuestion.)*
+
+**A person acting directly.** A shell command the *person* runs, such as `!cmd` in Codex, Claude Code and opencode, brings world state into the conversation. That's input, even though it reuses output's executor. *(From §7.)*
+
+**Programs the model writes.** If the program sequences *model calls*, it's control flow, written at run time. Claude Code's workflow scripts are the example. If it only sequences *tools*, it's output: a script, however clever. The code modes in Codex and opencode run model-written JavaScript that calls tools without calling the model, so today they're output. *(From §7.)*
+
+**Bundles aren't parts.** A *mode*, a *skill*, a *hook system* or an *agent profile* is packaging. Each bundles settings across several primitives. Split it and every piece lands in one:
+
+- Plan mode is a context template, plus tools removed, plus an approval gate.
+- A skill is procedural memory, plus scripts the model can run, plus a tool allow-list.
+- A hook system is a dispatcher (control flow) whose events each touch one primitive.
+
+*(From §7.)*
+
+**The "augmented LLM."** The building block of a model with retrieval, tools and memory [3] isn't a primitive. It splits into context (retrieval, memory) and output (tools) around a model interface.
+
+**Tool protocols.** MCP [14] is mostly output you plug in: tools someone else built, behind one protocol. Its other features land elsewhere:
+
+- resources and prompts decide what the model sees, so they're **context**;
+- *sampling* borrows the client's **model interface**;
+- *elicitation* asks the person, which is **input**.
+
+*(Sharpened by §7.)*
+
+**Multiple agents.** One agent handing a task to another is a shape of control flow: the outer harness sequencing an inner one. Delegation adds no new primitive. It nests harnesses. The same rule covers model-backed parts *inside* a harness: an approval reviewer, a stop judge, a memory extractor. Each is control flow plus a model-interface call.
 
 ---
 
 ## 5. Building it back up: the five are enough
 
-A taxonomy can be complete on paper and still miss something in practice. The constructive test is to build an agent from nothing but the five primitives and see whether anything else is needed. This is the heart of the course, its first four lessons, and the heart of this paper.
+A taxonomy can be complete on paper and still miss something in practice. The test is to build an agent from nothing but the five and see whether anything else is needed. That's the heart of the course, its first four lessons, and the heart of this paper.
 
-The build goes *outward from the model*, in a different order from the list in §3: the model interface first, because nothing reaches the model without it, then the primitive the last step was missing. The worked example is quark, the author's agent. Each lesson's `quark.py` is the previous lesson's file plus that primitive and nothing else. It is one way to build each primitive, not the only way.
+The build goes outward from the model, in a different order from §3:
+
+- the model interface comes first, because nothing reaches the model without it;
+- each later step adds the primitive the last one was missing.
+
+The example is quark, my own agent. Each lesson's `quark.py` is the last lesson's file plus that primitive and nothing else. It's one way to build each primitive, not the only way.
 
 ### 5.1 The model interface alone (9 lines)
 
-The first harness is one call: a hard-coded question, *"What's in this directory?"*, sent with `client.messages.create`, and the whole response printed. The response shows the three fields that matter: `content` (the tokens out, as blocks), `stop_reason` (why it stopped) and `usage` (tokens in and out).
+The first harness is one call. It sends a hard-coded question, *"What's in this directory?"*, and prints the whole response. The response has three fields that matter:
 
-The model's reply is the lesson. It explains that it can't see the directory and suggests running `ls`. **The model knows the right next step and can't take it.** Both ends of the path are stubs: input is a string no one typed, and output is a dump that handles nothing.
+- `content`: the tokens out, as blocks;
+- `stop_reason`: why it stopped;
+- `usage`: tokens in and out.
+
+The reply is the lesson. The model says it can't see the directory and suggests running `ls`. **It knows the right next step and can't take it.** Both ends are stubs: the input is a string no one typed, and the output is a dump that handles nothing.
 
 ### 5.2 Input and output (21 lines)
 
-Input and output are built separately, then joined.
+Input and output are built separately, then put together.
 
-- **Input** takes a task from the command line, and the request describes one tool, `bash`. Given *"how many lines are in README.md?"*, the model answers the only way it can: a `tool_use` block asking for `wc -l README.md`, with `stop_reason: tool_use`. With output still a stub, nothing runs it. The model asked; nothing acted.
-- **Output** handles each block of the response: text is printed, and a tool request is run with `subprocess`.
-- **Together,** with one more piece neither had alone: the command's result is wrapped as a `tool_result`, which is input from the world.
+- **Input** takes a task from the command line and describes one tool, `bash`, in the request. Given *"how many lines are in README.md?"*, the model answers the only way it can: a `tool_use` block asking for `wc -l README.md`, with `stop_reason: tool_use`. Output is still a stub, so nothing runs it. The model asked; nothing acted.
+- **Output** handles each block of the response. It prints text, and it runs a tool request with `subprocess`.
+- **Together** they need one more piece neither had alone: the command's result, wrapped as a `tool_result`. That's input from the world.
 
-The joined harness runs `wc -l` and prints `71 README.md`. **The model never sees the 71.** The result sits in a list and nothing sends it. The path ends at output.
+The joined harness runs `wc -l` and prints `71 README.md`. **The model never sees the 71.** It sits in a list, and nothing sends it. The path ends at output.
 
 ### 5.3 Control flow (30 lines)
 
-Lesson 2 wrapped in `while True`. The response and the results are appended to `messages`, and if the model asked for anything, the loop calls again. When it stops asking, the run ends, or in chat mode hands back to the person. Asked which lesson's `quark.py` is longest, the agent ran one `find … | wc -l` and answered from the result. That took two calls, and the second was only possible because the first one's result went back.
+Lesson 2 goes inside `while True`. The response and the results are appended to `messages`. If the model asked for anything, the loop calls again. When it stops asking, the run ends, or, in a chat, it hands back to you.
 
-This is now an agent: the model decides what happens next. The same four pieces arranged differently give a single call, a chatbot or a workflow (§3.4). The course's fuller example of the same primitive is an evaluator–optimizer workflow in which code decides the order of calls.
+Asked which lesson's `quark.py` is longest, the agent ran one `find … | wc -l` and answered from what it found. That's two calls, and the second only happened because the first one's result went back.
 
-**But it knows nothing:** not where it is, not what day it is, not who it is, not what it was told yesterday. And `messages` grows with every pass, so in a long session it will outgrow what the model can read. Something has to decide what the model sees.
+That's an agent now: the model decides what happens next. The same four pieces, arranged differently, make a single call, a chatbot or a workflow (§3.4). The lesson's second example is a workflow, an evaluator–optimizer, where your code decides the order of the calls.
+
+**But it knows nothing:** not where it is, not what day it is, not who it is, not what you told it yesterday. And `messages` grows every pass, so a long session will outgrow what the model can read. Something has to decide what the model sees.
 
 ### 5.4 Context (48 lines)
 
 The last primitive adds five context components:
 
-- **working memory:** Lesson 3's `messages`, renamed for what it is;
-- **instructions:** a system prompt written as models of self, world, other selves and body, rebuilt on every call so the directory and date are current;
-- **self-knowledge:** the agent's own source file embedded in that prompt;
-- **semantic memory:** a file the agent reads and writes with the tool it already has, with no memory code at all;
-- **reactive compaction:** when the API refuses a request as too long, the oldest turns are dropped and the rest summarized.
+- **Working memory.** Lesson 3's `messages`, renamed for what it is.
+- **Instructions.** A system prompt written as models of self, world, other selves and body. It's rebuilt every call, so the directory and the date are current.
+- **Self-knowledge.** quark's own source file, put in that prompt so the model can see the harness it runs in.
+- **Semantic memory.** A file the agent reads and writes with the tool it already has. There's no memory code at all.
+- **Reactive compaction.** When the API refuses a request as too long, the oldest turns are dropped and the rest summarized.
 
-The runs show it working. Asked what it is, it describes its name, its body, its loop and its memory file, because they're in its context. Told *"remember that I prefer short answers"*, it writes that to its memory file. A new session, with empty working memory, is asked what it knows about the person, reads the file, and answers. Working memory didn't carry anything between the runs; semantic memory did.
+The runs show it working:
+
+1. **Asked what it is,** quark describes its name, its body, its loop and its memory file, because they're in its context.
+2. **Told *"remember that I prefer short answers"*,** it writes that to its memory file.
+3. **In a new session,** with empty working memory, asked what it knows about me, it reads the file and answers.
+
+Working memory carried nothing between the runs. Semantic memory did.
 
 ### 5.5 What the build shows
 
@@ -270,66 +390,79 @@ The runs show it working. Asked what it is, it describes its name, its body, its
 |---|---|---|---|
 | 1 | Model interface | 9 lines | Both ends are stubs. The model says the next step is `ls`, and nothing can run it. |
 | 2 | Input and output | 21 lines | A tool runs, but its result never reaches the model. |
-| 3 | Control flow | 30 lines | The result goes back, but the agent knows nothing about itself, its world or its past, and its history grows without bound. |
-| 4 | Context | 48 lines | Nothing. It works, remembers, knows what it is, and compacts when full. |
+| 3 | Control flow | 30 lines | The result goes back, but the agent knows nothing about itself, its world or its past, and its history grows without limit. |
+| 4 | Context | 48 lines | Nothing. It works, remembers, knows what it is, and compacts when it's full. |
 
-Each step's "what's missing" is exactly the next primitive, and no step needs anything outside the five. The finished harness is in Appendix A.
+Each step's missing piece is the next primitive, and no step needs anything outside the five. The finished harness is in Appendix A.
 
-The course also gives each primitive a fuller second implementation, to show that a primitive is a space of choices and not a single design:
+Each primitive also gets a fuller second example, to show that a primitive is a space of choices, not one design:
 
-- a model interface with timeouts, retries, a backup model, streaming and adjustable thinking settings;
-- input and output through a Telegram chat, with two tools run concurrently, timeouts, and an incomplete request that is not run;
-- control flow with a step limit and refusal handling, plus the evaluator–optimizer workflow;
-- context with an episode log, skill files, token counting before each call, and trimming of long tool results.
+- **Model interface:** timeouts, retries, a backup model, streaming and adjustable thinking.
+- **Input and output:** input and output through a Telegram chat, with two tools run at the same time, timeouts, and an incomplete request that isn't run.
+- **Control flow:** a step limit and refusal handling, plus the evaluator–optimizer workflow.
+- **Context:** an episode log, skill files, token counting before each call, and trimming of long tool results.
 
-None of these needed a sixth primitive either.
+None of them needed a sixth primitive.
 
 ---
 
 ## 6. Production hardening folds back into the primitives
 
-A harness that works is not yet one you'd run unattended. Production agents add tracing, approvals, sandboxes, retries, caching and evaluation, each with its own vendors and literature, and it's natural to treat each as a new building block. The five primitives say otherwise:
+A harness that works isn't one you'd run unattended. Production agents add tracing, approvals, sandboxes, retries, caching and evaluation. Each has its own vendors and its own literature, so it's natural to treat each one as a new building block. The primitives say otherwise:
 
-> **Corollary.** Production concerns add *hardening*, not new primitives. Each is a set of changes inside the primitives it touches, made where they already act, and it leaves the others unchanged.
+> **Corollary.** Production concerns add *hardening*, not new primitives. Each piece of a production layer lands inside a primitive, where that primitive already acts.
 
-The course's second part tests this one layer at a time. Each production lesson's `quark.py` is the previous one plus that layer. Each names the primitives it is built on, and ends with a *"Notice what [layer] never does"* paragraph listing the primitives it leaves alone.
+The course's second part tests this one layer at a time:
 
-| Layer | Folds into | Why there | Mechanism | Leaves alone | Lines added (`quark.py`) |
-|---|---|---|---|---|---|
-| Observability | control flow | the only primitive that sees the whole sequence | read the clock, `usage` and exit codes already present; append one JSON line per event | everything: it only watches | +12 (59) |
-| Guardrails | control flow | it already decides whether a request becomes a command, and whether to go again | allow / ask / deny before each tool; refusal returned as a readable tool result; step, token, cost and repeat limits; interrupt | how an allowed command runs; what the request holds | +26 (83) |
-| Sandboxing | output | *where* a tool runs was always output's choice | commands run by `docker exec` in a container with no network, capped resources, a read-only root and only the working folder mounted, so limits are enforced by the kernel, not by reading text | the loop, the request, the model call | +13 (94) |
-| Resilience | model interface, output | the two places the world can say no | retry transient failures with backoff, fall back to a backup model, stop cleanly; answer every tool request even when it's broken; save each step and resume, marking an interrupted command as *may or may not have run* | the loop, input, context | +53 (135) |
-| Performance | context, model interface, output | where the tokens and the waiting are | cache marks and trimming (context); streaming and a fixed small model for summaries (model interface); concurrent tools (output) | control flow, input | +47 (159) |
-| Evaluation | outside the harness | it treats the agent as a box | an outer loop that sets up a case, runs the real agent, grades what it left behind, and compares with the last run | all five: it runs them, never rebuilds them | +38 (196) |
+- Each production lesson's `quark.py` is the previous one plus that layer.
+- Each names the primitives it's built on.
+- Each ends with a *"Notice what [layer] never does"* paragraph naming the primitives it leaves alone.
 
-Two layers need a word more.
+| Layer | Folds into | Why there | Mechanism | Lines added (`quark.py`) |
+|----|----|------|------------|----|
+| Observability | control flow | the only primitive that sees the whole sequence | read the clock, `usage` and exit codes that are already there; append one JSON line per event | +12 (59) |
+| Guardrails | control flow (mostly) | control flow already decides whether a request becomes a command, and whether to go again | allow, ask or deny before each tool; a refusal returned as a readable tool result; step, token, cost and repeat limits; an interrupt | +26 (83) |
+| Sandboxing | output | *where* a tool runs was always output's choice | commands run by `docker exec` in a container with no network, capped resources, a read-only root and only the working folder mounted, so the kernel enforces the limits, not a check on the text | +13 (94) |
+| Resilience | model interface, output, context | where the world can say no, and what must be replayed | retry transient failures with backoff, fall back to a backup model, stop cleanly; answer every tool request even when it's broken; save each step and resume, marking an interrupted command as *may or may not have run* | +53 (135) |
+| Performance | context, model interface, output | where the tokens and the waiting are | cache marks and trimming (context); streaming and a fixed small model for summaries (model interface); tools run at the same time (output) | +47 (159) |
+| Evaluation | outside the harness | it treats the agent as a box | an outer loop that sets up a case, runs the real agent, grades what it left behind, and compares with the last run | +38 (196) |
 
-**Resilience and performance span several primitives** without needing a new one. Each piece of them still lands in exactly one primitive. A retry happens inside one call, which is the model interface. Running the model's tool requests together is output. A cache mark is a decision about how the request is laid out, which is context. Performance's fuller example also routes each task to a model tier. That part is labeled control flow, by the routing rule in §4, because it is a decision about the work.
+A few rows need more than a table cell.
 
-**Evaluation is the exception that proves the rule.** It sits in none of the five, because it stands outside the agent. But it is built *from* them: an outer control-flow loop, the task handed in as input, the check run as output, and a model grader reached through the model interface. It is a second harness wrapped around the first. In the course it caught a change that looked harmless: lowering the step limit from 20 to 1 kept three of four cases passing, and flagged the fourth as `REGRESSED`.
+**Some layers span several primitives without adding one.**
 
-So the production harness of 196 lines reads under the same five headings as the 48-line one. The layers make the primitives sturdier; they don't add to them. That's also why every production product in §7 can be placed under a primitive. The corollary is shown here by cases, not proven in general; §9 discusses what would refute it.
+- **Resilience.** A retry happens inside one call, so it's the model interface. Answering a broken tool request is output. Resuming a run replays saved working memory, which is context. Codex does the same at request-assembly time: it fills in "aborted" results for tool calls that never finished.
+- **Performance.** Running the model's tool requests together is output. A cache mark is a choice about how the request is laid out, so it's context. Performance's fuller example also routes each task to a model tier, and that part is control flow, by the routing rule in §4.
+
+**Guardrails mostly sit in control flow, but not entirely.** In opencode and Claude Code, denied tools are also removed from the request, and that slice is context. The decision still has one home; the enforcement can reach into another primitive.
+
+**Layers aren't independent of each other.** I first wrote that each layer "leaves the other primitives unchanged." The production harnesses show that's too strong. In Codex, the approval policy and the sandbox policy feed each other:
+
+1. The approval requirement is computed from the sandbox setting.
+2. An approval changes how the command runs.
+3. A sandbox denial triggers a new approval.
+
+Claude Code is the same: its sandbox can stand in for a permission prompt, and the model can ask to leave the sandbox, which sends that request back through the guardrails. Each piece still lands in one primitive. What the study shows is that layers can read each other's state. The primitives stay disjoint; the layers don't stay separate.
+
+**Evaluation is the exception that proves the rule.** It sits in none of the five, because it stands outside the agent. But it's built *from* them:
+
+- an outer **control-flow** loop;
+- the task handed in as **input**;
+- the check run as **output**;
+- a model grader reached through the **model interface**.
+
+It's a second harness wrapped around the first. In the course it caught a change that looked harmless. Lowering the step limit from 20 to 1 kept three of four cases passing and flagged the fourth as `REGRESSED`. In the production harnesses, evaluation is just as clearly outside:
+
+- **Codex and opencode** ship only engineering tests, against a mocked or recorded model.
+- **Claude Code's** `claude plugin eval` grades plugins and skills by running the real agent.
+
+So the production harness of 196 lines reads under the same five headings as the 48-line one. The layers make the primitives sturdier; they don't add to them. I show the corollary by cases, not by proof, and §9 says what would refute it.
 
 ---
 
-## 7. Taking apart existing systems
+## 7. Taking apart production harnesses
 
-If the primitives are right, every harness and every harness *product* should sort under them. Products in the field turn out to be single primitives, or single production layers, sold separately:
-
-| Product or category | What it is, in these terms |
-|---|---|
-| LiteLLM, OpenRouter (gateways) | the model interface, whole: provider routing, backups, retries, rate limits |
-| MCP servers | output you plug in: tools someone else built, behind one protocol |
-| Mem0 and similar memory layers | context: store what to remember, return what's relevant per request |
-| LangGraph | control flow: steps and edges laid out as a graph and run (plus checkpointing, i.e. resilience) |
-| Langfuse, LangSmith (tracing) | observability, so built on control flow |
-| Open Policy Agent, NeMo Guardrails | guardrails, so built on control flow |
-| E2B, Modal, Daytona (hosted sandboxes) | sandboxing, so built on output |
-| Temporal (durable execution) | resilience: record each step, resume after a crash |
-| Braintrust, promptfoo, Inspect | evaluation: run cases, grade, keep history |
-
-Whole agents should sort the same way. Claude Code, Cursor, Codex and quark make different choices within each primitive: which tools, which memory, which loop shape, which approval policy. The claim is that none of them has a part outside the five; checking that against each system part by part is the systematic study proposed in §9.2. The course ends by giving the reader a checklist for taking apart any harness:
+If the primitives are right, real harnesses should sort under them, including big ones that weren't written to teach anything. I took apart three production coding agents, part by part, with the checklist the course ends on:
 
 ```
 control flow          what kind of loop? who decides when to stop?
@@ -339,30 +472,135 @@ control flow          what kind of loop? who decides when to stop?
 └── output            where do outputs go? which tools, and how are they run?
 ```
 
-When something doesn't fit at first, the rule is to ask what it *does*. If it decides what the model sees, it's context, whatever it's called. If it acts on what the model said, it's output.
+### 7.1 Method
+
+For each harness:
+
+1. I mapped the modules on the request path.
+2. I assigned every meaningful part to exactly one primitive, or to a production layer with the primitive it folds into, with evidence and a reason from the definitions in §3.
+3. I listed every part that was hard to place, and asked of each: does it fit none of the five?
+
+| Harness | Source | Version |
+|---|---|---|
+| **OpenAI Codex CLI** [26] | source code, [github.com/openai/codex](https://github.com/openai/codex) (Rust, `codex-rs/`) | commit `7ac954e`, 2026-10-06 |
+| **opencode** [27] | source code, [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode) (TypeScript; formerly `sst/opencode`) | commit `652c090`, v1.18.34, 2026-10-06 |
+| **Claude Code** [28] | public documentation only (code.claude.com/docs and Anthropic engineering posts); its source isn't published | docs as of 2026-10-06 (CLI v2.1.288) |
+
+The work was done with AI assistance, in my own way of working: an agent read the code or docs with the paper's definitions in hand and produced the assignments with file-and-line or URL evidence, so every assignment can be checked against its source. The full tables, with the evidence for every assignment, are in the [supplement](./decomposition-study.md).
+
+### 7.2 What each harness chose
+
+| | Claude Code | Codex | opencode |
+|---|---|---|---|
+| **Control flow** | Agent loop that's also a chat loop: you can interrupt, and messages typed mid-turn are queued into the same turn. Stops: no tool calls, `maxTurns`, `maxBudgetUsd`, a refusal, a Stop-hook veto. Nested: subagents (3 deep, 20 at once), agent teams, model-written workflow scripts, a model-judged `/goal`, schedules. | Agent loop inside a chat loop. Stops: no tool call, a Stop hook, an error, an interrupt, a session token budget. **No step limit.** Nested: review mode, sub-agents, an LLM approval reviewer ("guardian"). | Agent loop with your turns between runs. Stops: natural finish, structured output, content filter, a denied permission, cancel. The step limit is **soft**: it tells the model to stop, but still sends the tools. Nested: subagents via a `task` tool. |
+| **Input** | Terminal, IDE, web, Slack, `-p`, stdin, the SDK stream; tool results; background-task and channel events; schedules; questions the model asks you. | TUI, headless `exec`, a JSON-RPC app server, voice; text, images, audio, mentions; mid-turn steering and an inter-agent mailbox; tool results; `!cmd`. | One HTTP server fed by the TUI, the CLI, editors (ACP), web and desktop apps, a GitHub Action, Slack; @files, images, MCP resources, slash commands, `!cmd`; tool results; language-server diagnostics after edits. |
+| **Context** | System prompt and output style; a CLAUDE.md hierarchy (managed, user, project, local); a model-written memory file; skills loaded on demand; search on demand instead of an index; reminders; clear-then-summarize compaction; tool search; truncation inside tools; a cache-ordered layout. | Model-specific base instructions; AGENTS.md from root to cwd; an environment block re-sent only when it changes; working memory with truncated tool outputs; local or server-side compaction before, during and after a turn; cross-session memories; skills; deferred tool loading. | A system prompt per model family; an environment block; AGENTS.md and CLAUDE.md; skills; mode reminders; proactive and reactive compaction; pruning old tool outputs; truncation that spills to a file; cache marks. |
+| **Model interface** | Anthropic SDK over four providers or a gateway; streaming; retries with a timeout; a fallback chain for outages; a small model for background calls; effort, thinking and cache settings. | Responses API only; WebSocket with an HTTP fallback; always streamed; retries with backoff and jitter; OpenAI, Bedrock, Ollama and LM Studio; effort and service tier. No backup model for turns. | Vercel AI SDK over about 20 bundled providers; always streamed; retries with backoff; a small model for titles. No backup model. |
+| **Output** | Many specific tools, with Bash as the general fallback; read-only tools in parallel and writes in sequence; background commands; MCP; server tools (web search); terminal, JSON or stream-JSON. | Unified PTY exec, `apply_patch`, plan, image and MCP tools, hosted web search, a JavaScript code mode; tools start as soon as each request finishes streaming; a lock lets safe tools run in parallel. | bash, read, edit, write, patch, grep, glob, task, web, todo, skill, question tools, plus MCP and plugins; run concurrently by the SDK; a code mode; shown through the server's event stream. |
+
+The three make very different choices inside each primitive: how they stop, where input comes from, how context fits, how tools run. Every one of those choices is a choice *inside* a primitive.
+
+### 7.3 Production layers
+
+| Layer | Claude Code | Codex | opencode |
+|---|---|---|---|
+| Observability | ✔ OpenTelemetry metrics, events and traces; transcripts; cost | ✔ OpenTelemetry, tracing spans, a trace bundle | ✔ structured logs, OpenTelemetry spans, per-step tokens and cost |
+| Guardrails | ✔ six permission modes, allow/ask/deny rules, hooks, a learned auto-approval classifier, turn and budget caps | ✔ approval policies, a rule language for commands, an LLM reviewer, hooks, a token budget | ✔ allow/ask/deny rules per agent, a doom-loop check (the same call three times), a subagent depth limit |
+| Sandboxing | ✔ Seatbelt or bubblewrap with a network proxy (off by default); worktrees; cloud VMs | ✔ Seatbelt; bubblewrap, seccomp and Landlock; Windows restricted tokens; a network proxy | ✘ no kernel limits: permission prompts, worktrees, and a confined interpreter for code mode only |
+| Resilience | ✔ retries, a fallback chain, snapshots before edits, resume and fork | ✔ retries, a transport fallback, aborted-tool answers, resume and fork from a saved log | ✔ retries, interrupted tools still answered, every part saved as it streams, snapshots and revert |
+| Performance | ✔ prompt caching, tool search, streaming, parallel reads | ✔ streaming, incremental WebSocket requests, a cache key, environment diffs, parallel tools | ✔ cache marks, pruning and truncation, concurrent tools |
+| Evaluation | partial: `claude plugin eval`, outside the agent, for plugins and skills | ✘ only engineering tests against a mocked model | ✘ only engineering tests with recorded model responses |
+
+Every layer the course teaches shows up in at least two of the three. Each one lands where the corollary says it should. The one layer missing from all three cores, evaluation, is the one the paper puts outside the harness.
+
+### 7.4 What was hard to place
+
+The study's job was to find something that doesn't fit, so these are the parts that pushed hardest, and how they settled:
+
+1. **Hooks** (Claude Code, Codex, opencode plugins). A hook system can block a tool, add context, rewrite a tool's arguments, veto a stop, or log. It's a bundle, not a part. The dispatcher is control flow, and each event's effect lands on one primitive.
+   - One effect stayed a judgment call: Claude Code's `updatedInput`, which rewrites the model's tool arguments before they run. It handles the response, so I place it in output. But it's used as a guardrail.
+2. **The guardrail–sandbox coupling** (Codex, Claude Code). These are the strongest pressure on §6, and they're why I rewrote its claim. They don't add a primitive.
+3. **Model-backed parts inside the harness:**
+   - Claude Code's auto-approval classifier and its `/goal` judge;
+   - Codex's guardian reviewer;
+   - Codex's memory extraction.
+
+   §9.1 predicted that learned components would test the boundary. All four settled as the paper reads them: control flow plus a model-interface call, which is a nested harness.
+4. **Programs the model writes:**
+   - Claude Code's workflow scripts sequence agents, so they're control flow written at run time.
+   - The code modes in Codex and opencode run model-written JavaScript that calls tools with no model call in between, so they're output.
+
+   This was the closest case to a break. It settled once the rule in §4 was stated: a program is control flow when it sequences model calls.
+5. **Undo.** Claude Code's "restore code" and opencode's revert roll back files at the person's request, not the model's. Snapshotting before each edit is resilience in output, and deleting messages is context. But the file restore itself isn't *handling the model's response*. I place it as resilience over output's past actions. It's the weakest fit in the study, and §9.2 discusses it.
+6. **Server-side parts of the harness.** These run on the provider's side of the boundary:
+   - Claude Code's server-side classifier review;
+   - Codex's server-side compaction;
+   - the provider rerouting a request to a different model.
+
+   Each still places: a guardrail, context, and a model-interface event shown to the person. But the parentheses in *Agent = Harness(Model)* aren't a clean client/server line.
+7. **A remote agent behind the model interface.** opencode can treat GitLab's Duo Workflow service as a "language model". That service runs its own agent loop and calls opencode's tools. It settles only as a nested harness whose interface is a remote agent, not a model.
+8. **Persistence that's also a trace.** Each harness's saved transcript is read by the operator (observability) and replayed on resume (context). It's one artifact with two readers, and each use is placed separately.
+
+**Verdict.** Every runtime part of all three harnesses does one of three things:
+
+- lands in one primitive;
+- splits into pieces that each land in one; or
+- nests a harness.
+
+I found nothing that needs a sixth primitive. The study did change the paper. It made me state five rules I had been using without saying so: place by function, the tool channel, who reads, who uses an answer, and model-written programs. It also made me weaken one claim, that layers leave each other alone.
+
+### 7.5 Products
+
+The same holds for products. Each one *centres on* a primitive or a layer, and most reach into others:
+
+| Product | Centres on | Also touches |
+|-----|--------|--------|
+| LiteLLM, OpenRouter (gateways) [10, 11] | the model interface: one API over many providers, load balancing, failover to backup models, retries, rate-limit handling | spend limits (guardrails), logging (observability), response caching (performance); OpenRouter's Auto Router picks a model per prompt, which is routing, so control flow |
+| MCP [14] | output you plug in: tools behind one protocol | resources and prompts (context), sampling (model interface), elicitation (input) |
+| Mem0 [12] | context: store what to remember, return what's relevant per request | its extraction is its own model call |
+| LangGraph [13] | control flow: steps and edges laid out as a graph and run | its checkpointer serves resilience, working memory (context) and approval pauses (guardrails) |
+| Langfuse, LangSmith [15, 16] | observability, so built on control flow | evaluation; versioned prompts served at run time (context) |
+| Open Policy Agent [17] | the decision part of guardrails; the harness still enforces it | none |
+| NeMo Guardrails [18] | guardrails in control flow: allow or block around each call | input and retrieval rails that edit what the request holds (context) |
+| E2B, Daytona, Modal Sandboxes [19–21] | sandboxing, so built on output | snapshot and resume (resilience) |
+| Temporal [22] | resilience: record each step, retry it, replay to resume | it runs your workflow code, so it also hosts control flow |
+| Braintrust, promptfoo, Inspect [23–25] | evaluation: run cases, grade them, keep the history or logs | production tracing (Braintrust); Inspect also supplies the agent under test |
+
+So products are made of primitives too. They're sold as one thing and built from several.
 
 ---
 
 ## 8. Case study: the harness that wrote its course
 
-The finished 48-line harness was used for real work on the repository that teaches it. A second agent, Claude Code, operated it from a terminal the way a person would. quark never saw Claude Code. Across four runs, quark:
+I used the finished 48-line harness for real work on the repository that teaches it. Claude Code operated it from a terminal, the way a person would, and quark never saw Claude Code. Over four runs, quark:
 
-1. read the whole repository and wrote what it learned to its semantic memory file (about 25 KB of notes, one entry per lesson);
+1. read the whole repository and wrote what it learned to its memory file, about 25 KB of notes, one entry per lesson;
 2. in a new session with empty working memory, wrote slide decks for the four primitive lessons *from memory alone*, without opening a lesson file;
-3. wrote the six production lessons, one session per lesson, each building its `quark.py` from the previous one, running its code for real, and pasting the real output;
+3. wrote the six production lessons, one session per lesson. Each built its `quark.py` from the one before, ran its code for real, and pasted in the real output;
 4. in another new session, wrote slide decks for the six production lessons, again from memory.
 
-The arrangement is itself an example of the paper's claim. The script that ran one quark session per lesson, stopping if a lesson produced no `quark.py`, is **control flow one level up**: a workflow around an agent.
+The setup is itself an example of the claim. The script that ran one quark session per lesson, stopping if a lesson produced no `quark.py`, is control flow one level up: a workflow around an agent.
 
-The interesting results are the failures. Each one maps onto a specific primitive or layer.
+The failures are the interesting part, and each lands on a primitive.
 
-**A silent stop, then a crash: model interface and output.** The fifth lesson stopped twice without writing anything. A trace of each response's `stop_reason` (observability, added for diagnosis) showed the cause. With thinking on, a 4,096-token output cap was not enough to think *and* write a file. On the third attempt, a response hit `max_tokens` partway through a tool request, and the harness crashed with `KeyError: 'cmd'`. That is exactly the incomplete-request case from Lesson 2 ("when not to run"). The fix was a setting of the request, `max_tokens` raised to 16,384 across the course. Making output refuse to run an incomplete request is one of the things the resilience layer adds.
+**A silent stop, then a crash: model interface and output.** Lesson 5 stopped twice without writing anything. A trace of each response's `stop_reason` showed why: with thinking on, a 4,096-token cap wasn't enough to think and then write a file. (Adding that trace was observability, put in for diagnosis.) On the third try, a response hit `max_tokens` halfway through a tool request, and the harness crashed with `KeyError: 'cmd'`. That's the incomplete request from Lesson 2's "when not to run."
 
-**The agent killed itself: output, guardrails and sandboxing.** To test crash recovery in the resilience lesson, quark killed its test agent with `pkill -9 -f 08-resilience/quark.py`. Its own command line contained that path, so it killed itself too. Its Docker container outlived it, which is the leftover the sandboxing lesson had warned about for a harness killed hard. The fix was a rule given in the prompt: stop processes by PID, never by name pattern. A guardrail could enforce that rule as policy. The operator then made the same mistake with its own shell command, which suggests the hazard belongs to how the action is written, not to any one agent.
+- **The fix** was a request setting: `max_tokens` raised to 16,384 across the course.
+- **The guard** against the same crash, refusing to run an incomplete request, is part of what the resilience layer adds to output.
 
-**Confident fabrication from memory: context, caught by evaluation.** The slides were written from semantic memory, and memory is a summary. On review, the primitive decks needed 22 slides tightened but contained nothing invented. The production decks needed 47 slides corrected and 5 removed. Writing from memory, quark had filled gaps with runs that never happened, cache numbers no run produced, and a reversed account of which model was benched. Others simplified the code until it was misstated, or put a mechanism under the wrong primitive. This is a context failure: what the request held was a lossy summary, and the model could not tell it apart from fact. It was caught only by a review step, checking each slide against the source, which is evaluation done by hand.
+**The agent killed itself: output, guardrails and sandboxing.** To test crash recovery, quark killed its test agent with `pkill -9 -f 08-resilience/quark.py`. Its own command line contained that path, so it killed itself too. Its Docker container outlived it: the leftover the sandboxing lesson had warned about for a harness killed hard.
 
-**What the case study shows.** The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure that came up could be placed under one of the five primitives or one of the six layers. The failures were also the ones the course had already described, so the taxonomy was useful for diagnosis and not only for description. This is one case, with the agent and its author both inside the system being studied, so it shows the framework in use and does not stand as independent evidence.
+- **The fix** was a rule in the prompt: stop processes by PID, never by name. A guardrail could enforce that rule as policy.
+- **Claude Code**, operating quark, then made the same mistake with its own shell command. The hazard is in how the action is written, not in one agent.
+
+**Confident fabrication from memory: context, caught by evaluation.** The slides were written from memory, and memory is a summary.
+
+- **The primitive decks** needed 22 slides tightened but had nothing invented.
+- **The production decks** needed 47 slides corrected and 5 removed. Writing from memory, quark had filled gaps with runs that never happened, cache numbers no run produced, and a reversed account of which model was benched. Other slides simplified the code until they misstated it, or put a mechanism under the wrong primitive.
+
+That's a context failure. What the request held was a lossy summary, and the model couldn't tell it from fact. Only review caught it, checking each slide against its source, which is evaluation done by hand.
+
+**What it shows.** The 48-line harness did real work over many sessions: it read, wrote, ran and debugged code and documents. Every failure could be placed under one primitive or one layer, and they were the failures the course had already described. So the vocabulary worked for diagnosis, not just for description. This is one case, and the agent and I are both inside it. It shows the framework in use; it isn't independent evidence.
 
 ---
 
@@ -370,54 +608,95 @@ The interesting results are the failures. Each one maps onto a specific primitiv
 
 ### 9.1 What would refute this
 
-The claim is falsifiable on purpose. It fails if someone finds a part of a working harness that:
+I wrote the claim so it can be shown wrong. It fails if someone finds a part of a working harness that meets all three of these conditions:
 
-1. fits none of the five definitions;
-2. can't be described as hardening inside one or more of them;
-3. isn't a nesting of harnesses (§4, multiple agents).
+1. it fits none of the five definitions;
+2. it can't be read as hardening inside one or more of them;
+3. it isn't a harness nested inside another (§4).
 
-The course ends with that invitation: *if you find something that genuinely fits none of the five, I'd like to hear about it.* Candidates worth testing include:
+The course ends with that invitation: if you find something that genuinely fits none of the five, I'd like to hear about it.
 
-- learned components inside the harness (a trained router, a reward model guiding search);
-- speculative or tree-search decoding loops;
-- harnesses whose control flow is itself generated by a model at run time.
+Before the study, I named three places the boundary was most likely to break:
 
-On the current reading, these are respectively control flow plus a model interface, control flow, and control flow. But they are the places the boundary is most likely to be tested.
+- **learned components inside the harness;**
+- **search or decoding loops;**
+- **harnesses whose control flow is written by a model at run time.**
 
-### 9.2 Limitations
+The production harnesses supplied live cases of the first and third, and all of them held:
 
-- **Pedagogical, not statistical.** The evidence is constructive (a harness built from the primitives), closure-by-cases (six layers placed one by one) and one case study. It is not a measured survey of many systems. A systematic decomposition of open-source harnesses against the five primitives is the obvious next study.
-- **One worked example.** quark is one way to build each primitive, not the only way. The course says so throughout, and gives a second, fuller implementation of every primitive and layer for that reason.
-- **Some boundaries are judgment calls.** The routing vs. backup and streaming vs. printing splits follow from the definitions, but they had to be stated. Someone with other definitions could draw them elsewhere. The value of the definitions is that they make every such choice explicit.
-- **The model is held fixed.** The two-part split deliberately sets aside model development. Fine-tuning a model on a harness's traces shifts work from one part to the other, and this paper doesn't analyze that trade.
+- Claude Code's approval classifier and `/goal` judge;
+- Codex's guardian reviewer;
+- Claude Code's workflow scripts;
+- the code modes in Codex and opencode.
 
-### 9.3 Implications
+Search or decoding loops didn't come up and remain untested.
 
-- **Shared vocabulary.** "Our agent uses memory" becomes a claim about context: which components, assembled how, and fitted how. "Our agent is reliable" becomes claims about resilience in the model interface and output, and about evaluation outside them.
-- **Reporting.** Calls to disclose the harness when comparing agents [11] need a schema for *what* to disclose. The five primitives, plus the six layers, are a candidate.
-- **Buying vs. building.** Every product in §7 replaces one primitive or layer. Choosing one is choosing which part of your harness you can no longer see.
+### 9.2 Where the definitions strain
+
+Nothing in the study needed a sixth primitive. Two definitions do strain.
+
+- **Output and actions a person starts.** Output is defined around *the model's* response. A person who undoes the agent's file changes (Claude Code's restore, opencode's revert) is having the harness act on the world without a model response. I place it as resilience over output's past actions. A cleaner fix might widen output to *the harness acting on a person or the world, usually at the model's request*. I've left the narrower definition because it's the one the course teaches. This is the first place to look for a refinement.
+- **Model switches with mixed triggers.** The backup-or-routing rule settles a switch by what triggered it. A switch that starts as a failure and then persists, like Claude Code's content-classifier fallback, is two decisions: model interface, then control flow. That's consistent, but it shows that one feature can sit across a boundary.
+
+### 9.3 Limitations
+
+- **The core evidence is mine.** The build, the production layers and the case study come from my own course and my own agent. §7 adds three outside systems, but they're three, all coding agents. Harnesses for other jobs, such as voice, browsing or robotics, haven't been tested.
+- **Claude Code was read from its docs.** I could only check what Anthropic says it does. That's weaker than reading the code, especially for the "never does" half of each definition.
+- **The decompositions were AI-assisted.** Each assignment cites its evidence so anyone can check it, but a second, independent decomposer would make the result stronger.
+- **Some boundaries are rules I chose.** Backup or routing, receiving or printing, who reads, who uses an answer: these follow from the definitions, but each had to be stated. Someone with different definitions could draw the line elsewhere. The value is that every choice is written down.
+- **The model is held fixed.** I set model development aside. Fine-tuning a model on a harness's traces moves work from one part to the other, and I don't analyze that trade.
+
+### 9.4 Implications
+
+- **A shared vocabulary.**
+  - "Our agent uses memory" becomes a claim about context: which components, assembled how, and fitted how.
+  - "Our agent is reliable" becomes claims about resilience in the model interface and output, and about evaluation outside them.
+- **Something to disclose.** Calls to disclose the harness when comparing agents [5] need a schema for what to disclose. The five primitives and the layers are one. §7.2 is what such a disclosure looks like for three agents.
+- **Buying vs. building.** Every product in §7.5 replaces part of a primitive or a layer. Choosing one is choosing which part of your harness you can no longer see.
 
 ---
 
 ## 10. Related work
 
-**Cognitive architectures.** *Cognitive Architectures for Language Agents* (CoALA) [1] organizes language agents into memory modules, an action space (internal and external), and a decision-making cycle, drawing on cognitive science and symbolic AI. It is the closest prior attempt to say what agents are made of. The two accounts differ in their source and their level. CoALA's categories come from cognition; these come from what harness code does to a request and a response. CoALA's memory modules, and the retrieval and learning actions that read and write them, correspond here to context; its reasoning actions are calls through the model interface. Its external actions correspond to output, with input bringing their results back. Its decision cycle corresponds to control flow. The model interface, and the production layers as a category, have no direct counterpart in CoALA.
+**Cognitive architectures.** CoALA [1] organizes language agents into memory modules, an action space (internal and external), and a decision-making cycle. It draws on cognitive science and symbolic AI, and it's the closest earlier attempt to say what agents are made of. Its categories come from cognition; mine come from what harness code does to a request and a response.
 
-**Agent primitives in multi-agent systems.** *Agent Primitives* [2] breaks multi-agent systems into recurring computation patterns (review, voting and selection, planning and execution) and implements them as reusable blocks that communicate through the KV cache. Its primitives are patterns *of* model calls. In this paper's terms they are shapes of control flow, together with a choice about how calls pass state to each other (as KV cache rather than text), which sits at the boundary of context and the model interface. The two approaches are complementary.
+They line up like this:
 
-**Workflows and agents.** Anthropic's *Building effective agents* [3] distinguishes workflows from agents by who decides the path, and names five common workflow patterns (prompt chaining, routing, parallelization, orchestrator–workers, evaluator–optimizer) built on an "augmented LLM". This paper adopts the workflow/agent distinction as a property of control flow and splits the augmented LLM into context, output and the model interface (§4).
+- CoALA's **memory modules**, and the **retrieval and learning actions** that read and write them, are context here.
+- Its **reasoning actions** are calls through the model interface.
+- Its **external actions** are output, with input bringing back their results.
+- Its **decision cycle** is control flow.
 
-**Harness engineering.** A growing body of 2026 work studies the harness directly. It covers empirical studies of harness design for coding agents [12], deterministic execution constraints [13], contract-based harnesses for auditable enterprise agents [10], reusable tool primitives within a harness [14], and code as an agent harness [15]. A position paper argues that agents should not be compared without disclosing the harness [11]. These works treat the harness as the object of study. This paper supplies a definition of what that object contains.
+The model interface as a primitive, and the production layers as a category, have no direct counterpart in CoALA.
+
+**Agent primitives for multi-agent systems.** Jin et al. [2] break multi-agent systems into recurring latent patterns: review, voting and selection, planning and execution. The patterns pass information through the KV cache instead of text, and an organizer composes them for each query. Their primitives are patterns *of* model calls. In my terms they're shapes of control flow, the organizer included. Passing state as KV cache is a choice that sits at the boundary of context and the model interface. The two views are complementary.
+
+**Workflows and agents.** Schluntz and Zhang [3] distinguish workflows from agents by who decides the path. They name five workflow patterns built on an "augmented LLM": prompt chaining, routing, parallelization, orchestrator–workers and evaluator–optimizer. I adopt their workflow/agent line as a property of control flow, and I split the augmented LLM into context, output and the model interface (§4).
+
+**Harness engineering.** A growing body of 2026 work studies the harness directly:
+
+- **Fan et al.** [6] hold a coding harness's loop fixed and vary planning, action space and context management across four models. Each choice changes trajectories in a different way. In my terms they're varying choices inside control flow, output and context.
+- **Zhang et al.** [5] argue that harness configuration can drive more performance variance than model choice, and propose a disclosure standard.
+- **Ahn and Kim** [4] move enterprise agents' guarantees out of prompts and into code-owned contracts.
+- **Dhage** [7] measures deterministic execution constraints.
+- **Jin et al.** [8] build a planner/router/verifier harness over reusable tool primitives.
+- **Ning et al.** [9] survey code as the harness through which agents act.
+
+These papers treat the harness as the thing to study. Mine says what that thing contains.
 
 ---
 
 ## 11. Conclusion
 
-An agent is a model wrapped in a harness, and a harness is five things: input, context, the model interface and output, with control flow sequencing them and deciding when to stop.
+An agent is a model wrapped in a harness. A harness is five things: input, context, the model interface and output, with control flow sequencing them and deciding when to stop.
 
-Built one at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That is the paper's claim and the course's core. Everything a production harness adds after that, from observability to evaluation, is hardening that folds back into the same five. The harness grows to 196 lines and still has the same five parts. Products in the field turn out to be single primitives, or single layers, sold separately.
+**The build.** One at a time, outward from a single API call, the five make a working agent in 48 lines, and nothing else is needed. That's the claim, and it's the core of the course.
 
-The point is not that every harness should look like quark. It's that every harness, however large, can be read with five questions, and that each design choice belongs to exactly one of them. Five primitives are all you need to build an agent harness, and all you need to take one apart.
+**Production hardening.** Everything a production harness adds after that, from observability to evaluation, folds back into the same five.
+
+**Real systems.** Three production coding agents, built by three different teams, sort under the five too. The study made the rules sharper, and it found nothing that needs a sixth.
+
+The point isn't that every harness should look like quark. It's that every harness, however big, can be read with five questions, and every design choice in it belongs to one of them. Five primitives are all you need to build an agent harness, and all you need to take one apart.
 
 ---
 
@@ -425,52 +704,76 @@ The point is not that every harness should look like quark. It's that every harn
 
 The course this paper draws on was built with two AI agents, and the paper says so because the case study depends on it.
 
-- **Claude Code** (Anthropic) worked with the author on the course's README and primitive lessons, operated quark, reviewed its output, and helped draft this paper from the course's content.
-- **quark**, the agent built in the course and running on Anthropic's Claude models, wrote the six production lessons and the slide decks, which were then reviewed and corrected as described in §8.
+- **Claude Code** (Anthropic) worked with me on the course's README and primitive lessons. It operated quark and reviewed quark's output. It ran the decomposition study in §7 under my direction, and it helped draft this paper from the course's content.
+- **quark**, the agent built in the course, running on Anthropic's Claude models, wrote the six production lessons and the slide decks. Those were then reviewed and corrected as described in §8.
 
-The thesis, the primitives, their definitions, and the method of the course are the author's. Every run quoted in this paper is reproduced in full, with transcripts, in the companion repository.
+The thesis, the five primitives, their definitions, and the course's method are mine, and I'm responsible for every claim in this paper. Every run quoted here is reproduced in full, with transcripts, in the companion repository.
 
 ---
 
 ## References
 
-[1] T. R. Sumers, S. Yao, K. Narasimhan, T. L. Griffiths. *Cognitive Architectures for Language Agents.* Transactions on Machine Learning Research, 2024. arXiv:2309.02427.
+[1] T. R. Sumers, S. Yao, K. Narasimhan, T. L. Griffiths. Cognitive Architectures for Language Agents. *Transactions on Machine Learning Research*, 2024. arXiv:2309.02427.
 
-[2] H. Jin, P. Kuang, Y. Yu, X. Yuan, H. Wang. *Agent Primitives: Reusable Latent Building Blocks for Multi-Agent Systems.* ICML 2026. arXiv:2602.03695.
+[2] H. Jin, P. Kuang, Y. Yu, X. Yuan, H. Wang. Agent Primitives: Reusable Latent Building Blocks for Multi-Agent Systems. *ICML*, 2026. arXiv:2602.03695.
 
-[3] E. Schluntz, B. Zhang. *Building effective agents.* Anthropic Engineering, 2024. https://www.anthropic.com/engineering/building-effective-agents
+[3] E. Schluntz, B. Zhang. Building Effective Agents. Anthropic Engineering, December 19, 2024. https://www.anthropic.com/engineering/building-effective-agents
 
-[4] LiteLLM. https://github.com/BerriAI/litellm
+[4] J. Ahn, M. Kim. From Prompts to Contracts: Harness Engineering for Auditable Enterprise LLM Agents. arXiv:2607.08028, 2026.
 
-[5] OpenRouter. https://openrouter.ai
+[5] Y. Zhang, J. Wang, Y. Ge, W. Xu, J. Hamm, C. K. Reddy. Stop Comparing LLM Agents Without Disclosing the Harness. arXiv:2605.23950, 2026.
 
-[6] Mem0. https://github.com/mem0ai/mem0
+[6] R.-Z. Fan, Z. Zhang, S. Ma, Y. Hu, S. Wang, K. Song, F. Liu, H. Zamani, X. Wang. An Empirical Study of Harness Design for Coding Agents. arXiv:2609.20804, 2026.
 
-[7] LangGraph. https://github.com/langchain-ai/langgraph
+[7] S. Dhage. Harness Engineering for Predictable Agentic Systems: An Empirical Study of Deterministic Execution Constraints. arXiv:2608.26197, 2026.
 
-[8] Langfuse. https://github.com/langfuse/langfuse
+[8] H. Jin, S. Wang, X. Yu, H. Luo, H. Wang. Harness Engineering in LLM Tool Use via Agent-Native Reusable Tool Primitives. arXiv:2609.01736, 2026.
 
-[9] Open Policy Agent. https://github.com/open-policy-agent/opa
+[9] X. Ning, K. Tieu, D. Fu, T. Wei, Z. Li, Y. Bei, et al. Code as Agent Harness: Toward Executable, Verifiable, and Stateful Agent Systems. arXiv:2605.18747, 2026.
 
-[10] *From Prompts to Contracts: Harness Engineering for Auditable Enterprise LLM Agents.* arXiv:2607.08028, 2026.
+[10] LiteLLM. Router: load balancing and fallbacks. https://docs.litellm.ai/docs/routing
 
-[11] *Stop Comparing LLM Agents Without Disclosing the Harness.* arXiv:2605.23950, 2026.
+[11] OpenRouter. Model fallbacks; Auto Router. https://openrouter.ai/docs/guides/routing/model-fallbacks
 
-[12] *An Empirical Study of Harness Design for Coding Agents.* arXiv:2609.20804, 2026.
+[12] Mem0. Memory operations. https://docs.mem0.ai/core-concepts/memory-operations/add
 
-[13] *Harness Engineering for Predictable Agentic Systems: An Empirical Study of Deterministic Execution Constraints.* arXiv:2608.26197, 2026.
+[13] LangGraph. Persistence. https://docs.langchain.com/oss/python/langgraph/persistence
 
-[14] *Harness Engineering in LLM Tool Use via Agent-Native Reusable Tool Primitives.* arXiv:2609.01736, 2026.
+[14] Model Context Protocol. Architecture overview. https://modelcontextprotocol.io/docs/learn/architecture
 
-[15] *Code as Agent Harness.* arXiv:2605.18747, 2026.
+[15] Langfuse. https://github.com/langfuse/langfuse
 
-[16] Model Context Protocol. https://modelcontextprotocol.io
+[16] LangSmith. Observability. https://docs.langchain.com/langsmith/observability
+
+[17] Open Policy Agent. Documentation. https://www.openpolicyagent.org/docs
+
+[18] NVIDIA NeMo Guardrails. Guardrail types. https://docs.nvidia.com/nemo/guardrails/latest/about/rail-types.html
+
+[19] E2B. Documentation. https://e2b.dev/docs
+
+[20] Daytona. Sandboxes. https://www.daytona.io/docs/en/sandboxes/
+
+[21] Modal. Sandboxes. https://modal.com/docs/guide/sandboxes
+
+[22] Temporal. Event History. https://docs.temporal.io/encyclopedia/event-history
+
+[23] Braintrust. Evaluate. https://www.braintrust.dev/docs/evaluate
+
+[24] promptfoo. Introduction. https://www.promptfoo.dev/docs/intro/
+
+[25] UK AI Security Institute. Inspect. https://inspect.aisi.org.uk/
+
+[26] OpenAI. Codex CLI. https://github.com/openai/codex (commit 7ac954e).
+
+[27] opencode. https://github.com/anomalyco/opencode (commit 652c090).
+
+[28] Anthropic. Claude Code documentation. https://code.claude.com/docs (accessed 2026-10-06).
 
 ---
 
 ## Appendix A. The finished harness
 
-The complete 48-line harness from §5, with the system prompt shortened to `...` (the full prompt is one line in [`lessons/04-context/quark.py`](../lessons/04-context/quark.py)). Comments mark which primitive each part belongs to; they are not in the original file.
+This is the full 48-line harness from §5, with the system prompt shortened to `...`. The full prompt is one line in [`lessons/04-context/quark.py`](../lessons/04-context/quark.py). The comments mark which primitive each part belongs to; they aren't in the original file.
 
 ```python
 import subprocess, sys, os, datetime
@@ -518,7 +821,7 @@ while True:                                                             # contro
     if results:                                                         # control flow: go again
         working_memory.append({"role": "user", "content": results})
         continue
-    if not chat or (task := input("\n> ")) == "/q":                     # control flow: terminate or hand back
+    if not chat or (task := input("\n> ")) == "/q":                     # control flow: stop, or hand back
         break
     working_memory.append({"role": "user", "content": task})
 ```
@@ -528,11 +831,13 @@ while True:                                                             # contro
 | Layer | Control flow | Input | Context | Model interface | Output |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Observability | ● | | | | |
-| Guardrails | ● | | | | |
+| Guardrails | ● | | ○ hiding denied tools | | |
 | Sandboxing | | | | | ● |
-| Resilience | | | | ● | ● |
-| Performance | (routing, in the fuller example only) | | ● | ● | ● |
-| Evaluation | outside the harness; built from control flow, input, model interface and output | | | | |
+| Resilience | | | ○ replaying saved memory | ● | ● |
+| Performance | ○ routing, in the fuller example | | ● | ● | ● |
+| Evaluation | outside the harness, built from control flow, input, model interface and output | | | | |
+
+● where the layer lives · ○ a slice that lands in another primitive
 
 ---
 

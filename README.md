@@ -4,7 +4,7 @@
 
 Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-> **The paper:** [*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md) sets out this course's thesis: every agent harness reduces to five primitives, and every production concern folds back into them.
+> **The paper:** [*Five Primitives Are All You Need: Building an Agent Harness*](./paper/five-primitives-are-all-you-need.md) ([PDF](./paper/latex/main.pdf)) sets out this course's thesis: every agent harness reduces to five primitives, and every production concern folds back into them. It tests the claim by taking apart Claude Code, OpenAI Codex and opencode; the evidence is in [the supplement](./paper/decomposition-study.md).
 
 ## What is harness engineering?
 

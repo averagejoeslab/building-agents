@@ -1,0 +1,34 @@
+People describe LLM agents with words that don't line up: framework, scaffold, runtime, orchestration layer, harness. Recent work argues that this outer layer drives much of how an agent performs, and that comparing agents without it misleads. But nobody has said what the layer is made of. I give an answer.
+
+An agent is two things. \textbf{The model} is a function, \emph{TokensOut = Model(TokensIn)}. \textbf{The harness} is everything else. So \textbf{Agent = Harness(Model)}. Every harness, I argue, is made of \textbf{five mechanistic primitives}:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{control flow} decides what runs, in what order, and when to stop, and it wraps the other four;
+\item
+  \textbf{input} gathers what goes to the model, from a person or the world;
+\item
+  \textbf{context} decides what the request holds and how it fits;
+\item
+  \textbf{the model interface} sends the request and gets the response back;
+\item
+  \textbf{output} handles the response, by showing it to a person or running it as a tool.
+\end{itemize}
+
+The method is one question, asked again and again: \emph{what is it, and by what mechanism does it work?} Each primitive is defined as much by what it never does as by what it does.
+
+The core of the paper is a build. I start from a single API call and add one primitive at a time, and each step's missing piece turns out to be exactly the next primitive. The finished agent, quark, is 48 lines of Python, with nothing outside the five.
+
+Two results follow.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Production concerns fold back into the primitives.} Observability, guardrails, sandboxing, resilience, performance and evaluation look like new building blocks. Each is hardening inside the primitives it touches.
+\item
+  \textbf{The vocabulary holds on real systems.} I take apart three production coding agents (Claude Code, OpenAI Codex CLI and opencode) part by part. Nothing in them needs a sixth primitive. The study also found where my original rules were too loose, and I tighten them here.
+\end{enumerate}
+
+A case study, in which quark wrote much of its own course, shows the vocabulary used for diagnosis.
