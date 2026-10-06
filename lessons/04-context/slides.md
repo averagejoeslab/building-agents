@@ -479,9 +479,8 @@ pre code { white-space: pre-wrap; font-size: 0.7em; }
 
 Here's one run:
 
-```
-I'm quark, an agent that runs on a language model and acts only through bash. It's my one tool for reading, writing, running programs and talking to you. I work in a loop of observe, think, act, and repeat. My working memory is this session's context window. Three stores on disk persist beyond it: semantic facts in `.quark/memory/memory.md`, skills in `.quark/skills/`, and a log of every past session in `.quark/episodes/`.
-```
+> I'm quark, an agent that runs on a language model and acts only through bash. It's my one tool for reading, writing, running programs and talking to you. I work in a loop of observe, think, act, and repeat. My working memory is this session's context window. Three stores on disk persist beyond it: semantic facts in `.quark/memory/memory.md`, skills in `.quark/skills/`, and a log of every past session in `.quark/episodes/`.
+
 
 ---
 

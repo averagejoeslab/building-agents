@@ -218,6 +218,8 @@ pre code { white-space: pre-wrap; font-size: 0.7em; }
 
 # Field: `content`
 
+(The reply's `text` is shortened here.)
+
 ```json
   "content": [
     {
@@ -227,7 +229,7 @@ pre code { white-space: pre-wrap; font-size: 0.7em; }
     },
     {
       "citations": null,
-      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments have been shared.\n\nYou can list the contents yourself with one of these:\n\n- **macOS/Linux:** `ls` (or `ls -la` to include hidden files and details)\n- **Windows Command Prompt:** `dir`\n- **Windows PowerShell:** `Get-ChildItem` (or `ls`)\n\nIf you paste the output here, I can help you work out what the files are, how the project is organized, or what to do next. If you're using a tool or IDE that is supposed to give me file access, it doesn't seem to be connected here.",
+      "text": "I can't see your directory. I don't have access to your file system in this conversation, and no files or attachments ha...",
       "type": "text"
     }
   ],

@@ -101,11 +101,17 @@ This file is for the people and agents who **build** this repo. Everything a **r
 
 ## The proof: quark at work
 
-- [`docs/quark-at-work/`](./docs/quark-at-work/) holds the verbatim transcripts and the memory file from the four runs that wrote the production lessons and all ten slide decks. They were made with the earlier 48-line Lesson 4 harness.
+- [`docs/quark-at-work/`](./docs/quark-at-work/) holds the current proof: the terminal transcript of each of the ten runs of the 234-line Lesson 4 `quark.py` (`run-*.txt`), and its memory stores after the last run (`stores/`: `memory/memory.md`, `skills/`, `episodes/`). The folder is `stores/`, not `.quark/`, because `.gitignore` ignores every `.quark/`.
+- [`docs/quark-at-work/earlier-version/`](./docs/quark-at-work/earlier-version/) holds the four runs of the earlier 48-line harness that wrote the production lessons and the first slide decks. The paper's §8 and Appendix D are about these; keep them consistent.
+- **Running quark for new proof:**
+  - Start from empty stores: move the repo's `.quark/` aside.
+  - Move `.env` out of the repo.
+  - Run `uv run lessons/04-context/quark.py "<prompt>" < /dev/null` from the repo root with `PYTHONUNBUFFERED=1`, and save stdout.
+  - Keep prompts short where the point is to show memory at work.
+  - Don't commit while a session is running: quark reads `git status`, and a commit mid-run misled it once.
 - **They're evidence:**
-  - Never edit a transcript.
-  - Anything changed by hand afterwards in the lessons or slides is disclosed in the README's quark-at-work section. Keep that disclosure current if you change more.
-  - The paper's §8 and Appendix D read these runs; keep them consistent.
+  - Never edit a transcript or a store.
+  - Anything changed by hand afterwards in what quark made is disclosed in the README's quark-at-work section ("What we checked, and what we fixed by hand"). Keep that disclosure current if you change more.
 
 ## The paper
 
@@ -154,11 +160,11 @@ This file is for the people and agents who **build** this repo. Everything a **r
 |---|---|---|
 | `README.md` | readers | Entry point: thesis, lesson tables, setup, how to present the slides, the paper, the proof, citation, license. |
 | `lessons/01–04/` | learners | The primitives. Each README is the lesson; `quark.py` is the lineage; other `.py` files are fuller examples. |
-| `lessons/*/slides.md`, `production/*/slides.md` | presenters | Marp decks for teaching each lesson in a workshop or video. Written by quark from memory, corrected by hand. |
+| `lessons/*/slides.md`, `production/*/slides.md` | presenters | Marp decks for teaching each lesson in a workshop or video. Lessons 1–4: rebuilt by quark from each lesson's README and code (runs 2a–2d). Lessons 5–10: written by the earlier quark from memory, corrected by hand. |
 | `lessons/*/slides.pdf`, `production/*/slides.pdf` | presenters | Each deck rendered by Marp, so it opens and presents straight from GitHub. Regenerate after any `slides.md` change: `CHROME_PATH=<chromium> npx @marp-team/marp-cli <dir>/slides.md --pdf -o <dir>/slides.pdf --allow-local-files`. Then check every page fits: no word below y=482pt or right of x=901pt in `pdftotext -bbox` (page number excepted). A slide that overflows needs a `<style scoped>` block (smaller font), never changed text. |
 | `production/05–10/` | learners | The production layers, written by quark (run 3). |
 | `docs/the-model.md`, `assets/*.svg` | learners | Optional deep dive on what's inside the model; the SVGs illustrate it. |
-| `docs/quark-at-work/` | readers checking the proof | Verbatim transcripts and memory from the four runs. |
+| `docs/quark-at-work/` | readers checking the proof | Transcripts and memory stores from the ten current runs; `earlier-version/` has the earlier four. |
 | `paper/agent-harness-primitives.md`, `paper/latex/main.pdf` | paper readers | The paper, in Markdown and typeset. |
 | `paper/decomposition-study.md` | paper readers | Supplement with the evidence for §7. |
 | `paper/references.bib`, `CITATION.cff` | citers | Citation data. |
@@ -171,7 +177,9 @@ This file is for the people and agents who **build** this repo. Everything a **r
 - **Move the production lessons onto the current Lesson 4 harness.**
   - Lessons 5–10 build on the earlier 48-line `quark.py`, before episodic and procedural memory.
   - When done, update the README's production note, the paper (§6, §9.3 limitations, Appendix C) and the lessons' line counts.
-- **Regenerate the Lesson 1–4 slide decks.** They still show the 48-line code and the old names (`task`, `reply`) and line counts. The README warns presenters; remove that warning when they're current.
+- **Decide the order of the production lessons.** Chase proposed sandboxing, guardrails, resilience, performance, evaluation, observability. quark (run 5) recommended keeping the current order: every later `quark.py` carries Lesson 5's `trace()`, Lesson 10 reads the trace file, and Lesson 7 is the first to need Docker. Reordering means rewriting each layer's `quark.py` and the "What's missing" chain.
+- **Slide legibility.** Marp shrinks a code block until its longest line fits, and the overflow check doesn't catch a block shrunk past reading. Some slides have code at about 6pt (Lesson 4, slides 94 and 97). Holding to one idea per slide also made the decks long (50–110 slides), with some single-sentence slides; consider trimming them.
+- **Paper §8 is about the earlier runs.** Decide whether the paper should also report the current ten runs (memory at work), or stay as is.
 - **Decide on the fuller examples' naming** (`task`/`reply` vs `input`/`output`); see above.
 - **Terminal polish belongs in a production lesson, not in the primitives.** Candidates:
   - a "thinking…" indicator;
