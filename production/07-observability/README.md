@@ -24,28 +24,19 @@ Observability only watches. It never changes what's sent, what runs, or when the
 Here's the idea with nothing around it: run a few commands and one model call, and write down each one as it happens. It's in [`observability.py`](./observability.py):
 
 ```python
-import subprocess, os, json, time, datetime
+import subprocess, json, time, datetime
 from anthropic import Anthropic
-from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, asked one question about each command
-FAILED = Noul(instructions="Does `result` show that the command failed or hit an error?",
-    criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.",
-                          false="The command worked, even if it found nothing or printed a warning."))
 
 def trace(**event):                                      # one JSON line per event, appended, for whoever runs the agent
     with open("traces.jsonl", "a") as f: f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), **event}) + "\n")
-
-def failed(cmd, result):                                 # Jev's probability that the command failed; None if it can't answer
-    try: return round(jev.system_one({"command": cmd, "result": result}, {"q": FAILED}).nouls["q"].noul, 2)
-    except Exception: return None
 
 seen = []
 for cmd in ["wc -l notes.txt", "grep -n TODO notes.txt", "ls missing.txt | head -1", "sleep 2"]:
     start = time.time()
     done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout), failed=failed(cmd, done.stdout))
+    trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
     seen.append(f"$ {cmd}\n{done.stdout}(exit {done.returncode})")
 
 start = time.time()
@@ -62,15 +53,89 @@ There's no agent loop here. The four commands are fixed, and the model is called
 
 **What's already there.** A command leaves its exit code and what it printed; the trace keeps the code and how many characters. A response comes back with `stop_reason` and `usage`; the trace keeps the token counts. None of this is computed. It's read off and written down.
 
-**`failed()`** asks [Jev](../05-sandboxing/#asking-jev), the decision model from Lesson 5, one yes/no question about each command's result: does `result` show that the command failed or hit an error? The criteria say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning. Jev answers with the probability of yes, and that goes in the line as `failed`, next to `exit`. If Jev can't answer (no key, a wrong key, a time-out), `failed()` returns `None` and the line says `null`.
-
-Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability's: it's written down, and that's all. It isn't sent to the main model, and it doesn't change what runs next.
-
 Run it in a scratch folder, since it writes `traces.jsonl` where you start it:
 
 ```bash
 mkdir -p /tmp/demo7 && cd /tmp/demo7 && printf 'buy milk\ncall Sam\nfix the bike\n' > notes.txt
 uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/observability.py
+```
+
+It prints only the model's answer:
+
+```
+The `ls missing.txt | head -1` command failed (the file doesn't exist), but the pipeline's exit status of 0 came from `head` and hid that, while `grep` exiting 1 only means it found no TODO matches, not an error.
+```
+
+Everything else is in `traces.jsonl`:
+
+```
+{"ts": "2026-10-06T23:58:54", "event": "tool", "cmd": "wc -l notes.txt", "seconds": 0.0, "exit": 0, "chars": 12}
+{"ts": "2026-10-06T23:58:54", "event": "tool", "cmd": "grep -n TODO notes.txt", "seconds": 0.0, "exit": 1, "chars": 0}
+{"ts": "2026-10-06T23:58:54", "event": "tool", "cmd": "ls missing.txt | head -1", "seconds": 0.0, "exit": 0, "chars": 59}
+{"ts": "2026-10-06T23:58:56", "event": "tool", "cmd": "sleep 2", "seconds": 2.0, "exit": 0, "chars": 0}
+{"ts": "2026-10-06T23:58:58", "event": "model", "seconds": 2.17, "stop_reason": "end_turn", "input_tokens": 129, "output_tokens": 202}
+```
+
+Five lines, one per thing that happened. The `sleep` took its 2 seconds and the model call 2.17, and the model's call cost 129 tokens in and 202 out.
+
+Because each line is one JSON object, you can ask the file questions with `jq`. Here's every command whose exit code says it failed:
+
+```bash
+jq -c 'select(.event=="tool" and .exit != 0) | {cmd, exit}' traces.jsonl
+```
+
+```
+{"cmd":"grep -n TODO notes.txt","exit":1}
+```
+
+That's the wrong answer twice over. The `grep` found nothing, which is an answer, not a failure. And the `ls` that did fail isn't there: the pipe exited with `head`'s 0. The model saw both, because it read what the commands printed, but the trace only has the exit code, and the exit code is a rough signal.
+
+## The concept with Jev
+
+So next to each exit code, keep a second opinion. [`jev_observability.py`](./jev_observability.py) is `observability.py` plus Jev, and nothing else:
+
+```bash
+diff observability.py jev_observability.py
+```
+
+```diff
+1c1
+< import subprocess, json, time, datetime
+---
+> import subprocess, os, json, time, datetime
+2a3
+> from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
+4a6,9
+> jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # a second model, asked one question about each command
+> FAILED = Noul(instructions="Does `result` show that the command failed or hit an error?",
+>     criteria=NoulCriteria(true="The command failed, errored, crashed, was refused or was killed, even if it printed something.",
+>                           false="The command worked, even if it found nothing or printed a warning."))
+8a14,17
+> def failed(cmd, result):                                 # Jev's probability that the command failed; None if it can't answer
+>     try: return round(jev.system_one({"command": cmd, "result": result}, {"q": FAILED}).nouls["q"].noul, 2)
+>     except Exception: return None
+> 
+13c22
+<     trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout))
+---
+>     trace(event="tool", cmd=cmd, seconds=round(time.time() - start, 2), exit=done.returncode, chars=len(done.stdout), failed=failed(cmd, done.stdout))
+```
+
+`os` joins the imports to read the key, and Jev's client and yes/no question type come from `typesafe_sdk`. The client is made only when `TYPESAFE_API_KEY` is set.
+
+**`FAILED`** is the question for [Jev](../05-sandboxing/#asking-jev), the decision model from Lesson 5: does `result` show that the command failed or hit an error? The criteria say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning.
+
+**`failed()`** asks it about one command, sending the command and what it printed. Jev answers with the probability of yes, rounded to two places. If Jev can't answer (no key, a wrong key, a time-out, any error), `failed()` returns `None`.
+
+**The tool's line** is where the answer is used: it gets `failed` beside `exit`, never instead of it. With no answer, the line says `null`.
+
+Asking Jev is a model-interface act: a second model, called with a request, answering with a response. What happens to the answer is observability's: it's written down, and that's all. It isn't sent to the main model, and it doesn't change what runs next. There's no threshold either, because nothing is decided: the trace keeps the probability as it came, and the person reading it decides.
+
+Run it the same way, in a fresh scratch folder with the same `notes.txt`:
+
+```bash
+mkdir -p /tmp/demo7-jev && cd /tmp/demo7-jev && printf 'buy milk\ncall Sam\nfix the bike\n' > notes.txt
+uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/jev_observability.py
 ```
 
 It prints only the model's answer:
@@ -89,9 +154,9 @@ Everything else is in `traces.jsonl`:
 {"ts": "2026-10-06T23:18:27", "event": "model", "seconds": 2.39, "stop_reason": "end_turn", "input_tokens": 129, "output_tokens": 194}
 ```
 
-Five lines, one per thing that happened. The `sleep` took its 2 seconds and the model call 2.39, and the model's call cost 129 tokens in and 194 out. Look at the two middle lines. The `grep` exited 1 and Jev gave it 0.06: it found nothing, and that's not a failure. The `ls` exited 0 and Jev gave it 0.98: it failed, and the pipe hid it. The exit code and Jev disagree on both, and Jev is right on both.
+The same five lines, and each tool's line now has `failed` beside `exit`. Look at the two middle lines. The `grep` exited 1 and Jev gave it 0.06: it found nothing, and that's not a failure. The `ls` exited 0 and Jev gave it 0.98: it failed, and the pipe hid it. The exit code and Jev disagree on both, and Jev is right on both.
 
-Because each line is one JSON object, you can ask the file questions with `jq`. Here's every command that either signal calls a failure, with Jev counted only when it's at least 0.9 sure:
+Ask the file again, this time for every command that either signal calls a failure, with Jev counted only when it's at least 0.9 sure:
 
 ```bash
 jq -c 'select(.event=="tool" and (.exit != 0 or .failed >= 0.9)) | {cmd, exit, failed}' traces.jsonl
@@ -107,7 +172,7 @@ One false alarm from the exit code, one real failure only Jev saw. That's why Je
 Without Jev, nothing else changes. Here's the same run with a wrong key on purpose, in a fresh folder with the same `notes.txt`:
 
 ```bash
-TYPESAFE_API_KEY=not-a-key uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/observability.py
+TYPESAFE_API_KEY=not-a-key uv run --project /path/to/building-agents /path/to/building-agents/production/07-observability/jev_observability.py
 jq -c 'select(.event=="tool") | {cmd, exit, failed}' traces.jsonl
 ```
 
@@ -123,7 +188,7 @@ The record is just missing an opinion. The model's answer never depended on Jev:
 
 ## quark's implementation
 
-[`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace and Jev's question, and nothing else: 18 lines, 352 in all. `time` joins the imports, and Jev's yes/no question type joins Lesson 5's import from `typesafe_sdk`:
+Here's both built into quark. [`quark.py`](./quark.py) is Lesson 6's `quark.py` plus the trace and Jev's question, and nothing else: 18 lines, 352 in all. `time` joins the imports, and Jev's yes/no question type joins Lesson 5's import from `typesafe_sdk`:
 
 ```python
 import subprocess, sys, os, re, glob, json, datetime, atexit, termios, tty, threading, select, contextlib, time
@@ -167,7 +232,7 @@ And `start = time.time()` before the model call and before each command, two mor
 
 **Each refusal** records the command the guard wouldn't run, and why. **Each interrupt** records that you pressed ESC, and whether quark was saying or doing something at the time. **Each limit** records the steps and tokens it stopped at. **Each compaction** records that the API said the prompt was too long.
 
-**`failed()`** is the concept's question, asked through Lesson 5's `ask()`, which already handles the key, the time-out and the errors and returns `None` for all of them. It sends the command and the last 4,000 characters of what it printed, since the end of the output is usually where an error is. `judged and round(...)` gives the probability, or `None` when there's no answer. Asking Jev is model interface, as it was in Lessons 5 and 6. What quark does with the answer is observability's, in control flow: it goes in the tool's line, beside `exit`. Unlike Lessons 5 and 6, there's no `SURE` here, because nothing is decided. The trace keeps the probability as it came, sure or not, and the person reading it decides.
+**`failed()`** is the same question as in the concept with Jev, asked through Lesson 5's `ask()`, which already handles the key, the time-out and the errors and returns `None` for all of them. It sends the command and the last 4,000 characters of what it printed, since the end of the output is usually where an error is. `judged and round(...)` gives the probability, or `None` when there's no answer. Asking Jev is model interface, as it was in Lessons 5 and 6. What quark does with the answer is observability's, in control flow: it goes in the tool's line, beside `exit`. Unlike Lessons 5 and 6, there's no `SURE` here, because nothing is decided. The trace keeps the probability as it came, sure or not, and the person reading it decides.
 
 Nothing else changed. The request is built by the same code, the same commands run in the same box, and the loop stops for the same reasons. The model never sees `failed`: its tool result is what the command printed, as before.
 
@@ -241,7 +306,7 @@ jq -c 'select(.event=="tool") | {cmd, exit, failed}' .quark/traces.jsonl
 {"cmd":"sleep 60","exit":137,"failed":0.97}
 ```
 
-The same split as the concept's: the pipe hid the `ls` failure behind exit 0, and only Jev saw it; the `grep` that found nothing exited 1, and only the exit code called it a failure. They agree on the kill (`exit` 137). And here's everything that didn't go to plan, by either signal, with the guard's refusals in the same query:
+The same split as in the concept with Jev: the pipe hid the `ls` failure behind exit 0, and only Jev saw it; the `grep` that found nothing exited 1, and only the exit code called it a failure. They agree on the kill (`exit` 137). And here's everything that didn't go to plan, by either signal, with the guard's refusals in the same query:
 
 ```bash
 jq -c 'select((.event=="tool" and (.exit!=0 or .failed>=0.9)) or .event=="refused")' .quark/traces.jsonl
