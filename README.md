@@ -69,8 +69,9 @@ def handle_output(response):
     tool_results = []
     for block in response.content:
         if block.type == "text":
-            print(block.text)
+            print(f"< {block.text}")
         if block.type == "tool_use":
+            print(f"$ {block.input['command']}")
             ran = subprocess.run(block.input["command"], shell=True, capture_output=True, text=True)
             tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": ran.stdout + ran.stderr or "(no output)"})
     return tool_results
@@ -100,27 +101,26 @@ cp .env.example .env        # then put your key in .env
 uv run --env-file .env quark.py
 ```
 
-Here's a session in a folder with one file, `groceries.txt` (milk, eggs, bread). The lines after `>` are typed:
+Here's a session in a folder with one file, `groceries.txt` (milk, eggs, bread). `>` is what I typed, `<` is what quark said, and `$` is a command it ran:
 
 ```
 > What files are in this folder?
-The folder has one file:
-
-- `groceries.txt` (16 bytes, last modified Oct 7 04:03)
-
-Want me to show what's inside it?
+$ ls -la /tmp/groceries
+< The folder has one file, `groceries.txt`. It's 16 bytes and was last modified on Oct 7 at 04:07.
 > Add coffee to my groceries, and sort the list.
-I added coffee to `groceries.txt` and sorted the list alphabetically. It now reads:
+$ cd /tmp/groceries && cat -A groceries.txt
+$ cd /tmp/groceries && echo coffee >> groceries.txt && sort -o groceries.txt groceries.txt && cat groceries.txt
+< I added coffee to `groceries.txt` and sorted the list alphabetically. It now reads:
 
 - bread
 - coffee
 - eggs
 - milk
 > How many items are on it now?
-There are 4 items on the list now: bread, coffee, eggs and milk.
+< There are 4 items on the list now: bread, coffee, eggs and milk.
 ```
 
-To answer, quark ran commands to list the folder, rewrite the file and count it. It remembered which list "it" was because the whole conversation goes back on every turn.
+The second request took two commands, one after the other: that's the inner loop. The last answer needed no command at all, because the whole conversation goes back to the model on every turn.
 
 Ctrl-C quits.
 
