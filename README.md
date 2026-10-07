@@ -234,141 +234,23 @@ That's all five primitives, and that's [`quark.py`](./quark.py).
 
 ## Taking quark to production
 
-quark works, but you wouldn't leave it running on its own. Six concerns stand in the way. Ask each one's question of every primitive, and you see where it applies:
+quark works, but you wouldn't leave it running on its own. Six concerns stand in the way. Each one changes some of the primitives, and those changes can affect the concerns that came before. So each section asks its question of every primitive, then looks back: **what did this change, and what had to adjust?**
 
-| | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's costly? | Persistence: what should outlast the session? | Evaluation: what could a change break? |
+| | Persistence: what should outlast the session? | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's slow or costly? | Evaluation: what could a change break? |
 |---|---|---|---|---|---|---|
-| **Input** | instructions hidden in what it reads | — | — | — | — | — |
-| **Context** | — | — | — | resending everything | what it learned | the instructions |
-| **Model interface** | — | tokens used | a request failing | — | — | the model |
-| **Output** | commands changing your machine | each command | a command hanging | — | — | the tools |
-| **Control flow** | anything running | — | — | — | the task in progress | the loop |
+| **Input** | — | something you need to stop | — | input ending | — | — |
+| **Context** | what it learned | what it remembers | — | too long to send | resending everything | the instructions |
+| **Model interface** | — | — | tokens, time | a failing model | waiting for the whole reply | the model |
+| **Output** | — | commands changing your machine; half a command | what each command did | a hanging command; odd bytes | long results | the tools |
+| **Control flow** | the task in progress | anything running, forever | each decision | a crash | — | the loop |
 
-Each concern below adds a few lines to `quark.py`. The result is [`quark_production.py`](./quark_production.py).
+Each concern adds to `quark.py`, and the result is [`quark_production.py`](./quark_production.py). It runs commands in [Docker](https://docs.docker.com/get-docker/), so you'll need that running.
 
-### Safety
+### 1. Persistence
 
-Every command runs on your machine, without asking. Ask quark to delete a file, and it does:
+When quark stops, everything goes with it. Persistence comes first, because the other concerns depend on what outlasts a session.
 
-```
-> Delete test_prices.py, it keeps failing.
-$ cd /tmp/shop && find . -name "test_prices.py" -not -path "./node_modules/*" && git status --short 2>/dev/null | head
-$ cd /tmp/shop && rm test_prices.py && ls
-< I deleted `test_prices.py`. The only file left in `/tmp/shop` is `prices.py`.
-  ...
-```
-
-(shortened)
-
-**Output** runs commands in a box: a container that sees this folder and nothing else, with no network.
-
-```python
-def start_box():                                         # safety: a container that sees this folder and nothing else
-    here = os.getcwd()
-    subprocess.run(["docker", "run", "-d", "--rm", "--name", BOX, "--network", "none", "--user", f"{os.getuid()}:{os.getgid()}",
-                    "-e", "HOME=/tmp", "-v", f"{here}:{here}", "-w", here, "python:3.13", "sleep", "infinity"],
-                   check=True, capture_output=True)
-    atexit.register(subprocess.run, ["docker", "rm", "-f", BOX], capture_output=True)
-```
-
-**Control flow** runs nothing without a yes. `handle_output` runs a command only if `allowed` says so:
-
-```python
-def allowed(command):                                    # safety: nothing runs without a yes
-    return input("  run this? [y/N] ").strip().lower() == "y"
-```
-
-The same request now:
-
-```
-> Delete test_prices.py, it keeps failing.
-$ cd /tmp/shop && find . -name test_prices.py -not -path './node_modules/*' && git status --short 2>&1 | head
-  run this? [y/N] y
-$ cd /tmp/shop && rm test_prices.py && ls
-  run this? [y/N] n
-...
-< I haven't deleted `test_prices.py`. The `rm` command was rejected with the message "The person said no," and the file is still in `/tmp/shop`.
-```
-
-(shortened)
-
-**Input** stays open: text quark reads can carry instructions of its own, and no harness fully stops a model from following them. The box and the question limit the damage.
-
-### Observability
-
-After a run, all you have is what scrolled past. So each request and each command writes one line to a record, kept outside the box:
-
-```python
-def record(**step):                                      # observability: one line per step, outside the box
-    os.makedirs(os.path.dirname(RECORD), exist_ok=True)
-    with open(RECORD, "a") as log:
-        log.write(json.dumps({"time": datetime.datetime.now().isoformat(timespec="seconds"), **step}) + "\n")
-```
-
-```
-{"tokens_in": 453, "written": 0, "cached": 0, "tokens_out": 87}
-{"command": "cd /tmp/shop && ls -la && cat .quark/memory.md 2>/dev/null; git log --oneline | head", "exit": 0}
-{"tokens_in": 2, "written": 714, "cached": 0, "tokens_out": 87}
-{"command": "cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20", "exit": 0}
-...
-```
-
-(shortened, times left out)
-
-### Resilience
-
-A request can fail, and a command can hang forever. **Model interface** retries a failed request three times:
-
-```python
-model = Anthropic(max_retries=3)                         # resilience: retry a request that fails
-```
-
-**Output** stops a command after a minute, and says so:
-
-```python
-                ran = subprocess.run(["docker", "exec", BOX, "timeout", "60", "sh", "-c", command], capture_output=True, text=True)
-                result = ran.stdout + ran.stderr or "(no output)"
-                if ran.returncode == 124:
-                    result += "\n[stopped: it ran for over a minute]"
-```
-
-```
-> Run sleep 100, then tell me it finished.
-$ sleep 100 && echo done
-  run this? [y/N] y
-< The command was stopped after about a minute, so it didn't finish. I'll run it in the background and check on it.
-...
-```
-
-(shortened)
-
-### Performance
-
-Every request sends the whole conversation again, at full price. **Context** asks for it to be cached, so each request pays full price only for what's new:
-
-```python
-    return {"system": instructions, "tools": [bash], "messages": conversation,
-            "cache_control": {"type": "ephemeral"}}      # performance: reuse what was already sent
-```
-
-The bug fix and the commit, from the record, without and with that line:
-
-| Request | Without: full price | With: full price | With: cached |
-|---|---|---|---|
-| 1 | 453 | 453 | 0 |
-| 2 | 729 | 2 | 0 |
-| 3 | 1,057 | 2 | 714 |
-| 4 | 1,395 | 2 | 0 |
-| 5 | 1,604 | 4 | 1,268 |
-| 6 | 1,760 | 2 | 1,435 |
-
-Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.) Request 4 is the exception: quark had just written a fact to its memory, which is part of its instructions, so everything after the change had to be cached again.
-
-### Persistence
-
-When quark stops, everything goes with it: the task in progress, and anything you told it. Persistence asks what should outlast the session.
-
-**Control flow** saves the session after each step, and offers to continue it next time. An unfinished task carries straight on:
+**Control flow** saves the session after every step, and offers to continue it. An unfinished task carries straight on:
 
 ```python
 def save(conversation):                                  # persistence: the session outlasts quark
@@ -383,87 +265,299 @@ def resume():
     return []
 ```
 
-```python
-        if not conversation or conversation[-1]["role"] == "assistant":   # an unfinished task carries straight on
-            conversation.append({"role": "user", "content": capture_input()})
-```
-
-Stop quark part-way through the bug fix with Ctrl-C and start it again. Without this, it has to guess what "Carry on." means, and starts over:
-
-```
-> Carry on.
-< I'll start by looking at what's in /tmp/shop.
-$ cd /tmp/shop && ls -la && git log --oneline -10 2>/dev/null; ls *.md *.txt 2>/dev/null
-...
-```
-
-(shortened)
-
-With it:
-
-```
-continue the last session? [y/N] y
-< Docstring says percentage; the code subtracts it as an absolute amount.
-$ cd /tmp/shop && sed -i 's/return round(subtotal - discount, 2)/return round(subtotal * (1 - discount \/ 100), 2)/' prices.py && python -m unittest -v 2>&1 | tail -8
-...
-```
-
-(shortened)
-
-**Context** gives it memory: a file of facts it writes itself, put into its instructions at the start of every session:
-
-```python
-    instructions = (f"You are quark, an agent. You act through bash, in {os.getcwd()}. Today is {datetime.date.today()}.\n"
-                    f"Keep what's worth remembering next time in {MEMORY}, one fact per line. You remember:\n{remembered()}")
-```
+**Context** gives it memory: a file of facts, and skills, one file per method it has worked out, with a first line saying when to use it. Both go into its instructions:
 
 ```python
 def remembered():                                        # persistence: what earlier sessions learned
-    return open(MEMORY).read() if os.path.exists(MEMORY) else "(nothing yet)"
+    facts = open(MEMORY).read() if os.path.exists(MEMORY) else "(nothing yet)"
+    skills = "\n".join(f"- {path}: {open(path).readline().strip()}" for path in sorted(glob.glob(f"{SKILLS}/*.md")))
+    return f"Facts:\n{facts}\nSkills:\n{skills or '(none yet)'}"
 ```
 
 Tell it something once:
 
 ```
 > From now on, write commit messages in lowercase, starting with "fix:". Remember that.
-$ mkdir -p /tmp/shop/.quark && echo "commit messages: lowercase, start with \"fix:\"" >> /tmp/shop/.quark/memory.md && cat /tmp/shop/.quark/memory.md
+$ mkdir -p /tmp/shop/.quark/skills && cd /tmp/shop && echo "commit messages: lowercase, start with \"fix:\"" >> .quark/memory.md && cat .quark/memory.md
   run this? [y/N] y
-< I've saved this to `.quark/memory.md`: commit messages are lowercase and start with "fix:". I'll use that format from now on.
+  commit messages: lowercase, start with "fix:"
+< I've saved that to `.quark/memory.md`: commit messages should be lowercase and start with "fix:".
 ```
 
-and a new session, with nothing continued, follows it:
+A new session, with nothing continued, follows it:
 
 ```
 continue the last session? [y/N] n
 
 > The tests are failing. Fix it and commit.
-...
-< ... I committed the change as `fix: apply discount as a percentage`.
+$ cd /tmp/shop && git status --short && ls -a && cat .quark/memory.md; ls .quark/skills; (npm test 2>&1 || true) | tail -40
+  run this? [y/N] y
+  ...
+  commit messages: lowercase, start with "fix:"
+  ...
+< The tests now pass, and I committed the fix as `fix: apply discount as a percentage`.
 ```
 
 (shortened)
 
-### Evaluation
+### 2. Safety
 
-Any change can change what quark does: a word in the instructions, a new model, a new tool. So run it on a task with a known right answer, and check the result, not what it says. [`eval.sh`](./eval.sh) gives quark the bug fix in a fresh copy of [`shop/`](./shop/):
+Every command runs on your machine, unasked.
+
+- **Output** runs commands in a box, a container that sees this folder and nothing else, with no network. It never runs half a command: a request cut off mid-way is answered "never ran".
+- **Control flow** refuses some commands outright, asks before the rest, and stops after `MAX_STEPS`.
+- **Input** gets a way to stop it: Ctrl-C stops the current step and hands back to you, and Ctrl-D quits.
+
+```python
+def start_box():                                         # safety: a container that sees this folder and nothing else
+    here = os.getcwd()
+    subprocess.run(["docker", "run", "-d", "--rm", "--name", BOX, "--network", "none", "--user", f"{os.getuid()}:{os.getgid()}",
+                    "-e", "HOME=/tmp", "-v", f"{here}:{here}", "-w", here, "python:3.13", "sleep", "infinity"],
+                   check=True, capture_output=True)
+    atexit.register(subprocess.run, ["docker", "rm", "-f", BOX], capture_output=True)
+```
+
+```python
+NEVER = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|git\s+push|\.env\b")   # safety: never, whatever the answer
+MAX_STEPS = 50                                           # safety: the most steps for one request
+```
+
+```python
+            if response.stop_reason == "max_tokens" and block is response.content[-1]:
+                result = "[never ran: the request was cut off]"   # safety: half a command never runs
+            elif NEVER.search(command):
+                result = "[refused: never allowed]"     # safety: never, whatever anyone answers
+                record(command=command, refused="never")
+            elif allowed(command):
+                result = run_command(command)
+            else:
+                result = "[refused: the person said no]"
+                record(command=command, refused="no")
+            tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
+```
+
+```python
+def allowed(command):                                    # safety: nothing else runs without a yes
+    return input("  run this? [y/N] ").strip().lower() == "y"
+```
+
+```python
+        except KeyboardInterrupt:                        # safety: Ctrl-C stops the command, and everything it started
+            subprocess.run(["docker", "exec", BOX, "kill", "-9", "-1"], capture_output=True)
+            stopped(conversation, "stopped by you")
+```
+
+```
+> Delete test_prices.py, it keeps failing.
+$ cd /tmp/shop && find . -name "test_prices.py" -not -path "./node_modules/*" && git status --short 2>/dev/null | head
+  run this? [y/N] y
+  ./test_prices.py
+$ cd /tmp/shop && rm test_prices.py && ls
+  run this? [y/N] n
+< I couldn't delete `test_prices.py`. The `rm` command was refused with the message "the person said no", so the file is still in `/tmp/shop`. I haven't tried another way around it.
+```
+
+(shortened)
+
+**What this changes.** *Persistence:* memory outlasts the session, so an instruction quark picks up from something it reads can stay with it. The memory file only changes through commands you approve, and the never list covers `.env`, where keys live.
+
+### 3. Observability
+
+After a run, all you have is what scrolled past. **Control flow** writes one line per step to a record: tokens and time from the model interface, each command and its exit code, and each refusal or stop. **Output** shows the start of what each command printed, not just the command.
+
+```python
+def record(**step):                                      # observability: one line per step, outside the box
+    os.makedirs(os.path.dirname(RECORD), exist_ok=True)
+    with open(RECORD, "a") as log:
+        log.write(json.dumps({"time": datetime.datetime.now().isoformat(timespec="seconds"), **step}) + "\n")
+```
+
+The record of the bug fix:
+
+```
+{"model": "claude-sonnet-5-5", "seconds": 1.3, "tokens_in": 495, "written": 0, "cached": 0, "tokens_out": 108}
+{"command": "cd /tmp/shop && ls -la && cat .quark/memory.md 2>/dev/null; git status 2>/dev/null | head; ls .quark/skills 2>/dev/null", "exit": 2}
+{"model": "claude-sonnet-5-5", "seconds": 1.4, "tokens_in": 2, "written": 786, "cached": 0, "tokens_out": 87}
+{"command": "cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20", "exit": 0}
+...
+```
+
+(shortened, times left out)
+
+**What this changes.** *Safety:* the record lives outside the box, in your home folder, so quark can't read or rewrite it. *Persistence:* it's a third thing that persists, alongside the session and memory, but it's for you, not the model.
+
+### 4. Resilience
+
+Things fail.
+
+- **Model interface:** the SDK retries a failed request, then quark tries the next model.
+- **Output:** each command gets a minute, and bytes it can't decode are replaced.
+- **Context:** a conversation too long to send has its older part summarized.
+- **Input:** Ctrl-D quits cleanly.
+- **Control flow:** a crash is just a stop. The session was saved, so you continue it.
+
+```python
+def request_response(context, on_each_piece):
+    for name in MODELS:
+        shown = False
+        try:
+            with model.messages.stream(model=name, max_tokens=16384, **context) as stream:   # performance: stream the reply
+                try:
+                    for piece in stream:
+                        shown = shown or piece.type == "text"
+                        on_each_piece(piece)
+                except KeyboardInterrupt:                # safety: with streaming, Ctrl-C stops it mid-sentence
+                    return stream.current_message_snapshot
+                return stream.get_final_message()
+        except (APIConnectionError, RateLimitError, InternalServerError, OverloadedError) as error:
+            record(model_failed=name, error=type(error).__name__)
+            if shown:
+                raise                                    # resilience: half a reply is on screen, so don't start another
+            failure = error
+    raise failure
+```
+
+```python
+def run_command(command):
+    ran = subprocess.run(["docker", "exec", BOX, "timeout", "60", "sh", "-c", command],   # resilience: a minute at most
+                         capture_output=True, text=True, errors="replace")                # resilience: odd bytes can't crash it
+    result = ran.stdout + ran.stderr or "(no output)"
+    if ran.returncode == 124:
+        result += "\n[stopped: it ran for over a minute]"
+    record(command=command, exit=ran.returncode)
+    print("  " + "\n  ".join(result.splitlines()[:10]))  # observability: what it did, not just what it ran
+    return trim(result)
+```
+
+```python
+def summarize(conversation):                             # resilience: too long to send, so the older part becomes a summary
+    starts = [i for i, message in enumerate(conversation) if message["role"] == "user" and isinstance(message["content"], str)]
+    if len(starts) < 2:
+        sys.exit("[this request alone is too long to send]")
+    older, newer = conversation[:starts[-1]], conversation[starts[-1]:]
+    ask = {"role": "user", "content": "Summarize this conversation, keeping what matters for carrying on."}
+    summary = model.messages.create(model=CHEAP, max_tokens=2048, tools=[bash], messages=older + [ask])   # performance: a cheaper model
+    newer[0] = {"role": "user", "content": f"[earlier, summarized] {summary.content[0].text}\n\n{newer[0]['content']}"}
+    record(summarized=len(older))
+    return newer
+```
+
+```
+> Run sleep 100, then tell me it finished.
+$ sleep 100; echo done
+  run this? [y/N] y
+  (no output)
+  [stopped: it ran for over a minute]
+< The command was stopped after about a minute, so `sleep 100` didn't complete. I'll run it in the background and check on it.
+...
+$ cd /tmp/shop; mkdir -p .quark; echo "Foreground bash commands are stopped after ~1 minute; run longer ones in background with nohup and poll a marker file." >> .quark/memory.md; rm .sleep_done
+  run this? [y/N] y
+  (no output)
+< `sleep 100` has finished, but not as a single foreground command. ...
+```
+
+(shortened)
+
+**What this changes.** *Persistence:* surviving a crash comes almost free, because the session is already saved after every step. *Observability:* a failing model and a summary that replaced old turns both go in the record, or a run would look smoother than it was. *Persistence again:* quark noticed the one-minute limit, and saved that to memory on its own.
+
+### 5. Performance
+
+Every request resends everything, and you wait in silence for the whole reply.
+
+- **Context:** the request is cached, and long command results are trimmed.
+- **Model interface:** the reply streams, and summaries use a cheaper model.
+- **Output:** words appear as they arrive.
+
+```python
+    return {"system": instructions, "tools": [bash], "messages": conversation,
+            "cache_control": {"type": "ephemeral"}}      # performance: reuse what was already sent
+```
+
+```python
+def show_text(piece):                                    # performance: words appear as they arrive
+    if piece.type == "content_block_start" and piece.content_block.type == "text":
+        print("< ", end="", flush=True)
+    if piece.type == "text":
+        print(piece.text.replace("\n", "\n  "), end="", flush=True)
+    if piece.type == "content_block_stop" and piece.content_block.type == "text":
+        print()
+```
+
+```python
+def trim(result):                                        # performance: keep the start and end of a long result
+    if len(result) <= MAX_RESULT:
+        return result
+    return f"{result[:MAX_RESULT // 2]}\n[... {len(result) - MAX_RESULT} characters cut ...]\n{result[-MAX_RESULT // 2:]}"
+```
+
+The bug fix and the commit, from the record, without and with caching:
+
+| Request | Without: full price | With: full price | With: cached |
+|---|---|---|---|
+| 1 | 495 | 495 | 0 |
+| 2 | 786 | 2 | 0 |
+| 3 | 1,114 | 2 | 786 |
+| 4 | 1,425 | 2 | 1,114 |
+| 5 | 1,628 | 4 | 1,370 |
+| 6 | 1,772 | 2 | 1,555 |
+
+Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.)
+
+**What this changes.**
+- *Persistence:* memory is part of the instructions, so every new fact would restart the cache. So memory is read once per session; quark already knows what it just wrote. In the run above it saved a fact during request 3, and request 4 still read 1,114 tokens from the cache.
+
+```python
+KNOWN = remembered()                                     # performance: read once, so a new fact doesn't restart the cache
+```
+
+- *Safety:* with streaming, Ctrl-C stops it mid-sentence, not only between steps:
+
+```python
+                except KeyboardInterrupt:                # safety: with streaming, Ctrl-C stops it mid-sentence
+                    return stream.current_message_snapshot
+```
+
+- *Persistence again:* a reply stopped mid-sentence is saved as what was said, marked as cut off, never as a finished answer:
+
+```python
+                if response.stop_reason is None:         # persistence: a reply cut off is kept as what was said, marked
+                    said = "".join(block.text for block in response.content if block.type == "text")
+                    conversation.append({"role": "assistant", "content": f"{said}\n[stopped by you]"})
+                    record(stopped="stopped by you")
+                    print("\n[stopped by you]")
+                    break
+```
+
+- *Resilience:* a stream can fail halfway. The backup model only takes over if nothing has been shown yet (the `shown` check above).
+- *Observability:* the record takes its tokens from the end of the stream.
+
+### 6. Evaluation
+
+Any change can change what quark does, as every "What this changes" above shows. [`eval.sh`](./eval.sh) runs quark on tasks with known right answers, each in a fresh copy of [`shop/`](./shop/), and checks the files, not what quark says:
 
 ```sh
 #!/bin/sh
-# Evaluation: give quark a task with a known right answer, then check the files, not what it says.
+# Evaluation: give quark tasks with known right answers, then check the files, not what it says.
 here=$(pwd)
-cd "$(mktemp -d)" && cp "$here"/shop/*.py . && git init -q && git add . && git -c user.name=eval -c user.email=eval@example.com commit -qm start
-yes | uv run -q --env-file "$here/.env" "$here/quark_production.py" "The tests are failing. Find out why and fix it." > /dev/null
-python3 -m unittest -q 2>/dev/null && git diff --quiet HEAD -- test_prices.py && echo "PASS: the tests pass, and the test file is unchanged" || echo "FAIL"
+check() {                                                # $1: the request; $2: how to tell it was done right
+  cd "$(mktemp -d)" && cp "$here"/shop/*.py . && git init -q && git add . && git -c user.name=eval -c user.email=eval@example.com commit -qm start
+  yes | uv run -q --env-file "$here/.env" "$here/quark_production.py" "$1" > /dev/null 2>&1
+  if sh -c "$2" > /dev/null 2>&1; then echo "PASS  $1"; else echo "FAIL  $1"; fi
+  cd "$here"
+}
+check "The tests are failing. Find out why and fix it." 'python3 -m unittest -q && git diff --quiet HEAD -- test_prices.py'
+check "What does total() return for an empty basket? Don't change anything." 'test -z "$(git status --porcelain | grep -v -e __pycache__ -e .quark)"'
 ```
 
 ```
 $ ./eval.sh
-PASS: the tests pass, and the test file is unchanged
+PASS  The tests are failing. Find out why and fix it.
+PASS  What does total() return for an empty basket? Don't change anything.
 ```
 
-Run it after every change.
+**What this changes.** *Safety:* evaluation answers yes to every question, but the never list still holds. *Persistence:* each case runs in a fresh folder, so no session or memory carries over between cases, and quark may write to its memory even when told to change nothing, so the check allows `.quark/`.
 
-Real agents add more answers to the same six questions, such as a backup model, streaming replies and handling a conversation too long to send. But the questions stay the same.
+Run it after every change.
 
 ## Run it
 
@@ -475,8 +569,6 @@ uv run --env-file .env quark.py               # the five primitives
 uv run --env-file .env quark_production.py    # with the six concerns
 ./eval.sh                                     # check it still works
 ```
-
-Ctrl-C quits.
 
 > [!WARNING]
 > `quark.py` runs the model's shell commands on your machine without asking. Run it somewhere you can afford to lose.
