@@ -1,6 +1,6 @@
 # Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses
 
-**Chase Dovey**
+**[Chase Dovey](https://cdovey.dev/)**
 Average Joes Lab
 
 October 2026 · Preprint draft
@@ -1585,4 +1585,4 @@ cat .quark/skills/update-lesson-slide-deck.md; ls lessons; ls lessons/04-*; grep
 
 ---
 
-© 2026 Chase Dovey, Average Joes Lab. This paper is licensed under [CC BY-NC-SA 4.0](../LICENSE-CONTENT). Code listings are MIT-licensed; see [LICENSE](../LICENSE).
+© 2026 [Chase Dovey](https://cdovey.dev/), Average Joes Lab. This paper is licensed under [CC BY-NC-SA 4.0](../LICENSE-CONTENT). Code listings are MIT-licensed; see [LICENSE](../LICENSE).

@@ -6,6 +6,7 @@ authors:
   - given-names: Chase
     family-names: Dovey
     affiliation: Average Joes Lab
+    website: "https://cdovey.dev/"
 repository-code: "https://github.com/averagejoeslab/building-agents"
 license:
   - MIT
@@ -24,6 +25,7 @@ preferred-citation:
     - given-names: Chase
       family-names: Dovey
       affiliation: Average Joes Lab
+      website: "https://cdovey.dev/"
   year: 2026
   url: "https://github.com/averagejoeslab/building-agents"
   status: preprint

@@ -2,7 +2,7 @@
 
 **A hands-on course in building agents by building their harness.**
 
-Created by **Chase Dovey** · [Average Joes Lab](https://github.com/averagejoeslab)
+Created by **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
 This repo has three parts, in the order to read them:
 
@@ -305,7 +305,7 @@ GitHub's **Cite this repository** button gives the same, from [`CITATION.cff`](.
 
 ## License
 
-© 2026 Chase Dovey, Average Joes Lab.
+© 2026 [Chase Dovey](https://cdovey.dev/), Average Joes Lab.
 
 - **Code** (every `.py` file, and the code shown in the lessons): [MIT](./LICENSE). Use it for anything, keeping the copyright notice.
 - **Content** (the lessons' text, slides, paper, docs, diagrams and videos): [CC BY-NC-SA 4.0](./LICENSE-CONTENT). Share and adapt it with credit to Chase Dovey, Average Joes Lab, for non-commercial use, under the same license. Commercial use, such as a book or a paid course, needs permission.

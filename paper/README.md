@@ -1,6 +1,6 @@
 # The paper
 
-**Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses** by Chase Dovey, Average Joes Lab.
+**Agent = Harness(Model): Five Mechanistic Primitives of LLM Agent Harnesses** by [Chase Dovey](https://cdovey.dev/), Average Joes Lab.
 
 | File | What it is |
 |---|---|

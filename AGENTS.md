@@ -18,7 +18,7 @@ It is not a Python package: no build system, two dependencies (`anthropic`, and 
 
 **Who it's for.** Learners (people building a first agent), presenters (teaching a lesson to a room or on video), paper readers, people checking the quark-at-work proof, and citers. The agent the course teaches from is [quark](https://github.com/averagejoeslab/quark) (`averagejoeslab/quark`, upstream). Lessons 1–4 leave out some of upstream's hardening: the ESC interrupt arrives in Lesson 6, and keeping partial work, retries and a backup model in Lesson 8. [nanoagent](https://github.com/averagejoeslab/nanoagent) (TypeScript) is the second harness Lesson 4's ending suggests taking apart.
 
-**Licenses.** Code (every `.py` file, and code shown in lessons) is MIT (`LICENSE`). Content (lesson text, slides, paper, docs, diagrams, videos) is CC BY-NC-SA 4.0 (`LICENSE-CONTENT`); commercial use needs permission (a book is planned). Credit Chase Dovey, Average Joes Lab, wherever there is a byline. `CITATION.cff` and the BibTeX in the README must agree.
+**Licenses.** Code (every `.py` file, and code shown in lessons) is MIT (`LICENSE`). Content (lesson text, slides, paper, docs, diagrams, videos) is CC BY-NC-SA 4.0 (`LICENSE-CONTENT`); commercial use needs permission (a book is planned). Credit Chase Dovey, Average Joes Lab, wherever there is a byline, and link his name to https://cdovey.dev/ where the format allows links. `CITATION.cff` and the BibTeX in the README must agree.
 
 ## The thesis
 
