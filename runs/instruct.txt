@@ -62,3 +62,6 @@ step 560: 110 minutes; held-out loss 1.131
 step 570: 112 minutes; held-out loss 1.144
 step 580: 113 minutes; held-out loss 1.183
 step 590: 115 minutes; held-out loss 1.148
+step 600: 117 minutes; held-out loss 1.169
+step 610: 119 minutes; held-out loss 1.187
+step 620: 121 minutes; held-out loss 1.200
