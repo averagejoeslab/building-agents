@@ -54,3 +54,4 @@ step 480: 94 minutes; held-out loss 1.127
 step 490: 96 minutes; held-out loss 1.127
 step 500: 98 minutes; held-out loss 1.125
 step 510: 100 minutes; held-out loss 1.122
+step 520: 102 minutes; held-out loss 1.127
