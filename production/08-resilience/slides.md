@@ -61,19 +61,6 @@ The SDK already retries the left column, with backoff and jitter (`max_retries`)
 
 ---
 
-# A failed command: ask what kind of failure
-
-An exit code doesn't say whether to try again. Exit 1 can be a typo, a failing test, a lock held for a second, or a script that did half its work.
-
-- Ask Jev: **transient**, **permanent** or **partial**?
-- Sure it's transient, and sure the command only reads: **one more try**
-- Sure it's partial: warn the model to **check before repeating it**
-- Anything else, or no answer: the failure goes back as it is
-
-<!-- Jev is the decision model from Lesson 5: a choice and a confidence in a fraction of a second. A read is safe to run twice; a write never is, unless doing it twice is the same as doing it once. Asking is a model-interface act; the retry or the warning is output's. -->
-
----
-
 # When you press ESC, keep what was in flight
 
 Lesson 6 stops at once by throwing the partials away. But the words were written, and the command did its first steps in the world.
@@ -110,43 +97,77 @@ def call(input):
 
 ---
 
-# The concept: judge a failed command
+# The concept: a failed command is reported
 
-`run()` (abridged):
+`run()`, the safe default (abridged):
 
 ```python
-for attempt in (1, 2):
+def run(cmd):
     done = subprocess.run(cmd, shell=True, ...)
+    print(done.stdout, end="")
     if not done.returncode: return "[done]"
-    try: answers = jev.system_one({"command": cmd, "result": ...},
-                                  {"failure": FAILURE, "kind": KIND}).choices
-    except Exception: return "[exit ... Jev: no answer, so no second try]"
-    why, kind = answers["failure"], answers["kind"]
-    if attempt == 2 or not (sure(why, "transient") and sure(kind, "read")): break
-    print("[a failure that passes: trying once more]"); time.sleep(1)
+    return f"[exit {done.returncode}: failed]"
 ```
 
-<!-- Two questions in one call: FAILURE, the kind of failure, and KIND, whether the command only reads. sure() means that choice at a confidence of at least SURE, 0.9. A sure partial adds the warning. No key, an error or a time-out means no second try. -->
-
----
-
-# The concept: a locked database
-
-`hold.py` holds `shop.db`'s write lock, and stops when Jev answers:
+A locked database, and `migrate.py` failing at its fourth table:
 
 ```
 OperationalError (SQLITE_BUSY): database is locked
-[exit 1. Jev: transient 1.00, read 0.94]
+[exit 1: failed]
+```
+
+```
+error: payments: no column named email
+[exit 1: failed]
+```
+
+<!-- run() never runs a command twice: it can't tell a failure that would pass from one that wouldn't, or a read from a write. But the lock would have been gone a second later, and the select only reads. And migrate.py had written three files before it failed; "failed" doesn't say so, and whoever reads it could run it again on top of what it left. -->
+
+---
+
+# With Jev: what kind of failure?
+
+`jev_resilience.py` is `resilience.py` plus these lines in `run()` (abridged):
+
+```python
+try: answers = jev.system_one({"command": cmd, "result": ...},
+                              {"failure": FAILURE, "kind": KIND}).choices
+except Exception: answers = None
+if answers:
+    why, kind = answers["failure"], answers["kind"]
+    if attempt == 1 and sure(why, "transient") and sure(kind, "read"):
+        print("[a failure that passes: trying once more]"); ...; return run(cmd, 2)
+    if sure(why, "partial"): return f"[exit ...: failed] (it may have partly run: ...)"
+```
+
+- `FAILURE`: **transient**, **permanent** or **partial**; `KIND`: does it only read?
+- Anything else, or no answer: the plain `[exit N: failed]`
+
+<!-- An exit code doesn't say whether to try again, so ask Jev, the decision model from Lesson 5. sure() means that choice at a confidence of at least SURE, 0.9. A read is safe to run twice; a write never is. Asking is a model-interface act; the retry or the warning is output's. The one changed line is def run(cmd, attempt=1), so a second try never gets a third. -->
+
+---
+
+# With Jev: the same failures
+
+The locked database, with the lock let go when Jev answers:
+
+```
+OperationalError (SQLITE_BUSY): database is locked
+[Jev: transient 1.00, read 0.94]
 [a failure that passes: trying once more]
 (42,)
 [done]
 ```
 
-- A typo in the query: `permanent 1.00`, no second try
-- `migrate.py`, failing at its fourth table: `partial 0.91`, and the warning
-- No key: `Jev: no answer, so no second try`
+```
+error: payments: no column named email
+[Jev: partial 0.92, change 1.00]
+[exit 1: failed] (it may have partly run: check before repeating it)
+```
 
-<!-- The first try waited SQLite's five seconds for the lock and failed. Jev was sure it would pass and sure the select only reads, so it ran once more and got the count. migrate.py had written three files before it failed: the warning was true. -->
+- A typo: `permanent 1.00`, no second try. No key: `[exit 1: failed]`, as before
+
+<!-- Jev was sure the lock would pass and sure the select only reads, so it ran once more and got the count. migrate.py had written three files: the warning was true, and Jev called it a change at 1.00, so it would never have run twice anyway. With TYPESAFE_API_KEY empty, the result is resilience.py's, word for word. -->
 
 ---
 

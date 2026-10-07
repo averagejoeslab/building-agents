@@ -81,49 +81,85 @@ The system prompt has carried a mark since Lesson 4. New here: a second mark on 
 
 ---
 
-# The concept: route, cache, run together (abridged)
+# The concept: cache, then run together (abridged)
 
 ```python
-TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
-def route(input):
-    try: size = jev.system_one({"input": input}, {"size": SIZE}).choices["size"]
-    except Exception: return TIERS["edit"]
-    tier = size.choice if size.confidence >= 0.7 else "edit"
-    print(f"[Jev: {size.choice}, {size.confidence:.2f}, so {TIERS[tier]}]")
-    return TIERS[tier]
-
 notes = [{"type": "text", "text": open("README.md").read(), "cache_control": {"type": "ephemeral"}}]
+def call(model, input):
+    ...
+    print(f"[...: {u.input_tokens} new, {u.cache_creation_input_tokens} written to the cache, ...]")
 ...
-model = route(input)
+model = "claude-sonnet-5-5"                              # the usual model, whatever the request
 print(call(model, input))
-call(model, input)
+call(model, input)                                       # the same request again: its start comes from the cache
+...
+for cmd in checks: run(cmd)
 ...
 with ThreadPoolExecutor() as pool: outputs = list(pool.map(run, checks))
 ```
 
-<!-- performance.py, about forty lines. Jev, the decision model from Lesson 5, answers one Choice: lookup, edit or work. Below 0.7, or no answer, the middle tier. The system prompt is the repo's README with one cache mark; the same request goes twice so you can watch the second find the first one's work. Then three two-second commands, in a loop and then in a thread pool. Asking Jev is model interface; acting on the answer is routing, control flow. -->
+<!-- performance.py, about thirty lines. The system prompt is the repo's README with one cache mark. call() prints where its input tokens came from: new, written to the cache, or read from it. The same request goes twice so you can watch the second find the first one's work. Then three two-second commands, in a loop and then in a thread pool. Every request goes to the same model. -->
 
 ---
 
-# The concept, run twice
+# The concept, run
 
 ```
-[Jev: lookup, 0.99, so claude-haiku-4-5]
-[1.0s: 17 new, 8264 written to the cache, 0 read from it]
-[1.1s: 17 new, 0 written to the cache, 8264 read from it]
+[1.4s: 23 new, 10716 written to the cache, 0 read from it]
+The course has ten lessons: four on the primitives (Lessons 1–4) and six on production layers (Lessons 5–10).
+[1.3s: 23 new, 0 written to the cache, 10716 read from it]
 [one at a time: 6.0s]
 lint ok, types ok, tests ok [at the same time: 2.0s]
 ```
 
-```
-[Jev: work, 0.64, so claude-sonnet-5-5]
-[4.3s: 41 new, 10695 written to the cache, 0 read from it]
-[4.6s: 41 new, 0 written to the cache, 10695 read from it]
+- The first call wrote the README to the cache: 10,716 tokens
+- The identical second call read all of it back; full price for 23
+- Six seconds one after another, two together
+
+<!-- A one-sentence lookup, and it went to Sonnet, the same model a design question would go to. That's what Jev changes next. -->
+
+---
+
+# With Jev: size the request, pick the model (abridged)
+
+```python
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None
+SIZE = Choice(instructions="How much work does the request in `input` need ...", criteria={...})
+TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
+def route(input):
+    try: size = jev.system_one({"input": input}, {"size": SIZE}).choices["size"]
+    except Exception: print(f"[no answer from Jev, so {TIERS['edit']}]"); return TIERS["edit"]
+    tier = size.choice if size.confidence >= 0.7 else "edit"
+    print(f"[Jev: {size.choice}, {size.confidence:.2f}, so {TIERS[tier]}]")
+    return TIERS[tier]
 ```
 
-(shortened: the answers are cut)
+The one changed line: `model = route(input)`
 
-<!-- First: a lookup, sure, so Haiku. The first call wrote the README to the cache; the identical second call read all of it back. Six seconds one after another, two together. Second: Jev leaned to work but only at 0.64, under the bar, so the middle tier, not Opus. The same README is 10,695 tokens for Sonnet and 8,264 for Haiku: each model counts its own way and keeps its own cache. -->
+<!-- jev_performance.py is performance.py plus these lines and nothing else. Jev, the decision model from Lesson 5, answers one Choice: lookup, edit or work, each with a line saying what it covers, because Jev reads literally. Below 0.7, no key or any error: the middle tier, the usual model. Asking is a model-interface act; acting on the answer is routing, control flow. -->
+
+---
+
+# Jev's answer picks the model (shortened)
+
+```
+[Jev: lookup, 0.99, so claude-haiku-4-5]
+[1.0s: 17 new, 8295 written to the cache, 0 read from it]
+```
+
+```
+[Jev: work, 0.73, so claude-opus-5-5]
+[5.5s: 41 new, 10716 written to the cache, 0 read from it]
+```
+
+With `TYPESAFE_API_KEY=not-a-key`:
+
+```
+[no answer from Jev, so claude-sonnet-5-5]
+[1.6s: 23 new, 0 written to the cache, 10716 read from it]
+```
+
+<!-- The lookup went to Haiku: the same README is 8,295 tokens for Haiku and 10,716 for Sonnet, each model counts its own way. The design question was work at 0.73, just over the bar, so Opus, and Opus wrote the README to the cache again, though Sonnet had cached it minutes before: the cache belongs to one model. With no answer, the usual model, and that run read Sonnet's cache from the concept's run. -->
 
 ---
 
@@ -244,7 +280,7 @@ def route(input):
     steps, spent, models = 0, 0, route(input)
 ```
 
-- `SIZE` is the concept's question; lookup → Haiku, edit → Sonnet, work → Opus first
+- `SIZE` is `jev_performance.py`'s question; lookup → Haiku, edit → Sonnet, work → Opus first
 - Unsure, no key, no answer: `edit`, Lesson 8's models
 - Once per person turn: switching mid-turn would throw the cache away
 

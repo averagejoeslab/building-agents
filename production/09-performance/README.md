@@ -28,25 +28,14 @@ Nothing here makes the model smarter or the answer better. It makes the same wor
 
 ## The concept
 
-Here are three of those ideas with nothing around them, in [`performance.py`](./performance.py): a model picked for the request, the same request sent twice so the second reads its start from the cache, and three commands run one at a time and then all at once:
+Here are two of those ideas with nothing around them, in [`performance.py`](./performance.py): the same request sent twice so the second reads its start from the cache, and three commands run one at a time and then all at once:
 
 ```python
-import subprocess, sys, os, time
+import subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
-from typesafe_sdk import TypeSafeClient, Choice
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev: a second model that answers typed questions and writes no text
-
-SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
-TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
-def route(input):                                        # the smallest model that can do it; unsure means the usual one
-    try: size = jev.system_one({"input": input}, {"size": SIZE}).choices["size"]
-    except Exception: return TIERS["edit"]
-    tier = size.choice if size.confidence >= 0.7 else "edit"
-    print(f"[Jev: {size.choice}, {size.confidence:.2f}, so {TIERS[tier]}]")
-    return TIERS[tier]
 
 notes = [{"type": "text", "text": open("README.md").read(), "cache_control": {"type": "ephemeral"}}]   # the same long start, marked
 def call(model, input):                                  # one call, and where its input tokens came from
@@ -60,7 +49,7 @@ def run(cmd):                                            # one command, and what
     return subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace").stdout.strip()
 
 input = " ".join(sys.argv[1:])
-model = route(input)
+model = "claude-sonnet-5-5"                              # the usual model, whatever the request
 print(call(model, input))
 call(model, input)                                       # the same request again: its start comes from the cache
 
@@ -73,49 +62,108 @@ with ThreadPoolExecutor() as pool: outputs = list(pool.map(run, checks))
 print(", ".join(outputs), f"[at the same time: {time.time() - start:.1f}s]")
 ```
 
-**`route()`** asks Jev, the decision model from [Lesson 5](../05-sandboxing/#asking-jev), one question, a `Choice`: how much work does this request need, `lookup`, `edit` or `work`? Each option has a line saying what it covers, because Jev reads literally. `TIERS` turns the answer into a model: a lookup goes to `claude-haiku-4-5`, an edit to `claude-sonnet-5-5`, work to `claude-opus-5-5`. The answer says *what*; the confidence says whether to act on it. Below 0.7 the request goes to the middle, and so does every request when Jev can't be reached: any exception is caught, so a broken router costs you the right model, never the answer. Asking is a model-interface act. Acting on the answer, sending the work down a different path, is control flow.
-
-**`notes` and `call()`.** The system prompt is this repo's `README.md`, thousands of tokens, the same every time, with one `cache_control` mark on it. `call()` sends one request and prints where its input tokens came from: new, written to the cache, or read from it. The file sends the same request twice, on purpose, so you can watch the second one find the first one's work.
+**`notes` and `call()`.** The system prompt is this repo's `README.md`, thousands of tokens, the same every time, with one `cache_control` mark on it. `call()` sends one request and prints where its input tokens came from: new, written to the cache, or read from it. The file sends the same request twice, on purpose, so you can watch the second one find the first one's work. Every request goes to the same model, `claude-sonnet-5-5`, whatever it asks.
 
 **`run()` and the pool.** Three commands that each take two seconds, run in a plain loop and then through a `ThreadPoolExecutor`, which starts them all and hands back what they printed in the order they were given.
 
-Run it from the root of the repo (it reads `README.md` from where it runs, and it needs `TYPESAFE_API_KEY` as well as the Anthropic key):
+Run it from the root of the repo (it reads `README.md` from where it runs):
 
 ```bash
 uv run production/09-performance/performance.py "how many lessons are in this course? answer in one sentence"
 ```
 
 ```
-[Jev: lookup, 0.99, so claude-haiku-4-5]
-[1.0s: 17 new, 8264 written to the cache, 0 read from it]
-The course has 10 lessons total: 4 primitive lessons (model interface, input and output, control flow, and context) followed by 6 production layers (sandboxing, guardrails, observability, resilience, performance, and evaluation).
-[1.1s: 17 new, 0 written to the cache, 8264 read from it]
+[1.4s: 23 new, 10716 written to the cache, 0 read from it]
+The course has ten lessons: four on the primitives (Lessons 1–4) and six on production layers (Lessons 5–10).
+[1.3s: 23 new, 0 written to the cache, 10716 read from it]
 [one at a time: 6.0s]
 lint ok, types ok, tests ok [at the same time: 2.0s]
 ```
 
-Jev called it a `lookup` with 0.99 confidence, so it went to Haiku. The first call wrote the whole README to the cache, 8,264 tokens, and paid full price for only the 17 tokens of the question. The second call, identical, read all 8,264 back. Then the commands: six seconds one after another, two seconds together.
+The first call wrote the whole README to the cache, 10,716 tokens, and paid full price for only the 23 tokens of the question. The second call, identical, read all 10,716 back. Then the commands: six seconds one after another, two seconds together.
+
+## The concept with Jev
+
+The third idea is the model a request goes to. `performance.py` sends a one-sentence lookup to the same model as a design question. Picking the model by the size of the work needs a judgment about the request, and that's a question for Jev, the decision model from [Lesson 5](../05-sandboxing/#asking-jev). [`jev_performance.py`](./jev_performance.py) is `performance.py` plus the lines that ask it, and nothing else. These are the lines it adds, after the Anthropic import:
+
+```python
+import os
+from typesafe_sdk import TypeSafeClient, Choice
+```
+
+after the client:
+
+```python
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev: a second model that answers typed questions and writes no text
+
+SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
+TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
+def route(input):                                        # the smallest model that can do it; unsure means the usual one
+    try: size = jev.system_one({"input": input}, {"size": SIZE}).choices["size"]
+    except Exception: print(f"[no answer from Jev, so {TIERS['edit']}]"); return TIERS["edit"]
+    tier = size.choice if size.confidence >= 0.7 else "edit"
+    print(f"[Jev: {size.choice}, {size.confidence:.2f}, so {TIERS[tier]}]")
+    return TIERS[tier]
+```
+
+and one line changes, the one that picks the model:
+
+```python
+model = route(input)
+```
+
+**`route()`** asks Jev one question, a `Choice`: how much work does this request need, `lookup`, `edit` or `work`? Each option has a line saying what it covers, because Jev reads literally. What goes in is only the person's request; what comes back is one of the three, with a confidence. `TIERS` turns the answer into a model: a lookup goes to `claude-haiku-4-5`, an edit to `claude-sonnet-5-5`, the usual model, work to `claude-opus-5-5`. The answer says *what*; the confidence says whether to act on it. Below 0.7 the request goes to the middle, and so does every request when Jev can't be reached: with no key `jev` is `None`, and any exception is caught, so a broken router costs you the right model, never the answer. Asking is a model-interface act. Acting on the answer, sending the work down a different path, is control flow (Lesson 3 called it routing). And Jev only sizes the request; it can't tell you whether the smaller model then did the job.
+
+Run it the same way. It needs `TYPESAFE_API_KEY` as well as the Anthropic key, and runs without it:
+
+```bash
+uv run production/09-performance/jev_performance.py "how many lessons are in this course? answer in one sentence"
+```
+
+```
+[Jev: lookup, 0.99, so claude-haiku-4-5]
+[1.0s: 17 new, 8295 written to the cache, 0 read from it]
+The course has ten lessons total: four that build the five primitives of a harness (Lessons 1–4) and six production layers that harden it for real-world use (Lessons 5–10).
+[0.9s: 17 new, 0 written to the cache, 8295 read from it]
+[one at a time: 6.0s]
+lint ok, types ok, tests ok [at the same time: 2.0s]
+```
+
+Jev called it a `lookup` with 0.99 confidence, so it went to Haiku, and each call took about a second. Look at the cache line: the same README is 8,295 tokens here and 10,716 for Sonnet. Each model counts tokens its own way, and the question is 17 tokens, not 23.
 
 A question that needs more thought:
 
 ```bash
-uv run production/09-performance/performance.py "Which lesson of this course should I teach first to a room of backend engineers, and why? Answer in three sentences."
+uv run production/09-performance/jev_performance.py "Which lesson of this course should I teach first to a room of backend engineers, and why? Answer in three sentences."
 ```
 
 ```
-[Jev: work, 0.64, so claude-sonnet-5-5]
-[4.3s: 41 new, 10695 written to the cache, 0 read from it]
-Teach Lesson 1 (Model interface) first, because the course is cumulative: each lesson's `quark.py` is the previous one's plus one primitive, so you can't skip ahead without losing the thread. It's also familiar ground for backend engineers, since it's just one API call and a streamed reply, which lets you establish "Agent = Harness(Model)" and the five primitives without fighting unfamiliar material. Because they'll find it easy, you can move through it quickly and spend your time on Lesson 3 (Control flow), where a plain request/response call becomes an agent loop and the real "aha" lands.
-[4.6s: 41 new, 0 written to the cache, 10695 read from it]
+[Jev: work, 0.73, so claude-opus-5-5]
+[5.5s: 41 new, 10716 written to the cache, 0 read from it]
+Start with **Lesson 1, Model interface**, because the course builds outward from the model: each later lesson's `quark.py` is the previous one plus a single primitive, so skipping it leaves nothing to build on. It also suits backend engineers well, since it frames the model as a plain API call (TokensOut = Model(TokensIn)) with a streamed reply, and the rest of the harness becomes ordinary systems work around that call. Resist jumping to the production layers like observability or sandboxing, however familiar they'll feel to this audience, because each one builds on the harness finished in Lesson 4 and folds back into primitives the room won't have built yet.
+[4.2s: 41 new, 0 written to the cache, 10716 read from it]
 [one at a time: 6.0s]
 lint ok, types ok, tests ok [at the same time: 2.0s]
 ```
 
-Jev leaned towards `work`, but with 0.64 confidence, under the bar, so it went to the middle tier, Sonnet, and not to Opus. A router with no bar would have sent it to the biggest model on a guess. Look at the cache line too: the same README is 10,695 tokens here and 8,264 for Haiku. Each model counts tokens its own way and keeps its own cache, so the Haiku run's cache was no use to this one: it wrote the README again.
+`work` at 0.73, just over the bar, so Opus. Its first call wrote all 10,716 tokens to the cache again, though Sonnet had cached the same README a few minutes before in the concept's run: the cache belongs to one model.
+
+Without Jev. I ran the first question again with `TYPESAFE_API_KEY=not-a-key`:
+
+```
+[no answer from Jev, so claude-sonnet-5-5]
+[1.6s: 23 new, 0 written to the cache, 10716 read from it]
+The course has ten lessons: four on the primitives (Lessons 1–4) and six on the production layers (Lessons 5–10).
+[1.4s: 23 new, 0 written to the cache, 10716 read from it]
+[one at a time: 6.0s]
+lint ok, types ok, tests ok [at the same time: 2.0s]
+```
+
+No answer, so the usual model, and the run is `performance.py`'s. It's the same request to the same model as the concept's run, a few minutes later, so even its first call read the README from Sonnet's cache.
 
 ## quark's implementation
 
-[`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else: 420 lines, 25 more than Lesson 8's. In `# ── model interface ──`, `call()` takes a list of models, which is Lesson 8's list unless you say otherwise:
+Here are both, the concept and the question to Jev, built into quark. [`quark.py`](./quark.py) is Lesson 8's `quark.py` plus performance, and nothing else: 420 lines, 25 more than Lesson 8's. In `# ── model interface ──`, `call()` takes a list of models, which is Lesson 8's list unless you say otherwise:
 
 ```python
 MODELS, FAST = ["claude-sonnet-5-5", "claude-opus-5-5"], ["claude-haiku-4-5"]
@@ -230,7 +278,7 @@ def route(input):                                        # performance: the smal
     return TIERS[tier]
 ```
 
-`SIZE` is the concept's question, word for word. `TIERS` maps each answer to a list of models for `call()`: a lookup goes to Haiku, with Lesson 8's two models behind it as backups; an edit goes to Lesson 8's list, Sonnet then Opus; work goes to the same list reversed, Opus first. **`route()`** asks Jev about the person's request through Lesson 5's `ask()`. It acts on the answer only when the confidence is at least 0.7, lower than the 0.9 `SURE` the other layers use, because the worst a wrong route can do is spend more or answer worse, and the next lesson measures that; whatever a smaller model asks for still goes through the same guard and the same box. Unsure, no key, no answer, or a turn with no new request (a resumed session) all mean `edit`, Lesson 8's models, as if nothing had been asked. Every decision goes in the trace as a `routed` record, so you can see where each turn went.
+`SIZE` is `jev_performance.py`'s question, word for word. `TIERS` maps each answer to a list of models for `call()`: a lookup goes to Haiku, with Lesson 8's two models behind it as backups; an edit goes to Lesson 8's list, Sonnet then Opus; work goes to the same list reversed, Opus first. **`route()`** asks Jev about the person's request through Lesson 5's `ask()`. It acts on the answer only when the confidence is at least 0.7, lower than the 0.9 `SURE` the other layers use, because the worst a wrong route can do is spend more or answer worse, and the next lesson measures that; whatever a smaller model asks for still goes through the same guard and the same box. Unsure, no key, no answer, or a turn with no new request (a resumed session) all mean `edit`, Lesson 8's models, as if nothing had been asked. Every decision goes in the trace as a `routed` record, so you can see where each turn went.
 
 Asking is a model-interface act, as in every lesson since Lesson 5. What's done with the answer is routing, so it's control flow's: it decides which path a turn of work takes, unlike Lesson 8's backup model, which steps in only when the first model fails. It's decided once per person turn, when the request arrives, not once per step, for the reason from the start of the lesson: the cache belongs to a model, and a turn that changed model at every step would never read what it wrote. The loop asks at the start, and again with each new turn from the person:
 

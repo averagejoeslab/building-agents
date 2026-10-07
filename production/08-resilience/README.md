@@ -1,3 +1,30 @@
+# Lesson 8: Resilience
+
+> 🎥 **Video:** coming soon
+
+Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that's the assumption that fails first: the API drops a call, the model is overloaded, a command fails because something else had the file locked, a response is cut off in the middle of a command, the process dies halfway through and the work goes with it. Or you stop it yourself, with Lesson 6's ESC, and what it had already done goes with it.
+
+Resilience is how the harness keeps going, or stops cleanly, when something doesn't answer. It has two jobs. The first is to get through the failures that pass. The second is to leave things in a state you can pick up from when a failure doesn't pass, so that the hour of work before it isn't lost.
+
+This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), a service across a network, so it can be slow, busy or gone. Output runs the model's words (Lesson 2), so what it runs can fail, and what it's handed can be broken. They're also the two places where work is in flight when you press ESC: a response half streamed, a command half run. And to pick a run back up it **reads context's own record**: Lesson 4's episode already holds every message, written before any tool runs, so resilience doesn't need a save file of its own.
+
+The mechanism, first in the model interface. Not every failure means the same thing, so the first step is to sort them:
+
+- **Worth trying again.** The network dropped, the request timed out, the server said slow down (429), or the server itself had trouble (any 5xx, and Anthropic's "overloaded", 529). Nothing is wrong with the request. Send the same one a moment later and it will probably work.
+- **Not worth trying again.** A bad API key (401), a request the API won't accept (400), a model that doesn't exist (404). Sending it again gets the same answer, so retrying only delays the error. These go up to the code that can do something about them, or to you.
+
+For the first kind, the way to retry matters. Wait longer after each failure (*exponential backoff*: one second, two, four), so a service that's struggling isn't hit at full speed. Add a little randomness (*jitter*), so a thousand clients that failed together don't all come back together. If the server said how long to wait, wait that long. And put a limit on it: a few tries, not forever. The Anthropic SDK already does all of this for you: it retries connection errors, 408, 409, 429 and 5xx with backoff, and the number of tries is the `max_retries` setting. What the SDK can't do is choose a different model. That's the one thing the harness adds here: when the preferred model is still failing after the SDK has given up, try a backup, and when nothing answers, stop with a message instead of a stack trace.
+
+Then output. A command fails too, and it's harder to sort. The API's failures come with a status code that says whether to try again. A command's come with an exit code, and exit 1 can be a missing file, a typo, a failing test, a database another program had locked for a second, or a script that did half its work and then fell over. Only the first kind of thing, the lock, will work if you simply run it again, and even then only if running it twice can't do harm, which is true of a command that only reads and never of one that writes. Telling those apart means reading what the command printed, and that's a judgment. So the harness asks Jev, the decision model from [Lesson 5](../05-sandboxing/#asking-jev): what kind of failure is this, *transient*, *permanent* or *partial*? A sure *transient* failure of a command that only reads gets one more try. A sure *partial* one is flagged to the model, so it checks before repeating it. Anything else goes back as it is.
+
+And a command's request can arrive broken: cut off in the middle by the token limit, half a sentence. The rule for that is the one Lesson 2 started with: every request gets an answer the model can read. A result that says *this was cut off before it was whole, and it never reached the world* is something the model can act on. A crash isn't.
+
+Then the failure that's yours: you press ESC. Lesson 6 made that stop at once, and it stops cleanly by throwing away whatever was in flight. Whatever the model had already said, it's told only that you interrupted it. Whatever the command had printed, the model gets only `[your doing stopped before done]`. But both of those happened. The words were written, and the command did its first steps in the world. Dropping them leaves the model's record out of step with what happened, which is the same failure as losing a run to a crash, only smaller. So resilience keeps the partials, the way upstream quark does.
+
+Last, picking a task back up. If the harness is killed during a long task, working memory dies with the process. But since Lesson 4, every message has also been written to the session's episode, by the harness, as it happens, and the model's request is on disk *before* the command it asks for runs. So the record already exists. Resilience only has to notice, at startup, that the last episode ended mid-task, and offer to continue it. There's one trap: if the harness died while a command was running, the record ends with a request and no result, and the command may or may not have run. The harness can't know, so it says so, and the model, which knows what the command was for, looks before it repeats anything.
+
+None of this makes the model right, and it doesn't make a failed run succeed. It makes a run that hits trouble end up either finished or somewhere you can start again from.
+
 ## The concept
 
 Here are the two ideas with nothing around them: a call with somewhere else to go, and a failed command that's reported as it is and never run again. They're in [`resilience.py`](./resilience.py):
@@ -40,7 +67,6 @@ There's no agent loop. `resilience.py ask "..."` sends one question to the model
 Failures that actually happen are hard to schedule, so for the model's half I used a stand-in for the API that fails on purpose and passes everything else through to the real one. It's about 30 lines of Python, built on the standard library, and it never prints headers, so your key doesn't appear anywhere. Save it as `flaky.py`:
 
 ```python
-```python
 # A stand-in for the Anthropic API that fails on purpose. Everything else it passes through.
 #   python flaky.py PORT all          every request gets "529 overloaded"
 #   python flaky.py PORT MODEL        requests for that model get "529 overloaded"
@@ -74,7 +100,6 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args): pass
 
 HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
-```
 ```
 
 The SDK reads `ANTHROPIC_BASE_URL`, so that's how the call reaches it; nothing in `resilience.py` knows about it. Everything below runs in a scratch folder, as `uv run --project /path/to/building-agents /path/to/building-agents/production/08-resilience/resilience.py`, which I'll write as `resilience.py`. First, the preferred model is down:
@@ -210,7 +235,7 @@ An exit code doesn't say which kind of failure it was. Telling them apart means 
 
 Asking Jev is a model-interface act: a second model, called with a request, read back. What's done with its answer, a second try or a warning on the result, is output's, because it changes how the tool runs and what its result says. Its limits are Jev's: it can only judge what the command printed, and it reads literally, so a command whose output hides what went wrong gives it little to go on.
 
-The locked database again. This time I stop the holder (by its process ID) as soon as `jev_resilience.py` prints Jev's answer, the way the other program would finish its write while you waited:
+The locked database again. This time I stop the holder (by its process ID) as soon as `jev_resilience.py` (run the same way) prints Jev's answer, the way the other program would finish its write while you waited:
 
 ```bash
 python3 hold.py & HOLDER=$!
