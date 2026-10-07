@@ -53,7 +53,7 @@ A quark is one of the smallest particles there is. **quark** is the smallest age
 
 ```python
 def capture_input():
-    return input("> ")
+    return input("\n> ")
 
 
 def assemble_context(conversation):
@@ -69,7 +69,7 @@ def handle_output(response):
     tool_results = []
     for block in response.content:
         if block.type == "text":
-            print(f"< {block.text}")
+            print("< " + block.text.replace("\n", "\n  "))
         if block.type == "tool_use":
             print(f"$ {block.input['command']}")
             ran = subprocess.run(block.input["command"], shell=True, capture_output=True, text=True)
@@ -106,18 +106,20 @@ Here's a session in a folder with one file, `groceries.txt` (milk, eggs, bread).
 ```
 > What files are in this folder?
 $ ls -la /tmp/groceries
-< The folder has one file, `groceries.txt`. It's 16 bytes and was last modified on Oct 7 at 04:07.
+< The folder has one file, `groceries.txt`. It's 16 bytes and was last modified on Oct 7 at 04:09.
+
 > Add coffee to my groceries, and sort the list.
 $ cd /tmp/groceries && cat -A groceries.txt
 $ cd /tmp/groceries && echo coffee >> groceries.txt && sort -o groceries.txt groceries.txt && cat groceries.txt
 < I added coffee to `groceries.txt` and sorted the list alphabetically. It now reads:
+  
+  - bread
+  - coffee
+  - eggs
+  - milk
 
-- bread
-- coffee
-- eggs
-- milk
 > How many items are on it now?
-< There are 4 items on the list now: bread, coffee, eggs and milk.
+< There are 4 items on the list now: bread, coffee, eggs, and milk.
 ```
 
 The second request took two commands, one after the other: that's the inner loop. The last answer needed no command at all, because the whole conversation goes back to the model on every turn.

@@ -10,7 +10,7 @@ bash = {"name": "bash", "description": "Run a shell command",
 
 
 def capture_input():
-    return input("> ")
+    return input("\n> ")
 
 
 def assemble_context(conversation):
@@ -26,7 +26,7 @@ def handle_output(response):
     tool_results = []
     for block in response.content:
         if block.type == "text":
-            print(f"< {block.text}")
+            print("< " + block.text.replace("\n", "\n  "))
         if block.type == "tool_use":
             print(f"$ {block.input['command']}")
             ran = subprocess.run(block.input["command"], shell=True, capture_output=True, text=True)
