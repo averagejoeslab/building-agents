@@ -100,10 +100,27 @@ cp .env.example .env        # then put your key in .env
 uv run --env-file .env quark.py
 ```
 
+Here's a session in a folder with one file, `groceries.txt` (milk, eggs, bread). The lines after `>` are typed:
+
 ```
-> How many lines are in fruit.txt, and what is today?
-`fruit.txt` has 2 lines (according to `wc -l`, which counts newline characters). Today is Wednesday, October 7, 2026.
+> What files are in this folder?
+The folder has one file:
+
+- `groceries.txt` (16 bytes, last modified Oct 7 04:03)
+
+Want me to show what's inside it?
+> Add coffee to my groceries, and sort the list.
+I added coffee to `groceries.txt` and sorted the list alphabetically. It now reads:
+
+- bread
+- coffee
+- eggs
+- milk
+> How many items are on it now?
+There are 4 items on the list now: bread, coffee, eggs and milk.
 ```
+
+To answer, quark ran commands to list the folder, rewrite the file and count it. It remembered which list "it" was because the whole conversation goes back on every turn.
 
 Ctrl-C quits.
 
