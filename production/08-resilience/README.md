@@ -1,43 +1,13 @@
-# Lesson 8: Resilience
-
-> 🎥 **Video:** coming soon
-
-Lesson 7 can tell you exactly where a run broke. This lesson is about not breaking, or breaking somewhere you can start again from. Everything so far assumed that the thing on the other side of a call answers, and answers sensibly. Over a long run that's the assumption that fails first: the API drops a call, the model is overloaded, a command fails because something else had the file locked, a response is cut off in the middle of a command, the process dies halfway through and the work goes with it. Or you stop it yourself, with Lesson 6's ESC, and what it had already done goes with it.
-
-Resilience is how the harness keeps going, or stops cleanly, when something doesn't answer. It has two jobs. The first is to get through the failures that pass. The second is to leave things in a state you can pick up from when a failure doesn't pass, so that the hour of work before it isn't lost.
-
-This is a production layer, so it adds hardening, not a new primitive. It's **built on the model interface and output**, the two places where the harness reaches out of itself and the world gets to say no. The model interface is the call to the API (Lesson 1), a service across a network, so it can be slow, busy or gone. Output runs the model's words (Lesson 2), so what it runs can fail, and what it's handed can be broken. They're also the two places where work is in flight when you press ESC: a response half streamed, a command half run. And to pick a run back up it **reads context's own record**: Lesson 4's episode already holds every message, written before any tool runs, so resilience doesn't need a save file of its own.
-
-The mechanism, first in the model interface. Not every failure means the same thing, so the first step is to sort them:
-
-- **Worth trying again.** The network dropped, the request timed out, the server said slow down (429), or the server itself had trouble (any 5xx, and Anthropic's "overloaded", 529). Nothing is wrong with the request. Send the same one a moment later and it will probably work.
-- **Not worth trying again.** A bad API key (401), a request the API won't accept (400), a model that doesn't exist (404). Sending it again gets the same answer, so retrying only delays the error. These go up to the code that can do something about them, or to you.
-
-For the first kind, the way to retry matters. Wait longer after each failure (*exponential backoff*: one second, two, four), so a service that's struggling isn't hit at full speed. Add a little randomness (*jitter*), so a thousand clients that failed together don't all come back together. If the server said how long to wait, wait that long. And put a limit on it: a few tries, not forever. The Anthropic SDK already does all of this for you: it retries connection errors, 408, 409, 429 and 5xx with backoff, and the number of tries is the `max_retries` setting. What the SDK can't do is choose a different model. That's the one thing the harness adds here: when the preferred model is still failing after the SDK has given up, try a backup, and when nothing answers, stop with a message instead of a stack trace.
-
-Then output. A command fails too, and it's harder to sort. The API's failures come with a status code that says whether to try again. A command's come with an exit code, and exit 1 can be a missing file, a typo, a failing test, a database another program had locked for a second, or a script that did half its work and then fell over. Only the first kind of thing, the lock, will work if you simply run it again, and even then only if running it twice can't do harm, which is true of a command that only reads and never of one that writes. Telling those apart means reading what the command printed, and that's a judgment. So the harness asks Jev, the decision model from [Lesson 5](../05-sandboxing/#asking-jev): what kind of failure is this, *transient*, *permanent* or *partial*? A sure *transient* failure of a command that only reads gets one more try. A sure *partial* one is flagged to the model, so it checks before repeating it. Anything else goes back as it is.
-
-And a command's request can arrive broken: cut off in the middle by the token limit, half a sentence. The rule for that is the one Lesson 2 started with: every request gets an answer the model can read. A result that says *this was cut off before it was whole, and it never reached the world* is something the model can act on. A crash isn't.
-
-Then the failure that's yours: you press ESC. Lesson 6 made that stop at once, and it stops cleanly by throwing away whatever was in flight. Whatever the model had already said, it's told only that you interrupted it. Whatever the command had printed, the model gets only `[your doing stopped before done]`. But both of those happened. The words were written, and the command did its first steps in the world. Dropping them leaves the model's record out of step with what happened, which is the same failure as losing a run to a crash, only smaller. So resilience keeps the partials, the way upstream quark does.
-
-Last, picking a task back up. If the harness is killed during a long task, working memory dies with the process. But since Lesson 4, every message has also been written to the session's episode, by the harness, as it happens, and the model's request is on disk *before* the command it asks for runs. So the record already exists. Resilience only has to notice, at startup, that the last episode ended mid-task, and offer to continue it. There's one trap: if the harness died while a command was running, the record ends with a request and no result, and the command may or may not have run. The harness can't know, so it says so, and the model, which knows what the command was for, looks before it repeats anything.
-
-None of this makes the model right, and it doesn't make a failed run succeed. It makes a run that hits trouble end up either finished or somewhere you can start again from.
-
 ## The concept
 
-Here are the two ideas with nothing around them: a call with somewhere else to go, and a failed command that's judged before it's tried again. They're in [`resilience.py`](./resilience.py):
+Here are the two ideas with nothing around them: a call with somewhere else to go, and a failed command that's reported as it is and never run again. They're in [`resilience.py`](./resilience.py):
 
 ```python
-import subprocess, sys, os, time
+import subprocess, sys
 from anthropic import Anthropic, APIConnectionError, APIStatusError
-from typesafe_sdk import TypeSafeClient, Choice
 
 client = Anthropic(max_retries=2)                        # the SDK tries a failed call twice more, waiting longer each time
 MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]        # the model you want, then the backup
-jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev answers typed questions (Lesson 5)
-SURE = 0.9                                               # how sure Jev must be before its answer changes anything
 
 def call(input):                                         # model interface: when the SDK gives up on a model, try the next one
     for model in MODELS:
@@ -49,26 +19,11 @@ def call(input):                                         # model interface: when
             print(f"[{model}: {type(e).__name__}, after the SDK's retries]")
     return "[no model answered]"
 
-FAILURE = Choice(instructions="The command in `command` failed with `result`. What kind of failure is it?",
-    criteria={"transient": "likely to work if run again unchanged: a network blip, a timeout, a lock held, a rate limit, a busy resource",
-              "permanent": "will fail again unchanged: a missing file, a syntax error, a wrong argument, permission denied, a failing test",
-              "partial": "it got part of the way: some of its changes may have happened before it failed"})
-KIND = Choice(instructions="Does the shell command in `command` only read?",
-    criteria={"read": "only reads, lists, searches, queries or prints; changes nothing", "change": "creates, changes or removes something, or its effect can't be told from the command"})
-def sure(answer, choice): return answer.choice == choice and answer.confidence >= SURE
-
-def run(cmd):                                            # output: run a command; when it fails, ask Jev whether trying again can help
-    for attempt in (1, 2):
-        done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-        print(done.stdout, end="")
-        if not done.returncode: return "[done]"
-        try: answers = jev.system_one({"command": cmd, "result": done.stdout[-4000:]}, {"failure": FAILURE, "kind": KIND}).choices
-        except Exception: return f"[exit {done.returncode}. Jev: no answer, so no second try]"   # no key, an error or a time-out
-        why, kind = answers["failure"], answers["kind"]
-        print(f"[exit {done.returncode}. Jev: {why.choice} {why.confidence:.2f}, {kind.choice} {kind.confidence:.2f}]")
-        if attempt == 2 or not (sure(why, "transient") and sure(kind, "read")): break   # only a read is safe to run twice
-        print("[a failure that passes: trying once more]"); time.sleep(1)
-    return "(it may have partly run: check before repeating it)" if sure(why, "partial") else "[failed]"
+def run(cmd):                                            # output: run a command; when it fails, say so, and never run it again
+    done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    print(done.stdout, end="")
+    if not done.returncode: return "[done]"
+    return f"[exit {done.returncode}: failed]"
 
 mode, input = sys.argv[1], " ".join(sys.argv[2:])
 print(call(input) if mode == "ask" else run(input))
@@ -78,18 +33,13 @@ There's no agent loop. `resilience.py ask "..."` sends one question to the model
 
 **`call()`** is the model interface's half. The client is made with `max_retries=2`, so the SDK tries each call up to three times, with backoff, before it raises. `call()` wraps that in a loop over `MODELS`: if what's raised is transient (a lost connection or timeout, 429, or any 5xx), it says so and moves to the next model. Anything else is raised at once: a bad key or a bad request will fail the same way on every model. The test is on the status code, not a list of exception classes, because the SDK has a class for each and it's easy to miss 529, the overloaded error, which is the one you most want to catch. If every model fails, it says so.
 
-**`run()`** is output's half. It runs the command, and if it fails it asks Jev two questions in one call, about the command and the last 4,000 characters of what it printed. `FAILURE` is the kind of failure: `transient` (likely to work if run again unchanged), `permanent` (will fail the same way) or `partial` (it got part of the way, so some of its changes may have happened). `KIND` is whether the command only reads. Each option has a sentence saying exactly what it covers, because Jev reads literally; "queries" is in the `read` option because a `select` is a query, and with the word there Jev was surer of it. Then: (Its `KIND` is simpler than Lesson 6's, with two options; quark reuses Lesson 6's.)
-
-- **Sure it's transient, and sure it only reads:** run it once more, a second later. A read is safe to run twice; a write never is, unless doing it twice is the same as doing it once, and nobody can promise that from outside.
-- **Sure it's partial:** say so, with the warning "it may have partly run: check before repeating it".
-- **Anything else,** including an answer under `SURE` (0.9) and no answer at all: it failed, and that's what comes back.
-
-Asking Jev is a model-interface act: a second model, called with a request, read back. What's done with its answer, a second try or a warning on the result, is output's, because it changes how the tool runs and what its result says.
+**`run()`** is output's half, and it's the safe default: it runs the command, and if it fails, it says so with the exit code and stops there. It never runs a command twice, because it can't tell a failure that would pass from one that wouldn't, or a command that only reads from one that writes. Every failure gets the same answer.
 
 ### Running it
 
 Failures that actually happen are hard to schedule, so for the model's half I used a stand-in for the API that fails on purpose and passes everything else through to the real one. It's about 30 lines of Python, built on the standard library, and it never prints headers, so your key doesn't appear anywhere. Save it as `flaky.py`:
 
+```python
 ```python
 # A stand-in for the Anthropic API that fails on purpose. Everything else it passes through.
 #   python flaky.py PORT all          every request gets "529 overloaded"
@@ -125,6 +75,7 @@ class Handler(BaseHTTPRequestHandler):
 
 HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 ```
+```
 
 The SDK reads `ANTHROPIC_BASE_URL`, so that's how the call reaches it; nothing in `resilience.py` knows about it. Everything below runs in a scratch folder, as `uv run --project /path/to/building-agents /path/to/building-agents/production/08-resilience/resilience.py`, which I'll write as `resilience.py`. First, the preferred model is down:
 
@@ -135,7 +86,7 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:8205 resilience.py ask "In one sentence: why
 
 ```
 [claude-sonnet-5-5: OverloadedError, after the SDK's retries]
-[claude-opus-5-5] A harness needs a backup model so it can keep working when the primary model fails, whether from outages, rate limits, timeouts, errors, or unusable output, by automatically switching to an alternative instead of crashing or stalling the whole task.
+[claude-opus-5-5] A harness needs a backup model so it can keep working when the primary model fails, for example because of an outage, rate limiting, timeouts, context-length limits, or unusable output, by automatically switching to the alternative instead of crashing or stalling.
 ```
 
 The stand-in's log has four requests: three to `claude-sonnet-5-5` (the first try and the SDK's two retries), all 529, then one to `claude-opus-5-5`, which answered. With every model down (`flaky.py 8206 all`), the same question:
@@ -167,32 +118,22 @@ print("holding the lock", flush=True)
 time.sleep(3600)
 ```
 
-I start the holder, and stop it (by its process ID) as soon as `resilience.py` prints Jev's answer, the way the other program would finish its write while you waited:
+With the holder running, a count of the orders:
 
 ```bash
 python3 makedb.py
-python3 hold.py & HOLDER=$!
-(until grep -q "Jev:" out.txt; do sleep 0.05; done; kill $HOLDER) &
-PYTHONUNBUFFERED=1 resilience.py run 'python3 -m sqlite3 shop.db "select count(*) from orders"' > out.txt; cat out.txt
+python3 hold.py &
+resilience.py run 'python3 -m sqlite3 shop.db "select count(*) from orders"'
 ```
 
 ```
 OperationalError (SQLITE_BUSY): database is locked
-[exit 1. Jev: transient 1.00, read 0.94]
-[a failure that passes: trying once more]
-(42,)
-[done]
+[exit 1: failed]
 ```
 
-The first try waited the five seconds SQLite waits for a lock and failed. Jev was sure it was a lock that would pass (1.00) and sure the `select` only reads (0.94), so `run()` tried once more and got the count. The same query with a typo in it fails the other way:
+It waited the five seconds SQLite waits for a lock and failed. A second later the lock might have been gone, and the query only reads, so running it again could do no harm. `run()` can't know either of those things, so it gives up.
 
-```
-OperationalError (SQLITE_ERROR): near "order": syntax error
-[exit 1. Jev: permanent 1.00, read 0.99]
-[failed]
-```
-
-Permanent, at 1.00: running it again would give the same syntax error, so it doesn't. The third kind needs a command that does part of its work and then fails. `migrate.py` writes one file per table and stops at the fourth:
+And a failure of another kind. `migrate.py` writes one file per table and stops at the fourth:
 
 ```
 import os
@@ -208,24 +149,117 @@ migrated users
 migrated orders
 migrated items
 error: payments: no column named email
-[exit 1. Jev: partial 0.91, change 1.00]
-(it may have partly run: check before repeating it)
+[exit 1: failed]
 ```
 
-Partial, at 0.91, and the warning goes on the result. `out/` has `users.csv`, `orders.csv` and `items.csv`: the warning is true. Jev also called it a change (1.00), so even a confident "transient" wouldn't have run it twice.
+The same answer again, and this time it's missing something: `out/` has `users.csv`, `orders.csv` and `items.csv`. The command half happened, and "failed" doesn't say so. Whoever reads that result, a person or a model, could run it again on top of what it left.
+
+## The concept with Jev
+
+An exit code doesn't say which kind of failure it was. Telling them apart means reading what the command printed, and that's a judgment, so [`jev_resilience.py`](./jev_resilience.py) asks Jev, the decision model from [Lesson 5](../05-sandboxing/#asking-jev). It's `resilience.py` plus only the lines that ask Jev and use its answer. Here's the difference between the two:
+
+```diff
+@@ -1,8 +1,12 @@
+ import subprocess, sys
++import os, time
+ from anthropic import Anthropic, APIConnectionError, APIStatusError
++from typesafe_sdk import TypeSafeClient, Choice
+ 
+ client = Anthropic(max_retries=2)                        # the SDK tries a failed call twice more, waiting longer each time
+ MODELS = ["claude-sonnet-5-5", "claude-opus-5-5"]        # the model you want, then the backup
++jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev answers typed questions (Lesson 5)
++SURE = 0.9                                               # how sure Jev must be before its answer changes anything
+ 
+ def call(input):                                         # model interface: when the SDK gives up on a model, try the next one
+     for model in MODELS:
+@@ -14,10 +18,26 @@
+             print(f"[{model}: {type(e).__name__}, after the SDK's retries]")
+     return "[no model answered]"
+ 
+-def run(cmd):                                            # output: run a command; when it fails, say so, and never run it again
++FAILURE = Choice(instructions="The command in `command` failed with `result`. What kind of failure is it?",
++    criteria={"transient": "likely to work if run again unchanged: a network blip, a timeout, a lock held, a rate limit, a busy resource",
++              "permanent": "will fail again unchanged: a missing file, a syntax error, a wrong argument, permission denied, a failing test",
++              "partial": "it got part of the way: some of its changes may have happened before it failed"})
++KIND = Choice(instructions="Does the shell command in `command` only read?",
++    criteria={"read": "only reads, lists, searches, queries or prints; changes nothing", "change": "creates, changes or removes something, or its effect can't be told from the command"})
++def sure(answer, choice): return answer.choice == choice and answer.confidence >= SURE
++
++def run(cmd, attempt=1):                                 # output: run a command; when it fails, ask Jev whether trying again can help
+     done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+     print(done.stdout, end="")
+     if not done.returncode: return "[done]"
++    try: answers = jev.system_one({"command": cmd, "result": done.stdout[-4000:]}, {"failure": FAILURE, "kind": KIND}).choices
++    except Exception: answers = None                     # no key, an error or a time-out: no answer, so it's a plain failure
++    if answers:
++        why, kind = answers["failure"], answers["kind"]
++        print(f"[Jev: {why.choice} {why.confidence:.2f}, {kind.choice} {kind.confidence:.2f}]")
++        if attempt == 1 and sure(why, "transient") and sure(kind, "read"):   # only a read is safe to run twice, and only once more
++            print("[a failure that passes: trying once more]"); time.sleep(1); return run(cmd, 2)
++        if sure(why, "partial"): return f"[exit {done.returncode}: failed] (it may have partly run: check before repeating it)"
+     return f"[exit {done.returncode}: failed]"
+ 
+ mode, input = sys.argv[1], " ".join(sys.argv[2:])
+```
+
+`call()` is untouched. When a command fails, `run()` asks Jev two questions in one call, about the command and the last 4,000 characters of what it printed. `FAILURE` is the kind of failure: `transient` (likely to work if run again unchanged), `permanent` (will fail the same way) or `partial` (it got part of the way, so some of its changes may have happened). `KIND` is whether the command only reads. Each option has a sentence saying exactly what it covers, because Jev reads literally; "queries" is in the `read` option because a `select` is a query, and with the word there Jev was surer of it. (This `KIND` is simpler than Lesson 6's, with two options; quark reuses Lesson 6's.) What comes back is a choice and a confidence for each, and `sure()` means that choice at `SURE` (0.9) or more. Then:
+
+- **Sure it's transient, and sure it only reads:** run it once more, a second later. That's the one line that changes, `def run(cmd, attempt=1)`: the second try is `run(cmd, 2)`, and a second try never gets a third. A read is safe to run twice; a write never is, unless doing it twice is the same as doing it once, and nobody can promise that from outside.
+- **Sure it's partial:** the result says so, with the warning "it may have partly run: check before repeating it".
+- **Anything else,** including an answer under 0.9 and no answer at all (no key, an error or a time-out): the plain result, `[exit N: failed]`, exactly as `resilience.py` gives it.
+
+Asking Jev is a model-interface act: a second model, called with a request, read back. What's done with its answer, a second try or a warning on the result, is output's, because it changes how the tool runs and what its result says. Its limits are Jev's: it can only judge what the command printed, and it reads literally, so a command whose output hides what went wrong gives it little to go on.
+
+The locked database again. This time I stop the holder (by its process ID) as soon as `jev_resilience.py` prints Jev's answer, the way the other program would finish its write while you waited:
+
+```bash
+python3 hold.py & HOLDER=$!
+(until grep -q "Jev:" out.txt; do sleep 0.05; done; kill $HOLDER) &
+PYTHONUNBUFFERED=1 jev_resilience.py run 'python3 -m sqlite3 shop.db "select count(*) from orders"' > out.txt; cat out.txt
+```
+
+```
+OperationalError (SQLITE_BUSY): database is locked
+[Jev: transient 1.00, read 0.94]
+[a failure that passes: trying once more]
+(42,)
+[done]
+```
+
+Jev was sure it was a lock that would pass (1.00) and sure the `select` only reads (0.94), so `run()` tried once more and got the count. The same query with a typo in it, `form` for `from`, fails the other way:
+
+```
+OperationalError (SQLITE_ERROR): near "orders": syntax error
+[Jev: permanent 1.00, read 0.98]
+[exit 1: failed]
+```
+
+Permanent, at 1.00: running it again would give the same syntax error, so it doesn't. And `migrate.py`, in a fresh folder:
+
+```
+migrated users
+migrated orders
+migrated items
+error: payments: no column named email
+[Jev: partial 0.92, change 1.00]
+[exit 1: failed] (it may have partly run: check before repeating it)
+```
+
+Partial, at 0.92, and the warning goes on the result. `out/` has the same three files: the warning is true. Jev also called it a change (1.00), so even a confident "transient" wouldn't have run it twice.
 
 And with no Jev, the locked database again, with `TYPESAFE_API_KEY=` and the holder left running:
 
 ```
 OperationalError (SQLITE_BUSY): database is locked
-[exit 1. Jev: no answer, so no second try]
+[exit 1: failed]
 ```
 
-No answer means no second try: a failure is a failure, as it was before Jev.
+No answer means no second try: the result is `resilience.py`'s, word for word.
 
 ## quark's implementation
 
-[`quark.py`](./quark.py) is Lesson 7's `quark.py` plus resilience and its question for Jev, and nothing else: 43 lines, 395 in all.
+[`quark.py`](./quark.py) has both: the backup model from `resilience.py` and Jev's question from `jev_resilience.py`, built into Lesson 7's `quark.py`, and nothing else: 43 lines, 395 in all.
+
 
 The import grows two exception classes, and in `# ── model interface ──` Lesson 1's `call()` grows a backup:
 
@@ -266,7 +300,7 @@ def reads(cmd):                                          # resilience: only a co
     return bool(kind and kind["choice"] == "read" and kind["confidence"] >= SURE)
 ```
 
-**`failure()`** asks the concept's question through Lesson 5's `ask()`, which already turns no key, an error or a time-out into `None`. It hands back the kind of failure only when Jev is sure of it, and `None` otherwise. **`reads()`** doesn't need a new question: Lesson 6's `KIND` already asks whether a command reads, writes, deletes or does something else, and the guard asks it before every command that isn't on its list. `reads()` asks it again and says yes only to a sure `read`.
+**`failure()`** asks `jev_resilience.py`'s question, word for word, through Lesson 5's `ask()`, which already turns no key, an error or a time-out into `None`. It hands back the kind of failure only when Jev is sure of it, and `None` otherwise. **`reads()`** doesn't need a new question: Lesson 6's `KIND` already asks whether a command reads, writes, deletes or does something else, and the guard asks it before every command that isn't on its list. `reads()` asks it again and says yes only to a sure `read`.
 
 In `# ── context ──`, after `add()`, a function that reads the last episode back:
 

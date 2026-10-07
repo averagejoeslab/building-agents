@@ -1,20 +1,8 @@
 import subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
-import os
-from typesafe_sdk import TypeSafeClient, Choice
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None   # Jev: a second model that answers typed questions and writes no text
-
-SIZE = Choice(instructions="How much work does the request in `input` need from an agent that works through a shell?", criteria={"lookup": "one quick fact or one command: count, list, show, check a version", "edit": "a small, clear change to one or two files", "work": "several steps of reading, reasoning and changing things, or a design question"})
-TIERS = {"lookup": "claude-haiku-4-5", "edit": "claude-sonnet-5-5", "work": "claude-opus-5-5"}
-def route(input):                                        # the smallest model that can do it; unsure means the usual one
-    try: size = jev.system_one({"input": input}, {"size": SIZE}).choices["size"]
-    except Exception: print(f"[no answer from Jev, so {TIERS['edit']}]"); return TIERS["edit"]
-    tier = size.choice if size.confidence >= 0.7 else "edit"
-    print(f"[Jev: {size.choice}, {size.confidence:.2f}, so {TIERS[tier]}]")
-    return TIERS[tier]
 
 notes = [{"type": "text", "text": open("README.md").read(), "cache_control": {"type": "ephemeral"}}]   # the same long start, marked
 def call(model, input):                                  # one call, and where its input tokens came from
@@ -28,7 +16,7 @@ def run(cmd):                                            # one command, and what
     return subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace").stdout.strip()
 
 input = " ".join(sys.argv[1:])
-model = route(input)
+model = "claude-sonnet-5-5"                              # the usual model, whatever the request
 print(call(model, input))
 call(model, input)                                       # the same request again: its start comes from the cache
 

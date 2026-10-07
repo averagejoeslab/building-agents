@@ -20,19 +20,13 @@ None of that makes the model behave, and it doesn't stop a command from doing wh
 
 ## The concept
 
-Here's the idea with nothing around it: a locked box, a few fixed commands that walk into its walls, and one decision about lending it a way out. There's no agent and no main model in it at all, in [`sandboxing.py`](./sandboxing.py):
+Here's the idea with nothing around it: a locked box and a few fixed commands that walk into its walls. There's no agent and no model in it at all, in [`sandboxing.py`](./sandboxing.py):
 
 ```python
 import subprocess, sys, os, atexit
-from typesafe_sdk import TypeSafeClient, TypeSafeError, Choice
-read = input                                             # a person's input; the name input is for whatever comes in
 
 box = f"box-{os.getpid()}"
 net = f"{box}-net"
-try: jev = TypeSafeClient(timeout=5)                     # Jev, a second model that answers typed questions (reads TYPESAFE_API_KEY)
-except TypeSafeError: jev = None                         # no key, no Jev: the box just stays shut
-NEEDS = Choice(instructions="To work, what does the shell command in `command` need beyond reading and writing files in the current folder?", criteria={"nothing": "it works inside the current folder with no network", "network": "it must reach the internet or another machine: downloads, installs from a registry, clones, web requests", "outside": "it must write outside the current folder: the home directory, system paths"})
-SURE = 0.9                                               # how sure Jev must be before its answer counts
 
 def docker(*args):
     return subprocess.run(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
@@ -45,17 +39,11 @@ atexit.register(lambda: docker("rm", "-f", box))         # thrown away when the 
 
 def run(cmd):
     print(f"$ {cmd}")
-    try: need = jev.system_one({"command": cmd}, {"q": NEEDS}).choices["q"]
-    except Exception: need = None                        # no answer: the box stays shut
-    if need: print(f"[Jev: {need.choice}, {need.confidence:.2f}]")
-    lend = bool(need and need.choice == "network" and need.confidence >= SURE and read("lend it the network for this one command? [y/N] ").lower() == "y")
-    if lend: docker("network", "connect", "bridge", box)  # a way out, for this command only
     done = docker("exec", box, "timeout", "-s", "KILL", "5", "sh", "-c", cmd)
-    if lend: docker("network", "disconnect", "bridge", box)
     print(f"{done.stdout}(exit {done.returncode})\n")
 
 FETCH = "python3 -c \"import urllib.request as u; print(u.urlopen('http://archive.ubuntu.com/ubuntu/', timeout=10).status)\""
-for cmd in sys.argv[1:] or ["id; echo hi > /etc/hello", "sleep 60", "python3 -c 'bytearray(1024**3)'", FETCH, FETCH]:
+for cmd in sys.argv[1:] or ["id; echo hi > /etc/hello", "sleep 60", "python3 -c 'bytearray(1024**3)'", FETCH]:
     run(cmd)
 ```
 
@@ -65,9 +53,7 @@ Read it from the middle.
 
 **`run()`.** Each command goes into the box with `docker exec`, under `timeout -s KILL 5`: five seconds, then it's killed, whether it's polite about it or not. Its output and exit code come back.
 
-**The way out.** Before a command runs, Jev is asked what it needs: `nothing`, `network`, or `outside` (somewhere else on the machine). Only if the answer is `network`, and Jev is at least `SURE` of it, is a person asked. A `y` connects the box to Docker's ordinary `bridge` network for that one command, and the next line disconnects it. Anything else and the command runs in the closed box.
-
-**The commands.** Five fixed ones, each aimed at a wall: write to `/etc`, sleep for a minute, grab a gigabyte of memory, and fetch a page twice. You can pass your own on the command line instead.
+**The commands.** Four fixed ones, each aimed at a wall: write to `/etc`, sleep for a minute, grab a gigabyte of memory, and fetch a page. You can pass your own on the command line instead.
 
 Run it from the root of the repo. It needs Docker running; the first run pulls the `python:3.13-slim` image:
 
@@ -75,7 +61,75 @@ Run it from the root of the repo. It needs Docker running; the first run pulls t
 uv run production/05-sandboxing/sandboxing.py
 ```
 
-Here's a run, where I answered `y` to the first fetch and `n` to the second (the traceback is shortened):
+Here's a run (the traceback is shortened):
+
+```
+$ id; echo hi > /etc/hello
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+sh: 1: cannot create /etc/hello: Read-only file system
+(exit 2)
+
+$ sleep 60
+(exit 137)
+
+$ python3 -c 'bytearray(1024**3)'
+Killed
+(exit 137)
+
+$ python3 -c "import urllib.request as u; print(u.urlopen('http://archive.ubuntu.com/ubuntu/', timeout=10).status)"
+Traceback (most recent call last):
+  ...
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+(exit 1)
+```
+
+Every command hit a wall. It runs as `nobody`, and `/etc` is read-only. The `sleep` was killed at five seconds, and the gigabyte was killed too, most likely by the 256 MB memory limit, though exit 137 looks the same either way. And the fetch couldn't even look the name up: there's no way out.
+
+## The concept with Jev
+
+That last wall is the awkward one. Some commands need the network to do their job at all: a download, an install, a clone. The box can be lent a way out for one command, but someone has to decide which commands get it, and asking you before every command would teach you to say yes without reading. So a second model, Jev, is asked first what the command needs, and you're asked only when it's sure the answer is the network.
+
+[`jev_sandboxing.py`](./jev_sandboxing.py) is `sandboxing.py` plus the lines Jev needs, and nothing else. Here's `diff sandboxing.py jev_sandboxing.py`:
+
+```diff
+1a2,3
+> from typesafe_sdk import TypeSafeClient, TypeSafeError, Choice
+> read = input                                             # a person's input; the name input is for whatever comes in
+4a7,10
+> try: jev = TypeSafeClient(timeout=5)                     # Jev, a second model that answers typed questions (reads TYPESAFE_API_KEY)
+> except TypeSafeError: jev = None                         # no key, no Jev: the box just stays shut
+> NEEDS = Choice(instructions="To work, what does the shell command in `command` need beyond reading and writing files in the current folder?", criteria={"nothing": "it works inside the current folder with no network", "network": "it must reach the internet or another machine: downloads, installs from a registry, clones, web requests", "outside": "it must write outside the current folder: the home directory, system paths"})
+> SURE = 0.9                                               # how sure Jev must be before its answer counts
+16a23,27
+>     try: need = jev.system_one({"command": cmd}, {"q": NEEDS}).choices["q"]
+>     except Exception: need = None                        # no answer: the box stays shut
+>     if need: print(f"[Jev: {need.choice}, {need.confidence:.2f}]")
+>     lend = bool(need and need.choice == "network" and need.confidence >= SURE and read("lend it the network for this one command? [y/N] ").lower() == "y")
+>     if lend: docker("network", "connect", "bridge", box)  # a way out, for this command only
+17a29
+>     if lend: docker("network", "disconnect", "bridge", box)
+```
+
+So `run()` becomes:
+
+```python
+def run(cmd):
+    print(f"$ {cmd}")
+    try: need = jev.system_one({"command": cmd}, {"q": NEEDS}).choices["q"]
+    except Exception: need = None                        # no answer: the box stays shut
+    if need: print(f"[Jev: {need.choice}, {need.confidence:.2f}]")
+    lend = bool(need and need.choice == "network" and need.confidence >= SURE and read("lend it the network for this one command? [y/N] ").lower() == "y")
+    if lend: docker("network", "connect", "bridge", box)  # a way out, for this command only
+    done = docker("exec", box, "timeout", "-s", "KILL", "5", "sh", "-c", cmd)
+    if lend: docker("network", "disconnect", "bridge", box)
+    print(f"{done.stdout}(exit {done.returncode})\n")
+```
+
+**The question.** `NEEDS` asks what a command needs beyond the folder it's in: `nothing`, `network`, or `outside` (somewhere else on the machine). Each option has a sentence saying what it covers. Before every command, `run()` sends Jev the command and that question, and prints what came back: the option it picked and how sure it is.
+
+**The way out.** Only if the answer is `network`, and Jev is at least `SURE` of it, are you asked. A `y` connects the box to Docker's ordinary `bridge` network for that one command, and the next line disconnects it. Anything else (no key, no answer, an error, a timeout, an unsure answer, `nothing`, `outside`, or anything but `y` from you) and the command runs in the closed box, exactly as in `sandboxing.py`. That's why the box sits on a network of its own rather than none at all: a way out can be added to it for one command and taken away again.
+
+Here's a run, where I answered `y`:
 
 ```
 $ id; echo hi > /etc/hello
@@ -89,7 +143,7 @@ $ sleep 60
 (exit 137)
 
 $ python3 -c 'bytearray(1024**3)'
-[Jev: nothing, 0.96]
+[Jev: nothing, 0.95]
 Killed
 (exit 137)
 
@@ -98,19 +152,11 @@ $ python3 -c "import urllib.request as u; print(u.urlopen('http://archive.ubuntu
 lend it the network for this one command? [y/N] y
 200
 (exit 0)
-
-$ python3 -c "import urllib.request as u; print(u.urlopen('http://archive.ubuntu.com/ubuntu/', timeout=10).status)"
-[Jev: network, 1.00]
-lend it the network for this one command? [y/N] n
-Traceback (most recent call last):
-  ...
-urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
-(exit 1)
 ```
 
-Every command hit a wall. It runs as `nobody`, and `/etc` is read-only. The `sleep` was killed at five seconds, and the gigabyte was killed too, most likely by the 256 MB memory limit, though exit 137 looks the same either way. The same fetch worked once and failed once. With a `y`, the box could reach the mirror for that one command. With an `n`, it couldn't even look the name up.
+The same fetch that failed in the closed box worked: with the `y`, the box could reach the mirror for that one command. With an `n`, it would have run in the closed box and failed as before. The other three walls didn't move.
 
-Jev got all five right. It called the write to `/etc` `outside`, and was sure. That changes nothing here: only `network` ever leads to a question, and the read-only root stopped the write anyway.
+Jev got all four right. It called the write to `/etc` `outside`, and was sure. That changes nothing here: only `network` ever leads to a question, and the read-only root stopped the write anyway.
 
 ### Asking Jev
 
@@ -129,11 +175,11 @@ Its weak spots are worth knowing before you trust it with anything. TypeSafe's o
 - **Indirection costs it.** A question that takes several steps of reasoning is answered less reliably. `npm test` needs the network only if the tests do, and Jev can't know.
 - **Text can steer it.** The state is data, and a command written to look harmless can be judged harmless.
 
-That's why, in every lesson, That's why, in every lesson, quark acts on Jev's answer only when it's sure, and only where being wrong is cheap: a question you didn't need, a read run unasked inside the box, one more try of a read, a smaller model for a small request. Anything that could do damage stays behind you, the deny list or the box. Here it only decides whether you're asked. A wrong `network` costs you a question you didn't need; a wrong anything-else costs a command that fails for want of a network. The walls are still the kernel's.
+That's why, in every lesson, quark acts on Jev's answer only when it's sure, and only where being wrong is cheap: a question you didn't need, a read run unasked inside the box, one more try of a read, a smaller model for a small request. Anything that could do damage stays behind you, the deny list or the box. Here it only decides whether you're asked. A wrong `network` costs you a question you didn't need; a wrong anything-else costs a command that fails for want of a network. The walls are still the kernel's.
 
 Where does it sit? Asking Jev is a **model-interface** act: it's a second model, called with a request and read back. What's done with its answer belongs to the layer's own primitive. Here that's **output**: lending the box a way out for one command changes where and how the tool runs. Your `y` or `n` is input from a person.
 
-Without the key, the same fetch runs with no Jev line and no question, in the closed box (traceback shortened):
+Without the key (here `TYPESAFE_API_KEY=` set empty), the same fetch runs with no Jev line and no question, in the closed box, just as in `sandboxing.py` (traceback shortened):
 
 ```
 $ python3 -c "import urllib.request as u; print(u.urlopen('http://archive.ubuntu.com/ubuntu/', timeout=10).status)"
@@ -145,7 +191,7 @@ urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resol
 
 ## quark's implementation
 
-[`quark.py`](./quark.py) is Lesson 4's `quark.py` plus the sandbox and its Jev question, and nothing else: 29 lines, 268 in all. Here they are, in the sections they belong to.
+Now both, the box and the question, built into quark. [`quark.py`](./quark.py) is Lesson 4's `quark.py` plus the sandbox and its Jev question, and nothing else: 29 lines, 268 in all. Here they are, in the sections they belong to.
 
 In the imports, `atexit`, to remove the box however the program ends, and the Jev client:
 
@@ -209,7 +255,7 @@ And in the loop, the one line that ran a command on your machine now runs it in 
 
 **`jev`, `SURE` and `ask()`** are how quark asks Jev anything, and every later lesson uses them for its own question. `jev` exists only when there's a key. `ask(state, question)` sends one question and returns Jev's answer as a dictionary, or `None` if there's no key, no answer, an error or a timeout (five seconds). They live in `# ── model interface ──`, because asking a model is a model-interface act, even a model that only decides.
 
-**`lend()` and `bridge()`** are this lesson's Jev question and what's done with the answer. Before each command runs, `lend()` asks `NEEDS` about it, the same question as the concept's. If Jev answers `network` with a confidence of at least 0.9, you're asked, with the command in the question, through Lesson 2's `read()`. Only a `y` lends the box a way out: `bridge(True)` connects it to the `bridge` network, the command runs, and `bridge(False)` disconnects it. `None`, an unsure answer, `nothing`, `outside`, or anything but `y` from you, and the command runs in the closed box. Acting on the answer is output: it changes where the command runs. Your answer is input from a person.
+**`lend()` and `bridge()`** are this lesson's Jev question and what's done with the answer. Before each command runs, `lend()` asks `NEEDS` about it, the same question as `jev_sandboxing.py`'s. If Jev answers `network` with a confidence of at least 0.9, you're asked, with the command in the question, through Lesson 2's `read()`. Only a `y` lends the box a way out: `bridge(True)` connects it to the `bridge` network, the command runs, and `bridge(False)` disconnects it. `None`, an unsure answer, `nothing`, `outside`, or anything but `y` from you, and the command runs in the closed box. Acting on the answer is output: it changes where the command runs. Your answer is input from a person.
 
 Everything else is Lesson 4's, on purpose. The system prompt still tells the model that bash reaches "the whole system." Inside the box that's true. This layer adds no word about the box to the prompt: that would be a decision about context, and this layer doesn't make it. Nor is the model told when it was lent the network, or refused it. But Lesson 4's `mechanics()` puts quark's own file in the prompt, and `sandbox()` is in that file now, so a model that reads its own code can see the walls before it walks into them. That's Lesson 4's self-knowledge at work, not this layer. The episode is still written by the harness, outside the box.
 

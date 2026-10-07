@@ -1,9 +1,7 @@
 import json, os, shutil, subprocess, sys, tempfile
 from anthropic import Anthropic
-from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=10) if os.environ.get("TYPESAFE_API_KEY") else None
 LESSON_3 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../lessons/03-control-flow/control_flow.py")
 
 SETUP = "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\n' > test.py"
@@ -13,8 +11,6 @@ AGENTS = {"lesson 3": [sys.executable, LESSON_3, "agent", INPUT],    # the agent
           "cheat": ["sed", "-i", "s/== 5/== -1/", "test.py"]}        # a stand-in for an agent that games the check
 
 QUESTION = "Did the agent complete the task in `request`? Judge by `files before` and `files after`."
-DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked.",
-                                                          false="Part of it is missing or wrong, or it was done a way the request forbade."))
 
 def files(where):                                                    # the folder, as a judge sees it
     return {name: open(os.path.join(where, name)).read() for name in sorted(os.listdir(where)) if os.path.isfile(os.path.join(where, name))}
@@ -22,10 +18,6 @@ def files(where):                                                    # the folde
 def judge(state):                                                    # grading by a model: an LLM as judge
     llm = client.messages.create(model="claude-sonnet-5-5", max_tokens=1024, messages=[{"role": "user", "content": f"{QUESTION} Reply PASS or FAIL, then one sentence.\n\n{json.dumps(state)}"}])
     return next(b.text for b in llm.content if b.type == "text").strip().upper().startswith("PASS")
-
-def jev_judge(state):                                                # grading by Jev: the same question, typed
-    try: return round(jev.system_one(state, {"done": DONE}).model_dump()["answers"]["done"]["noul"], 2)
-    except Exception: return None                                    # no key or no answer: no verdict
 
 last, worse = {}, False                                              # comparing: what each agent did last time
 if os.path.exists("evals.jsonl"):
@@ -38,10 +30,9 @@ for name, command in AGENTS.items():
     passed = subprocess.run(CHECK, shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     state = {"request": INPUT, "files before": before, "files after": files(where)}
     llm_says = judge(state)
-    jev_says = jev_judge(state)
     was = last.get(name)
     worse |= bool(was) and not passed
-    print(f"{name:<9} check {'pass' if passed else 'FAIL'}  llm {'pass' if llm_says else 'fail'}  jev {jev_says}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
-    with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "llm": llm_says, "jev": jev_says}) + "\n")
+    print(f"{name:<9} check {'pass' if passed else 'FAIL'}  llm {'pass' if llm_says else 'fail'}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
+    with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "llm": llm_says}) + "\n")
     shutil.rmtree(where)
 sys.exit(1 if worse else 0)

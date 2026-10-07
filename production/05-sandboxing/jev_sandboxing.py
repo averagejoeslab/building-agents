@@ -30,5 +30,5 @@ def run(cmd):
     print(f"{done.stdout}(exit {done.returncode})\n")
 
 FETCH = "python3 -c \"import urllib.request as u; print(u.urlopen('http://archive.ubuntu.com/ubuntu/', timeout=10).status)\""
-for cmd in sys.argv[1:] or ["id; echo hi > /etc/hello", "sleep 60", "python3 -c 'bytearray(1024**3)'", FETCH, FETCH]:
+for cmd in sys.argv[1:] or ["id; echo hi > /etc/hello", "sleep 60", "python3 -c 'bytearray(1024**3)'", FETCH]:
     run(cmd)

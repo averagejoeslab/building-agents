@@ -8,23 +8,21 @@ Evaluation is how you find out first. It runs the agent on tasks whose right out
 
 **Tasks with known outcomes.** A case is three things: a starting state, a task, and a way to tell whether the outcome is right. "This folder has a `calc.py` with a bug and a `test.py` that fails. Fix the bug." The test passing is the outcome. What makes a case usable is that the outcome can be checked *without the agent*: a file's contents, a program's exit code, the state of the folder afterwards. So a case grades what is left in the world, not what the agent says about it, because an agent that says "done" has proved nothing and a test that passes has. And it doesn't grade how the agent got there. The agent may take two steps or five, and any route that ends in the right place passes. Each case starts from a fresh folder, so that cases can't affect each other and a rerun begins from exactly the same place.
 
-**Grading.** There are two ways to check an outcome. *By code*: a command whose exit status says pass or fail. It's cheap, exact, and gives the same verdict every time, so it's what you use whenever the right answer can be written down. But it checks exactly what you wrote and nothing else, and an agent can pass it without doing the job in a way you didn't think of. *By a model*: a second model is shown the task and the outcome and asked whether the job was done. It can read what code can't, such as whether the test was left alone in spirit and not just in name, but it's another model with mistakes of its own. I use two of them here, side by side, on the same question: an ordinary language model that answers in words, and Jev, a model that writes nothing and only answers typed questions. A grade you can't trust is worse than none, because you'll believe it, so the code's check stays the grade and the two judges report beside it.
+**Grading.** There are two ways to check an outcome. *By code*: a command whose exit status says pass or fail. It's cheap, exact, and gives the same verdict every time, so it's what you use whenever the right answer can be written down. But it checks exactly what you wrote and nothing else, and an agent can pass it without doing the job in a way you didn't think of. *By a model*: a second model is shown the task and the outcome and asked whether the job was done. It can read what code can't, such as whether the test was left alone in spirit and not just in name, but it's another model with mistakes of its own. Here that's an ordinary language model, an LLM as judge, and once the idea is clear I put Jev beside it, a model that writes nothing and only answers typed questions, on the same question. A grade you can't trust is worse than none, because you'll believe it, so the code's check stays the grade and the judges report beside it.
 
 **Comparing.** One run proves little, because the model isn't deterministic: the same agent on the same case can pass once and fail the next time. And a result means little by itself, since 11 of 12 is good or bad only against something. So you run the same cases before a change and after it, and the difference is what the change did. Pass or fail isn't the only thing that moves: a change can leave every case passing and make the agent twice as expensive, so each run also records its steps, its tokens and its time. Finally, the whole thing is a command that exits non-zero when something got worse. That's what lets a script, a git hook or a CI job run it on *every* change, and refuse the ones that break the agent. An evaluation you have to remember to run gets skipped.
 
-This is a production layer, so it adds hardening, not a new primitive. It's **built on the whole harness**, and it's the one layer that isn't inside any one primitive. It sits outside the agent and treats it as a single box: a task goes in, and the world is changed. That runs all five primitives together, which is why it can catch problems that only appear when they work together, like a trimmed result (context) that sends the loop (control flow) round once more. The code the layer adds is small and made of primitives you've seen. It's control flow: a loop, like Lesson 3's workflow, that sets up a case, runs it, grades it, records it, and stops. The task is handed to the agent as input, the way a person's task would be. The check is run as output, a command run on the machine. And the two judges are asked through the model interface. Lesson 7's trace says what happened in a run; evaluation says whether what happened was right.
+This is a production layer, so it adds hardening, not a new primitive. It's **built on the whole harness**, and it's the one layer that isn't inside any one primitive. It sits outside the agent and treats it as a single box: a task goes in, and the world is changed. That runs all five primitives together, which is why it can catch problems that only appear when they work together, like a trimmed result (context) that sends the loop (control flow) round once more. The code the layer adds is small and made of primitives you've seen. It's control flow: a loop, like Lesson 3's workflow, that sets up a case, runs it, grades it, records it, and stops. The task is handed to the agent as input, the way a person's task would be. The check is run as output, a command run on the machine. And the judges are asked through the model interface. Lesson 7's trace says what happened in a run; evaluation says whether what happened was right.
 
 ## The concept
 
-Here's the idea with nothing around it: one case, two agents, three graders, and a comparison with last time. It's in [`evaluation.py`](./evaluation.py):
+Here's the idea with nothing around it: one case, two agents, a check in code, an LLM as judge, and a comparison with last time. It's in [`evaluation.py`](./evaluation.py):
 
 ```python
 import json, os, shutil, subprocess, sys, tempfile
 from anthropic import Anthropic
-from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
 
 client = Anthropic()
-jev = TypeSafeClient(timeout=10) if os.environ.get("TYPESAFE_API_KEY") else None
 LESSON_3 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../lessons/03-control-flow/control_flow.py")
 
 SETUP = "printf 'def add(a, b):\\n    return a - b\\n' > calc.py; printf 'from calc import add\\nassert add(2, 3) == 5\\n' > test.py"
@@ -34,17 +32,13 @@ AGENTS = {"lesson 3": [sys.executable, LESSON_3, "agent", INPUT],    # the agent
           "cheat": ["sed", "-i", "s/== 5/== -1/", "test.py"]}        # a stand-in for an agent that games the check
 
 QUESTION = "Did the agent complete the task in `request`? Judge by `files before` and `files after`."
-DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked.",
-                                                          false="Part of it is missing or wrong, or it was done a way the request forbade."))
 
-def files(where):                                                    # the folder, as the judges see it
+def files(where):                                                    # the folder, as a judge sees it
     return {name: open(os.path.join(where, name)).read() for name in sorted(os.listdir(where)) if os.path.isfile(os.path.join(where, name))}
 
-def judges(state):                                                   # grading by a model: one question, two judges
-    try: jev_says = round(jev.system_one(state, {"done": DONE}).model_dump()["answers"]["done"]["noul"], 2)
-    except Exception: jev_says = None                                # no key or no answer: no verdict
+def judge(state):                                                    # grading by a model: an LLM as judge
     llm = client.messages.create(model="claude-sonnet-5-5", max_tokens=1024, messages=[{"role": "user", "content": f"{QUESTION} Reply PASS or FAIL, then one sentence.\n\n{json.dumps(state)}"}])
-    return jev_says, next(b.text for b in llm.content if b.type == "text").strip().upper().startswith("PASS")
+    return next(b.text for b in llm.content if b.type == "text").strip().upper().startswith("PASS")
 
 last, worse = {}, False                                              # comparing: what each agent did last time
 if os.path.exists("evals.jsonl"):
@@ -55,11 +49,12 @@ for name, command in AGENTS.items():
     before = files(where)
     subprocess.run(command, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
     passed = subprocess.run(CHECK, shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-    jev_says, llm_says = judges({"request": INPUT, "files before": before, "files after": files(where)})
+    state = {"request": INPUT, "files before": before, "files after": files(where)}
+    llm_says = judge(state)
     was = last.get(name)
     worse |= bool(was) and not passed
-    print(f"{name:<9} check {'pass' if passed else 'FAIL'}  jev {jev_says}  llm {'pass' if llm_says else 'fail'}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
-    with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "jev": jev_says, "llm": llm_says}) + "\n")
+    print(f"{name:<9} check {'pass' if passed else 'FAIL'}  llm {'pass' if llm_says else 'fail'}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
+    with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "llm": llm_says}) + "\n")
     shutil.rmtree(where)
 sys.exit(1 if worse else 0)
 ```
@@ -68,35 +63,90 @@ sys.exit(1 if worse else 0)
 
 **The agents.** The one under test is Lesson 3's [`control_flow.py`](../../lessons/03-control-flow/control_flow.py) in agent mode, started as a separate program with the task on its command line and the case's folder as its working folder: the way a person would start it, not a copy of its loop. Lesson 3 has no sandbox, so the commands its model asks for run on this machine, in that throwaway folder. The other one isn't a model at all. `cheat` is one `sed` command that I wrote to stand in for an agent that games the check: it leaves the bug alone and changes what the test expects, from 5 to -1, which is what the broken `add` returns. The assertion is still there, so the `grep` is satisfied. I know the right grade for it in advance, which is what makes it useful: it's a known wrong answer.
 
-**The judges.** `files()` reads every file in the folder, by name, before the agent runs and after. `judges()` puts one question, "did the agent complete the task?", to two models, with the same state: the request, the files before and the files after. Neither ever sees what the agent said, for the same reason the check doesn't: a case grades the world, not the words. Jev gets it as a yes-or-no question, `DONE`, and answers with a probability of yes; I introduced Jev in [Lesson 5](../05-sandboxing/#asking-jev). A question like this one costs a fraction of a hundredth of a cent and takes about a fifth of a second. If there's no key, or no answer, Jev's verdict is `None`, which is never a pass. The language model gets the same words, plus "reply PASS or FAIL, then one sentence", and its verdict is whether its reply starts with `PASS`. Asking either one is a model-interface act: a second model, called with a request and read back. What's done with the answers, printing them beside the check, is the evaluation's own control flow, and it happens outside the agent under test.
+**The judge.** `files()` reads every file in the folder, by name, before the agent runs and after. `judge()` puts one question, `QUESTION`, "did the agent complete the task?", to a language model, with a state: the request, the files before and the files after. It never sees what the agent said, for the same reason the check doesn't: a case grades the world, not the words. It gets the question plus "reply PASS or FAIL, then one sentence", and its verdict is whether its reply starts with `PASS`. Asking it is a model-interface act: a second model, called with a request and read back. What's done with the answer, printing it beside the check, is the evaluation's own control flow, and it happens outside the agent under test.
 
-**The comparison.** `evals.jsonl` is the record. Before anything runs, the script reads what each agent's check said last time. Each run then prints one line: the check, both judges, and last time's result, with `REGRESSED` if it passed then and fails now, and appends its own line to the log. Each agent gets a fresh folder from `tempfile.mkdtemp()`, deleted when it's graded. If anything regressed, the exit status is 1.
+**The comparison.** `evals.jsonl` is the record. Before anything runs, the script reads what each agent's check said last time. Each run then prints one line: the check, the judge, and last time's result, with `REGRESSED` if it passed then and fails now, and appends its own line to the log. Each agent gets a fresh folder from `tempfile.mkdtemp()`, deleted when it's graded. If anything regressed, the exit status is 1.
 
 Run it from a scratch folder, since it writes its log where you run it: `uv run --project /path/to/building-agents /path/to/building-agents/production/10-evaluation/evaluation.py`. The first time:
 
 ```
-lesson 3  check pass  jev 0.98  llm pass  last time -
-cheat     check pass  jev 0.02  llm fail  last time -
+lesson 3  check pass  llm pass  last time -
+cheat     check pass  llm fail  last time -
 exit 0
 ```
 
-(The last line is the exit status.) Lesson 3's agent fixed the bug, and all three graders agree. The cheat passed the check. The test runs, and the assertion is there; it just asserts the wrong thing now. Both judges failed it: Jev at 0.02, and the language model with a FAIL. They saw `test.py` before and after, and the request said not to touch it. That's the disagreement worth having. The check is exact about what it checks and blind to everything else, and I hadn't thought of this way round it when I wrote it. The judges caught it because they were asked the question I actually cared about.
+(The last line is the exit status.) Lesson 3's agent fixed the bug, and the check and the judge agree. The cheat passed the check. The test runs, and the assertion is there; it just asserts the wrong thing now. The judge failed it. It saw `test.py` before and after, and the request said not to touch it. That's the disagreement worth having. The check is exact about what it checks and blind to everything else, and I hadn't thought of this way round it when I wrote it. The judge caught it because it was asked the question I actually cared about.
 
-So why not let the judges grade? Because they're models, and they'll be wrong about things code would never get wrong (below, compiled bytes in its state made Jev less sure of a perfectly good fix). The check is still the grade. The judges are a second and a third opinion, and where they disagree with the check, they tell you which run to read.
+So why not let the judge grade? Because it's a model, and it'll be wrong about things code would never get wrong (in quark's version below, compiled bytes in a judge's state made it less sure of a perfectly good fix). The check is still the grade. The judge is a second opinion, and where it disagrees with the check, it tells you which run to read.
 
 The second time, from the same folder:
 
 ```
-lesson 3  check pass  jev 0.98  llm pass  last time pass
-cheat     check pass  jev 0.02  llm fail  last time pass
+lesson 3  check pass  llm pass  last time pass
+cheat     check pass  llm fail  last time pass
 exit 0
 ```
 
 The same verdicts, and now each line knows what happened last time. Nothing got worse, so the exit status is 0. Notice that the comparison only compares the check: the cheat "passed last time" too. A comparison is only as good as the grade it compares.
 
+## The concept with Jev
+
+A language model is one judge. Jev, which I introduced in [Lesson 5](../05-sandboxing/#asking-jev), is another kind: it writes nothing and only answers typed questions. [`jev_evaluation.py`](./jev_evaluation.py) is `evaluation.py` with Jev asked the same question beside the language model, and nothing else. This is everything it adds:
+
+```
+$ diff evaluation.py jev_evaluation.py
+2a3
+> from typesafe_sdk import TypeSafeClient, Noul, NoulCriteria
+4a6
+> jev = TypeSafeClient(timeout=10) if os.environ.get("TYPESAFE_API_KEY") else None
+13a16,17
+> DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked.",
+>                                                           false="Part of it is missing or wrong, or it was done a way the request forbade."))
+21a26,29
+> def jev_judge(state):                                                # grading by Jev: the same question, typed
+>     try: return round(jev.system_one(state, {"done": DONE}).model_dump()["answers"]["done"]["noul"], 2)
+>     except Exception: return None                                    # no key or no answer: no verdict
+> 
+32a41
+>     jev_says = jev_judge(state)
+35,36c44,45
+<     print(f"{name:<9} check {'pass' if passed else 'FAIL'}  llm {'pass' if llm_says else 'fail'}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
+<     with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "llm": llm_says}) + "\n")
+---
+>     print(f"{name:<9} check {'pass' if passed else 'FAIL'}  llm {'pass' if llm_says else 'fail'}  jev {jev_says}  last time {'-' if was is None else 'pass' if was else 'FAIL'}" + ("  REGRESSED" if was and not passed else ""))
+>     with open("evals.jsonl", "a") as f: f.write(json.dumps({"agent": name, "passed": passed, "llm": llm_says, "jev": jev_says}) + "\n")
+```
+
+**What Jev is asked.** `DONE` is `QUESTION` again, as a yes-or-no question, with criteria that say what yes and no mean: yes is "everything the request asked for is done, the way it asked", and no includes "done a way the request forbade". Jev gets exactly the state the language model gets, the request and the files before and after, and answers with a probability of yes. A question like this one costs a fraction of a hundredth of a cent and takes about a fifth of a second.
+
+**What comes back, and what the code does with it.** `jev_judge()` rounds the probability to two places and returns it. The client is only made when `TYPESAFE_API_KEY` is set, and anything that goes wrong, no key, no answer, or no answer within ten seconds, returns `None`, which is never a pass. The loop asks Jev after the language model, and the only two lines that change are the ones that use its answer: the printed line gets a `jev` column, and the log line gets a `"jev"` field. That's all. `passed`, `REGRESSED` and the exit status come from the check exactly as they did before, so a wrong answer from Jev can't make a run pass or fail. Asking Jev is a model-interface act, like asking the language model; deciding that its answer is reported and not obeyed is the evaluation's control flow.
+
+**Its limits.** Jev reads its state literally, it doesn't count, and irrelevant detail in the state can throw it, as its makers say. Each of those shows up in this lesson, in quark's version and in the ideas at the end.
+
+From a fresh scratch folder, `uv run --project /path/to/building-agents /path/to/building-agents/production/10-evaluation/jev_evaluation.py`:
+
+```
+lesson 3  check pass  llm pass  jev 0.98  last time -
+cheat     check pass  llm fail  jev 0.01  last time -
+exit 0
+```
+
+Jev agrees with the language model on both. It was sure Lesson 3's fix did the job, at 0.98, and sure the cheat didn't, at 0.01: comparing `test.py` before and after is a comparison of two texts, and the request had said not to change it. So the cheat now has the check passing it and two judges against it, and the line says so. The grade doesn't change, but what you'd read does: this is the run you'd open. A second run from the same folder gave the same numbers, with `last time pass` on both lines.
+
+Without a key, from another fresh folder:
+
+```
+$ TYPESAFE_API_KEY=not-a-key uv run --project /path/to/building-agents /path/to/building-agents/production/10-evaluation/jev_evaluation.py
+lesson 3  check pass  llm pass  jev None  last time -
+cheat     check pass  llm fail  jev None  last time -
+exit 0
+```
+
+Jev's column says it had no opinion, and everything else is what `evaluation.py` printed: the check, the language model and the exit status don't depend on it.
+
 ## quark's implementation
 
-[`quark.py`](./quark.py) is Lesson 9's `quark.py` plus evaluation, and nothing else: 49 lines, 469 in all. `tempfile` and `shutil` join the imports:
+Here are both built into quark: the cases, the check, the comparison, and the two judges side by side. [`quark.py`](./quark.py) is Lesson 9's `quark.py` plus evaluation, and nothing else: 49 lines, 469 in all. `tempfile` and `shutil` join the imports:
 
 ```python
 import subprocess, sys, os, re, glob, json, datetime, atexit, termios, tty, threading, select, contextlib, time, tempfile, shutil
@@ -161,7 +211,7 @@ if sys.argv[1:2] == ["--eval"]: sys.exit(evaluate(sys.argv[2:]))
 
 Then comes the grade. The `check` runs on this machine, in the case's folder, with its output thrown away: pass is exit 0. The cost comes from somewhere that already exists. The child run wrote a trace (Lesson 7) into its folder, so `evaluate()` reads the `model` events out of it, counts them as steps, and adds up their tokens. Note that the token count includes what was read from the cache, so it measures how much the model read, not what it cost. Each case prints one line, and a line is appended to `.quark/evals.jsonl`, where the next run will look. A case that failed keeps its folder, and the line says where it is, so you can open it and see what the agent did: its trace, and its episode, with every message the model saw and wrote. A case that passed has its folder deleted.
 
-**`snapshot()`, `DONE` and `judges()`.** The two judges from the concept. `snapshot()` reads the folder as the judges see it: every file in it, and the files in `.quark/memory/` (a plain `**` pattern skips folders whose names start with a dot, and the `remember` case is graded on one), each cut to its first 2,000 characters. It leaves out `__pycache__`, where Python keeps compiled bytes: the check's `python3 test.py` leaves one there, and that noise is [irrelevant detail](https://docs.typesafe.ai/model-jaggedness/jev-1.13), the kind its makers say can throw Jev. In testing, with the compiled file in its state, Jev was less sure of a right fix, 0.79 against 0.97 without it. `evaluate()` takes one snapshot right after the setup, `seen`, and one after the check. `judges()` asks both judges the same question with the same state. Jev's question, `DONE`, goes through Lesson 5's `ask()`, so no key, no answer or a time-out comes back as `None`, and the line shows `jev -`. The language model's goes through `call()`, the same function every model call in quark goes through, so it's the main model, with Lesson 8's backup behind it. Its verdict is whether its reply starts with `PASS`.
+**`snapshot()`, `DONE` and `judges()`.** The two judges from the concept with Jev. `snapshot()` reads the folder as the judges see it: every file in it, and the files in `.quark/memory/` (a plain `**` pattern skips folders whose names start with a dot, and the `remember` case is graded on one), each cut to its first 2,000 characters. It leaves out `__pycache__`, where Python keeps compiled bytes: the check's `python3 test.py` leaves one there, and that noise is [irrelevant detail](https://docs.typesafe.ai/model-jaggedness/jev-1.13), the kind its makers say can throw Jev. In testing, with the compiled file in its state, Jev was less sure of a right fix, 0.79 against 0.97 without it. `evaluate()` takes one snapshot right after the setup, `seen`, and one after the check. `judges()` asks both judges the same question with the same state. Jev's question, `DONE`, goes through Lesson 5's `ask()`, so no key, no answer or a time-out comes back as `None`, and the line shows `jev -`. The language model's goes through `call()`, the same function every model call in quark goes through, so it's the main model, with Lesson 8's backup behind it. Its verdict is whether its reply starts with `PASS`.
 
 What the code does with the two answers is report them. The line gets `jev 0.97  llm pass`, and `JUDGES DISAGREE` if either judge's verdict differs from the check's: Jev counts as saying yes at 0.5 or more, and Jev's `None` counts as no opinion, not a disagreement. Both verdicts go into the log line, next to `passed`. And that's all: `passed`, `REGRESSED`, the kept folder and the exit status all come from the check, exactly as they would without the judges. Asking the two judges is the model interface; deciding what their answers mean, and that they don't change the grade, is the evaluation's control flow.
 
@@ -248,7 +298,7 @@ quark has four hand-written cases, graded by code with two judges reporting besi
 
 It can be a product on its own. [Braintrust](https://www.braintrust.dev), [LangSmith](https://www.langchain.com/langsmith), [promptfoo](https://www.promptfoo.dev) and [Inspect](https://inspect.aisi.org.uk) all take cases, run them, grade them with code or a model, keep the history and show it to you. They save you the plumbing, the dashboards and the comparison. What they can't give you is the cases, because only you know what your agent's job is, and a product that runs a hundred of somebody else's cases tells you about somebody else's agent. The usual trade-off applies: the more of the layer you hand over, the less you see of how a grade came about.
 
-A few ideas worth knowing if you build more of it yourself. A few ideas worth knowing if you build more of it yourself, with what each ran into when I tried them in an earlier version of this lesson.
+A few ideas worth knowing if you build more of it yourself, with what each ran into when I tried them in an earlier version of this lesson.
 
 - **Variants.** Compare configurations of the agent, not just one before and after: the same cases run against a cheaper model, a different prompt, a lower step limit, side by side, with the first one as the baseline. Each variant is a hypothesis, "this one is as good and cheaper", and the table of passes, steps, tokens and seconds is the test of it. When a variant with a one-step limit ran in that version, it was cheaper in every column, because it had stopped before doing the work. That's why cost is read next to the pass rate and never alone.
 - **Trials, run at once.** Run each case three or more times per variant, a handful at a time in a thread pool, and report passes out of trials. When every variant passes everything, the table can't say whether they're equal or the cases are too easy. That's a reason to write harder ones.

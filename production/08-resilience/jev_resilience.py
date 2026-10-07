@@ -1,4 +1,5 @@
-import subprocess, sys, os, time
+import subprocess, sys
+import os, time
 from anthropic import Anthropic, APIConnectionError, APIStatusError
 from typesafe_sdk import TypeSafeClient, Choice
 
@@ -25,18 +26,19 @@ KIND = Choice(instructions="Does the shell command in `command` only read?",
     criteria={"read": "only reads, lists, searches, queries or prints; changes nothing", "change": "creates, changes or removes something, or its effect can't be told from the command"})
 def sure(answer, choice): return answer.choice == choice and answer.confidence >= SURE
 
-def run(cmd):                                            # output: run a command; when it fails, ask Jev whether trying again can help
-    for attempt in (1, 2):
-        done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-        print(done.stdout, end="")
-        if not done.returncode: return "[done]"
-        try: answers = jev.system_one({"command": cmd, "result": done.stdout[-4000:]}, {"failure": FAILURE, "kind": KIND}).choices
-        except Exception: return f"[exit {done.returncode}. Jev: no answer, so no second try]"   # no key, an error or a time-out
+def run(cmd, attempt=1):                                 # output: run a command; when it fails, ask Jev whether trying again can help
+    done = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    print(done.stdout, end="")
+    if not done.returncode: return "[done]"
+    try: answers = jev.system_one({"command": cmd, "result": done.stdout[-4000:]}, {"failure": FAILURE, "kind": KIND}).choices
+    except Exception: answers = None                     # no key, an error or a time-out: no answer, so it's a plain failure
+    if answers:
         why, kind = answers["failure"], answers["kind"]
-        print(f"[exit {done.returncode}. Jev: {why.choice} {why.confidence:.2f}, {kind.choice} {kind.confidence:.2f}]")
-        if attempt == 2 or not (sure(why, "transient") and sure(kind, "read")): break   # only a read is safe to run twice
-        print("[a failure that passes: trying once more]"); time.sleep(1)
-    return "(it may have partly run: check before repeating it)" if sure(why, "partial") else "[failed]"
+        print(f"[Jev: {why.choice} {why.confidence:.2f}, {kind.choice} {kind.confidence:.2f}]")
+        if attempt == 1 and sure(why, "transient") and sure(kind, "read"):   # only a read is safe to run twice, and only once more
+            print("[a failure that passes: trying once more]"); time.sleep(1); return run(cmd, 2)
+        if sure(why, "partial"): return f"[exit {done.returncode}: failed] (it may have partly run: check before repeating it)"
+    return f"[exit {done.returncode}: failed]"
 
 mode, input = sys.argv[1], " ".join(sys.argv[2:])
 print(call(input) if mode == "ask" else run(input))
