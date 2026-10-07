@@ -32,6 +32,7 @@ It is not a Python package: no build system, two dependencies (`anthropic`, and 
 
 ```
 README.md                 entry point: thesis, lesson tables, setup, how to present, paper, quark at work, citation, license
+slides.md  slides.pdf     the course's introductory deck, built from README.md
 AGENTS.md  CLAUDE.md      this file; CLAUDE.md just points here
 CITATION.cff  LICENSE  LICENSE-CONTENT
 pyproject.toml  .env.example  .gitignore  (uv.lock and .venv are present but gitignored)
@@ -47,6 +48,7 @@ tools/deckcheck.py        checks a deck against its lesson and its rendered PDF
 | Path | For | What it is |
 |---|---|---|
 | `README.md` | readers | Entry point and the quark-at-work account. |
+| `slides.md`, `slides.pdf` | presenters | The introductory deck for the whole course, drawn only from the top-level README. |
 | `lessons/*/README.md`, `production/*/README.md` | learners | The lessons. First-person, conversational. |
 | `*/quark.py` | learners | The lineage: each is the previous lesson's plus one primitive or layer. Run by readers, quoted in READMEs, slides and paper. |
 | `*/<concept>.py` | learners | The concept on its own: a small standalone file named for the lesson's idea (`model_interface.py`, `input.py` and `output.py`, `control_flow.py`, `context.py`, `sandboxing.py`, `guardrails.py`, `observability.py`, `resilience.py`, `performance.py`, `evaluation.py`), shown before quark's implementation. In the production lessons the concept file has no Jev; `jev_<concept>.py` beside it is the same file plus only its Jev lines, so a diff of the two shows exactly what Jev adds. |
@@ -157,9 +159,9 @@ If a `quark.py` changes length, update every quote and re-run the demos that pri
 
 ### Slides
 
-- **Purpose:** a presenter teaches the lesson to a room. The fewest slides that carry the ideas (10 decks, 18–25 slides each now); the README is the full text, the deck isn't.
+- **Purpose:** a presenter teaches the lesson to a room. The fewest slides that carry the ideas (10 lesson decks, 18–25 slides each now, plus the introductory deck at the root, checked against the top-level README with `python3 tools/deckcheck.py .`); the README is the full text, the deck isn't.
 - **Shape:** the lesson's own order. Title; the problem; the idea and what it's built on; the mechanism; the code this lesson adds; the concept file and one run; in production lessons, the Jev lines and one run; quark's code and one or two telling runs; other things we could do, in words; the rule, what it never does, what's missing, next.
-- **Rules:** Marp (`marp: true`, `theme: default`, `paginate: true`, header `"Lesson N · Title"`, a `title` class on the first slide); one `#` heading per slide; at most 5 bullets; a speaker note in an HTML comment on most slides; code copied exactly from the source (a line shortened to fit goes on a slide that says "(abridged)"); run output exact, cut only with "(shortened)"; never shrink text below 0.8em with `<style scoped>`; nothing on a slide that isn't in the lesson.
+- **Rules:** Marp (`marp: true`, `theme: default`, `paginate: true`, header `"Lesson N · Title"` (the root deck: `"harness-engineering"`), a `title` class on the first slide); one `#` heading per slide; at most 5 bullets; a speaker note in an HTML comment on most slides; code copied exactly from the source (a line shortened to fit goes on a slide that says "(abridged)"); run output exact, cut only with "(shortened)"; never shrink text below 0.8em with `<style scoped>`; nothing on a slide that isn't in the lesson.
 - The first four decks were originally rebuilt by quark (50–110 slides, one idea each) and have since been rewritten for presenting. Slide links in the README point at the PDFs.
 
 ### The paper
@@ -199,7 +201,7 @@ The README's "What we checked, and what we fixed by hand" lists every change mad
           print(r, os.path.basename(best), [l for l in lines if l not in files[best]][:3])
   PY
   ```
-- **A deck:** `python3 tools/deckcheck.py <dir>` (e.g. `lessons/01-model-interface`, `production/05-sandboxing`) checks `slides.md` against the lesson's README and `.py` files and `slides.pdf` for layout: one `#` heading per slide, code lines not in the source, numbers not in the lesson, text off the page, text under 9pt, PDF page count equal to slide count, and PDF older than `slides.md` (by mtime, so a fresh checkout or a touch can trip it). Needs `pdftotext`. All ten decks currently report `problems: 0`. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without leaving the page (the 9pt check catches it), and text pushed past the bottom edge can be clipped out of the PDF so no check sees it: **always look at the rendered pages**.
+- **A deck:** `python3 tools/deckcheck.py <dir>` (e.g. `lessons/01-model-interface`, `production/05-sandboxing`) checks `slides.md` against the lesson's README and `.py` files and `slides.pdf` for layout: one `#` heading per slide, code lines not in the source, numbers not in the lesson, text off the page, text under 9pt, PDF page count equal to slide count, and PDF older than `slides.md` (by mtime, so a fresh checkout or a touch can trip it). Needs `pdftotext`. All ten lesson decks and the root deck currently report `problems: 0`. Marp shrinks a code block until its longest line fits, so a long line becomes unreadable without leaving the page (the 9pt check catches it), and text pushed past the bottom edge can be clipped out of the PDF so no check sees it: **always look at the rendered pages**.
 - **The paper:** read the diff of every number against the code; the build must complete (below).
 
 ### Building
@@ -235,7 +237,7 @@ The README's "What we checked, and what we fixed by hand" lists every change mad
 - **Voice leaks.** Moving a sentence from a lesson into the paper (or back) without changing register.
 - **A listing and its file drift apart.** Some lines are shared word for word by a `quark.py` and a concept file (the `subprocess.run` line, for one), so a search-and-replace across READMEs can change the wrong listing. Run the listing check above after any README or `.py` edit.
 - **The arXiv bundle lags the paper** unless you re-sync it: `paper/arxiv/*.tex` and the zip are copies. Rebuild and re-sync the bundle whenever the paper changes, and re-check METADATA's page count.
-- **Regenerated artifacts are tracked.** `slides.pdf` (10), `paper/latex/*.tex`, `main.pdf`, `main.bbl`, `arxiv/` and the zip are committed and must be regenerated after their sources change, in the same change.
+- **Regenerated artifacts are tracked.** `slides.pdf` (10 lessons and the root deck), `paper/latex/*.tex`, `main.pdf`, `main.bbl`, `arxiv/` and the zip are committed and must be regenerated after their sources change, in the same change.
 - **Run location.** Lessons 5–10 must be run from a scratch folder (the box mounts the cwd and writes `.quark/` and traces there). Running one from the repo root mounts the whole repo read-write into the container and drops state into this repo's `.quark/`. Lesson 10's `--eval` logs into the cwd too.
 - **Docker and the API are real dependencies.** No lesson from 5 on works without Docker; nothing works without a key; every demo costs money. If Docker fails to start the box, quark exits on purpose.
 - **ESC cannot be tested through a pipe;** the watcher is off when stdin isn't a terminal. Use a pseudo-terminal. And ESC stops the `docker exec` side, not the box: killing the box would leave the next command nowhere to run.
