@@ -40,3 +40,6 @@ step 340: 67 minutes; held-out loss 1.101
 step 350: 69 minutes; held-out loss 1.096
 step 360: 71 minutes; held-out loss 1.099
 step 370: 73 minutes; held-out loss 1.083
+step 380: 75 minutes; held-out loss 1.066
+step 390: 77 minutes; held-out loss 1.063
+step 400: 79 minutes; held-out loss 1.064
