@@ -45,6 +45,8 @@ Input and output are built independently, but they're two ends of the same excha
 
 ## How this repo teaches
 
+To introduce the whole course to a room, there's a deck for that too: [slides](./slides.pdf) · [md](./slides.md).
+
 You've just watched the method. Take a thing and ask, *what is it, and by what mechanistic primitives does it work?* An agent is a model and a harness. A harness is control flow, input, context, model interface and output. Ask once more and the answers stop being shared: one harness reads a terminal, another a Slack channel. That's where taking apart ends.
 
 The lessons go the other way and build it back up, one primitive at a time, in a different order from the list above: outward from the model. Lesson 1 calls the model and nothing else. Lessons 2–4 each add what the last one was missing (input and output, then control flow, then context), and each one's `quark.py` is the previous lesson's plus that.
