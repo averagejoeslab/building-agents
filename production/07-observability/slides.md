@@ -89,42 +89,22 @@ Observability only watches. It never changes what's sent, what runs, or when the
 # The concept: `observability.py` (abridged)
 
 ```python
-FAILED = Noul(instructions="Does `result` show that the command failed ...?", ...)
-
 def trace(**event):
     with open("traces.jsonl", "a") as f: f.write(json.dumps({...}) + "\n")
 
-def failed(cmd, result):
-    try: return round(jev.system_one({...}, {"q": FAILED}).nouls["q"].noul, 2)
-    except Exception: return None
-```
-
-- `trace()` is the whole layer: append one JSON object per event
-- `failed()` asks Jev one yes/no question, and gets a probability back
-- No key, wrong key, time-out: `None`, and the line says `null`
-
-<!-- The idea with nothing around it. No agent loop: four fixed commands and one model call at the end. The criteria in FAILED say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning. Jev is the decision model from Lesson 5. -->
-
----
-
-# Around each command, and the one model call (abridged)
-
-```python
 for cmd in [...]:
     start = time.time()
     done = subprocess.run(cmd, shell=True, ...)
-    trace(event="tool", cmd=cmd, ..., failed=failed(cmd, done.stdout))
-```
+    trace(event="tool", cmd=cmd, ..., exit=done.returncode, chars=len(done.stdout))
 
-```python
 response = client.messages.create(model=..., messages=[...])
 trace(event="model", seconds=..., input_tokens=..., output_tokens=...)
 ```
 
-- The model is asked which commands failed, so there's something to watch
-- Asking Jev is model interface; writing the answer down is observability
+- `trace()` is the whole layer: append one JSON object per event
+- Nothing is computed: the clock, the exit code and `usage` are read off
 
-<!-- The clock goes on before each command and before the model call. Jev's answer never goes to the model: it only goes in the trace. -->
+<!-- The idea with nothing around it. No agent loop: four fixed commands and one model call at the end, asking which of them failed, so there's something to watch. A file that only gets appended to is the simplest log there is; a run that crashes halfway still leaves everything before the crash. -->
 
 ---
 
@@ -132,36 +112,75 @@ trace(event="model", seconds=..., input_tokens=..., output_tokens=...)
 
 <style scoped>table { font-size: 0.85em; }</style>
 
-| event | cmd | seconds | exit | failed (Jev) |
+| event | cmd | seconds | exit | chars |
 |---|---|---|---|---|
-| tool | `wc -l notes.txt` | 0.0 | 0 | 0.02 |
-| tool | `grep -n TODO notes.txt` | 0.0 | 1 | 0.06 |
-| tool | `ls missing.txt \| head -1` | 0.0 | 0 | 0.98 |
-| tool | `sleep 2` | 2.0 | 0 | 0.03 |
-| model | 129 tokens in, 194 out | 2.39 | | |
+| tool | `wc -l notes.txt` | 0.0 | 0 | 12 |
+| tool | `grep -n TODO notes.txt` | 0.0 | 1 | 0 |
+| tool | `ls missing.txt \| head -1` | 0.0 | 0 | 59 |
+| tool | `sleep 2` | 2.0 | 0 | 0 |
+| model | 129 tokens in, 202 out | 2.17 | | |
 
 The trace's fields as a table.
 
-<!-- Run it in a scratch folder with a three-line notes.txt; it writes traces.jsonl where you start it. It only prints the model's answer: ls missing.txt failed, though the pipe masked it, and grep exiting 1 just means no TODO matches. -->
+<!-- Run it in a scratch folder with a three-line notes.txt; it writes traces.jsonl where you start it. It only prints the model's answer: the ls failed and the pipe's exit 0 from head hid that, and grep exiting 1 only means no TODO matches. -->
 
 ---
 
-# Where the exit code and Jev disagree
+# Ask the trace which commands failed
 
 ```bash
-jq -c 'select(.event=="tool" and (.exit != 0 or .failed >= 0.9)) | {cmd, exit, failed}' traces.jsonl
+jq -c 'select(.event=="tool" and .exit != 0) | {cmd, exit}' traces.jsonl
 ```
 
 ```
-{"cmd":"grep -n TODO notes.txt","exit":1,"failed":0.06}
-{"cmd":"ls missing.txt | head -1","exit":0,"failed":0.98}
+{"cmd":"grep -n TODO notes.txt","exit":1}
 ```
 
-- The `grep` found nothing: exit 1, but not a failure
-- The `ls` failed, and the pipe hid it behind exit 0
+- The `grep` found nothing: an answer, not a failure
+- The `ls` that did fail isn't there: the pipe exited with `head`'s 0
+- The model saw both; the trace only has the exit code, and it's rough
+
+<!-- Wrong twice over. The model read what the commands printed, so it got it right. The record didn't. That's the case for a second opinion. -->
+
+---
+
+# The concept with Jev: `jev_observability.py` (abridged)
+
+`observability.py` plus Jev, and nothing else:
+
+```python
+jev = TypeSafeClient(timeout=5) if os.environ.get("TYPESAFE_API_KEY") else None
+FAILED = Noul(instructions="Does `result` show that the command failed ...?", ...)
+
+def failed(cmd, result):
+    try: return round(jev.system_one({...}, {"q": FAILED}).nouls["q"].noul, 2)
+    except Exception: return None
+
+    trace(event="tool", ..., failed=failed(cmd, done.stdout))
+```
+
+- `failed()` asks Jev one yes/no question, and gets a probability back
+- It goes beside `exit`, never instead of it; no key or an error: `null`
+
+<!-- diff observability.py jev_observability.py shows exactly this, plus os and the typesafe_sdk import. The criteria say what counts: failed, errored, crashed, refused or killed, even if it printed something; worked, even if it found nothing or printed a warning. Asking Jev is model interface; writing the answer down is observability. No threshold: nothing is decided. -->
+
+---
+
+# Run it with Jev: the exit code and Jev disagree
+
+<style scoped>table { font-size: 0.85em; }</style>
+
+| cmd | exit | failed (Jev) |
+|---|---|---|
+| `wc -l notes.txt` | 0 | 0.02 |
+| `grep -n TODO notes.txt` | 1 | 0.06 |
+| `ls missing.txt \| head -1` | 0 | 0.98 |
+| `sleep 2` | 0 | 0.03 |
+
 - One false alarm from the exit code, one real failure only Jev saw
+- With a wrong key, every `failed` is `null`, and nothing else changes
 
-<!-- That's why Jev's answer sits next to the exit code and doesn't replace it: you get both, and a person reading the trace decides. With a wrong key, every failed is null and nothing else changes. -->
+<!-- The trace's fields as a table. Jev is right on both middle lines. That's why its answer sits next to the exit code and doesn't replace it: you get both, and a person reading the trace decides. The model's answer never depended on Jev; Jev's answer only goes in the trace. -->
 
 ---
 
@@ -181,7 +200,7 @@ def failed(cmd, result):
 - `failed()` asks through Lesson 5's `ask()`: the last 4,000 characters, or `None`
 - No `SURE` here: nothing is decided, so the probability is kept as it came
 
-<!-- FAILED is the concept's question, word for word. ask() already handles the key, the time-out and errors. The end of the output is usually where an error is. In Lessons 5 and 6, quark acted only on a sure answer; here it just writes it down, and the person reading decides. -->
+<!-- FAILED is the question from the concept with Jev, word for word. ask() already handles the key, the time-out and errors. The end of the output is usually where an error is. In Lessons 5 and 6, quark acted only on a sure answer; here it just writes it down, and the person reading decides. -->
 
 ---
 
@@ -299,7 +318,7 @@ jq -c 'select(.event=="tool") | {cmd, exit, failed}' .quark/traces.jsonl
 {"cmd":"sleep 60","exit":137,"failed":0.97}
 ```
 
-- The same split as the concept's: Jev saw the hidden `ls`; the exit code flagged the `grep`
+- The same split as in the concept with Jev: Jev saw the hidden `ls`; the exit code flagged the `grep`
 - They agree on the kill: `exit` 137
 - Each line names its episode: from "what went wrong" to "what the model was thinking"
 

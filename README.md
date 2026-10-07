@@ -81,7 +81,7 @@ The order is the order you'd want them in. First the box, so the agent can't do 
 | 9 | [Performance](./production/09-performance/) | prompt caching, smaller requests, a faster model for summaries, commands run at the same time, a model picked for the size of each request | context, model interface, output, control flow | [slides](./production/09-performance/slides.pdf) · [md](./production/09-performance/slides.md) | 🎥 coming soon |
 | 10 | [Evaluation](./production/10-evaluation/) | tests that measure whether the agent does its job, and catch it getting worse | the whole harness | [slides](./production/10-evaluation/slides.pdf) · [md](./production/10-evaluation/slides.md) | 🎥 coming soon |
 
-From Lesson 5 on, each layer also asks [Jev](./production/05-sandboxing/#asking-jev), a small model that makes decisions instead of writing text, one question about its job: what a command needs from the box, whether it only reads, whether a tool failed, whether a failure will pass, how big a request is, and whether the agent finished. It's a way to see where a second model fits in a harness, and what it can and can't be trusted with.
+From Lesson 5 on, each layer's concept comes twice: first on its own, then with one question added for [Jev](./production/05-sandboxing/#asking-jev), a small model that makes decisions instead of writing text. The questions are what a command needs from the box, whether it only reads, whether a tool failed, whether a failure will pass, how big a request is, and whether the agent finished. Then quark gets both. It's a way to see where a second model fits in a harness, and what it can and can't be trusted with.
 
 ## Setup
 

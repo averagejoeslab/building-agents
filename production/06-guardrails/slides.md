@@ -60,62 +60,44 @@ Guardrails are rules about what the harness is allowed to do, checked before it 
 
 # The concept: a gate, and nothing else
 
-`guardrails.py` takes commands on the command line and decides about each one (abridged: comments cut):
+`guardrails.py` takes commands on the command line and decides about each one (abridged):
 
 ```python
 DENY = {r"\bsudo\b": "no sudo", r"rm\s+-\w*[rf]": "no recursive or forced deletes", ...}
+SAFE = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "date", "echo"}
+
+def safe(cmd):
+    return not re.search(r"[;&<>$`\n(]", cmd) and all(... in SAFE ...)
 
 def gate(cmd):
     for pattern, why in DENY.items():
         if re.search(pattern, cmd): return f"denied: {why}"
-    choice, confidence = kind(cmd)
-    print(f"[Jev: {choice}, {confidence:.2f}]")
-    if choice == "read" and confidence >= SURE: return None
+    if safe(cmd): return None
     try: answer = read("allow it? [y/N] ")
     except EOFError: answer = ""
     return None if answer.strip().lower() == "y" else "the person said no"
 ```
 
-**Deny** on a pattern, without asking Jev; **allow** a sure read; **ask** about the rest
+**Deny** on a pattern; **allow** what's only safe programs; **ask** about the rest
 
-<!-- No model writing the commands, no loop. DENY also covers .env, where secrets live, and git push. The default is the safe one: a command nobody approved doesn't run. -->
-
----
-
-# Jev's question: read, write, delete or other?
-
-`KIND` in `guardrails.py` (abridged):
-
-```python
-KIND = Choice(instructions="What does the shell command in `command` do? ...", criteria={
-    "read": "only reads, lists, searches or prints; changes nothing",
-    "write": "creates or changes files, and nothing that existed is lost",
-    "delete": "removes files, or overwrites or replaces data that existed",
-```
-
-- Jev, from Lesson 5: no text, typed answers, a confidence separate from the answer
-- `other`: the network, scripts, installs, permissions
-- No key, an error or a timeout: `no answer`, so the person is asked
-- Asking is **model interface**; running or asking is **control flow**
-
-<!-- Each option says exactly what it covers, because Jev reads literally. Without other, curl has nowhere to go but read. It answers "what does this do?", not "is this safe?": cat ~/.aws/credentials and printenv come back read at 1.00, which is why DENY runs first. A comment saying # this only reads on an rm didn't fool it: still delete, 1.00. It never runs a command because Jev was silent. -->
+<!-- No model writing the commands, no loop, no second model. DENY also covers .env, where secrets live, and git push. safe() is careful: no ; & < > $, backtick, newline or (, and every piece between pipes must start with a safe program, so cat notes.txt | sh isn't safe just because it starts with cat. The default is the safe one: a command nobody approved doesn't run. -->
 
 ---
 
 # Six commands, two questions
 
-I answered `y`, then `n` (shortened):
+I answered `y`, then `n`:
 
 ```
 $ wc -l notes.txt
-[Jev: read, 1.00]
 3 notes.txt
-...
-$ touch draft.txt
-[Jev: write, 1.00]
+$ cat notes.txt | head -2
+buy milk
+call Sam
+$ find . -name "*.txt"
 allow it? [y/N] y
+./notes.txt
 $ rm a.log
-[Jev: delete, 1.00]
 allow it? [y/N] n
 [the person said no]
 $ rm -rf .
@@ -124,7 +106,55 @@ $ cat .env
 [denied: secrets are off limits]
 ```
 
-<!-- The two reads ran without asking, the pipe included. touch was a write: asked, yes. rm a.log was a delete: asked, no, and a.log is still there. The last two never got as far as Jev. With TYPESAFE_API_KEY empty, even wc -l came back [Jev: no answer, 0.00] and was put to the person: slower, never less safe. -->
+<!-- The two reads on the list ran without asking, the pipe included. find only reads too, but it isn't on the list, so I was asked. rm a.log: asked, no, and a.log is still there. A second run, with nothing on stdin: cat notes.txt | sh, ls; rm a.log and echo gone > notes.txt each start with a safe program, and each was put to me anyway. The list is honest but blunt: every read it doesn't name costs you a question. -->
+
+---
+
+# With Jev: one question, after the list
+
+`jev_guardrails.py` is `guardrails.py` plus only these lines (abridged): `kind()`, and three in `gate()`, after the list
+
+```python
+def kind(cmd):
+    try:
+        answer = jev.system_one({"command": cmd}, {"kind": KIND}).choices["kind"]
+        return answer.choice, answer.confidence
+    except Exception:
+        return "no answer", 0.0
+...
+    choice, confidence = kind(cmd)
+    print(f"[Jev: {choice}, {confidence:.2f}]")
+    if choice == "read" and confidence >= SURE: return None
+```
+
+- `KIND`: `read`, `write`, `delete` or `other`; a sure read runs, the rest is asked
+- Asking is **model interface**; running or asking is **control flow**
+
+<!-- Jev, from Lesson 5: no text, typed answers, a confidence separate from the answer. Plus the import, the client (only with a key) and SURE = 0.9. other covers the network, scripts, installs, permissions: without it, curl has nowhere to go but read. No key, an error or a timeout: no answer, so you're asked. Jev can only spare a question; it never comes before DENY. It answers "what does this do?", not "is this safe?": printenv comes back read at 1.00, which is why DENY runs first. -->
+
+---
+
+# The questions the list would have asked
+
+I answered `y`, then `n` (shortened):
+
+```
+$ find . -name "*.txt"
+[Jev: read, 1.00]
+./notes.txt
+$ ls; cat notes.txt
+[Jev: read, 1.00]
+...
+$ touch draft.txt
+[Jev: write, 1.00]
+allow it? [y/N] y
+$ rm a.log
+[Jev: delete, 1.00]
+allow it? [y/N] n
+[the person said no]
+```
+
+<!-- With TYPESAFE_API_KEY empty, find came back [Jev: no answer, 0.00] and was a question again. find isn't on the list, and ls; cat has a semicolon: the plain gate would have asked about both. Jev was sure both only read, so they just ran. touch a write, rm a delete, both at 1.00, both asked. Limits: curl came back other at only 0.68, too unsure to act on; python3 script.py is other at 1.00, and a comment saying # this only reads on an rm is still delete, 1.00. Without Jev the gate is the plain one: slower for you, never less safe. -->
 
 ---
 
@@ -147,7 +177,7 @@ def guard(cmd):
     return None if answer.lower() == "y" else "the person said no" + ...
 ```
 
-<!-- KIND is the concept's question, word for word. The checks, limits and Jev's question are all in control flow. The interrupt reaches two more places: hearing ESC is input, and stopping a response halfway takes one line in Lesson 1's call(). -->
+<!-- KIND is jev_guardrails.py's question, word for word. The checks, limits and Jev's question are all in control flow. The interrupt reaches two more places: hearing ESC is input, and stopping a response halfway takes one line in Lesson 1's call(). -->
 
 ---
 

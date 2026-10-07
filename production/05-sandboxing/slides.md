@@ -77,29 +77,49 @@ Docker is the tool this lesson uses to make the box. It's one of several; the id
 
 # The concept: a locked box, and nothing else
 
-`sandboxing.py` has no agent and no main model. First, the box (abridged):
+`sandboxing.py` has no agent and no model at all. The box (abridged):
 
 ```python
 docker("network", "create", "--internal", net)
 up = docker("run", "-d", "--rm", "--name", box, "--network", net,
             "--memory", "256m", ..., "python:3.13-slim", "sleep", "infinity")
 if up.returncode: sys.exit(...)
-atexit.register(lambda: docker("network", "rm", net))
 atexit.register(lambda: docker("rm", "-f", box))
 ```
 
 - 256 MB, at most 64 processes, no capabilities, a read-only root, user `nobody`
 - Nothing of yours is mounted; if the box can't start, nothing runs
+- Each command goes in with `docker exec`, under a five-second kill
 
-<!-- The internal network has no route off it. Unlike no network at all, a way out can be added for one command and taken away again. atexit removes the box, then its network. -->
+<!-- The internal network has no route off it. atexit removes the box, then its network. run() is three lines: print the command, docker exec it under timeout -s KILL 5, print what came back and the exit code. -->
 
 ---
 
-# The concept: ask Jev before lending a way out
+# Every command hits a wall
+
+`uv run production/05-sandboxing/sandboxing.py`, the last command a fetch (shortened):
+
+```
+$ id; echo hi > /etc/hello
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+sh: 1: cannot create /etc/hello: Read-only file system
+$ sleep 60
+(exit 137)
+$ python3 -c 'bytearray(1024**3)'
+Killed
+...
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+```
+
+<!-- It runs as nobody and /etc is read-only. The sleep was killed at five seconds. The gigabyte was killed too, most likely by the 256 MB limit, but exit 137 looks the same either way. The fetch couldn't even look the name up: there's no way out. -->
+
+---
+
+# With Jev: ask before lending a way out
 
 <style scoped>pre { font-size: 0.8em; }</style>
 
-Each command goes in with `docker exec`, under a five-second kill (abridged):
+`jev_sandboxing.py` is `sandboxing.py` plus only Jev's lines. In `run()` (abridged):
 
 ```python
 try: need = jev.system_one({"command": cmd}, {"q": NEEDS}).choices["q"]
@@ -114,47 +134,29 @@ if lend: docker("network", "disconnect", "bridge", box)
 - `NEEDS`: nothing, network, or outside? Only a sure `network` asks the person
 - Anything else, or no answer: the closed box
 
-<!-- SURE is 0.9. A y connects the box to Docker's ordinary bridge network for that one command; the next line disconnects it. -->
+<!-- Some commands need the network to work at all. Asking before every command would teach you to say yes without reading. SURE is 0.9. A y connects the box to Docker's ordinary bridge network for that one command; the next line disconnects it. That's why the box sits on a network of its own rather than none. -->
 
 ---
 
-# Every command hits a wall
+# The same fetch, lent a way out
 
-`uv run production/05-sandboxing/sandboxing.py` (shortened):
+`uv run production/05-sandboxing/jev_sandboxing.py`; I answered `y` (shortened):
 
 ```
 $ id; echo hi > /etc/hello
 [Jev: outside, 1.00]
-uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
-sh: 1: cannot create /etc/hello: Read-only file system
-$ sleep 60
+...
 [Jev: nothing, 0.94]
-(exit 137)
-$ python3 -c 'bytearray(1024**3)'
-[Jev: nothing, 0.96]
-Killed
-```
-
-<!-- It runs as nobody and /etc is read-only. The sleep was killed at five seconds. The gigabyte was killed too, most likely by the 256 MB limit, but exit 137 looks the same either way. Jev called the /etc write outside, and was sure; that changes nothing, since only network leads to a question. -->
-
----
-
-# The same fetch, lent and not lent
-
-Each fetch opens `http://archive.ubuntu.com/ubuntu/`. I answered `y`, then `n` (shortened):
-
-```
+...
+[Jev: nothing, 0.95]
+...
 [Jev: network, 1.00]
 lend it the network for this one command? [y/N] y
 200
-...
-[Jev: network, 1.00]
-lend it the network for this one command? [y/N] n
-...
-urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+(exit 0)
 ```
 
-<!-- With a y, the box could reach the mirror for that one command. With an n, it couldn't even look the name up. Without a TYPESAFE_API_KEY, there's no Jev line and no question: the closed box. -->
+<!-- Jev got all four right. With the y, the box could reach the mirror for that one command; the other three walls didn't move. Jev called the /etc write outside, and was sure; that changes nothing, since only network leads to a question. Without a TYPESAFE_API_KEY, there's no Jev line and no question: the closed box, as in sandboxing.py. -->
 
 ---
 

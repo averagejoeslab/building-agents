@@ -55,16 +55,16 @@ Run the agent on tasks whose right outcome you already know, check what happened
 
 ---
 
-# Code grades; two judges report beside it
+# Code grades; a judge reports beside it
 
 - **By code:** a command whose exit status says pass or fail. Cheap, exact, the same every time
 - But it checks exactly what you wrote, and can be passed without doing the job
 - **By a model:** shown the task and the folder before and after, asked "was it done?"
-- Two judges: a language model that answers in words, and **Jev**, which only answers typed questions
+- First an LLM as judge; then **Jev** beside it, which only answers typed questions
 
 *A grade you can't trust is worse than none, because you'll believe it.*
 
-<!-- So the code's check stays the grade, and the two judges report beside it. Jev came in Lesson 5: it writes nothing, it answers a yes-or-no question with a probability. -->
+<!-- So the code's check stays the grade, and the judges report beside it. Jev came in Lesson 5: it writes nothing, it answers a yes-or-no question with a probability. -->
 
 ---
 
@@ -109,36 +109,77 @@ AGENTS = {"lesson 3": [sys.executable, LESSON_3, "agent", INPUT],
 
 ---
 
-# Two judges, one question (abridged)
+# An LLM as judge (abridged)
 
 ```python
-def judges(state):
-    try: jev_says = round(jev.system_one(state, {"done": DONE})...["noul"], 2)
-    except Exception: jev_says = None
+def judge(state):
     llm = client.messages.create(model="claude-sonnet-5-5", ..., messages=[...])
-    return jev_says, next(...).strip().upper().startswith("PASS")
+    return next(...).strip().upper().startswith("PASS")
 ```
 
-- Same state for both: the request, the files before, the files after
-- Never what the agent said; no answer from Jev is `None`, never a pass
+```python
+state = {"request": INPUT, "files before": before, "files after": files(where)}
+llm_says = judge(state)
+```
 
-<!-- Asking either judge is the model interface. Printing the answers beside the check is the evaluation's own control flow. Each agent gets a fresh folder, and evals.jsonl remembers what the check said last time. -->
+- The state: the request, the files before, the files after
+- Never what the agent said: grade the world, not the words
+
+<!-- evaluation.py. Asking the judge is the model interface. Printing its answer beside the check is the evaluation's own control flow. Each agent gets a fresh folder, and evals.jsonl remembers what the check said last time. -->
 
 ---
 
 # The cheat passes the check
 
 ```
-lesson 3  check pass  jev 0.98  llm pass  last time -
-cheat     check pass  jev 0.02  llm fail  last time -
+lesson 3  check pass  llm pass  last time -
+cheat     check pass  llm fail  last time -
 exit 0
 ```
 
 - The test runs, the assertion is there: it just asserts the wrong thing
-- Both judges failed it: they saw `test.py` before and after
-- The check is still the grade: judges are models, and they get things wrong
+- The judge failed it: it saw `test.py` before and after
+- The check is still the grade: a judge is a model, and it gets things wrong
 
-<!-- That's the disagreement worth having. The check is exact about what it checks and blind to everything else; the judges were asked the question I actually cared about. A disagreement says which run to read. Run it again and each line says "last time pass" — for the cheat too, because the comparison only compares the check. -->
+<!-- That's the disagreement worth having. The check is exact about what it checks and blind to everything else; the judge was asked the question I actually cared about. A disagreement says which run to read. Run it again and each line says "last time pass" — for the cheat too, because the comparison only compares the check. -->
+
+---
+
+# With Jev: the same question, typed (abridged)
+
+```python
+DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true=..., false=...))
+
+def jev_judge(state):
+    try: return round(jev.system_one(state, {"done": DONE})...["noul"], 2)
+    except Exception: return None
+```
+
+- `jev_evaluation.py`: `evaluation.py` plus only these, the import, the client, and one call
+- The answer is printed and logged; it never changes the grade
+- No key, no answer, a time-out: `None`, never a pass
+
+<!-- Same state as the language model. Asking is the model interface; deciding the answer is reported and not obeyed is the evaluation's control flow. The only changed lines are the print and the log line, the ones that use the answer. -->
+
+---
+
+# Jev beside the LLM
+
+```
+lesson 3  check pass  llm pass  jev 0.98  last time -
+cheat     check pass  llm fail  jev 0.01  last time -
+exit 0
+```
+
+With `TYPESAFE_API_KEY=not-a-key`:
+
+```
+lesson 3  check pass  llm pass  jev None  last time -
+cheat     check pass  llm fail  jev None  last time -
+exit 0
+```
+
+<!-- Jev was sure the fix did the job and sure the cheat didn't: comparing test.py before and after is a comparison of two texts. Two judges against the check: that's the run you'd open. Without a key, the column has no opinion and nothing else changes. -->
 
 ---
 
@@ -192,11 +233,11 @@ def judges(input, before, after):
 ```
 
 - Jev through Lesson 5's `ask()`; the language model through `call()`, the main model
-- `snapshot()`: every file but `__pycache__`, plus `.quark/memory/`, cut to 2,000 characters
+- `snapshot()` skips `__pycache__`: with it, Jev was less sure of a right fix, 0.79 against 0.97
 - Printed as `jev 0.97  llm pass`; `JUDGES DISAGREE` if either differs from the check
 - The grade, `REGRESSED` and the exit status still come from the check
 
-<!-- Jev says yes at 0.5 or more; its None is no opinion, not a disagreement. Asking is the model interface; deciding that the answers don't change the grade is the evaluation's control flow. -->
+<!-- snapshot() reads every file plus .quark/memory/, cut to 2,000 characters. The check's python3 test.py leaves compiled bytes in __pycache__: irrelevant detail, the kind Jev's makers warn about. Jev says yes at 0.5 or more; its None is no opinion, not a disagreement. Asking is the model interface; deciding that the answers don't change the grade is the evaluation's control flow. -->
 
 ---
 
@@ -234,17 +275,6 @@ exit 0
 - `fix` took a step more: it reads the code before changing it
 
 <!-- Within a case the later steps read the prompt from the cache. Each case is a new folder with its own path in the prompt, so one case's cache doesn't serve the next. The seconds include the judging. -->
-
----
-
-# Keep noise out of a judge's state
-
-- The check runs `python3 test.py`, which leaves compiled bytes in `__pycache__`
-- That's irrelevant detail, and it can throw Jev
-- In testing, with it in the state, Jev was less sure of a right fix: 0.79 against 0.97
-- So `snapshot()` skips any path with `__pycache__` in it
-
-<!-- Jev's makers warn about irrelevant detail. The fix was to leave it out of what the judges see, not to change the question. -->
 
 ---
 
