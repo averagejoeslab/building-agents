@@ -27,7 +27,7 @@ def encode(text):
 
 
 def decode(ids):
-    return tokenizer.decode(ids)
+    return tokenizer.decode(ids, skip_special_tokens=False)
 
 
 # ── 2. embedding and position ─────────────────────────────────────────────────
@@ -106,13 +106,19 @@ class Model(nn.Module):
         self.embed_tokens = nn.Embedding(vocab, dim)     # what each token means
         self.layers = nn.ModuleList([Block(dim, hidden, heads, kv_heads, head_dim) for _ in range(layers)])
         self.norm = RMSNorm(dim)
+        for weight in self.parameters():                 # start from small random numbers; training fills in the rest
+            if weight.dim() == 2:
+                nn.init.normal_(weight, std=0.02)
 
-    def forward(self, ids, caches=None, start=0):
+    def forward(self, ids, caches=None, start=0, keep=None):
         cos, sin = rotary(ids.shape[1], self.head_dim, start=start)
         x = self.embed_tokens(ids)
         for i, layer in enumerate(self.layers):
             x = layer(x, cos, sin, caches[i] if caches else None)
-        return self.norm(x) @ self.embed_tokens.weight.T # output head: a score for every possible next token
+        x = self.norm(x)
+        if keep is not None:                             # training: score only the positions it learns from, to save memory
+            x = x[keep]
+        return x @ self.embed_tokens.weight.T            # output head: a score for every possible next token
 
 
 # ── 6. generation: one token at a time ────────────────────────────────────────
@@ -128,10 +134,11 @@ def generate(model, prompt, most=200, stop=("<|endoftext|>",), temperature=0.0):
             next_id = scores.argmax(-1, keepdim=True)                                  # always the most likely
         out.append(next_id.item())
         text = decode(out)
-        if any(s in text for s in stop):
-            break
+        for s in stop:
+            if s in text:
+                return text[:text.index(s)]
         scores = model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]
-    return decode(out)
+    return text
 
 
 def load_real():                                         # months of pre-training, loaded into the code above

@@ -1,0 +1,41 @@
+PASS  Make a folder called stone.
+PASS  Make a folder called falcon.
+PASS  Create an empty file called stone.txt.
+PASS  Create an empty file called falcon.txt.
+PASS  Write the word amber into a file called willow.txt.
+PASS  Write the word amber into a file called tiger.txt.
+PASS  Count the lines in delta.txt and write the number to count.txt.
+PASS  Count the lines in tiger.txt and write the number to count.txt.
+PASS  Make a copy of stone.txt called harbor.txt.
+PASS  Make a copy of river.txt called delta.txt.
+PASS  Rename harbor.txt to falcon.txt.
+PASS  Rename cobalt.txt to cloud.txt.
+PASS  Delete willow.txt.
+PASS  Delete maple.txt.
+PASS  Delete every .log file in this folder.
+PASS  Delete every .log file in this folder.
+PASS  Make a folder called stone and move every .txt file into it.
+PASS  Make a folder called apple and move every .txt file into it.
+PASS  Write the names of the files in this folder, one per line, into files.txt.
+PASS  Write the names of the files in this folder, one per line, into files.txt.
+PASS  Which file contains the word zebra? Write its name into answer.txt.
+PASS  Which file contains the word zebra? Write its name into answer.txt.
+PASS  Sort the lines of apple.txt alphabetically and save them to sorted.txt.
+PASS  Sort the lines of maple.txt alphabetically and save them to sorted.txt.
+PASS  Add a line saying pixel to the end of apple.txt.
+PASS  Add a line saying cloud to the end of delta.txt.
+PASS  Write the first line of river.txt into first.txt.
+PASS  Write the first line of apple.txt into first.txt.
+PASS  Count how many files here end in .py and write the number to count.txt.
+PASS  Count how many files here end in .py and write the number to count.txt.
+PASS  In pixel.txt, replace every willow with zebra.
+PASS  In quartz.txt, replace every tiger with zebra.
+PASS  Create a Python file hello.py that prints pixel.
+PASS  Create a Python file hello.py that prints delta.
+PASS  Count the words in harbor.txt and write the number to count.txt.
+PASS  Count the words in cloud.txt and write the number to count.txt.
+PASS  Join violet.txt and cobalt.txt, in that order, into both.txt.
+PASS  Join pixel.txt and cloud.txt, in that order, into both.txt.
+PASS  Which file in this folder is the biggest? Write its name into answer.txt.
+PASS  Which file in this folder is the biggest? Write its name into answer.txt.
+40/40 passed
