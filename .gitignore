@@ -1,9 +1,5 @@
+.env
 .venv/
+uv.lock
 __pycache__/
 .quark/
-uv.lock
-.env
-paper/latex/*.aux
-paper/latex/*.log
-paper/latex/*.out
-paper/latex/*.blg
