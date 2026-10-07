@@ -26,8 +26,9 @@ def handle_output(response):
     tool_results = []
     for block in response.content:
         if block.type == "text":
-            print(block.text)
+            print(f"< {block.text}")
         if block.type == "tool_use":
+            print(f"$ {block.input['command']}")
             ran = subprocess.run(block.input["command"], shell=True, capture_output=True, text=True)
             tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": ran.stdout + ran.stderr or "(no output)"})
     return tool_results
