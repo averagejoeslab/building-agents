@@ -1,0 +1,42 @@
+3152 conversations; held-out loss before: 2.512
+before (pre-trained only):
+  'How do I make a cup of tea?' -> 'How do I make a cup of tea? ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n ⚇�\n �'
+  'List the files in this folder.' -> 'Ask a question about the current state of the system. ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�\n ⚙�'
+  'Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?' -> 'Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇'
+step 10: 2 minutes; held-out loss 1.339
+step 20: 4 minutes; held-out loss 1.272
+step 30: 6 minutes; held-out loss 1.167
+step 40: 9 minutes; held-out loss 1.128
+step 50: 11 minutes; held-out loss 1.143
+step 60: 13 minutes; held-out loss 1.123
+step 70: 15 minutes; held-out loss 1.140
+step 80: 17 minutes; held-out loss 1.130
+step 90: 19 minutes; held-out loss 1.117
+step 100: 21 minutes; held-out loss 1.123
+step 110: 23 minutes; held-out loss 1.121
+step 120: 25 minutes; held-out loss 1.132
+step 130: 27 minutes; held-out loss 1.095
+step 140: 29 minutes; held-out loss 1.101
+step 150: 31 minutes; held-out loss 1.086
+step 160: 33 minutes; held-out loss 1.105
+step 170: 35 minutes; held-out loss 1.119
+step 180: 37 minutes; held-out loss 1.128
+step 190: 39 minutes; held-out loss 1.134
+step 200: 41 minutes; held-out loss 1.080
+step 210: 43 minutes; held-out loss 1.100
+step 220: 44 minutes; held-out loss 1.108
+step 230: 46 minutes; held-out loss 1.110
+step 240: 48 minutes; held-out loss 1.095
+step 250: 50 minutes; held-out loss 1.091
+step 260: 52 minutes; held-out loss 1.086
+step 270: 54 minutes; held-out loss 1.115
+step 280: 56 minutes; held-out loss 1.114
+step 290: 58 minutes; held-out loss 1.117
+step 300: 60 minutes; held-out loss 1.096
+step 310: 61 minutes; held-out loss 1.069
+step 320: 63 minutes; held-out loss 1.091
+step 330: 65 minutes; held-out loss 1.097
+step 340: 67 minutes; held-out loss 1.101
+step 350: 69 minutes; held-out loss 1.096
+step 360: 71 minutes; held-out loss 1.099
+step 370: 73 minutes; held-out loss 1.083
