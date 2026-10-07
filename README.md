@@ -101,28 +101,24 @@ cp .env.example .env        # then put your key in .env
 uv run --env-file .env quark.py
 ```
 
-Here's a session in a folder with one file, `groceries.txt` (milk, eggs, bread). `>` is what I typed, `<` is what quark said, and `$` is a command it ran:
+Here's a session in a small project: `prices.py` has a `total()` function with a bug, and `test_prices.py` has two tests, one of which fails. `>` is what I typed, `<` is what quark said, and `$` is a command it ran:
 
 ```
-> What files are in this folder?
-$ ls -la /tmp/groceries
-< The folder has one file, `groceries.txt`. It's 16 bytes and was last modified on Oct 7 at 04:09.
-
-> Add coffee to my groceries, and sort the list.
-$ cd /tmp/groceries && cat -A groceries.txt
-$ cd /tmp/groceries && echo coffee >> groceries.txt && sort -o groceries.txt groceries.txt && cat groceries.txt
-< I added coffee to `groceries.txt` and sorted the list alphabetically. It now reads:
+> The tests are failing. Find out why and fix it.
+$ cd /tmp/shop && ls -la && git status 2>&1 | head; git log --oneline 2>&1 | head
+$ cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20
+< The docstring says discount is a percentage, but the code subtracts it as a flat amount.
+$ cd /tmp/shop && sed -i 's|subtotal - discount, 2|subtotal * (1 - discount / 100), 2|' prices.py && python -m unittest -v 2>&1 | tail
+< The tests were failing because `total()` in `prices.py` subtracted `discount` as a flat amount. Its docstring, and the `test_ten_percent_off` test, treat it as a percentage. With a discount of 10 on a subtotal of 25, it returned 15 instead of 22.5.
   
-  - bread
-  - coffee
-  - eggs
-  - milk
+  I changed the calculation to `subtotal * (1 - discount / 100)`. Both tests now pass. I ran them with `python -m unittest`, because pytest isn't installed here.
 
-> How many items are on it now?
-< There are 4 items on the list now: bread, coffee, eggs, and milk.
+> Commit the fix.
+$ cd /tmp/shop && git add prices.py && git commit -q -m "Fix total(): treat discount as a percentage, not a flat amount" && git log --oneline | head -3
+< I committed the fix as `416559a`, "Fix total(): treat discount as a percentage, not a flat amount". It includes only `prices.py`.
 ```
 
-The second request took two commands, one after the other: that's the inner loop. The last answer needed no command at all, because the whole conversation goes back to the model on every turn.
+Nobody told it where the bug was or how to run the tests. It looked around, read the code, found the bug, fixed it and checked the fix, one command at a time, each result going back to the model: that's the inner loop. "Commit the fix" needed no explaining, because the whole conversation goes back on every turn.
 
 Ctrl-C quits.
 
