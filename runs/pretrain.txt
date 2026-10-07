@@ -1,0 +1,27 @@
+text: 1,274,362 tokens; model: 5,245,696 numbers, all random
+before: "def  waterContent[ftree#\nSTR_CHECKline interval listencode(root extent loudlyDecimalSEE())\n_MAPPING returningtry.O/to optimize providedallow displaying ohfreezeinitial—you xml HTMLF './ING FalsekyDebug al_crc" held-out loss 9.05
+step 100: loss 5.60
+step 200: loss 4.43
+step 300: loss 4.36
+step 400: loss 4.07
+step 500: loss 3.86
+step 600: loss 3.70
+step 700: loss 3.36
+step 800: loss 2.87
+step 900: loss 3.10
+step 1000: loss 2.71
+step 1100: loss 2.90
+step 1200: loss 2.45
+step 1300: loss 2.51
+step 1400: loss 2.67
+step 1500: loss 2.25
+step 1600: loss 2.14
+step 1700: loss 2.11
+step 1800: loss 2.00
+step 1900: loss 2.19
+step 2000: loss 1.80
+step 2100: loss 1.82
+step 2200: loss 1.92
+step 2300: loss 1.40
+after 2392 steps, 20 minutes: 'def 127\n    val = len(str, initial)\n    if unicodedata.closed:\n        raise ValueError("code out of range")\n    result = e()\n    if not (result <=' held-out loss 3.64
+the real weights, months of training on trillions of tokens: 'def  sum_of_digits(n):\n    sum = 0\n    while n > 0:\n        sum += n % 10\n        n //= 10\n    return sum\n\ndef main'
