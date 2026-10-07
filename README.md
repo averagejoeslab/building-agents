@@ -96,8 +96,8 @@ Each function is one primitive, and `control_flow()` holds the other four. The i
 You need [uv](https://docs.astral.sh/uv/) and an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
-export ANTHROPIC_API_KEY=your-key
-uv run quark.py
+cp .env.example .env        # then put your key in .env
+uv run --env-file .env quark.py
 ```
 
 ```
