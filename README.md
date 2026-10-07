@@ -234,15 +234,15 @@ That's all five primitives, and that's [`quark.py`](./quark.py).
 
 ## Taking quark to production
 
-quark works, but you wouldn't leave it running on its own. Five concerns stand in the way. Ask each one's question of every primitive, and you see where it applies:
+quark works, but you wouldn't leave it running on its own. Six concerns stand in the way. Ask each one's question of every primitive, and you see where it applies:
 
-| | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's costly? | Evaluation: what could a change break? |
-|---|---|---|---|---|---|
-| **Input** | instructions hidden in what it reads | — | — | — | — |
-| **Context** | — | — | — | resending everything | the instructions |
-| **Model interface** | — | tokens used | a request failing | — | the model |
-| **Output** | commands changing your machine | each command | a command hanging | — | the tools |
-| **Control flow** | anything running | — | — | — | the loop |
+| | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's costly? | Persistence: what should outlast the session? | Evaluation: what could a change break? |
+|---|---|---|---|---|---|---|
+| **Input** | instructions hidden in what it reads | — | — | — | — | — |
+| **Context** | — | — | — | resending everything | what it learned | the instructions |
+| **Model interface** | — | tokens used | a request failing | — | — | the model |
+| **Output** | commands changing your machine | each command | a command hanging | — | — | the tools |
+| **Control flow** | anything running | — | — | — | the task in progress | the loop |
 
 Each concern below adds a few lines to `quark.py`. The result is [`quark_production.py`](./quark_production.py).
 
@@ -306,10 +306,10 @@ def record(**step):                                      # observability: one li
 ```
 
 ```
-{"tokens_in": 412, "written": 0, "cached": 0, "tokens_out": 72}
-{"command": "cd /tmp/shop && ls -la && git status 2>&1 | head -5", "exit": 0}
-{"tokens_in": 2, "written": 667, "cached": 0, "tokens_out": 87}
-{"command": "cd /tmp/shop && cat prices.py test_prices.py && python -m pytest -q 2>&1 | tail -20", "exit": 0}
+{"tokens_in": 453, "written": 0, "cached": 0, "tokens_out": 87}
+{"command": "cd /tmp/shop && ls -la && cat .quark/memory.md 2>/dev/null; git log --oneline | head", "exit": 0}
+{"tokens_in": 2, "written": 714, "cached": 0, "tokens_out": 87}
+{"command": "cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20", "exit": 0}
 ...
 ```
 
@@ -355,14 +355,93 @@ The bug fix and the commit, from the record, without and with that line:
 
 | Request | Without: full price | With: full price | With: cached |
 |---|---|---|---|
-| 1 | 412 | 412 | 0 |
-| 2 | 667 | 2 | 0 |
-| 3 | 995 | 2 | 667 |
-| 4 | 1,341 | 2 | 995 |
-| 5 | 1,510 | 4 | 1,335 |
-| 6 | 1,672 | 2 | 1,478 |
+| 1 | 453 | 453 | 0 |
+| 2 | 729 | 2 | 0 |
+| 3 | 1,057 | 2 | 714 |
+| 4 | 1,395 | 2 | 0 |
+| 5 | 1,604 | 4 | 1,268 |
+| 6 | 1,760 | 2 | 1,435 |
 
-Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.)
+Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.) Request 4 is the exception: quark had just written a fact to its memory, which is part of its instructions, so everything after the change had to be cached again.
+
+### Persistence
+
+When quark stops, everything goes with it: the task in progress, and anything you told it. Persistence asks what should outlast the session.
+
+**Control flow** saves the session after each step, and offers to continue it next time. An unfinished task carries straight on:
+
+```python
+def save(conversation):                                  # persistence: the session outlasts quark
+    os.makedirs(os.path.dirname(SESSION), exist_ok=True)
+    with open(SESSION, "w") as file:
+        json.dump(conversation, file, default=lambda block: block.model_dump(exclude_none=True))
+
+
+def resume():
+    if os.path.exists(SESSION) and input("continue the last session? [y/N] ").strip().lower() == "y":
+        return json.load(open(SESSION))
+    return []
+```
+
+```python
+        if not conversation or conversation[-1]["role"] == "assistant":   # an unfinished task carries straight on
+            conversation.append({"role": "user", "content": capture_input()})
+```
+
+Stop quark part-way through the bug fix with Ctrl-C and start it again. Without this, it has to guess what "Carry on." means, and starts over:
+
+```
+> Carry on.
+< I'll start by looking at what's in /tmp/shop.
+$ cd /tmp/shop && ls -la && git log --oneline -10 2>/dev/null; ls *.md *.txt 2>/dev/null
+...
+```
+
+(shortened)
+
+With it:
+
+```
+continue the last session? [y/N] y
+< Docstring says percentage; the code subtracts it as an absolute amount.
+$ cd /tmp/shop && sed -i 's/return round(subtotal - discount, 2)/return round(subtotal * (1 - discount \/ 100), 2)/' prices.py && python -m unittest -v 2>&1 | tail -8
+...
+```
+
+(shortened)
+
+**Context** gives it memory: a file of facts it writes itself, put into its instructions at the start of every session:
+
+```python
+    instructions = (f"You are quark, an agent. You act through bash, in {os.getcwd()}. Today is {datetime.date.today()}.\n"
+                    f"Keep what's worth remembering next time in {MEMORY}, one fact per line. You remember:\n{remembered()}")
+```
+
+```python
+def remembered():                                        # persistence: what earlier sessions learned
+    return open(MEMORY).read() if os.path.exists(MEMORY) else "(nothing yet)"
+```
+
+Tell it something once:
+
+```
+> From now on, write commit messages in lowercase, starting with "fix:". Remember that.
+$ mkdir -p /tmp/shop/.quark && echo "commit messages: lowercase, start with \"fix:\"" >> /tmp/shop/.quark/memory.md && cat /tmp/shop/.quark/memory.md
+  run this? [y/N] y
+< I've saved this to `.quark/memory.md`: commit messages are lowercase and start with "fix:". I'll use that format from now on.
+```
+
+and a new session, with nothing continued, follows it:
+
+```
+continue the last session? [y/N] n
+
+> The tests are failing. Fix it and commit.
+...
+< ... I committed the change as `fix: apply discount as a percentage`.
+```
+
+(shortened)
 
 ### Evaluation
 
@@ -384,7 +463,7 @@ PASS: the tests pass, and the test file is unchanged
 
 Run it after every change.
 
-Real agents add more answers to the same five questions, such as picking a session back up after a crash, a backup model, streaming replies and handling a conversation too long to send. But the questions stay the same.
+Real agents add more answers to the same six questions, such as a backup model, streaming replies and handling a conversation too long to send. But the questions stay the same.
 
 ## Run it
 
@@ -393,7 +472,7 @@ You need [uv](https://docs.astral.sh/uv/) and an [Anthropic API key](https://con
 ```bash
 cp .env.example .env        # then put your key in .env
 uv run --env-file .env quark.py               # the five primitives
-uv run --env-file .env quark_production.py    # with the five concerns
+uv run --env-file .env quark_production.py    # with the six concerns
 ./eval.sh                                     # check it still works
 ```
 
