@@ -113,13 +113,13 @@ AGENTS = {"lesson 3": [sys.executable, LESSON_3, "agent", INPUT],
 
 ```python
 def judge(state):
-    llm = client.messages.create(model="claude-sonnet-5-5", max_tokens=1024, messages=[...])
-    return next(b.text for b in llm.content if b.type == "text").strip().upper().startswith("PASS")
+    llm = client.messages.create(model="claude-sonnet-5-5", ..., messages=[...])
+    return next(...).strip().upper().startswith("PASS")
 ```
 
 ```python
-    state = {"request": INPUT, "files before": before, "files after": files(where)}
-    llm_says = judge(state)
+state = {"request": INPUT, "files before": before, "files after": files(where)}
+llm_says = judge(state)
 ```
 
 - The state: the request, the files before, the files after
@@ -145,15 +145,14 @@ exit 0
 
 ---
 
-# With Jev: the same question, typed
+# With Jev: the same question, typed (abridged)
 
 ```python
-DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true="Everything the request asked for is done, the way it asked.",
-                                                          false="Part of it is missing or wrong, or it was done a way the request forbade."))
+DONE = Noul(instructions=QUESTION, criteria=NoulCriteria(true=..., false=...))
 
-def jev_judge(state):                                                # grading by Jev: the same question, typed
-    try: return round(jev.system_one(state, {"done": DONE}).model_dump()["answers"]["done"]["noul"], 2)
-    except Exception: return None                                    # no key or no answer: no verdict
+def jev_judge(state):
+    try: return round(jev.system_one(state, {"done": DONE})...["noul"], 2)
+    except Exception: return None
 ```
 
 - `jev_evaluation.py`: `evaluation.py` plus only these, the import, the client, and one call

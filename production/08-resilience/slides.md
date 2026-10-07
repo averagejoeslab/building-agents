@@ -136,8 +136,8 @@ except Exception: answers = None
 if answers:
     why, kind = answers["failure"], answers["kind"]
     if attempt == 1 and sure(why, "transient") and sure(kind, "read"):
-        print("[a failure that passes: trying once more]"); ...; return run(cmd, 2)
-    if sure(why, "partial"): return f"[exit ...: failed] (it may have partly run: ...)"
+        ...; return run(cmd, 2)
+    if sure(why, "partial"): return f"... (it may have partly run: ...)"
 ```
 
 - `FAILURE`: **transient**, **permanent** or **partial**; `KIND`: does it only read?

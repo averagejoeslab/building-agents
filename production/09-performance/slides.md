@@ -85,38 +85,24 @@ The system prompt has carried a mark since Lesson 4. New here: a second mark on 
 
 ```python
 notes = [{"type": "text", "text": open("README.md").read(), "cache_control": {"type": "ephemeral"}}]
-def call(model, input):
-    ...
-    print(f"[...: {u.input_tokens} new, {u.cache_creation_input_tokens} written to the cache, ...]")
 ...
-model = "claude-sonnet-5-5"                              # the usual model, whatever the request
+model = "claude-sonnet-5-5"
 print(call(model, input))
-call(model, input)                                       # the same request again: its start comes from the cache
-...
-for cmd in checks: run(cmd)
+call(model, input)
 ...
 with ThreadPoolExecutor() as pool: outputs = list(pool.map(run, checks))
 ```
 
-<!-- performance.py, about thirty lines. The system prompt is the repo's README with one cache mark. call() prints where its input tokens came from: new, written to the cache, or read from it. The same request goes twice so you can watch the second find the first one's work. Then three two-second commands, in a loop and then in a thread pool. Every request goes to the same model. -->
-
----
-
-# The concept, run
-
 ```
 [1.4s: 23 new, 10716 written to the cache, 0 read from it]
-The course has ten lessons: four on the primitives (Lessons 1–4) and six on production layers (Lessons 5–10).
 [1.3s: 23 new, 0 written to the cache, 10716 read from it]
 [one at a time: 6.0s]
 lint ok, types ok, tests ok [at the same time: 2.0s]
 ```
 
-- The first call wrote the README to the cache: 10,716 tokens
-- The identical second call read all of it back; full price for 23
-- Six seconds one after another, two together
+(the run is shortened: the answer is cut)
 
-<!-- A one-sentence lookup, and it went to Sonnet, the same model a design question would go to. That's what Jev changes next. -->
+<!-- performance.py, about thirty lines. The system prompt is the repo's README with one cache mark, and call() prints where its input tokens came from. The same request goes twice: the first call wrote the README to the cache, 10,716 tokens, and the identical second call read all of it back, paying full price for 23. Then three two-second commands: six seconds one after another, two together. Every request goes to Sonnet, a one-sentence lookup the same as a design question. That's what Jev changes next. -->
 
 ---
 
