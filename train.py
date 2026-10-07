@@ -197,6 +197,8 @@ def instruct(minutes=150):
         update(model, optimizer, random.sample(data, 8), [1.0] * 8)    # every example counts the same: imitate it
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; held-out loss {held_out(model, test[:8]):.3f}")
+        if step % 100 == 0:
+            save(model, "instruct")                      # save along the way: look at it, or stop early, without losing the run
     log(f"after {step} steps, {minutes} minutes; held-out loss after: {held_out(model, test):.3f}")
     log("after (instruction-tuned):"); show(model)
     save(model, "instruct")
@@ -254,6 +256,7 @@ def reason(minutes=150, group=8):
             update(model, optimizer, [prompt + a + "<|im_end|>\n" for a in answers], advantage.tolist())
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; right in training, last 10 questions: {sum(rewards[-10:]) / 10:.0%}")
+            save(model, "reason")
     log(f"after {step} questions, {minutes} minutes; held-out accuracy after: {accuracy(model, test):.0%}")
     log("an answer after:", repr(M.generate(model, turn("user", test[0]["question"]) + "<|im_start|>assistant\n", most=400, stop=("<|im_end|>",))))
     save(model, "reason")
@@ -313,6 +316,7 @@ def harness(minutes=150, group=4):                       # RL in the harness: th
             update(model, optimizer, [text for text, _ in tries], advantage.tolist())
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; passed in training, last 10 tasks: {sum(rewards[-10:]) / 10:.0%}")
+            save(model, "harness")
     log(f"after {step} tasks, {minutes} minutes. On the forty held-out tasks:")
     evaluate(model)
     save(model, "harness")
