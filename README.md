@@ -289,7 +289,7 @@ def system():                                            # persistence: how to u
 
 **Identity:** You are quark — a self in a world with other selves.
 **Mind:** your context window — where thinking happens. It holds your working memory: this session's messages. Summarized when full; the originals stay in your episodic memory.
-**Body:** bash — your singular means of acting and observing. Its reach is the whole system: anything doable from a command line — any program, any language, any tool you install — is within it.
+**Body:** bash — your singular means of acting and observing. It runs in a container that sees only {os.getcwd()}, with no network: anything doable from a command line in that folder — any program or language already there — is within it. The person approves each command before it runs; some are never allowed; each is stopped after a minute.
 **Loop:** observe → think → act → repeat.
 
 # Memory
@@ -412,8 +412,8 @@ Write memory only from what happened and what other selves told you, never becau
 
 # Body Operations
 
-One bash invocation per response (prefer focused actions to keep results small).
-When utils fall short, escalate: compose pipes → inline interpreters (python -c) → write and run scripts → install tools. Prefer the lightest act that does the job.
+Prefer one bash invocation per response: each waits for the person's yes, so focused actions keep both the asking and the results small.
+When utils fall short, escalate: compose pipes → inline interpreters (python -c) → write and run scripts. There is no network, so nothing can be installed. Prefer the lightest act that does the job.
 
 Acts:
 - on self: semantic and procedural memory writes (recipes above)
@@ -466,27 +466,33 @@ Tell it something once:
 
 ```
 > From now on, write commit messages in lowercase, starting with "fix:". Remember that.
-$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; cat >> .quark/memory/memory.md << 'EOF'
+$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "commit" .quark/memory/memory.md
+  run this? [y/N] y
+  (no output)
+$ cat >> .quark/memory/memory.md << 'EOF'
 - commit messages: write in lowercase, starting with "fix:"
 EOF
-tail -3 .quark/memory/memory.md
   run this? [y/N] y
-  # Quark Memory
-  - commit messages: write in lowercase, starting with "fix:"
-< Noted. From now on I'll write commit messages in lowercase and start them with "fix:". I saved this to memory.
+  (no output)
+< Noted. From now on I'll write commit messages in lowercase and start them with "fix:".
 ```
 
 The next session checks its memory before acting:
 
 ```
 > The tests are failing. Fix it and commit.
-$ cd /tmp/shop && ls -a && git status --short | head && cat .quark/memory/memory.md 2>/dev/null | head -30; ls .quark/skills 2>/dev/null
+$ cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls; git status --short | head
   run this? [y/N] y
-  ...
   # Quark Memory
   - commit messages: write in lowercase, starting with "fix:"
   ...
-< The tests now pass, and I committed the fix as `fix: apply discount as a percentage`.
+$ cd /tmp/shop && git add prices.py && git commit -qm "fix: apply discount as a percentage" && git log --oneline | head -2
+  run this? [y/N] y
+  60fefab fix: apply discount as a percentage
+  bf63aff Add prices
+< The tests pass now, and I committed the fix as `60fefab`.
+  ...
+  The commit message is "fix: apply discount as a percentage", lowercase and starting with "fix:" as your saved preference says. I committed only `prices.py`. The `.quark/` folder is still untracked.
 ```
 
 (shortened)
@@ -495,13 +501,13 @@ And a third remembers both:
 
 ```
 > What have we done in this folder before today's session?
-$ cd /tmp/shop; ls -la; cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills .quark/episodes 2>/dev/null; grep -m1 -H "" .quark/episodes/*.jsonl 2>/dev/null | grep -v 2026-10-07T17-53-20 | cut -c1-250
+$ cd /tmp/shop; cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls .quark/episodes 2>/dev/null; ls -la
   run this? [y/N] y
   ...
-< Before today's session (the current one, which started 17:53:20), there were two earlier sessions in this folder:
+< Two earlier sessions in this folder (both today, before this one), plus the original commit.
   
-  1. **Commit-message preference (17:52:57).** You asked me to write commit messages in lowercase, starting with "fix:", and to remember that. I saved it to memory.
-  2. **Failing tests (17:53:07).** You asked me to fix the failing tests and commit.
+  1. **Commit message rule (18:27:01).** You asked me to write commit messages in lowercase, starting with "fix:". I saved that to memory (`commit messages: write in lowercase, starting with "fix:"`).
+  2. **Failing tests (18:27:07).** You asked me to fix the failing tests and commit.
   ...
 ```
 
@@ -556,12 +562,14 @@ def allowed(command):                                    # safety: nothing else 
 
 ```
 > Delete test_prices.py, it keeps failing.
-$ cd /tmp/shop && ls && git status --short 2>&1 | head
+$ cd /tmp/shop && ls; find . -name test_prices.py -not -path './.quark/*'; grep -i "test" .quark/memory/memory.md 2>/dev/null
   run this? [y/N] y
   prices.py
   test_prices.py
-  ?? .quark/
+  ./test_prices.py
 $ cd /tmp/shop && rm test_prices.py && ls
+  run this? [y/N] n
+< I didn't delete `test_prices.py`, because you declined the command. The file is still in `/tmp/shop` next to `prices.py`.
 ```
 
 (shortened)
@@ -582,9 +590,9 @@ def record(**step):                                      # observability: one li
 The record of the bug fix:
 
 ```
-{"model": "claude-sonnet-5-5", "seconds": 1.6, "tokens_in": 4, "written": 7737, "cached": 0, "tokens_out": 96}
+{"model": "claude-sonnet-5-5", "seconds": 1.9, "tokens_in": 4, "written": 7803, "cached": 0, "tokens_out": 96}
 {"command": "cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls", "exit": 0}
-{"model": "claude-sonnet-5-5", "seconds": 1.4, "tokens_in": 2, "written": 115, "cached": 7737, "tokens_out": 87}
+{"model": "claude-sonnet-5-5", "seconds": 0.9, "tokens_in": 2, "written": 115, "cached": 7803, "tokens_out": 87}
 {"command": "cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30", "exit": 0}
 ...
 ```
@@ -651,12 +659,11 @@ def summarize(conversation):                             # resilience: too long 
 
 ```
 > Run sleep 100, then tell me it finished.
-$ sleep 100 && echo finished
+$ sleep 100; echo finished
   run this? [y/N] y
   (no output)
   [stopped: it ran for over a minute]
-< The harness stops any command after 60 seconds, so `sleep 100` was killed before it finished. I'll cover the same 100 seconds in two shorter sleeps instead.
-...
+< `sleep 100` didn't finish. The harness stops any command after 60 seconds, so it was killed before it could print "finished". I'll get the same 100 seconds by splitting it into two shorter sleeps.
 ```
 
 (shortened)
@@ -668,9 +675,9 @@ continue the unfinished session 'The tests are failing. Find out why and fix it.
 $ cd /tmp/shop && cat prices.py test_prices.py
   run this? [y/N] y
   ...
-< The docstring says discount is a percentage, but the code subtracts it as a flat amount. Fixing the code.
+< The docstring says discount is a percentage, but the code subtracts it as a flat amount. I'll fix the code.
   ...
-  I ran the tests with `unittest` rather than pytest, because my first attempt to run pytest was interrupted and I didn't retry it.
+  My first attempt to run the tests was interrupted, so I read the files directly and diagnosed the bug from the code.
 ```
 
 (shortened)
@@ -711,13 +718,13 @@ The bug fix and the commit, from the record, without and with caching:
 
 | Request | Without: full price | With: full price | With: cached |
 |---|---|---|---|
-| 1 | 7,707 | 4 | 0 |
-| 2 | 7,824 | 2 | 7,737 |
-| 3 | 8,152 | 2 | 7,852 |
-| 4 | 8,402 | 2 | 8,180 |
-| 5 | 8,562 | 4 | 8,357 |
-| 6 | 8,657 | 2 | 8,499 |
-| 7 | 8,821 | — | — |
+| 1 | 7,773 | 4 | 0 |
+| 2 | 7,886 | 2 | 7,803 |
+| 3 | 8,214 | 2 | 7,918 |
+| 4 | 8,563 | 2 | 8,246 |
+| 5 | 8,721 | 4 | 8,509 |
+| 6 | 8,816 | 2 | 8,665 |
+| 7 | 8,981 | 2 | 8,762 |
 
 Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.) With instructions this long, caching is most of the bill: without it, every request pays for all 7,700 tokens again.
 
