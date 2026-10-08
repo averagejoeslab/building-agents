@@ -69,11 +69,18 @@ Each primitive in one line: what it does. The code, from [`model.py`](./model.py
 **Tokenizer: turns text into tokens, and back.**
 
 ```python
-tokenizer = Tokenizer.from_file(hf_hub_download(REAL, "tokenizer.json"))   # about 150,000 pieces, learned from data
-
-def encode(text):
-    return tokenizer.encode(text).ids           # "The capital of France is" → [785, 6722, 315, 9625, 374]
+def learn(cls, text, size):                         # byte-pair encoding: start from single bytes...
+    while 256 + len(merges) < size:
+        pairs = collections.Counter()
+        for w, n in words.items():
+            for pair in zip(w, w[1:]):
+                pairs[pair] += n                    # ...count every neighbouring pair...
+        best = max(pairs, key=pairs.get)
+        merges.append(best)                         # ...and make the commonest one a new token
+        words = {cls.merge(w, best): n for w, n in words.items()}
 ```
+
+To encode, a word is split into bytes and the learned merges are applied, commonest first. Common words end up as one token, rare ones as several.
 
 **Embedding: gives each token a meaning.**
 
@@ -153,7 +160,7 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays. The last tenth is held out, never trained on, to measure it fairly.
+We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly.
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
@@ -162,7 +169,7 @@ We pre-train our model from random numbers, small enough to run in 20 minutes ([
 
 > **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
 
-The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in. Continuing `ROMEO:`, the same prompt as ours:
+The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in, and its tokenizer's learned merges load into our tokenizer: about 150,000 tokens, the same numbers Qwen uses. Continuing `ROMEO:`, the same prompt as ours:
 
 > **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
 

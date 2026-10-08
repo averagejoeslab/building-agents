@@ -39,15 +39,14 @@ def pretrain_text():                                     # Shakespeare: about a 
 
 
 def pretrain(minutes=20):
-    ids = M.encode(pretrain_text())
-    common = [i for i, _ in collections.Counter(ids).most_common(8191)]
-    small = {token: n for n, token in enumerate(common)}             # the 8,191 most common tokens, plus one for the rest
-    data = torch.tensor([small.get(i, 8191) for i in ids])
+    text = pretrain_text()
+    tokenizer = M.Tokenizer.learn(text, 2048)           # our own tokenizer, learned from the same text
+    data = torch.tensor(tokenizer.encode(text))
     cut = len(data) * 9 // 10
     data, held_out = data[:cut], data[cut:]                          # the last tenth: never trained on, to measure it fairly
-    model = M.Model(vocab=8192, dim=256, layers=4, heads=4, kv_heads=2, head_dim=64, hidden=768)   # the same design, much smaller
-    log(f"text: {len(data):,} tokens; model: {sum(p.numel() for p in model.parameters()):,} numbers, all random")
-    speak = lambda: M.decode([common[i] for i in sample(model, [small[t] for t in M.encode(PROMPT)], 40) if i < 8191])
+    model = M.Model(vocab=2048, dim=256, layers=4, heads=4, kv_heads=2, head_dim=64, hidden=768)   # the same design, much smaller
+    log(f"text: {len(data):,} tokens of {len(tokenizer.ids):,} kinds; model: {sum(p.numel() for p in model.parameters()):,} numbers, all random")
+    speak = lambda: tokenizer.decode(sample(model, tokenizer.encode(PROMPT), 60))
     log("before:", repr(PROMPT + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     start, step = time.time(), 0
@@ -61,8 +60,8 @@ def pretrain(minutes=20):
         if step % 100 == 0:
             log(f"step {step}: loss {loss.item():.2f}")
     log(f"after {step} steps, {minutes} minutes:", repr(PROMPT + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
-    real = M.load_real()
-    log("the real weights, months of training on trillions of tokens:", repr(PROMPT + M.generate(real, PROMPT, most=40)))
+    real = M.load_real()                                 # now Qwen's: its numbers, and its tokenizer, in the same code
+    log("Qwen3-0.6B-Base, trained on about 36 trillion tokens:", repr(PROMPT + M.generate(real, PROMPT, most=60)))
 
 
 @torch.no_grad()

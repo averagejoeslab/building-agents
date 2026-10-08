@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "jinja2"]
+# dependencies = ["torch", "numpy", "regex", "safetensors", "huggingface_hub", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -8,27 +8,113 @@
 # explicit = true
 # ///
 """A language model built from its primitives, in the design of Qwen3."""
-import json
-import jinja2.sandbox
+import json, unicodedata, collections
+import regex, jinja2.sandbox
 import torch, torch.nn as nn, torch.nn.functional as F
-from tokenizers import Tokenizer
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
 REAL = "Qwen/Qwen3-0.6B-Base"                            # the real weights we load into this code
 
 
-# ── 1. tokenizer: text to numbers ─────────────────────────────────────────────
+# ── 1. tokenizer: text to tokens, and back ────────────────────────────────────
 
-tokenizer = Tokenizer.from_file(hf_hub_download(REAL, "tokenizer.json"))   # learned from data, like the weights
+WORDS = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
+BYTES = [*range(33, 127), *range(161, 173), *range(174, 256)]   # every byte as a printable character, as Qwen writes them
+BYTES = dict(zip([*BYTES, *(b for b in range(256) if b not in BYTES)], map(chr, [*BYTES, *range(256, 256 + 256 - len(BYTES))])))
+UNBYTES = {c: b for b, c in BYTES.items()}
+
+
+class Tokenizer:
+    """Byte-pair encoding: start from single bytes, and merge the commonest neighbouring pairs into new tokens."""
+
+    def __init__(self, merges, special=()):
+        self.ranks = {pair: rank for rank, pair in enumerate(merges)}  # earlier merges were commoner: apply them first
+        pieces = [BYTES[b] for b in range(256)] + ["".join(pair) for pair in merges]
+        self.ids = {piece: i for i, piece in enumerate(pieces)}
+        self.ids.update({token: len(pieces) + i for i, token in enumerate(special)})
+        self.pieces = {i: piece for piece, i in self.ids.items()}
+        self.added = set(special)
+        self.special = regex.compile("(" + "|".join(map(regex.escape, special)) + ")") if special else None
+        self.cache = {}
+
+    @classmethod
+    def learn(cls, text, size, special=()):              # learn merges from text until there are `size` tokens
+        words = collections.Counter("".join(BYTES[b] for b in w.encode()) for w in regex.findall(WORDS, text))
+        words = {tuple(w): n for w, n in words.items()}
+        merges = []
+        while 256 + len(merges) + len(special) < size:
+            pairs = collections.Counter()
+            for w, n in words.items():
+                for pair in zip(w, w[1:]):
+                    pairs[pair] += n
+            if not pairs:
+                break
+            best = max(pairs, key=pairs.get)             # the commonest neighbouring pair becomes one token
+            merges.append(best)
+            words = {cls.merge(w, best): n for w, n in words.items()}
+        return cls(merges, special)
+
+    @classmethod
+    def load(cls, name):                                 # a released tokenizer: its learned merges, in the same code
+        spec = json.load(open(hf_hub_download(name, "tokenizer.json")))
+        merges = [tuple(m.split(" ")) if isinstance(m, str) else tuple(m) for m in spec["model"]["merges"]]
+        tokenizer = cls(merges, [t["content"] for t in spec["added_tokens"]])
+        tokenizer.ids = {**spec["model"]["vocab"], **{t["content"]: t["id"] for t in spec["added_tokens"]}}   # its numbering
+        tokenizer.pieces = {i: piece for piece, i in tokenizer.ids.items()}
+        return tokenizer
+
+    @staticmethod
+    def merge(word, pair):
+        out, i = [], 0
+        while i < len(word):
+            if word[i:i + 2] == pair:
+                out.append(word[i] + word[i + 1]); i += 2
+            else:
+                out.append(word[i]); i += 1
+        return tuple(out)
+
+    def word(self, w):                                   # one word: its bytes, merged pair by pair, commonest first
+        if w not in self.cache:
+            parts = tuple(BYTES[b] for b in w.encode())
+            while len(parts) > 1:
+                pair = min(zip(parts, parts[1:]), key=lambda p: self.ranks.get(p, float("inf")))
+                if pair not in self.ranks:
+                    break
+                parts = self.merge(parts, pair)
+            self.cache[w] = [self.ids[p] for p in parts]
+        return self.cache[w]
+
+    def encode(self, text):
+        ids = []
+        for part in (self.special.split(text) if self.special else [text]):
+            if part in self.added:
+                ids.append(self.ids[part])               # a special token, such as <|im_end|>, is one token
+            elif part:
+                for w in regex.findall(WORDS, unicodedata.normalize("NFC", part)):
+                    ids += self.word(w)
+        return ids
+
+    def decode(self, ids):
+        text, waiting = "", b""
+        for i in ids:
+            piece = self.pieces[i]
+            if piece in self.added:                      # a special token is written as it is
+                text, waiting = text + waiting.decode(errors="replace") + piece, b""
+            else:
+                waiting += bytes(UNBYTES[c] for c in piece)
+        return text + waiting.decode(errors="replace")
+
+
+tokenizer = Tokenizer.load(REAL)                         # Qwen's learned merges, in our code
 
 
 def encode(text):
-    return tokenizer.encode(text).ids
+    return tokenizer.encode(text)
 
 
 def decode(ids):
-    return tokenizer.decode(ids, skip_special_tokens=False)
+    return tokenizer.decode(ids)
 
 
 # ── 2. embedding and position ─────────────────────────────────────────────────
@@ -168,7 +254,7 @@ class Release:
         weights = load_file(hf_hub_download(name, "model.safetensors"))
         weights.pop("lm_head.weight", None)              # some releases store the output head too: it is the embedding, shared
         self.model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in weights.items()}, strict=True)
-        self.tokenizer = Tokenizer.from_file(hf_hub_download(name, "tokenizer.json"))
+        self.tokenizer = Tokenizer.load(name)
         rendering = jinja2.sandbox.ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.loopcontrols"])
         rendering.filters["tojson"] = lambda x, indent=None, separators=None, sort_keys=False, ensure_ascii=False: json.dumps(
             x, indent=indent, separators=separators, sort_keys=sort_keys, ensure_ascii=ensure_ascii)   # as transformers renders it
@@ -177,10 +263,10 @@ class Release:
         self.stops = set(stops if isinstance(stops, list) else [stops])
 
     def encode(self, text):
-        return self.tokenizer.encode(text, add_special_tokens=False).ids
+        return self.tokenizer.encode(text)
 
     def decode(self, ids):
-        return self.tokenizer.decode(ids, skip_special_tokens=False)
+        return self.tokenizer.decode(ids)
 
     def chat(self, messages, tools=None, thinking=False):   # the conversation as text, in the format the model was trained on
         return self.template.render(messages=messages, tools=tools, add_generation_prompt=True, enable_thinking=thinking)

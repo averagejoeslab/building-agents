@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "jinja2", "transformers"]
+# dependencies = ["torch", "numpy", "regex", "tokenizers", "safetensors", "huggingface_hub", "jinja2", "transformers"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -7,12 +7,19 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""Our model, with Qwen's pre-trained numbers loaded, against Qwen's reference implementation on the same tokens.
+"""Our tokenizer and our model, with Qwen's pre-trained numbers loaded, against Qwen's reference implementation on the same tokens.
 Run from the repo: uv run --script runs/01_check_against_reference.py"""
 import sys, time, torch
 sys.path.insert(0, ".")
 import model as M
 from transformers import AutoModelForCausalLM
+from tokenizers import Tokenizer as Reference
+from huggingface_hub import hf_hub_download
+
+reference = Reference.from_file(hf_hub_download(M.REAL, "tokenizer.json"))
+texts = ["The capital of France is", "ROMEO:\nBut, soft! what light through yonder window breaks?", "def f(x):\n    return x**2\n",
+         "<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\n", "café 你好 🙂 1234567  x\t\tz\r\n  "]
+print("tokenizer: same tokens as the reference on", len(texts), "texts:", all(M.encode(t) == reference.encode(t, add_special_tokens=False).ids for t in texts))
 
 ours = M.load_real().eval()
 ref = AutoModelForCausalLM.from_pretrained(M.REAL, dtype=torch.float32).eval()
