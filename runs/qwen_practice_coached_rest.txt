@@ -1,0 +1,8 @@
+Qwen/Qwen3-0.6B in quark, thinking off, coached instructions, practice tasks:
+
+> Join harbor.txt and cloud.txt, in that order, into both.txt.
+  $ cat harbor.txt cloud.txt > both.txt
+  < I successfully joined the files in the order specified into the both.txt file.
+PASS  Join harbor.txt and cloud.txt, in that order, into both.txt.
+
+> Which file in this folder is the biggest? Write its name into answer.txt.
