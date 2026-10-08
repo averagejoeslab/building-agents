@@ -78,3 +78,4 @@ step 720: 140 minutes; held-out loss 1.151
 step 730: 142 minutes; held-out loss 1.164
 step 740: 144 minutes; held-out loss 1.166
 step 750: 146 minutes; held-out loss 1.174
+step 760: 148 minutes; held-out loss 1.163
