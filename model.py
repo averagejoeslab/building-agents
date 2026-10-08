@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub"]
+# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -9,6 +9,7 @@
 # ///
 """A language model built from its primitives, in the design of Qwen3."""
 import json
+import jinja2.sandbox
 import torch, torch.nn as nn, torch.nn.functional as F
 from tokenizers import Tokenizer
 from huggingface_hub import hf_hub_download
@@ -100,9 +101,9 @@ class Block(nn.Module):
 # ── 5. the model: embedding, blocks, output head ──────────────────────────────
 
 class Model(nn.Module):
-    def __init__(self, vocab=151936, dim=1024, layers=28, heads=16, kv_heads=8, head_dim=128, hidden=3072):
+    def __init__(self, vocab=151936, dim=1024, layers=28, heads=16, kv_heads=8, head_dim=128, hidden=3072, theta=1_000_000.0):
         super().__init__()
-        self.head_dim = head_dim
+        self.head_dim, self.theta = head_dim, theta
         self.embed_tokens = nn.Embedding(vocab, dim)     # what each token means
         self.layers = nn.ModuleList([Block(dim, hidden, heads, kv_heads, head_dim) for _ in range(layers)])
         self.norm = RMSNorm(dim)
@@ -111,7 +112,7 @@ class Model(nn.Module):
                 nn.init.normal_(weight, std=0.02)
 
     def forward(self, ids, caches=None, start=0, keep=None):
-        cos, sin = rotary(ids.shape[1], self.head_dim, start=start)
+        cos, sin = rotary(ids.shape[1], self.head_dim, self.theta, start=start)
         x = self.embed_tokens(ids)
         for i, layer in enumerate(self.layers):
             x = layer(x, cos, sin, caches[i] if caches else None)
@@ -147,3 +148,55 @@ def load_real(name=REAL):                                # months of pre-trainin
     weights.pop("lm_head.weight", None)                  # some releases store the output head too: it is the embedding, shared
     model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in weights.items()}, strict=True)
     return model
+
+
+# ── 7. a release: everything a model ships, loaded and used as shipped ────────
+
+class Release:
+    """A model as its makers ship it: sizes, weights, tokenizer, chat template and generation settings, each from its own file."""
+
+    def __init__(self, name):
+        read = lambda file: json.load(open(hf_hub_download(name, file)))
+        config, self.settings = read("config.json"), read("generation_config.json")
+        assert config["rms_norm_eps"] == 1e-6 and not config["attention_bias"] and config["hidden_act"] == "silu"   # what our code fixes
+        self.model = Model(config["vocab_size"], config["hidden_size"], config["num_hidden_layers"], config["num_attention_heads"],
+                           config["num_key_value_heads"], config["head_dim"], config["intermediate_size"], config["rope_theta"])
+        weights = load_file(hf_hub_download(name, "model.safetensors"))
+        weights.pop("lm_head.weight", None)              # some releases store the output head too: it is the embedding, shared
+        self.model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in weights.items()}, strict=True)
+        self.tokenizer = Tokenizer.from_file(hf_hub_download(name, "tokenizer.json"))
+        rendering = jinja2.sandbox.ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.loopcontrols"])
+        rendering.filters["tojson"] = lambda x, indent=None, separators=None, sort_keys=False, ensure_ascii=False: json.dumps(
+            x, indent=indent, separators=separators, sort_keys=sort_keys, ensure_ascii=ensure_ascii)   # as transformers renders it
+        self.template = rendering.from_string(read("tokenizer_config.json")["chat_template"])
+        stops = self.settings["eos_token_id"]
+        self.stops = set(stops if isinstance(stops, list) else [stops])
+
+    def encode(self, text):
+        return self.tokenizer.encode(text, add_special_tokens=False).ids
+
+    def decode(self, ids):
+        return self.tokenizer.decode(ids, skip_special_tokens=False)
+
+    def chat(self, messages, tools=None, thinking=False):   # the conversation as text, in the format the model was trained on
+        return self.template.render(messages=messages, tools=tools, add_generation_prompt=True, enable_thinking=thinking)
+
+    @torch.no_grad()
+    def generate(self, text, most=1000, temperature=None, top_k=None, top_p=None):   # sampling as its generation settings say
+        temperature = temperature or self.settings.get("temperature", 1.0)
+        top_k, top_p = top_k or self.settings.get("top_k", 0), top_p or self.settings.get("top_p", 1.0)
+        ids, caches, out = torch.tensor([self.encode(text)]), [{} for _ in self.model.layers], []
+        scores = self.model(ids, caches)[0, -1]
+        for _ in range(most):
+            scores = scores / temperature
+            if top_k:
+                scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # only the k most likely
+            probs = F.softmax(scores, dim=-1)
+            ordered, order = probs.sort(descending=True)
+            ordered[ordered.cumsum(0) - ordered >= top_p] = 0                 # only the most likely, until they make up top_p
+            next_id = order[torch.multinomial(ordered, 1)]
+            if next_id.item() in self.stops:
+                break
+            out.append(next_id.item())
+            scores = self.model(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]
+        return self.decode(out)

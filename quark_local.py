@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub"]
+# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -7,40 +7,30 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""quark, with our own model in place of Sonnet: the same loop, a different model interface.
+"""quark, with a model we run ourselves in place of Sonnet: the same loop and tool, a different model interface.
+The interface speaks the model's own format: its chat template shows it the conversation and the bash tool, and it asks
+for a command by writing <tool_call>{"name": "bash", "arguments": {"command": "…"}}</tool_call>.
 Commands run in a throwaway container that can see only the folder it works in: a small model makes big mistakes.
-Run it: uv run quark_local.py checkpoints/reason.pt"""
-import sys, os, re, subprocess, torch
+Run it: uv run quark_local.py Qwen/Qwen3-0.6B [think]"""
+import sys, os, re, json, datetime, subprocess
 import model as M
 
-INSTRUCTIONS = ("You are quark, an agent. You act through bash, in {where}. "   # short: a small model can't use a long prompt
-                "Run a command by writing <bash>command</bash>, and you will see what it prints. When the task is done, say so in plain words.")
-
-
-def turn(role, text):                                    # the chat format: who is speaking, then what they say
-    return f"<|im_start|>{role}\n{text}<|im_end|>\n"
-
-
-def load(path):                                          # a trained checkpoint, in the model we built
-    model = M.Model()
-    model.load_state_dict({k: v.float() for k, v in torch.load(path).items()})
-    return model
+bash = {"type": "function", "function": {"name": "bash", "description": "Run a shell command",          # quark.py's tool
+        "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+NO_THINKING = dict(temperature=0.7, top_p=0.8, top_k=20)  # Qwen's advice with thinking off; with it on, its generation settings
 
 
 def capture_input():
     return input("\n> ")
 
 
-def transcript(conversation):                            # the model reads text, so the context is text: the whole chat so far
-    return turn("system", INSTRUCTIONS.format(where="/work")) + "".join(turn(role, content) for role, content in conversation)
+def assemble_context(model, conversation, thinking):     # quark.py's instructions and tool, in the model's own chat format
+    instructions = f"You are quark, an agent. You act through bash, in /work. Today is {datetime.date.today()}."
+    return model.chat([{"role": "system", "content": instructions}] + conversation, tools=[bash], thinking=thinking)
 
 
-def assemble_context(conversation):
-    return transcript(conversation) + "<|im_start|>assistant\n"
-
-
-def request_response(model, context, temperature=0.0):
-    return M.generate(model, context, most=200, stop=("<|im_end|>", "<|endoftext|>"), temperature=temperature)
+def request_response(model, context, thinking):
+    return model.generate(context, most=1500, **({} if thinking else NO_THINKING))
 
 
 def run(command, where):                                 # in a container: no network, only this folder, ten seconds
@@ -49,38 +39,46 @@ def run(command, where):                                 # in a container: no ne
     return (ran.stdout + ran.stderr).strip()[:2000] or "(no output)"
 
 
-def handle_output(response, where, quiet=False):        # the model asks for a tool by writing <bash>…</bash>
-    if not quiet:
-        print("< " + response.replace("\n", "\n  "))
-    command = re.search(r"<bash>(.*?)</bash>", response, re.S)
-    return run(command.group(1), where) if command else None
+def handle_output(response, where, show=print):         # its words, and each <tool_call> it wrote, run
+    calls, results = [], []
+    for raw in re.findall(r"<tool_call>(.*?)</tool_call>", response, re.S):
+        try:
+            command = json.loads(raw)["arguments"]["command"]
+        except (ValueError, KeyError, TypeError):        # it wrote a call we can't read: say so, as an API would
+            results.append({"role": "tool", "content": "error: a tool call must be JSON with a command"})
+            show(f"! unreadable tool call: {raw.strip()[:200]}")
+            continue
+        show(f"$ {command}")
+        calls.append({"type": "function", "function": {"name": "bash", "arguments": {"command": command}}})
+        results.append({"role": "tool", "content": run(command, where)})
+    words = re.sub(r"<tool_call>.*?</tool_call>", "", response, flags=re.S).strip()   # its thinking stays: the template decides
+    if words.split("</think>")[-1].strip():
+        show("< " + words.split("</think>")[-1].strip().replace("\n", "\n  "))
+    return {"role": "assistant", "content": words, "tool_calls": calls}, results
 
 
-def session(model, ask, where, temperature=0.0, turns=6, quiet=True):   # one request, worked until it answers
-    conversation = [("user", ask)]
+def session(model, ask, where, thinking=False, turns=8, show=lambda line: None):   # one request, worked until it answers
+    conversation = [{"role": "user", "content": ask}]
     for _ in range(turns):
-        response = request_response(model, assemble_context(conversation), temperature)
-        conversation.append(("assistant", response))
-        result = handle_output(response, where, quiet)
-        if result is None:
+        reply, results = handle_output(request_response(model, assemble_context(model, conversation, thinking), thinking), where, show)
+        conversation += [reply] + results
+        if not results:
             break                                        # done: hand back to the person
-        conversation.append(("tool", result))            # a tool ran: go again
     return conversation
 
 
-def control_flow(model):
+def control_flow(model, thinking):
     conversation = []
     while True:
-        conversation.append(("user", capture_input()))
+        conversation.append({"role": "user", "content": capture_input()})
         while True:
-            response = request_response(model, assemble_context(conversation))
-            conversation.append(("assistant", response))
-            result = handle_output(response, os.getcwd())
-            if result is None:
-                break
-            print("  " + result.replace("\n", "\n  "))
-            conversation.append(("tool", result))
+            reply, results = handle_output(request_response(model, assemble_context(model, conversation, thinking), thinking), os.getcwd())
+            conversation += [reply] + results
+            if not results:
+                break                                    # done: hand back to the person
+            for result in results:
+                print("  " + result["content"].replace("\n", "\n  "))
 
 
 if __name__ == "__main__":
-    control_flow(load(sys.argv[1]))
+    control_flow(M.Release(sys.argv[1]), "think" in sys.argv)

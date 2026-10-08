@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub"]
+# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -9,7 +9,7 @@
 # ///
 """Twenty kinds of bash task, each checked by looking at the files afterwards, not at what the agent says.
 Each kind makes a fresh task from a seed: the evaluation uses fixed seeds, training uses others.
-Score an agent: uv run tasks.py checkpoints/reason.pt   or   uv run tasks.py sonnet"""
+Score an agent: uv run tasks.py Qwen/Qwen3-0.6B [think]   or   uv run tasks.py sonnet"""
 import sys, os, random, shutil, tempfile, subprocess
 
 WORDS = "apple river stone cloud maple ember pixel quartz tiger violet willow amber cobalt delta falcon harbor".split()
@@ -237,7 +237,12 @@ def sonnet(ask, where):                                  # quark with Sonnet and
 if __name__ == "__main__":
     if sys.argv[1] == "sonnet":
         score(sonnet)
-    else:
-        import quark_local
-        ours = quark_local.load(sys.argv[1])
-        score(lambda ask, where: quark_local.session(ours, ask, where))
+    else:                                                # a model we run ourselves: uv run tasks.py Qwen/Qwen3-0.6B [think]
+        import model as M, quark_local
+        ours, thinking = M.Release(sys.argv[1]), "think" in sys.argv
+        print(f"{sys.argv[1]} in quark, thinking {'on' if thinking else 'off'}:")
+
+        def attempt(ask, where):
+            print(f"\n> {ask}")
+            quark_local.session(ours, ask, where, thinking, show=lambda line: print("  " + line.replace("\n", "\n  "), flush=True))
+        score(attempt)
