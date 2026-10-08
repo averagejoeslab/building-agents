@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "datasets"]
+# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "datasets", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -12,11 +12,14 @@ import sys, os, re, glob, time, random, shutil, tempfile, subprocess, urllib.req
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 import model as M, quark_local as Q, tasks as T
-from quark_local import turn
 
 torch.manual_seed(0); random.seed(0)
 os.makedirs("checkpoints", exist_ok=True)
 STOPS = {M.encode("<|im_end|>")[0], M.encode("<|endoftext|>")[0]}
+
+
+def turn(role, text):                                    # the chat format: who is speaking, then what they say
+    return f"<|im_start|>{role}\n{text}<|im_end|>\n"
 
 
 def log(*words):                                         # every stage writes what it did to runs/

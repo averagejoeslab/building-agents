@@ -2,27 +2,295 @@
 
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
+This is how to build an agent from scratch: what it is, what it's made of, and every part of it in code, in the order you'd build it yourself. Read it to learn how agents work, or follow it as a blueprint. Everything here runs on an ordinary computer's CPU, and every result shown is from a real run, with its log in [`runs/`](./runs/).
+
+## What an agent is
+
 An agent has two parts: **a model** and **a harness**.
 
 **Agent = Harness(Model)**
 
-## The model
+The **model** turns text into more text. The **harness** is everything around it: it gives the model what it needs, turns what the model writes into actions, and brings the results back. Each is built from a handful of primitives, and we build each primitive in code:
 
-A model predicts. Tokens go in, it returns the most probable next token, and that token is added to the input. It repeats until it predicts `<eos>`, the end-of-sequence token.
+| Part | What it is | Its primitives | Where it's built |
+|---|---|---|---|
+| **1. The model** | predicts the next token | tokenizer, embedding, position, attention, block, output head, generation | [`model.py`](./model.py), trained in [`train.py`](./train.py) |
+| **2. The harness** | turns predictions into actions | input, context, model interface, output, control flow | [`quark.py`](./quark.py) |
+| **3. Production** | makes the harness safe to leave running | persistence, safety, observability, resilience, performance, evaluation | [`quark_production.py`](./quark_production.py) |
+| **4. The agent** | our model in our harness | a model interface for it, a measure, and training in the harness | [`quark_local.py`](./quark_local.py), [`tasks.py`](./tasks.py) |
+
+A model is built twice over: once as code, and once as training, which fills that code with what it knows. So Part 1 builds the code, then shows when each kind of training comes in, why, and on what data. A harness is built once, as code, and then made ready for production, so Part 3 goes back over each primitive for each concern.
+
+---
+
+## Part 1 · The model
+
+A model predicts. Tokens go in, it returns the most probable next token, and that token is added to the input. It repeats until it predicts an end token.
 
 ```
             ┌──────────── append ◄────────────┐
             ▼                                 │
 TokensIn ─► Model ─► most probable next token ─┤
                                                │
-                                     is it <eos>? ── yes ─► TokensOut
+                                     is it the end? ── yes ─► TokensOut
 ```
 
 **TokensOut = Model(TokensIn)**
 
-That's all it does.
+We build it in the design of [Qwen3](https://huggingface.co/Qwen/Qwen3-0.6B-Base), an open model, so that at the end we can load Qwen's real weights into our code and check every part against theirs. Each primitive below is the real code from [`model.py`](./model.py), trimmed to the lines that matter.
 
-## The harness
+| Primitive | What it does |
+|---|---|
+| **Tokenizer** | turns text into numbers, and back |
+| **Embedding** | turns each number into a list of numbers that stands for its meaning |
+| **Position** | marks where each token is |
+| **Attention** | lets each token look back at the ones before it |
+| **Block** | attention, then a small network, with the numbers kept at a steady size; repeated 28 times |
+| **Output head** | gives a score to every possible next token |
+| **Generation** | picks a token, adds it, and goes again |
+
+### 1. Tokenizer
+
+The model works on numbers, so text is cut into pieces, *tokens*, and each piece gets a number. The pieces are learned from data, like everything else in the model: common words are one token, rare ones are several. Qwen3's tokenizer has about 150,000 pieces.
+
+```python
+tokenizer = Tokenizer.from_file(hf_hub_download(REAL, "tokenizer.json"))   # learned from data, like the weights
+
+def encode(text):
+    return tokenizer.encode(text).ids
+```
+
+`"The capital of France is"` becomes `[785, 6722, 315, 9625, 374]`.
+
+### 2. Embedding
+
+Each token's number picks a row from a table: 1,024 numbers that stand for what the token means. At first they're random; training moves tokens with related meanings closer together.
+
+```python
+self.embed_tokens = nn.Embedding(vocab, dim)     # what each token means
+```
+
+### 3. Position
+
+On their own, the rows say nothing about order: "dog bites man" and "man bites dog" would look the same. Qwen3 marks position by rotating each row by an angle that grows along the text (*rotary positions*), so how two tokens relate depends on how far apart they are.
+
+```python
+def rotary(length, dim, theta=1_000_000.0, start=0):     # position: rotate each vector by an angle that grows along the text
+    frequencies = 1.0 / theta ** (torch.arange(0, dim, 2).float() / dim)
+    angles = torch.outer(torch.arange(start, start + length).float(), frequencies)
+    angles = torch.cat([angles, angles], dim=-1)
+    return angles.cos(), angles.sin()
+```
+
+### 4. Attention
+
+Attention is how each token takes in the ones before it. Each token makes three things: what it's looking for (a *query*), what it offers (a *key*) and what it carries (a *value*). Each query is compared with every earlier key, and the token takes in a mix of the values, weighted by how well they match. It never looks ahead: that's what makes it a predictor.
+
+```python
+q = self.q_norm(self.q_proj(x).view(batch, length, self.heads, self.head_dim)).transpose(1, 2)
+k = self.k_norm(self.k_proj(x).view(batch, length, self.kv_heads, self.head_dim)).transpose(1, 2)
+v = self.v_proj(x).view(batch, length, self.kv_heads, self.head_dim).transpose(1, 2)
+q, k = rotate(q, cos, sin), rotate(k, cos, sin)
+k = k.repeat_interleave(self.heads // self.kv_heads, dim=1)      # several queries share each key
+v = v.repeat_interleave(self.heads // self.kv_heads, dim=1)
+mixed = F.scaled_dot_product_attention(q, k, v, is_causal=length > 1)   # only look back, never ahead
+```
+
+It does this 16 times side by side (*heads*), each free to look for something different. To save memory, every two queries share one key and value (*grouped-query attention*).
+
+### 5. Block
+
+A block is attention followed by a small network that works on each token by itself, with a norm before each to keep the numbers at a steady size. Each step adds to what came in rather than replacing it, so information can pass straight through.
+
+```python
+def forward(self, x, cos, sin, cache=None):
+    x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back
+    h = self.post_attention_layernorm(x)
+    return x + self.down_proj(F.silu(self.gate_proj(h)) * self.up_proj(h))         # think about it
+```
+
+Qwen3-0.6B stacks 28 blocks.
+
+### 6. Output head
+
+After the last block, each token's numbers are compared with every row of the embedding table. The result is a score for every possible next token. Qwen3 reuses the embedding table for this, so reading a token and writing it share one set of numbers.
+
+```python
+def forward(self, ids, caches=None, start=0, keep=None):
+    cos, sin = rotary(ids.shape[1], self.head_dim, self.theta, start=start)
+    x = self.embed_tokens(ids)
+    for i, layer in enumerate(self.layers):
+        x = layer(x, cos, sin, caches[i] if caches else None)
+    x = self.norm(x)
+    return x @ self.embed_tokens.weight.T            # output head: a score for every possible next token
+```
+
+### 7. Generation
+
+To write, take the scores for the last token, pick one, add it to the input and go again. Picking the highest score every time tends to repeat itself, so models usually *sample*: turn the scores into chances (*temperature* sharpens or flattens them), keep only the likeliest (*top-k*, *top-p*), and draw. Earlier tokens' keys and values don't change, so they're kept (*the cache*) rather than worked out again for every new token.
+
+```python
+scores = scores / temperature
+scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # only the k most likely
+probs = F.softmax(scores, dim=-1)
+ordered, order = probs.sort(descending=True)
+ordered[ordered.cumsum(0) - ordered >= top_p] = 0                 # only the most likely, until they make up top_p
+next_id = order[torch.multinomial(ordered, 1)]
+```
+
+**Is it right?** Load Qwen's own weights into this code and compare it with Qwen's reference implementation on the same text: the scores agree to within 0.00003, and it picks the same next token ([`runs/01_check_against_reference.txt`](./runs/01_check_against_reference.txt)):
+
+```
+max logit difference 2.86e-05 same top token True
+'The capital of France is' → ' Paris. The capital of Germany is Berlin. The capital of Italy is Rome.'
+```
+
+That's the whole model: about 150 lines. Everything it knows comes from training.
+
+---
+
+### Training: when, what and why
+
+The code is empty until it's trained. Training is one idea repeated: show the model text, measure how surprised it was by the real next token (the *loss*), and nudge every number to be less surprised next time.
+
+```python
+loss = F.cross_entropy(model(inputs).flatten(0, 1), targets.flatten())   # how surprised was it?
+optimizer.zero_grad(); loss.backward(); optimizer.step()                # nudge every number to be less so
+```
+
+What changes from stage to stage is the data, and what counts as right:
+
+| Stage | Learns from | What counts as right | What it gives | Human version |
+|---|---|---|---|---|
+| **Pre-training** | everything: web, books, code. Trillions of tokens | the next token, everywhere | knowledge and language | growing up: hearing and reading everything |
+| **Mid-training** | chosen text: maths, code, reasoning, long documents, a domain | the next token, everywhere | sharper, deeper skills | specialist study |
+| **Post-training: instruction-tuning** | example conversations | the next token of the *answer* only | the format: turns, tools, answers | an apprenticeship: copying worked examples |
+| **Post-training: reinforcement learning** | its own attempts, graded | whatever earns reward | behaviour that works | practice with a coach and grades |
+
+Pre- and mid-training are the same task on different data: they put knowledge in. Post-training changes the task: it shapes behaviour, and **the model becomes whatever the grading rewards**. It can draw out what the model already knows, but it can't add much. Each stage only works if the one before gave it something to build on.
+
+### 8. Pre-training
+
+We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py) `pretrain`). The data is Python's own source code and a public-domain book, *Alice's Adventures in Wonderland*, about 1.3 million tokens. The model is our code at a small size: 4 blocks, 5.2 million numbers. The last of the text is held out, never trained on, to measure it fairly ([`runs/pretrain.txt`](./runs/pretrain.txt)):
+
+| | Held-out loss | Asked to continue `def ` |
+|---|---|---|
+| **Before** (random) | 9.05 | `def  waterContent[ftree#\nSTR_CHECKline interval listencode(root extent loudly…` |
+| **After 20 minutes** | 3.64 | `def 127\n    val = len(str, initial)\n    if unicodedata.closed:\n        raise ValueError("code out of range")` |
+| **Qwen3-0.6B-Base** | — | `def sum_of_digits(n):\n    sum = 0\n    while n > 0:\n        sum += n % 10\n        n //= 10\n    return sum` |
+
+In 20 minutes, noise becomes something shaped like Python. The same code at full size, trained for months, writes working functions.
+
+### 9. Why we load a model
+
+Our run saw about 10 million tokens. Qwen3-0.6B-Base saw about 36 trillion: 3.6 million times more, on a cluster of GPUs over months. The code is the same at every scale; only the compute isn't. Loading real weights into your own code also proves the code is right, and gives the later stages, which are affordable, something worth training.
+
+So we load the right model for the stages we can run: **Qwen3-0.6B-Base**. Qwen's [technical report](https://arxiv.org/abs/2505.09388) describes its pre-training in three stages: general text (over 30 trillion tokens), then higher-quality reasoning, maths and code (about 5 trillion), then long documents. The last two are what's usually called mid-training. So Base is the model after pre- and mid-training, and before any post-training. (Qwen3-0.6B, without "Base", is the same model after Qwen's own post-training: the reference point we'll measure ours against.)
+
+A model is more than its weights. A release ships its sizes, its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks without telling you: an early run here read Qwen's text with the wrong tokenizer, and the scores still looked plausible. So the model is loaded whole, every part from its own file:
+
+```python
+class Release:
+    """A model as its makers ship it: sizes, weights, tokenizer, chat template and generation settings, each from its own file."""
+
+    def __init__(self, name):
+        read = lambda file: json.load(open(hf_hub_download(name, file)))
+        config, self.settings = read("config.json"), read("generation_config.json")
+        self.model = Model(config["vocab_size"], config["hidden_size"], config["num_hidden_layers"], ...)
+        self.model.load_state_dict(...)                  # model.safetensors
+        self.tokenizer = Tokenizer.from_file(hf_hub_download(name, "tokenizer.json"))
+        self.template = rendering.from_string(read("tokenizer_config.json")["chat_template"])
+```
+
+and checked against Qwen's reference tooling ([`runs/02_qwen_as_shipped.txt`](./runs/02_qwen_as_shipped.txt)):
+
+```
+chat template and tokenizer: identical to the reference on 8 conversations, tools, tool results and thinking included
+model: largest difference in its scores 1.4e-04, same most likely token at all 196 positions: True
+```
+
+Run Qwen3-0.6B, the post-trained one, and it talks:
+
+```
+> Write a two-line poem about the sea.
+< The sea whispers secrets deep,
+  A boundless breath where dreams take flight.
+
+> Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?
+< <think>
+  … in May she sold half as many as in April … 48 divided by 2 is 24 … 48 plus 24 … that should be 72. Wait, let me make sure …
+  </think>
+  Thus, the total number of clips Natalia sold in April and May is: 72
+```
+
+(shortened)
+
+### 10. Mid-training
+
+Mid-training is pre-training's task, predicting every next token, on text chosen for what the model should be good at. Ours will be an agent that works through bash, so we continue Base on text about the shell: command documentation and the commands people write. The measure is held-out loss on shell text the model never saw, before and after.
+
+> **Status:** not yet run. The data is still to be chosen: shell documentation such as [tldr-pages](https://github.com/tldr-pages/tldr), once its licence is checked, and [NL2Bash](https://github.com/TellinaTool/nl2bash)'s commands as plain text. Its log will be `runs/midtrain.txt`.
+
+### 11. Post-training: instruction-tuning
+
+Base continues text; it doesn't answer. Instruction-tuning teaches it to take turns, using example conversations in the model's own chat format. It learns only from the assistant's turns: the rest is there to be read, not copied. The data has four kinds, about 800 of each:
+
+| Kind | Source | Example |
+|---|---|---|
+| **Talk** | [smol-smoltalk](https://huggingface.co/datasets/HuggingFaceTB/smol-smoltalk) | *Implement a Python function to evaluate the y-component of the gradient for f(x) = c·xⁿ…* → an explanation |
+| **Ask for a command** | [NL2Bash](https://github.com/TellinaTool/nl2bash) | *Change to folder where the oracle binary is.* → `cd "$(dirname "$(which oracle)")"` |
+| **Reason** | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) | a word problem → worked steps in `<think>`, then *The answer is 72.* |
+| **Use a tool** | made here, every command really run | *Rename harbor.md to quartz.md.* → `mv harbor.md quartz.md` → `(no output)` → *Done.* |
+
+A tool session, as the model sees it:
+
+```
+<|im_start|>user
+Rename harbor.md to quartz.md.<|im_end|>
+<|im_start|>assistant
+<tool_call>
+{"name": "bash", "arguments": {"command": "mv harbor.md quartz.md"}}
+</tool_call><|im_end|>                                    ← learned
+<|im_start|>user
+<tool_response>
+(no output)
+</tool_response><|im_end|>                                ← read, not learned
+<|im_start|>assistant
+Done: harbor.md is now quartz.md.<|im_end|>               ← learned
+```
+
+The measure is loss on 48 held-out conversations, and real replies before and after. Two lessons from the first run ([`runs/instruct_frozen_embeddings.txt`](./runs/instruct_frozen_embeddings.txt)):
+
+- **Train every weight.** That run froze the embedding table to save memory. The output head shares it, and in Base the rows for the end-of-turn token are barely trained, a third of the size of a normal row. So the model learned the answers but could never learn to stop: *"The answer is 72."* and then on into nonsense.
+- **One pass through the data.** On a second pass, the loss on a held-out sample rose from 1.06 to 1.20: it had started memorising.
+
+> **Status:** re-running with both fixes, in Qwen's own chat format. Its log will be `runs/instruct.txt`.
+
+### 12. Post-training: reinforcement learning with a verifier
+
+Imitation can only copy the examples. Reinforcement learning lets the model try, and grades it. For maths, the grader is simple: is the final number right? For each question the model writes eight answers; the right ones are made more likely and the wrong ones less, each by how much better or worse it did than the group's average (*GRPO*). If all eight are right, or all wrong, there's nothing to learn from that question.
+
+```
+question → 8 attempts → graded [1, 0, 0, 1, 1, 0, 0, 0] → right ones up, wrong ones down
+```
+
+This is why the order matters: the untuned Base model got all eight wrong, rambling in Chinese, so a grader had nothing to reward. Instruction-tuning first gets some answers right. The measure is accuracy on 100 GSM8K test questions, before and after.
+
+> **Status:** not yet run on the fixed instruction-tuned model. Its log will be `runs/reason.txt`.
+
+Every post-training stage is one function. Imitation gives every example a weight of 1; reinforcement learning gives each attempt its advantage, positive or negative:
+
+```python
+def update(model, optimizer, texts, weights):            # one step: make each text more likely, in proportion to its weight
+    optimizer.zero_grad()
+    for text, weight in zip(texts, weights):
+        (-weight * logprob(model, text) / len(texts)).backward()
+    optimizer.step()
+```
+
+---
+
+## Part 2 · The harness
 
 The harness is everything else. It's been called a framework, a scaffold, a runtime and an orchestration layer, and the industry has mostly settled on *harness*.
 
@@ -47,7 +315,7 @@ Every harness does five things. These are its primitives:
 └────────────────────────────────────────────────────────────────┘
 ```
 
-## Building quark
+### Building quark
 
 A quark is one of the smallest particles there is. **quark** is the smallest agent: the five primitives and nothing more. We'll build it one primitive at a time.
 
@@ -55,7 +323,7 @@ Every step gets the same job. A small project, [`shop/`](./shop/), has a functio
 
 In the runs, `>` is what I typed, `<` is what quark said, and `$` is a command it ran.
 
-### 1. Model interface
+#### 1. Model interface
 
 We have a model, and no way to reach it. So we request a response:
 
@@ -92,7 +360,7 @@ What comes back (shortened):
 
 Tokens in, tokens out. But the request is written into the code: nobody can ask it anything.
 
-### 2. Input
+#### 2. Input
 
 So we capture what comes in:
 
@@ -120,7 +388,7 @@ Now you can type the request. The answer (shortened) is the same:
 
 It can only talk. It can't look at a file, and its answer is still raw.
 
-### 3. Output
+#### 3. Output
 
 So we give it a tool, bash, and handle the response: show its words, run its commands.
 
@@ -155,7 +423,7 @@ $ pwd; ls -la; git status 2>/dev/null | head
 
 It acted, and then it stopped. The result of that command went nowhere, so the model never saw it.
 
-### 4. Control flow
+#### 4. Control flow
 
 So we decide what happens next. If a tool ran, its result goes back and the model goes again. If not, it's your turn.
 
@@ -206,7 +474,7 @@ $ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a
 
 (shortened)
 
-### 5. Context
+#### 5. Context
 
 So we assemble the minimum it needs to act well on any input. For quark, that's who it is, where it's working and what day it is:
 
@@ -232,7 +500,7 @@ No commands needed. Too little context and it wastes steps finding things out. T
 
 That's all five primitives, and that's [`quark.py`](./quark.py).
 
-## Taking quark to production
+## Part 3 · Taking quark to production
 
 quark works, but you wouldn't leave it running on its own. Six concerns stand in the way. Each one changes some of the primitives, and those changes can affect the concerns that came before. So each section asks its question of every primitive, then looks back: **what did this change, and what had to adjust?**
 
@@ -786,15 +1054,135 @@ PASS  What does total() return for an empty basket? Don't change anything.
 
 Run it after every change.
 
+---
+
+## Part 4 · The agent: our model in our harness
+
+We have a model we can train and a harness we can trust. Now we put the one in the other, measure it, and train it for the job.
+
+### 1. A model interface for a model you run
+
+quark's loop doesn't change. Only the model interface does: Sonnet's API takes structured messages and returns structured tool calls, but a model you run yourself takes text and returns text. So the interface does what the API did: it lays out the conversation and the tool with the model's own chat template, and turns each `<tool_call>` it writes back into a command ([`quark_local.py`](./quark_local.py)). Commands run in a throwaway container that sees only its folder: a small model makes big mistakes.
+
+```python
+def assemble_context(model, conversation, thinking, prompt="plain"):   # instructions and quark.py's tool, in the model's own chat format
+    instructions = INSTRUCTIONS[prompt].format(today=datetime.date.today())
+    return model.chat([{"role": "system", "content": instructions}] + conversation, tools=[bash], thinking=thinking)
+
+
+def handle_output(response, where, show=print):         # its words, and each <tool_call> it wrote, run
+    calls, results = [], []
+    for raw in re.findall(r"<tool_call>(.*?)</tool_call>", response, re.S):
+        try:
+            command = json.loads(raw)["arguments"]["command"]
+        except (ValueError, KeyError, TypeError):        # it wrote a call we can't read: say so, as an API would
+            results.append({"role": "tool", "content": "error: a tool call must be JSON with a command"})
+            continue
+        calls.append({"type": "function", "function": {"name": "bash", "arguments": {"command": command}}})
+        results.append({"role": "tool", "content": run(command, where)})
+    ...
+```
+
+The interface has to speak the model's own format. An early version here used our own `<bash>` tags and the wrong tokenizer; Qwen still scored, but it was being tested on a format it had never seen.
+
+### 2. Measure it
+
+[`tasks.py`](./tasks.py) makes twenty kinds of bash task, from *Make a folder called stone* to *Which file in this folder is the biggest? Write its name into answer.txt*. Each is checked by looking at the files afterwards, not at what the agent says. Forty of them, two of each kind with fixed seeds, are the evaluation, and nothing is ever trained or tuned on them. A scripted solver passes all 40 and doing nothing passes none, so the checks are sound.
+
+| Agent | Score | Log |
+|---|---|---|
+| Sonnet in `quark_production.py` | **40/40** | [`runs/harness_sonnet.txt`](./runs/harness_sonnet.txt) |
+| Qwen3-0.6B in `quark_local.py`, thinking off | **21/40** | [`runs/qwen_in_quark.txt`](./runs/qwen_in_quark.txt) |
+| Qwen3-0.6B, thinking on | **22/40** | [`runs/qwen_in_quark_thinking.txt`](./runs/qwen_in_quark_thinking.txt) and [`_rest`](./runs/qwen_in_quark_thinking_rest.txt) |
+
+Qwen3-0.6B does every task that is one obvious command, and almost none that take two:
+
+```
+> Join violet.txt and cobalt.txt, in that order, into both.txt.
+  $ cat violet.txt cobalt.txt > both.txt
+  < The file both.txt has been created by joining violet.txt and cobalt.txt in that order.
+PASS
+
+> Delete every .log file in this folder.
+  $ find /work/log -type f -delete
+  < The command was executed, but it resulted in the error: find: '/work/log': No such file or directory. … Please verify its presence and try running the command again.
+FAIL
+
+> Count the lines in delta.txt and write the number to count.txt.        (thinking on)
+  $ wc -l delta.txt
+  $ echo $(wc -l delta.txt) > count.txt
+  < The number of lines in delta.txt is 7, which has been successfully written to count.txt.
+FAIL: count.txt says "7 delta.txt"
+```
+
+It misreads requests, gives up and hands the problem back, and says it's done without checking. Thinking first doesn't change the score, and takes about four times as long.
+
+### 3. Context first
+
+Before training anything, give it what it can't know. Sonnet knows how a shell behaves; a small model needs telling. The coached instructions add what quark is, how its tool works, and how to work:
+
+```
+How your tool works:
+- Each command runs in a new shell in /work, with no network, for at most ten seconds. Variables and cd do not carry over to the next command.
+- You see what the command printed. "(no output)" means it ran and printed nothing.
+
+How to work:
+- Look before you act: list or read the files when you are unsure.
+- Do the task yourself. Nobody else will check or fix anything for you.
+- Write exactly what was asked into a file, and nothing more.
+- Check the result before you say you are done. If it is wrong, fix it.
+- When it is done, say what you did in one sentence.
+```
+
+They're tried on practice tasks, one of each kind with seeds the evaluation never uses, so the instructions aren't tuned to the test: 9/20 coached against 8/20 plain ([`runs/qwen_practice_coached.txt`](./runs/qwen_practice_coached.txt), [`runs/qwen_practice_plain.txt`](./runs/qwen_practice_plain.txt)).
+
+> **Status:** the evaluation with coached instructions is running. Its logs will be `runs/qwen_in_quark_coached.txt` and `runs/qwen_in_quark_coached_thinking.txt`.
+
+### 4. Train it in the harness
+
+The last post-training happens where the agent works. It runs practice tasks in quark, and the task checks grade it:
+
+- **Learn from its own successes.** Try each practice task several times, keep only the sessions whose checks passed, and imitate them: instruction-tuning on its own best work.
+- **Reinforcement learning with the checks as the reward.** The same task, several tries, each graded pass or fail; the passing sessions are made more likely and the failing ones less. It's the same `update` as for maths, with whole sessions in place of answers.
+
+The checks read files, not words, so the only way to earn the reward is to do the task. Grade what it says, and you'd train it to say it's done.
+
+> **Status:** not yet run. Its logs will be `runs/practice.txt` and `runs/harness.txt`.
+
+### The ladder
+
+| Model | What it is | quark score |
+|---|---|---|
+| Random numbers | our code, untrained | — |
+| Our 20-minute model | pre-trained here | — |
+| Qwen3-0.6B-Base | pre- and mid-trained by Qwen | — |
+| + our mid-training | shell text | pending |
+| + our instruction-tuning | conversations, commands, tools | pending |
+| + our reinforcement learning | maths, graded | pending |
+| + training in the harness | its own sessions, graded by the checks | pending |
+| Qwen3-0.6B | Qwen's own post-training | 21/40 |
+| Sonnet | | 40/40 |
+
+
 ## Run it
 
-You need [uv](https://docs.astral.sh/uv/) and an [Anthropic API key](https://console.anthropic.com/). `quark_production.py` also needs [Docker](https://docs.docker.com/get-docker/).
+You need [uv](https://docs.astral.sh/uv/). Parts 2 and 3 need an [Anthropic API key](https://console.anthropic.com/); `quark_production.py` and Part 4 need [Docker](https://docs.docker.com/get-docker/).
 
 ```bash
-cp .env.example .env        # then put your key in .env
-uv run --env-file .env quark.py               # the five primitives
-uv run --env-file .env quark_production.py    # with the six concerns
-./eval.sh                                     # check it still works
+# Part 1: the model
+uv run train.py pretrain                          # pre-train our model from random numbers (20 minutes)
+uv run --script runs/02_qwen_as_shipped.py        # load Qwen whole, check it against the reference, let it talk
+
+# Parts 2 and 3: the harness
+cp .env.example .env                              # then put your key in .env
+uv run --env-file .env quark.py                   # the five primitives
+uv run --env-file .env quark_production.py        # with the six concerns
+./eval.sh                                         # check it still works
+
+# Part 4: the agent
+uv run quark_local.py Qwen/Qwen3-0.6B             # quark with a model you run yourself
+uv run tasks.py Qwen/Qwen3-0.6B                   # score it on the forty tasks (add: think, coached)
+uv run --env-file .env tasks.py sonnet            # score Sonnet the same way
 ```
 
 > [!WARNING]
