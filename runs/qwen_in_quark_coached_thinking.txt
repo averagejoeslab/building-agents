@@ -61,3 +61,47 @@ PASS  Make a copy of stone.txt called harbor.txt.
 PASS  Make a copy of river.txt called delta.txt.
 
 > Rename harbor.txt to falcon.txt.
+  $ mv harbor.txt falcon.txt
+  < The file "harbor.txt" has been successfully renamed to "falcon.txt".
+PASS  Rename harbor.txt to falcon.txt.
+
+> Rename cobalt.txt to cloud.txt.
+  $ mv cobalt.txt cloud.txt
+  < The file 'cobalt.txt' has been successfully renamed to 'cloud.txt'.
+PASS  Rename cobalt.txt to cloud.txt.
+
+> Delete willow.txt.
+  $ rm -f willow.txt
+  < The file 'willow.txt' has been successfully deleted.
+PASS  Delete willow.txt.
+
+> Delete maple.txt.
+  $ rm -f maple.txt
+  < <think>
+    Okay, the user asked to delete the file maple.txt. I used the rm command with -f to force deletion. The tool response says there's no output, which means the command executed successfully. Now I need to confirm that the file was deleted. Since there's no output, I can assume the deletion was successful. I'll just state that the file was deleted in one sentence.
+PASS  Delete maple.txt.
+
+> Delete every .log file in this folder.
+  $ rm -rf *.log
+  < <think>
+    Okay, the user asked to delete every .log file in the current folder. I used the rm -rf command to remove all .log files. Since there's no output, that means the command executed successfully. Now I need to confirm that the deletion was done. I'll just say the task is complete.
+PASS  Delete every .log file in this folder.
+
+> Delete every .log file in this folder.
+  $ rm -f *.log
+  < <think>
+    Okay, the user asked to delete every .log file in their folder. I used the `rm` command with `-f` and `*.log` to force deletion. The tool response says no output, which means the command ran successfully. Now I need to confirm that the files were deleted. Since there were no errors, the task is complete. I'll just state that the files were deleted.
+PASS  Delete every .log file in this folder.
+
+> Make a folder called stone and move every .txt file into it.
+  $ mkdir stone && mv *.txt stone
+  < The folder 'stone' was created successfully, and all .txt files have been moved into it.
+PASS  Make a folder called stone and move every .txt file into it.
+
+> Make a folder called apple and move every .txt file into it.
+  $ mkdir apple
+  $ mv *.txt apple
+  < The folder 'apple' has been created successfully and all .txt files have been moved into it.
+PASS  Make a folder called apple and move every .txt file into it.
+
+> Write the names of the files in this folder, one per line, into files.txt.
