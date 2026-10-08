@@ -23,7 +23,7 @@ decode = template.decode
 bash = {"type": "function", "function": {"name": "bash", "description": "Run a shell command",       # quark.py's tool
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
 INSTRUCTIONS = "You are quark, an agent. You act through bash, in /work. Today is 2026-10-08."          # quark.py's instructions
-END = encode("<|im_end|>")[0]
+STOP = {encode("<|im_end|>")[0], encode("<|endoftext|>")[0]}      # both, as its generation_config.json lists
 THINK = "think" in sys.argv                              # Qwen3 can think first, in <think>…</think>, before it answers
 TEMPERATURE, TOP_P, MOST = (0.6, 0.95, 1500) if THINK else (0.7, 0.8, 400)   # Qwen's advice for each mode
 problems = []                                            # replies the interface could not turn into a tool call
@@ -43,7 +43,7 @@ def request_response(context, most=MOST):
         probs = F.softmax(top.values, dim=-1)
         keep = probs.cumsum(0) - probs < TOP_P
         next_id = top.indices[keep][torch.multinomial(probs[keep] / probs[keep].sum(), 1)]
-        if next_id.item() == END:
+        if next_id.item() in STOP:
             break
         out.append(next_id.item())
         scores = qwen(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]
