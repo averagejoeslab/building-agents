@@ -144,5 +144,6 @@ def generate(model, prompt, most=200, stop=("<|endoftext|>",), temperature=0.0):
 def load_real(name=REAL):                                # months of pre-training, loaded into the code above
     model = Model()
     weights = load_file(hf_hub_download(name, "model.safetensors"))
+    weights.pop("lm_head.weight", None)                  # some releases store the output head too: it is the embedding, shared
     model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in weights.items()}, strict=True)
     return model

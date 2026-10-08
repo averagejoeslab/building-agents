@@ -165,9 +165,8 @@ def held_out(model, texts):
     return -sum(logprob(model, t).item() for t in texts) / len(texts)
 
 
-def trainable(model, lr):                                # keep the vocabulary's meanings fixed: less memory, same result at this scale
-    model.embed_tokens.weight.requires_grad_(False)
-    return torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=lr, weight_decay=0.0)
+def trainable(model, lr):                                # every weight, the vocabulary too: the base model barely knows <|im_end|>
+    return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)
 
 
 def save(model, name):
@@ -184,22 +183,21 @@ def show(model):
         log(f"  {ask!r} ->", repr(M.generate(model, context, most=120, stop=("<|im_end|>", "<|endoftext|>"))))
 
 
-def instruct(minutes=150):
+def instruct():
     data = instruction_data()
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
     model = M.load_real()
     optimizer = trainable(model, lr=1e-5)
     log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
     log("before (pre-trained only):"); show(model)
-    start, step = time.time(), 0
-    while time.time() - start < minutes * 60:
-        step += 1
-        update(model, optimizer, random.sample(data, 8), [1.0] * 8)    # every example counts the same: imitate it
+    start = time.time()
+    for step in range(1, len(data) // 8 + 1):          # one pass: a second pass made the held-out loss rise
+        update(model, optimizer, data[8 * step - 8:8 * step], [1.0] * 8)    # every example counts the same: imitate it
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; held-out loss {held_out(model, test[:8]):.3f}")
         if step % 100 == 0:
             save(model, "instruct")                      # save along the way: look at it, or stop early, without losing the run
-    log(f"after {step} steps, {minutes} minutes; held-out loss after: {held_out(model, test):.3f}")
+    log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {held_out(model, test):.3f}")
     log("after (instruction-tuned):"); show(model)
     save(model, "instruct")
 
