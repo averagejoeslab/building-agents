@@ -17,11 +17,13 @@ from transformers import AutoTokenizer
 
 NAME = "Qwen/Qwen3-0.6B"
 qwen = M.load_real(NAME)
-template = AutoTokenizer.from_pretrained(NAME)            # only for its chat template: the exact format Qwen was trained on
+template = AutoTokenizer.from_pretrained(NAME)            # its chat template and its tokenizer: the exact format Qwen was trained on
+encode = lambda text: template.encode(text, add_special_tokens=False)    # not Base's: Base reads <think> and <tool_response> as plain text
+decode = template.decode
 bash = {"type": "function", "function": {"name": "bash", "description": "Run a shell command",       # quark.py's tool
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
 INSTRUCTIONS = "You are quark, an agent. You act through bash, in /work. Today is 2026-10-08."          # quark.py's instructions
-END = M.encode("<|im_end|>")[0]
+END = encode("<|im_end|>")[0]
 THINK = "think" in sys.argv                              # Qwen3 can think first, in <think>…</think>, before it answers
 TEMPERATURE, TOP_P, MOST = (0.6, 0.95, 1500) if THINK else (0.7, 0.8, 400)   # Qwen's advice for each mode
 problems = []                                            # replies the interface could not turn into a tool call
@@ -34,7 +36,7 @@ def assemble_context(conversation):
 
 @torch.no_grad()
 def request_response(context, most=MOST):
-    ids, caches, out = torch.tensor([M.encode(context)]), [{} for _ in qwen.layers], []
+    ids, caches, out = torch.tensor([encode(context)]), [{} for _ in qwen.layers], []
     scores = qwen(ids, caches)[0, -1]
     for _ in range(most):
         top = torch.topk(scores / TEMPERATURE, 20)
@@ -45,7 +47,7 @@ def request_response(context, most=MOST):
             break
         out.append(next_id.item())
         scores = qwen(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]
-    return M.decode(out)
+    return decode(out)
 
 
 def handle_output(response, where):                      # the reply as text, plus each <tool_call> it made, run
