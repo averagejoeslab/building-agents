@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "tokenizers", "safetensors", "huggingface_hub", "datasets", "jinja2"]
+# dependencies = ["torch", "numpy", "regex", "safetensors", "huggingface_hub", "datasets", "jinja2"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -7,19 +7,16 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""Training the model: pre-training, then post-training. Run one stage at a time: uv run train.py <stage>"""
-import sys, os, re, glob, time, random, shutil, tempfile, subprocess, urllib.request, collections
+"""Training the model, one stage at a time, each starting from the last: uv run train.py <stage>
+Stages, in order: pretrain, midtrain, instruct, reason, harness."""
+import sys, os, re, glob, json, time, random, shutil, datetime, tempfile, subprocess, urllib.request
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 import model as M, quark_local as Q, tasks as T
 
 torch.manual_seed(0); random.seed(0)
 os.makedirs("checkpoints", exist_ok=True)
-STOPS = {M.encode("<|im_end|>")[0], M.encode("<|endoftext|>")[0]}
-
-
-def turn(role, text):                                    # the chat format: who is speaking, then what they say
-    return f"<|im_start|>{role}\n{text}<|im_end|>\n"
+CHAT, BASE = "Qwen/Qwen3-0.6B", "Qwen/Qwen3-0.6B-Base"   # Qwen's chat format and tokenizer; Base's pre-trained numbers
 
 
 def log(*words):                                         # every stage writes what it did to runs/
@@ -79,7 +76,59 @@ def sample(model, ids, most):
     return ids[0, -most:].tolist()
 
 
-# ── 8. instruction-tuning: take turns, answer, and ask for tools ─────────────
+# ── 8. the swap, and mid-training: the same task, on the agent's domain ──────
+
+def ours(weights):                                       # our model: Qwen's chat format and tokenizer, with these numbers
+    return M.Release(CHAT, weights)
+
+
+def shell_pages():                                       # tldr-pages (CC BY 4.0): short pages on shell commands, with examples
+    where = "checkpoints/tldr"
+    if not os.path.isdir(where):
+        subprocess.run(f"git clone -q --depth 1 --filter=blob:none --sparse https://github.com/tldr-pages/tldr.git {where} && "
+                       f"git -C {where} sparse-checkout set pages/common pages/linux", shell=True, check=True)
+    return [open(path).read() for path in sorted(glob.glob(f"{where}/pages/*/*.md"))]
+
+
+def chunks(model, texts, length=512):                    # the pages as one stream of tokens, cut into equal pieces
+    ids = [i for t in texts for i in model.encode(t + "\n\n")]
+    return torch.tensor(ids[:len(ids) // (length + 1) * (length + 1)]).view(-1, length + 1)
+
+
+@torch.no_grad()
+def chunk_loss(model, data):
+    return sum(F.cross_entropy(model.model(c[None, :-1])[0], c[1:]).item() for c in data) / len(data)
+
+
+def midtrain(minutes=45):
+    model = ours(BASE)
+    pages = shell_pages()
+    random.shuffle(pages)
+    data, held_out = chunks(model, pages[200:]), chunks(model, pages[:200])[:32]   # 200 pages it never trains on
+    log(f"{len(pages):,} pages, {data.numel():,} tokens; held-out loss before: {chunk_loss(model, held_out):.3f}")
+    optimizer, start, step = trainable(model.model, lr=1e-5), time.time(), 0
+    while time.time() - start < minutes * 60 and step < len(data) // 4:
+        optimizer.zero_grad()
+        for piece in data[4 * step:4 * step + 4]:        # one pass at most: four pieces a step, one at a time to fit in memory
+            loss = F.cross_entropy(model.model(piece[None, :-1])[0], piece[1:])
+            (loss / 4).backward()
+        optimizer.step()
+        step += 1
+        if step % 25 == 0:
+            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; loss {loss.item():.3f}")
+    log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {chunk_loss(model, held_out):.3f}")
+    save(model.model, "midtrain")
+
+
+# ── 9. instruction-tuning: take turns, answer, and use the tool ──────────────
+
+def system():                                            # what quark tells the model, word for word
+    return {"role": "system", "content": Q.INSTRUCTIONS["plain"].format(today=datetime.date.today())}
+
+
+def call(command):
+    return {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {"name": "bash", "arguments": {"command": command}}}]}
+
 
 def folder():                                            # a small made-up folder to work in
     where = tempfile.mkdtemp()
@@ -107,54 +156,55 @@ def tool_session():                                      # a request, the comman
         (f"Which files mention {word}?", [f"grep -l {word} *"], lambda out: "These files mention it: " + ", ".join(out.split()) + "."),
         (f"Make a folder called {name}.", [f"mkdir {name}"], lambda out: f"I made the folder {name}."),
         (f"Create an empty file called {name}.txt.", [f"touch {name}.txt"], lambda out: f"I created {name}.txt."),
-        (f"How many files are here?", ["ls | wc -l"], lambda out: f"There are {out} files."),
+        ("How many files are here?", ["ls | wc -l"], lambda out: f"There are {out} files."),
         (f"Rename {some} to {name}{os.path.splitext(some)[1]}.", [f"mv {some} {name}{os.path.splitext(some)[1]}"], lambda out: f"Done: {some} is now {name}{os.path.splitext(some)[1]}."),
         (f"Make a folder called {name} and move {some} into it.", [f"mkdir {name}", f"mv {some} {name}/"], lambda out: f"I made {name} and moved {some} into it."),
     ]
     ask, commands, answer = random.choice(tasks)
-    text = turn("system", Q.INSTRUCTIONS.format(where="/work")) + turn("user", ask)
+    messages = [system(), {"role": "user", "content": ask}]
     for command in commands:
         out = run(command, where)
-        text += turn("assistant", f"<bash>{command}</bash>") + turn("tool", out)
+        messages += [call(command), {"role": "tool", "content": out}]
     shutil.rmtree(where)
-    return text + turn("assistant", answer(out))
-
-
-def instruction_data():                                  # four kinds of example, 800 each
-    smoltalk = load_dataset("HuggingFaceTB/smol-smoltalk", split="train").shuffle(seed=0)
-    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000))) if sum(len(x["content"]) for x in m) < 1500][:800]
-    nl2bash = list(zip(*(urllib.request.urlopen(f"https://raw.githubusercontent.com/TellinaTool/nl2bash/master/data/bash/all.{part}").read().decode().splitlines() for part in ("nl", "cm"))))
-    data = ["".join(turn(m["role"], m["content"]) for m in chat) for chat in chats]                          # talk
-    data += [turn("system", Q.INSTRUCTIONS.format(where="/work")) + turn("user", ask) + turn("assistant", f"<bash>{command}</bash>")
-             for ask, command in random.sample(nl2bash, 800)]                                                # ask for a command
-    data += [turn("user", row["question"]) + turn("assistant", worked(row["answer"])) for row in gsm8k("train")[:800]]   # reason
-    data += [tool_session() for _ in range(800)]                                                            # use a tool and answer
-    random.shuffle(data)
-    return data
+    return messages + [{"role": "assistant", "content": answer(out)}]
 
 
 def gsm8k(split):                                        # grade-school maths: a question, worked steps, a number
     return list(load_dataset("openai/gsm8k", "main", split=split).shuffle(seed=0))
 
 
-def worked(answer):                                      # its worked answer, in our format: think, then answer
+def worked(answer):                                      # its worked answer: the steps as thinking, then the answer
     steps, number = answer.split("####")
-    return "<think>\n" + re.sub(r"<<.*?>>", "", steps).strip() + f"\n</think>\nThe answer is {number.strip()}."
+    return "<think>\n" + re.sub(r"<<.*?>>", "", steps).strip() + f"\n</think>\n\nThe answer is {number.strip()}."
 
 
-def tokens_and_mask(text):                               # learn only from what the assistant says
+def instruction_data(model):                             # four kinds of conversation, 400 each, in the model's own format
+    smoltalk = load_dataset("HuggingFaceTB/smol-smoltalk", split="train").shuffle(seed=0)
+    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000))) if sum(len(x["content"]) for x in m) < 1500][:400]
+    nl2bash = list(zip(*(urllib.request.urlopen(f"https://raw.githubusercontent.com/TellinaTool/nl2bash/master/data/bash/all.{part}").read().decode().splitlines() for part in ("nl", "cm"))))
+    data = [model.chat(chat, prompt=False) for chat in chats]                                                        # talk
+    data += [model.chat([system(), {"role": "user", "content": ask}, call(command)], tools=[Q.bash], prompt=False)
+             for ask, command in random.sample(nl2bash, 400)]                                                         # ask for a command
+    data += [model.chat([{"role": "user", "content": row["question"]}, {"role": "assistant", "content": worked(row["answer"])}], prompt=False)
+             for row in gsm8k("train")[:400]]                                                                         # reason
+    data += [model.chat(tool_session(), tools=[Q.bash], prompt=False) for _ in range(400)]                            # use the tool
+    random.shuffle(data)
+    return data
+
+
+def tokens_and_mask(model, text):                        # learn only what the assistant says, and the end of its turn
     ids, learn = [], []
-    for piece in re.split(r"(<\|im_start\|>assistant\n.*?<\|im_end\|>)", text, flags=re.S):
-        piece_ids = M.encode(piece)
+    for n, piece in enumerate(re.split(r"(?<=<\|im_start\|>assistant\n)(.*?<\|im_end\|>)", text, flags=re.S)):
+        piece_ids = model.encode(piece)
         ids += piece_ids
-        learn += [piece.startswith("<|im_start|>assistant")] * len(piece_ids)
-    return ids[:1024], learn[:1024]
+        learn += [n % 2 == 1] * len(piece_ids)
+    return ids[:768], learn[:768]
 
 
 def logprob(model, text):                                # how likely the model finds what the assistant said, per token
-    ids, learn = tokens_and_mask(text)
+    ids, learn = tokens_and_mask(model, text)
     ids, keep = torch.tensor([ids]), torch.tensor([learn[1:]])
-    return -F.cross_entropy(model(ids[:, :-1], keep=keep), ids[:, 1:][keep])
+    return -F.cross_entropy(model.model(ids[:, :-1], keep=keep), ids[:, 1:][keep])
 
 
 def update(model, optimizer, texts, weights):            # one step: make each text more likely, in proportion to its weight
@@ -169,7 +219,7 @@ def held_out(model, texts):
     return -sum(logprob(model, t).item() for t in texts) / len(texts)
 
 
-def trainable(model, lr):                                # every weight, the vocabulary too: the base model barely knows <|im_end|>
+def trainable(model, lr):                                # every number, the vocabulary too: Base barely knows <|im_end|>
     return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)
 
 
@@ -177,139 +227,106 @@ def save(model, name):
     torch.save({k: v.to(torch.bfloat16) for k, v in model.state_dict().items()}, f"checkpoints/{name}.pt")
 
 
-PROMPTS = ["How do I make a cup of tea?", "List the files in this folder.",
-           "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?"]
-
-
-def show(model):
-    for ask in PROMPTS:
-        context = (turn("system", Q.INSTRUCTIONS.format(where="/work")) if "files" in ask else "") + turn("user", ask) + "<|im_start|>assistant\n"
-        log(f"  {ask!r} ->", repr(M.generate(model, context, most=120, stop=("<|im_end|>", "<|endoftext|>"))))
+def show(model):                                         # real replies: talk, a tool call, and reasoning
+    for messages, tools, thinking in [([{"role": "user", "content": "How do I make a cup of tea?"}], None, False),
+                                      ([system(), {"role": "user", "content": "Count the lines in notes.txt."}], [Q.bash], False),
+                                      ([{"role": "user", "content": gsm8k("test")[0]["question"]}], None, True)]:
+        log(f"  > {messages[-1]['content']}\n  < " + model.generate(model.chat(messages, tools, thinking), most=300, temperature=0).replace("\n", "\n    "))
 
 
 def instruct():
-    data = instruction_data()
+    model = ours("checkpoints/midtrain.pt")
+    data = instruction_data(model)
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
-    model = M.load_real()
-    optimizer = trainable(model, lr=1e-5)
     log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
-    log("before (pre-trained only):"); show(model)
-    start = time.time()
-    for step in range(1, len(data) // 8 + 1):          # one pass: a second pass made the held-out loss rise
+    log("before:"); show(model)
+    optimizer, start = trainable(model.model, lr=1e-5), time.time()
+    for step in range(1, len(data) // 8 + 1):          # one pass: a second made the held-out loss rise
         update(model, optimizer, data[8 * step - 8:8 * step], [1.0] * 8)    # every example counts the same: imitate it
-        if step % 10 == 0:
-            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; held-out loss {held_out(model, test[:8]):.3f}")
-        if step % 100 == 0:
-            save(model, "instruct")                      # save along the way: look at it, or stop early, without losing the run
+        if step % 25 == 0:
+            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes")
     log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {held_out(model, test):.3f}")
-    log("after (instruction-tuned):"); show(model)
-    save(model, "instruct")
+    log("after:"); show(model)
+    save(model.model, "instruct")
 
 
-# ── 9. reasoning: try, check, and learn from what worked (GRPO) ──────────────
-
-def answer_of(text):
-    found = re.findall(r"answer is \$?(-?[\d,]*\.?\d+)", text)
-    return float(found[-1].replace(",", "")) if found else None
-
+# ── 10. reinforcement learning with a verifier: try, check, learn ────────────
 
 def right(text, answer):                                 # the verifier: is the final number correct?
-    return answer_of(text) == float(answer.split("####")[1].strip().replace(",", ""))
+    found = re.findall(r"answer is \$?(-?[\d,]*\.?\d+)", text)
+    return bool(found) and float(found[-1].replace(",", "")) == float(answer.split("####")[1].strip().replace(",", ""))
+
+
+def question(model, row):
+    return model.chat([{"role": "user", "content": row["question"]}], thinking=True)
 
 
 @torch.no_grad()
-def samples(model, prompt, n, most=300, temperature=1.0):    # n answers to one question, generated side by side
-    ids, caches = torch.tensor([M.encode(prompt)] * n), [{} for _ in model.layers]
-    scores, out, done = model(ids, caches)[:, -1], [[] for _ in range(n)], [False] * n
+def samples(model, prompt, n, most=320, temperature=1.0):    # n answers to one question, generated side by side
+    ids, caches = torch.tensor([model.encode(prompt)] * n), [{} for _ in model.model.layers]
+    scores, out, done = model.model(ids, caches)[:, -1], [[] for _ in range(n)], [False] * n
     for step in range(most):
         next_ids = torch.multinomial(F.softmax(scores / temperature, dim=-1), 1)
         for row, token in enumerate(next_ids[:, 0].tolist()):
             if not done[row]:
-                out[row].append(token)
-                done[row] = token in STOPS
+                done[row] = token in model.stops
+                if not done[row]:
+                    out[row].append(token)
         if all(done):
             break
-        scores = model(next_ids, caches, start=ids.shape[1] + step)[:, -1]
-    return [M.decode(o).split("<|im_end|>")[0].split("<|endoftext|>")[0] for o in out]
+        scores = model.model(next_ids, caches, start=ids.shape[1] + step)[:, -1]
+    return [model.decode(o) for o in out]
 
 
 def accuracy(model, questions):                          # the fixed score: greedy answers to questions it never trains on
-    correct = 0
-    for row in questions:
-        correct += right(M.generate(model, turn("user", row["question"]) + "<|im_start|>assistant\n", most=400, stop=("<|im_end|>", "<|endoftext|>")), row["answer"])
-    return correct / len(questions)
+    return sum(right(model.generate(question(model, row), most=320, temperature=0), row["answer"]) for row in questions) / len(questions)
 
 
-def reason(minutes=150, group=8):
-    test, train = gsm8k("test")[:100], gsm8k("train")[800:]                  # past the 800 used in instruction-tuning
-    model = Q.load("checkpoints/instruct.pt")
-    optimizer = trainable(model, lr=2e-6)                # small steps: it learns from its own noisy attempts
+def reason(minutes=90, group=8):
+    model = ours("checkpoints/instruct.pt")
+    test, train = gsm8k("test")[:100], gsm8k("train")[400:]    # past the 400 used in instruction-tuning
     log(f"held-out accuracy before: {accuracy(model, test):.0%} of {len(test)} test questions")
-    start, step, rewards = time.time(), 0, []
+    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time(), 0, []
     while time.time() - start < minutes * 60:
         row = train[step]
         step += 1
-        prompt = turn("user", row["question"]) + "<|im_start|>assistant\n"
+        prompt = question(model, row)
         answers = samples(model, prompt, group)
         reward = torch.tensor([float(right(a, row["answer"])) for a in answers])
         rewards.append(reward.mean().item())
-        if reward.std() > 0:                             # some right, some wrong: push toward the right ones, away from the wrong
+        if reward.std() > 0:                             # some right, some wrong: towards the right ones, away from the wrong
             advantage = (reward - reward.mean()) / reward.std()
-            update(model, optimizer, [prompt + a + "<|im_end|>\n" for a in answers], advantage.tolist())
+            update(model, optimizer, [prompt + a + "<|im_end|>" for a in answers], advantage.tolist())
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; right in training, last 10 questions: {sum(rewards[-10:]) / 10:.0%}")
-            save(model, "reason")
     log(f"after {step} questions, {minutes} minutes; held-out accuracy after: {accuracy(model, test):.0%}")
-    log("an answer after:", repr(M.generate(model, turn("user", test[0]["question"]) + "<|im_start|>assistant\n", most=400, stop=("<|im_end|>",))))
-    save(model, "reason")
+    save(model.model, "reason")
 
 
-# ── 10. in the harness: learn from its own successes, then from rewards ──────
+# ── 11. in the harness: train it where it works, with the checks as the reward ─
 
-def practice_task(n):                                    # training tasks: every kind, seeds the evaluation never uses
-    return T.make(T.TASKS[n % len(T.TASKS)], 1_000_000 + n)
+def score(model, show=log):                              # the fixed score: forty tasks it never trains on
+    return T.score(lambda ask, where: Q.session(model, ask, where), show=lambda line: show("  " + line))
 
 
-def attempt(model, n, temperature):                      # one try at a training task: the transcript, and whether it passed
-    ask, where, check = practice_task(n)
-    conversation = Q.session(model, ask, where, temperature=temperature)
+def attempt(model, n):                                   # one try at a practice task: the whole session, and did it pass?
+    ask, where, check = T.make(T.TASKS[n % len(T.TASKS)], 3_000_000 + n)   # seeds the evaluation never uses
+    conversation = Q.session(model, ask, where)
     try:
         passed = check()
     except Exception:
         passed = False
     shutil.rmtree(where, ignore_errors=True)
-    return Q.transcript(conversation), passed
+    return model.chat([system()] + conversation, tools=[Q.bash], prompt=False), passed
 
 
-def evaluate(model):                                     # the fixed score: forty tasks it never trains on
-    return T.score(lambda ask, where: Q.session(model, ask, where), show=lambda line: log("  " + line))
-
-
-def practice(minutes=60, learning_minutes=30):          # rejection sampling: try, keep what passed, imitate it
-    model = Q.load("checkpoints/reason.pt")
-    kept, n, start = [], 0, time.time()
+def harness(minutes=120, group=4):                       # reinforcement learning in the harness: the checks are the reward
+    model = ours("checkpoints/reason.pt")
+    log("before, on the forty evaluation tasks:")
+    log(f"before: {score(model):.0%}")
+    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time(), 0, []
     while time.time() - start < minutes * 60:
-        text, passed = attempt(model, n, temperature=0.7)
-        n += 1
-        if passed:
-            kept.append(text)
-        if n % 20 == 0:
-            log(f"{n} tries: {len(kept)} passed and kept")
-    log(f"{n} tries in {minutes} minutes: {len(kept)} passed and kept. A kept one:\n{kept[-1] if kept else '(none)'}")
-    optimizer, start, step = trainable(model, lr=1e-5), time.time(), 0
-    while kept and time.time() - start < learning_minutes * 60:
-        step += 1
-        update(model, optimizer, random.sample(kept, min(8, len(kept))), [1.0] * 8)
-    log(f"learned from them for {step} steps, {learning_minutes} minutes. On the forty held-out tasks:")
-    evaluate(model)
-    save(model, "practice")
-
-
-def harness(minutes=150, group=4):                       # RL in the harness: the checks are the reward
-    model = Q.load("checkpoints/practice.pt")
-    optimizer, start, step, rewards = trainable(model, lr=2e-6), time.time(), 0, []
-    while time.time() - start < minutes * 60:
-        tries = [attempt(model, 100_000 + step, temperature=0.7) for _ in range(group)]   # the same task, several tries
+        tries = [attempt(model, step) for _ in range(group)]   # the same task, several tries
         step += 1
         reward = torch.tensor([float(passed) for _, passed in tries])
         rewards.append(reward.mean().item())
@@ -317,14 +334,14 @@ def harness(minutes=150, group=4):                       # RL in the harness: th
             advantage = (reward - reward.mean()) / reward.std()
             update(model, optimizer, [text for text, _ in tries], advantage.tolist())
         if step % 10 == 0:
-            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; passed in training, last 10 tasks: {sum(rewards[-10:]) / 10:.0%}")
-            save(model, "harness")
-    log(f"after {step} tasks, {minutes} minutes. On the forty held-out tasks:")
-    evaluate(model)
-    save(model, "harness")
+            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; passed in practice, last 10 tasks: {sum(rewards[-10:]) / 10:.0%}")
+            save(model.model, "harness")
+    save(model.model, "harness")
+    log(f"after {step} practice tasks, {minutes} minutes. On the forty evaluation tasks:")
+    log(f"after: {score(model):.0%}")
 
 
 if __name__ == "__main__":
     STAGE = sys.argv[1]
     open(f"runs/{STAGE}.txt", "w").close()
-    {"pretrain": pretrain, "instruct": instruct, "reason": reason, "practice": practice, "harness": harness}[STAGE]()
+    {"pretrain": pretrain, "midtrain": midtrain, "instruct": instruct, "reason": reason, "harness": harness}[STAGE]()

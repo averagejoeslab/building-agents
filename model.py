@@ -10,7 +10,7 @@
 """A language model built from its primitives, in the design of Qwen3."""
 import json, unicodedata, collections
 import regex, jinja2.sandbox
-import torch, torch.nn as nn, torch.nn.functional as F
+import torch, torch.nn as nn, torch.nn.functional as F, torch.utils.checkpoint
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
@@ -205,7 +205,10 @@ class Model(nn.Module):
         cos, sin = rotary(ids.shape[1], self.head_dim, self.theta, start=start)
         x = self.embed_tokens(ids)
         for i, layer in enumerate(self.layers):
-            x = layer(x, cos, sin, caches[i] if caches else None)
+            if torch.is_grad_enabled() and not caches:   # training: keep only each block's input, redo the rest on the way back
+                x = torch.utils.checkpoint.checkpoint(layer, x, cos, sin, use_reentrant=False)
+            else:
+                x = layer(x, cos, sin, caches[i] if caches else None)
         x = self.norm(x)
         if keep is not None:                             # training: score only the positions it learns from, to save memory
             x = x[keep]
@@ -245,15 +248,18 @@ def load_real(name=REAL):                                # months of pre-trainin
 class Release:
     """A model as its makers ship it: sizes, weights, tokenizer, chat template and generation settings, each from its own file."""
 
-    def __init__(self, name):
+    def __init__(self, name, weights=None):             # weights: another release's, or a checkpoint of our own training
         read = lambda file: json.load(open(hf_hub_download(name, file)))
         config, self.settings = read("config.json"), read("generation_config.json")
         assert config["rms_norm_eps"] == 1e-6 and not config["attention_bias"] and config["hidden_act"] == "silu"   # what our code fixes
         self.model = Model(config["vocab_size"], config["hidden_size"], config["num_hidden_layers"], config["num_attention_heads"],
                            config["num_key_value_heads"], config["head_dim"], config["intermediate_size"], config["rope_theta"])
-        weights = load_file(hf_hub_download(name, "model.safetensors"))
-        weights.pop("lm_head.weight", None)              # some releases store the output head too: it is the embedding, shared
-        self.model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in weights.items()}, strict=True)
+        if weights and weights.endswith(".pt"):
+            self.model.load_state_dict({k: v.float() for k, v in torch.load(weights).items()})
+        else:
+            numbers = load_file(hf_hub_download(weights or name, "model.safetensors"))
+            numbers.pop("lm_head.weight", None)          # some releases store the output head too: it is the embedding, shared
+            self.model.load_state_dict({k.removeprefix("model.").replace("mlp.", ""): v.float() for k, v in numbers.items()}, strict=True)
         self.tokenizer = Tokenizer.load(name)
         rendering = jinja2.sandbox.ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.loopcontrols"])
         rendering.filters["tojson"] = lambda x, indent=None, separators=None, sort_keys=False, ensure_ascii=False: json.dumps(
@@ -268,17 +274,21 @@ class Release:
     def decode(self, ids):
         return self.tokenizer.decode(ids)
 
-    def chat(self, messages, tools=None, thinking=False):   # the conversation as text, in the format the model was trained on
-        return self.template.render(messages=messages, tools=tools, add_generation_prompt=True, enable_thinking=thinking)
+    def chat(self, messages, tools=None, thinking=False, prompt=True):   # the conversation as text, in the format it's trained on
+        return self.template.render(messages=messages, tools=tools, add_generation_prompt=prompt, enable_thinking=thinking)
 
     @torch.no_grad()
     def generate(self, text, most=1000, temperature=None, top_k=None, top_p=None):   # sampling as its generation settings say
-        temperature = temperature or self.settings.get("temperature", 1.0)
+        temperature = self.settings.get("temperature", 1.0) if temperature is None else temperature
         top_k, top_p = top_k or self.settings.get("top_k", 0), top_p or self.settings.get("top_p", 1.0)
         ids, caches, out = torch.tensor([self.encode(text)]), [{} for _ in self.model.layers], []
         scores = self.model(ids, caches)[0, -1]
+        greedy = temperature == 0                        # always the most likely: for a fair, repeatable score
         for _ in range(most):
-            scores = scores / temperature
+            if greedy:
+                scores = scores.masked_fill(scores < scores.max(), float("-inf"))
+            else:
+                scores = scores / temperature
             if top_k:
                 scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # only the k most likely
             probs = F.softmax(scores, dim=-1)

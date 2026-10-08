@@ -160,7 +160,7 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly.
+We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pretrain`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
@@ -187,64 +187,73 @@ model: largest difference in its scores 1.4e-04, same most likely token at all 1
 
 #### Mid-training
 
-The same task as pre-training, on tokens chosen for the job. Our agent will act through bash, so we continue Base on shell documentation and commands, and measure loss on shell text it never saw.
+From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
+
+```
+- [c]reate a g[z]ipped archive and write it to a [f]ile:
+
+`tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
+```
+
+200 pages are held out to measure it. It runs for 45 minutes (`uv run train.py midtrain`).
 
 > **Result:** filled in by the verification run, logged in `runs/midtrain.txt`.
 
 #### Post-training
 
-Base continues tokens; it doesn't take turns. Post-training teaches it to, in two steps.
+Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format of Qwen's own chat model, Qwen3-0.6B: we keep our mid-trained numbers and use that model's tokenizer and chat template, so ours ends up speaking the same format as the model we'll compare it with.
 
-**Instruction-tuning** shows it example conversations in its own chat format, and it learns from the assistant's tokens only. Four kinds, about 800 each:
+**Instruction-tuning** shows it example conversations, and it learns from the assistant's tokens only. Four kinds, 400 each:
 
 | Kind | Data | Example |
 |---|---|---|
 | Talk | [smol-smoltalk](https://huggingface.co/datasets/HuggingFaceTB/smol-smoltalk) | a question → an explanation |
-| Ask for a command | [NL2Bash](https://github.com/TellinaTool/nl2bash) | *Change to folder where the oracle binary is.* → `cd "$(dirname "$(which oracle)")"` |
-| Reason | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) | a word problem → worked steps in `<think>` → *The answer is 72.* |
-| Use a tool | made here; every command really run | *Rename harbor.md to quartz.md.* → a tool call → its result → *Done.* |
+| Ask for a command | [NL2Bash](https://github.com/TellinaTool/nl2bash) (published research data; no licence listed) | *Change to folder where the oracle binary is.* → a tool call: `cd "$(dirname "$(which oracle)")"` |
+| Reason | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) | a word problem → worked steps, as thinking → *The answer is 72.* |
+| Use the tool | made here; every command really run | *How many lines are in harbor.csv?* → a tool call → its result → an answer |
 
 ```
 <|im_start|>user
-Rename harbor.md to quartz.md.<|im_end|>
+How many lines are in harbor.csv?<|im_end|>
 <|im_start|>assistant
 <tool_call>
-{"name": "bash", "arguments": {"command": "mv harbor.md quartz.md"}}
+{"name": "bash", "arguments": {"command": "wc -l < harbor.csv"}}
 </tool_call><|im_end|>                                    ← learned
 <|im_start|>user
 <tool_response>
-(no output)
+5
 </tool_response><|im_end|>                                ← read, not learned
 <|im_start|>assistant
-Done: harbor.md is now quartz.md.<|im_end|>               ← learned
+<think>
+
+</think>
+
+harbor.csv has 5 lines.<|im_end|>                         ← learned
 ```
 
-Our first run taught two things ([`runs/instruct_frozen_embeddings.txt`](./runs/instruct_frozen_embeddings.txt)). **Train every number**: it froze the embedding table to save memory, and in Base the end-of-turn token's row is barely trained, so the model learned the answers but never learned to stop. **One pass through the data**: on a second pass, held-out loss rose; it had started memorising.
+It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py instruct`).
 
-**Reinforcement learning** lets it try and grades it. For maths the grader checks the final number. The model writes eight answers per question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first: Base got all eight wrong.
+> **Result:** filled in by the verification run, logged in `runs/instruct.txt`: held-out loss and real replies, before and after.
 
-Both are one function. Imitation weights every example 1; reinforcement learning weights each attempt by how much better or worse than average it did:
+**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (`uv run train.py reason`).
+
+Both are one function. Imitation weights every example 1; reinforcement learning weights each attempt by how much better or worse than the group it did:
 
 ```python
-def update(model, optimizer, texts, weights):            # make each sequence more likely, in proportion to its weight
+def update(model, optimizer, texts, weights):            # make each text more likely, in proportion to its weight
     optimizer.zero_grad()
     for text, weight in zip(texts, weights):
         (-weight * logprob(model, text) / len(texts)).backward()
     optimizer.step()
 ```
 
-> **Result:** filled in by the verification run, logged in `runs/instruct.txt` and `runs/reason.txt`: held-out loss and real replies before and after instruction-tuning, and maths accuracy on 100 test questions before and after reinforcement learning.
+> **Result:** filled in by the verification run, logged in `runs/reason.txt`: accuracy on 100 test questions, before and after.
 
 ### What we have
 
-A trained model, and all it does is output tokens. Give Qwen3-0.6B, Qwen's own post-trained version, a job and a tool, and it outputs the tokens for using the tool ([`runs/02_qwen_as_shipped.txt`](./runs/02_qwen_as_shipped.txt)):
+A trained model, and all it does is output tokens. Ask it to count the lines in a file, with a tool it can use, and it outputs the tokens for using the tool:
 
-```
-> Count the lines in notes.txt and write the number to count.txt.
-< <tool_call>
-  {"name": "bash", "arguments": {"command": "grep -c 'Notes.txt' count.txt"}}
-  </tool_call>
-```
+> **Result:** filled in by the verification run, logged in `runs/instruct.txt`.
 
 And then nothing happens. Nothing runs the command, nothing shows it the result, nothing lets it try again. Those are tokens, not actions. Turning one into the other is the harness.
 
@@ -1018,13 +1027,14 @@ Run it after every change.
 
 ## Putting it together
 
-Now the same harness, with three models in it. The model interface changes to suit each: Sonnet through its API, and the Qwen models through their own chat template, with each `<tool_call>` they output turned into a command ([`quark_local.py`](./quark_local.py)). Everything else is quark.
+Now the same harness, with each model in it. The model interface changes to suit each: Sonnet through its API, and the Qwen models through their own chat template, with each `<tool_call>` they output turned into a command, run in a throwaway container ([`quark_local.py`](./quark_local.py)). Everything else is quark.
 
 They all get the same forty tasks ([`tasks.py`](./tasks.py)): twenty kinds, from *Make a folder called stone* to *Which file in this folder is the biggest? Write its name into answer.txt*. Each is checked by looking at the files afterwards, not at what the agent says. A scripted solver passes all forty and doing nothing passes none.
 
 | Model in quark | Score | Log |
 |---|---|---|
-| Qwen3-0.6B-Base: pre- and mid-trained, no post-training | **0/34** (stopped there) | [`runs/base_in_quark.txt`](./runs/base_in_quark.txt) |
+| Qwen3-0.6B-Base: pre-trained, no post-training | **0/34** (stopped there) | [`runs/base_in_quark.txt`](./runs/base_in_quark.txt) |
+| Ours: Base, mid- and post-trained here | *from the run* | `runs/harness.txt` |
 | Qwen3-0.6B: Qwen's own post-training | **21/40** | [`runs/qwen_in_quark.txt`](./runs/qwen_in_quark.txt) |
 | Sonnet | **40/40** | [`runs/harness_sonnet.txt`](./runs/harness_sonnet.txt) |
 
@@ -1036,7 +1046,13 @@ They all get the same forty tasks ([`tasks.py`](./tasks.py)): twenty kinds, from
 FAIL
 ```
 
-**Qwen3-0.6B** has the behaviour: it takes turns, calls the tool in the right format, reads the result and answers. It does every task that's one obvious command, and almost none that need two:
+That's what post-training is for.
+
+**Ours** has the behaviour our post-training gave it.
+
+> **Result:** filled in by the verification run, logged in `runs/harness.txt`.
+
+**Qwen3-0.6B** has Qwen's own post-training: it takes turns, calls the tool, reads the result and answers. It does every task that's one obvious command, and almost none that need two:
 
 ```
 > Join violet.txt and cobalt.txt, in that order, into both.txt.
@@ -1050,33 +1066,44 @@ PASS
 FAIL
 ```
 
-It misreads the request, then hands the problem back. Elsewhere it says it's done without checking. Letting it think first scores 22/40: no better.
+It misreads the request, then hands the problem back. Elsewhere it says it's done without checking. Letting it think first scores 22/40 ([`runs/qwen_in_quark_thinking.txt`](./runs/qwen_in_quark_thinking.txt), [`_rest`](./runs/qwen_in_quark_thinking_rest.txt)): no better.
 
 **Sonnet** does what the control-flow run showed: it looks before it acts, reads what it finds, and checks its work. That's how it gets all forty.
 
-The harness was the same every time. The only difference was the model. So a better agent from here means going back to the model: better data, more of the right training, a bigger model, or training it inside its harness, where the task checks are the reward. They read files, not words, so the only way to earn the reward is to do the work.
+The harness was the same every time. The only difference was the model.
+
+### Training the model for its harness
+
+So we go back to the model, and train it where it works. It tries practice tasks in quark: the same twenty kinds, with seeds the forty never use. Each task's check is the reward. For each task it makes four tries; the passing sessions are made more likely and the failing ones less, with the same `update` as for maths (`uv run train.py harness`).
+
+The checks read files, not words, so the only way to earn the reward is to do the task. Grade what it says, and you'd train it to say it's done.
+
+> **Result:** filled in by the verification run, logged in `runs/harness.txt`: the forty tasks, before and after.
 
 That's how you build an agent from scratch.
 
 ## Run it
 
-You need [uv](https://docs.astral.sh/uv/). The harness needs an [Anthropic API key](https://console.anthropic.com/) for Sonnet; `quark_production.py` and the Qwen models in quark need [Docker](https://docs.docker.com/get-docker/).
+You need [uv](https://docs.astral.sh/uv/) and [Docker](https://docs.docker.com/get-docker/). The harness needs an [Anthropic API key](https://console.anthropic.com/) for Sonnet.
 
 ```bash
 # the model
-uv run train.py pretrain                          # pre-train it from random numbers (20 minutes)
-uv run --script runs/02_qwen_as_shipped.py        # load Qwen whole, check it, let it talk
+uv run --script runs/01_check_against_reference.py   # our tokenizer and model, against Qwen's reference
+uv run train.py pretrain                              # our model, from random numbers, on Shakespeare (20 minutes)
+uv run train.py midtrain                              # Qwen3-0.6B-Base, on shell pages (45 minutes)
+uv run train.py instruct                              # instruction-tuning (about 2.5 hours)
+uv run train.py reason                                # reinforcement learning on maths (about 3 hours)
 
 # the harness
-cp .env.example .env                              # then put your key in .env
-uv run --env-file .env quark.py                   # the five primitives
-uv run --env-file .env quark_production.py        # production-ready
-./eval.sh                                         # check it still works
+cp .env.example .env                                  # then put your key in .env
+uv run --env-file .env quark.py                       # the five primitives
+uv run --env-file .env quark_production.py            # production-ready
+./eval.sh                                             # check it still works
 
 # together
-uv run quark_local.py Qwen/Qwen3-0.6B             # quark with a model you run yourself
-uv run tasks.py Qwen/Qwen3-0.6B                   # score it on the forty tasks
-uv run --env-file .env tasks.py sonnet            # score Sonnet the same way
+uv run --env-file .env tasks.py sonnet                # Sonnet on the forty tasks
+uv run tasks.py Qwen/Qwen3-0.6B                       # Qwen's own post-trained model
+uv run train.py harness                               # ours: the forty tasks, training in the harness, the forty again
 ```
 
 > [!WARNING]
