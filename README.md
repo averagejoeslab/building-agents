@@ -1019,11 +1019,17 @@ They all get the same forty tasks ([`tasks.py`](./tasks.py)): twenty kinds, from
 
 | Model in quark | Score | Log |
 |---|---|---|
-| Qwen3-0.6B-Base: pre- and mid-trained, no post-training | running | `runs/base_in_quark.txt` |
+| Qwen3-0.6B-Base: pre- and mid-trained, no post-training | **0/34** (stopped there) | [`runs/base_in_quark.txt`](./runs/base_in_quark.txt) |
 | Qwen3-0.6B: Qwen's own post-training | **21/40** | [`runs/qwen_in_quark.txt`](./runs/qwen_in_quark.txt) |
 | Sonnet | **40/40** | [`runs/harness_sonnet.txt`](./runs/harness_sonnet.txt) |
 
-**Base** has knowledge but no behaviour: it was never trained to take turns or use a tool. (Its run is in progress; what it does will be shown here.)
+**Base** has knowledge but no behaviour. It was never trained to take turns or use a tool, so in 34 tasks it never ran a single command. It just continued the tokens:
+
+```
+> Make a folder called stone.
+  < ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ …
+FAIL
+```
 
 **Qwen3-0.6B** has the behaviour: it takes turns, calls the tool in the right format, reads the result and answers. It does every task that's one obvious command, and almost none that need two:
 
