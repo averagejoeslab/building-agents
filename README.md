@@ -155,18 +155,16 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays. The last tenth is held out, never trained on, to measure it fairly.
 
-> **Status:** running. The before-and-after loss and samples will be in [`runs/pretrain.txt`](./runs/pretrain.txt).
+| | Held-out loss | Continuing `ROMEO:` |
+|---|---|---|
+| **Untrained** | *from the run* | *from the run* |
+| **After 20 minutes** | *from the run* | *from the run* |
 
-The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes working code. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in:
+> **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
 
-```
-def sum_of_digits(n):
-    sum = 0
-    while n > 0:
-        sum += n % 10
-        n //= 10
-    return sum
-```
+The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in. Continuing `ROMEO:`, the same prompt as ours:
+
+> **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
 
 A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference ([`runs/02_qwen_as_shipped.txt`](./runs/02_qwen_as_shipped.txt)):
 
@@ -184,7 +182,7 @@ model: largest difference in its scores 1.4e-04, same most likely token at all 1
 
 The same task as pre-training, on tokens chosen for the job. Our agent will act through bash, so we continue Base on shell documentation and commands, and measure loss on shell text it never saw.
 
-> **Status:** not yet run. Its log will be `runs/midtrain.txt`.
+> **Result:** filled in by the verification run, logged in `runs/midtrain.txt`.
 
 #### Post-training
 
@@ -228,7 +226,7 @@ def update(model, optimizer, texts, weights):            # make each sequence mo
     optimizer.step()
 ```
 
-> **Status:** re-running with both fixes. Its logs will be `runs/instruct.txt` and `runs/reason.txt`.
+> **Result:** filled in by the verification run, logged in `runs/instruct.txt` and `runs/reason.txt`: held-out loss and real replies before and after instruction-tuning, and maths accuracy on 100 test questions before and after reinforcement learning.
 
 ### What we have
 
