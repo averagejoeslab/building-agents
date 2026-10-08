@@ -223,8 +223,23 @@ def trainable(model, lr):                                # every number, the voc
     return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)
 
 
-def save(model, name):
+def save(model, name, **progress):                       # the numbers, and how far it got, so an interruption costs little
     torch.save({k: v.to(torch.bfloat16) for k, v in model.state_dict().items()}, f"checkpoints/{name}.pt")
+    json.dump(progress, open(f"checkpoints/{name}.progress", "w"))
+
+
+def resume(model, name):                                 # carry on from the last save, if there is one (the optimizer starts afresh)
+    if not os.path.exists(f"checkpoints/{name}.progress"):
+        return {}
+    model.model.load_state_dict({k: v.float() for k, v in torch.load(f"checkpoints/{name}.pt").items()})
+    progress = json.load(open(f"checkpoints/{name}.progress"))
+    log(f"carrying on from {progress}")
+    return progress
+
+
+def finish(model, name):
+    save(model.model, name)
+    os.remove(f"checkpoints/{name}.progress")
 
 
 def show(model):                                         # real replies: talk, a tool call, and reasoning
@@ -238,16 +253,21 @@ def instruct():
     model = ours("checkpoints/midtrain.pt")
     data = instruction_data(model)
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
-    log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
-    log("before:"); show(model)
-    optimizer, start = trainable(model.model, lr=1e-5), time.time()
-    for step in range(1, len(data) // 8 + 1):          # one pass: a second made the held-out loss rise
+    done = resume(model, "instruct")
+    if not done:
+        log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
+        log("before:"); show(model)
+    optimizer, start, earlier = trainable(model.model, lr=1e-5), time.time(), done.get("minutes", 0)
+    for step in range(done.get("step", 0) + 1, len(data) // 8 + 1):   # one pass: a second made the held-out loss rise
         update(model, optimizer, data[8 * step - 8:8 * step], [1.0] * 8)    # every example counts the same: imitate it
+        minutes = earlier + (time.time() - start) / 60
+        if step % 10 == 0:
+            save(model.model, "instruct", step=step, minutes=minutes)
         if step % 25 == 0:
-            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes")
-    log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {held_out(model, test):.3f}")
+            log(f"step {step}: {minutes:.0f} minutes")
+    log(f"after {step} steps, {minutes:.0f} minutes; held-out loss after: {held_out(model, test):.3f}")
     log("after:"); show(model)
-    save(model.model, "instruct")
+    finish(model, "instruct")
 
 
 # ── 10. reinforcement learning with a verifier: try, check, learn ────────────
@@ -285,8 +305,10 @@ def accuracy(model, questions):                          # the fixed score: gree
 def reason(minutes=90, group=8):
     model = ours("checkpoints/instruct.pt")
     test, train = gsm8k("test")[:100], gsm8k("train")[400:]    # past the 400 used in instruction-tuning
-    log(f"held-out accuracy before: {accuracy(model, test):.0%} of {len(test)} test questions")
-    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time(), 0, []
+    done = resume(model, "reason")
+    if not done:
+        log(f"held-out accuracy before: {accuracy(model, test):.0%} of {len(test)} test questions")
+    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time() - 60 * done.get("minutes", 0), done.get("step", 0), done.get("rewards", [])
     while time.time() - start < minutes * 60:
         row = train[step]
         step += 1
@@ -299,8 +321,11 @@ def reason(minutes=90, group=8):
             update(model, optimizer, [prompt + a + "<|im_end|>" for a in answers], advantage.tolist())
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; right in training, last 10 questions: {sum(rewards[-10:]) / 10:.0%}")
+        if step % 5 == 0:
+            save(model.model, "reason", step=step, minutes=(time.time() - start) / 60, rewards=rewards)
+    save(model.model, "reason", step=step, minutes=minutes + 1, rewards=rewards)   # training done: a restart only re-scores
     log(f"after {step} questions, {minutes} minutes; held-out accuracy after: {accuracy(model, test):.0%}")
-    save(model.model, "reason")
+    finish(model, "reason")
 
 
 # ── 11. in the harness: train it where it works, with the checks as the reward ─
@@ -322,9 +347,11 @@ def attempt(model, n):                                   # one try at a practice
 
 def harness(minutes=120, group=4):                       # reinforcement learning in the harness: the checks are the reward
     model = ours("checkpoints/reason.pt")
-    log("before, on the forty evaluation tasks:")
-    log(f"before: {score(model):.0%}")
-    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time(), 0, []
+    done = resume(model, "harness")
+    if not done:
+        log("before, on the forty evaluation tasks:")
+        log(f"before: {score(model):.0%}")
+    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time() - 60 * done.get("minutes", 0), done.get("step", 0), done.get("rewards", [])
     while time.time() - start < minutes * 60:
         tries = [attempt(model, step) for _ in range(group)]   # the same task, several tries
         step += 1
@@ -335,13 +362,16 @@ def harness(minutes=120, group=4):                       # reinforcement learnin
             update(model, optimizer, [text for text, _ in tries], advantage.tolist())
         if step % 10 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; passed in practice, last 10 tasks: {sum(rewards[-10:]) / 10:.0%}")
-            save(model.model, "harness")
-    save(model.model, "harness")
+        if step % 5 == 0:
+            save(model.model, "harness", step=step, minutes=(time.time() - start) / 60, rewards=rewards)
+    save(model.model, "harness", step=step, minutes=minutes + 1, rewards=rewards)   # training done: a restart only re-scores
     log(f"after {step} practice tasks, {minutes} minutes. On the forty evaluation tasks:")
     log(f"after: {score(model):.0%}")
+    finish(model, "harness")
 
 
 if __name__ == "__main__":
     STAGE = sys.argv[1]
-    open(f"runs/{STAGE}.txt", "w").close()
+    if not os.path.exists(f"checkpoints/{STAGE}.progress"):   # a fresh start; after an interruption, the log carries on
+        open(f"runs/{STAGE}.txt", "w").close()
     {"pretrain": pretrain, "midtrain": midtrain, "instruct": instruct, "reason": reason, "harness": harness}[STAGE]()
