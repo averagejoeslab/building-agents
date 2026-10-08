@@ -211,3 +211,6 @@ FAIL  Write the first line of river.txt into first.txt.
 FAIL  Write the first line of apple.txt into first.txt.
 
 > Count how many files here end in .py and write the number to count.txt.
+  $ ls -a -o .py
+  $ wc -l
+  $ echo $count > count.txt
