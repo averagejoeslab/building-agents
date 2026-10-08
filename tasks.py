@@ -237,12 +237,13 @@ def sonnet(ask, where):                                  # quark with Sonnet and
 if __name__ == "__main__":
     if sys.argv[1] == "sonnet":
         score(sonnet)
-    else:                                                # a model we run ourselves: uv run tasks.py Qwen/Qwen3-0.6B [think]
+    else:                                                # a model we run ourselves: uv run tasks.py Qwen/Qwen3-0.6B [think] [from=N]
         import model as M, quark_local
         ours, thinking = M.Release(sys.argv[1]), "think" in sys.argv
+        start = int(next((a[5:] for a in sys.argv if a.startswith("from=")), 0))   # carry on after an interruption
         print(f"{sys.argv[1]} in quark, thinking {'on' if thinking else 'off'}:")
 
         def attempt(ask, where):
             print(f"\n> {ask}")
             quark_local.session(ours, ask, where, thinking, show=lambda line: print("  " + line.replace("\n", "\n  "), flush=True))
-        score(attempt)
+        score(attempt, EVALUATION[start:])
