@@ -64,73 +64,70 @@ In a trained model, the primitives work together like this. These are the real n
 
 ### Building them
 
-Each primitive is the real code from [`model.py`](./model.py), trimmed to the lines that matter.
+Each primitive in one line: what it does. The code, from [`model.py`](./model.py), shows how.
 
-**1. Tokenizer.** Text is cut into pieces, and each piece gets a number. The pieces are learned from data: common words are one token, rare ones several. Qwen3 has about 150,000.
+**Tokenizer: turns text into tokens, and back.**
 
 ```python
-tokenizer = Tokenizer.from_file(hf_hub_download(REAL, "tokenizer.json"))
+tokenizer = Tokenizer.from_file(hf_hub_download(REAL, "tokenizer.json"))   # about 150,000 pieces, learned from data
 
 def encode(text):
-    return tokenizer.encode(text).ids
+    return tokenizer.encode(text).ids           # "The capital of France is" → [785, 6722, 315, 9625, 374]
 ```
 
-**2. Embedding.** Each token picks a row from a table: 1,024 numbers that stand for its meaning. They start random; training moves related tokens closer together.
+**Embedding: gives each token a meaning.**
 
 ```python
-self.embed_tokens = nn.Embedding(vocab, dim)     # what each token means
-```
-
-**3. Position.** Without it, "dog bites man" and "man bites dog" look the same. Each row is rotated by an angle that grows along the input (*rotary positions*), so how two tokens relate depends on how far apart they are.
-
-```python
-def rotary(length, dim, theta=1_000_000.0, start=0):     # rotate each vector by an angle that grows along the input
-    frequencies = 1.0 / theta ** (torch.arange(0, dim, 2).float() / dim)
-    angles = torch.outer(torch.arange(start, start + length).float(), frequencies)
-    angles = torch.cat([angles, angles], dim=-1)
-    return angles.cos(), angles.sin()
-```
-
-**4. Attention.** Each token makes what it's looking for (a *query*), what it offers (a *key*) and what it carries (a *value*). Each query is compared with every earlier key, and the token takes in a mix of the values, weighted by how well they match. It never looks ahead. It does this 16 times side by side (*heads*), and pairs of queries share a key and value to save memory.
-
-```python
-q = self.q_norm(self.q_proj(x).view(batch, length, self.heads, self.head_dim)).transpose(1, 2)
-k = self.k_norm(self.k_proj(x).view(batch, length, self.kv_heads, self.head_dim)).transpose(1, 2)
-v = self.v_proj(x).view(batch, length, self.kv_heads, self.head_dim).transpose(1, 2)
-q, k = rotate(q, cos, sin), rotate(k, cos, sin)
-k = k.repeat_interleave(self.heads // self.kv_heads, dim=1)      # several queries share each key
-v = v.repeat_interleave(self.heads // self.kv_heads, dim=1)
-mixed = F.scaled_dot_product_attention(q, k, v, is_causal=length > 1)   # only look back, never ahead
-```
-
-**5. Block.** Attention, then a small network that works on each token by itself, each with a norm before it to keep the numbers steady. Each step adds to what came in, so information can pass straight through. Qwen3-0.6B stacks 28.
-
-```python
-def forward(self, x, cos, sin, cache=None):
-    x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back
-    h = self.post_attention_layernorm(x)
-    return x + self.down_proj(F.silu(self.gate_proj(h)) * self.up_proj(h))         # think about it
-```
-
-**6. Output head.** Each token's numbers are compared with every row of the embedding table, giving a score for every possible next token. Reading a token and outputting one share the same table.
-
-```python
+self.embed_tokens = nn.Embedding(vocab, dim)     # a row of 1,024 numbers per token; training puts related tokens close
 x = self.embed_tokens(ids)
-for i, layer in enumerate(self.layers):
-    x = layer(x, cos, sin, caches[i] if caches else None)
-x = self.norm(x)
-return x @ self.embed_tokens.weight.T            # a score for every possible next token
 ```
 
-**7. Generation.** Take the last position's scores, pick a token, add it, go again. Always picking the top score tends to repeat, so models *sample*: *temperature* sharpens or flattens the scores, and only the likeliest are kept (*top-k*, *top-p*). Earlier tokens' keys and values don't change, so they're kept (*the cache*) instead of recomputed.
+**Position: tells each token where it is.**
 
 ```python
-scores = scores / temperature
-scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # only the k most likely
-probs = F.softmax(scores, dim=-1)
-ordered, order = probs.sort(descending=True)
-ordered[ordered.cumsum(0) - ordered >= top_p] = 0                 # only the most likely, until they make up top_p
-next_id = order[torch.multinomial(ordered, 1)]
+frequencies = 1.0 / theta ** (torch.arange(0, dim, 2).float() / dim)
+angles = torch.outer(torch.arange(start, start + length).float(), frequencies)   # an angle that grows along the input
+q, k = rotate(q, cos, sin), rotate(k, cos, sin)  # turn each query and key by its angle: nearby tokens line up
+```
+
+**Attention: each token gathers what it needs from the tokens before it.**
+
+```python
+q = self.q_proj(x)                               # what each token is looking for
+k = self.k_proj(x)                               # what each token offers
+v = self.v_proj(x)                               # what each token carries
+scores = q @ k.transpose(-2, -1) / self.head_dim ** 0.5          # how well each query matches each key
+ahead = torch.ones(length, k.shape[2], dtype=torch.bool).triu(k.shape[2] - length + 1)   # the keys after each query
+weights = scores.masked_fill(ahead, float("-inf")).softmax(dim=-1)   # never look ahead; share out attention by match
+mixed = weights @ v                              # take that share of each value
+```
+
+It does this 16 times side by side (*heads*), each free to look for something different.
+
+**Block: looks back, then thinks about it.**
+
+```python
+x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back (attention)
+h = self.post_attention_layernorm(x)                                            # keep the numbers a steady size
+gate = self.gate_proj(h)
+return x + self.down_proj(gate * torch.sigmoid(gate) * self.up_proj(h))        # think about it: a gated network
+```
+
+Each step adds to what came in, so nothing is lost on the way through. Qwen3-0.6B stacks 28 blocks.
+
+**Output head: scores every possible next token.**
+
+```python
+return x @ self.embed_tokens.weight.T            # compare with every token's meaning: 151,936 scores
+```
+
+**Generation: picks the next token and goes again.**
+
+```python
+scores = scores / temperature                                       # sharpen or flatten
+scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # keep the likeliest
+next_id = torch.multinomial(F.softmax(scores, dim=-1), 1)           # draw one
+scores = self.model(next_id, caches, start=...)[0, -1]              # add it, and go again; earlier tokens are cached
 ```
 
 That's the whole model, about 150 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` ([`runs/01_check_against_reference.txt`](./runs/01_check_against_reference.txt)).
@@ -156,14 +153,11 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): 4 blocks instead of 28, on Python's own source code and *Alice's Adventures in Wonderland*, about 1.3 million tokens. The end of the data is held out to measure it fairly ([`runs/pretrain.txt`](./runs/pretrain.txt)):
+We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays. The last tenth is held out, never trained on, to measure it fairly.
 
-| | Held-out loss | Continuing `def ` |
-|---|---|---|
-| **Untrained** | 9.05 | `def  waterContent[ftree#\nSTR_CHECKline interval listencode(root extent…` |
-| **After 20 minutes** | 3.64 | `def 127\n    val = len(str, initial)\n    if unicodedata.closed:\n        raise ValueError("code out of range")` |
+> **Status:** running. The before-and-after loss and samples will be in [`runs/pretrain.txt`](./runs/pretrain.txt).
 
-Noise becomes something shaped like Python. The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes working functions. That's 3.6 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in:
+The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes working code. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in:
 
 ```
 def sum_of_digits(n):
