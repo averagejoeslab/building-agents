@@ -1,4 +1,3 @@
-max logit difference 2.86102294921875e-05 same top token True
-' Paris. The capital of Germany is Berlin. The capital of Italy is Rome. The capital of Spain'
-20 tokens 1.6 s
-'files = Get-ChildItem -Path "C:\\Users\\user\\Desktop\\test" -Re'
+tokens: [785, 6722, 315, 9625, 374]
+max difference in scores 2.9e-05; same next token: True
+' Paris. The capital of Germany is Berlin. The capital of Italy is Rome. The capital of Spain' 20 tokens in 51.8s

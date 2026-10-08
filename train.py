@@ -31,10 +31,11 @@ def log(*words):                                         # every stage writes wh
 
 # ── 7. pre-training: predict the next token of raw text ───────────────────────
 
-def pretrain_text():                                     # text and code: Python's own source, and a public-domain book
-    code = "".join(open(path, errors="ignore").read() for path in sorted(glob.glob("/usr/lib/python3.11/*.py")))
-    book = urllib.request.urlopen("https://www.gutenberg.org/cache/epub/11/pg11.txt").read().decode()
-    return book * 4 + code                               # the end of the code, seen once, is held out below
+PROMPT = "ROMEO:\n"
+
+
+def pretrain_text():                                     # Shakespeare: about a million characters of plays
+    return urllib.request.urlopen("https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt").read().decode()
 
 
 def pretrain(minutes=20):
@@ -42,11 +43,12 @@ def pretrain(minutes=20):
     common = [i for i, _ in collections.Counter(ids).most_common(8191)]
     small = {token: n for n, token in enumerate(common)}             # the 8,191 most common tokens, plus one for the rest
     data = torch.tensor([small.get(i, 8191) for i in ids])
-    data, held_out = data[:-20_000], data[-20_000:]                  # text it never trains on, to measure it fairly
+    cut = len(data) * 9 // 10
+    data, held_out = data[:cut], data[cut:]                          # the last tenth: never trained on, to measure it fairly
     model = M.Model(vocab=8192, dim=256, layers=4, heads=4, kv_heads=2, head_dim=64, hidden=768)   # the same design, much smaller
     log(f"text: {len(data):,} tokens; model: {sum(p.numel() for p in model.parameters()):,} numbers, all random")
-    speak = lambda: M.decode([common[i] for i in sample(model, [small[t] for t in M.encode("def ")], 40) if i < 8191])
-    log("before:", repr("def " + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
+    speak = lambda: M.decode([common[i] for i in sample(model, [small[t] for t in M.encode(PROMPT)], 40) if i < 8191])
+    log("before:", repr(PROMPT + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     start, step = time.time(), 0
     while time.time() - start < minutes * 60:
@@ -58,9 +60,9 @@ def pretrain(minutes=20):
         optimizer.zero_grad(); loss.backward(); optimizer.step()
         if step % 100 == 0:
             log(f"step {step}: loss {loss.item():.2f}")
-    log(f"after {step} steps, {minutes} minutes:", repr("def " + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
+    log(f"after {step} steps, {minutes} minutes:", repr(PROMPT + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")
     real = M.load_real()
-    log("the real weights, months of training on trillions of tokens:", repr("def " + M.generate(real, "def ", most=40)))
+    log("the real weights, months of training on trillions of tokens:", repr(PROMPT + M.generate(real, PROMPT, most=40)))
 
 
 @torch.no_grad()

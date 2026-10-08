@@ -78,7 +78,10 @@ class Attention(nn.Module):
             cache["k"], cache["v"] = k, v
         k = k.repeat_interleave(self.heads // self.kv_heads, dim=1)      # several queries share each key
         v = v.repeat_interleave(self.heads // self.kv_heads, dim=1)
-        mixed = F.scaled_dot_product_attention(q, k, v, is_causal=length > 1)   # only look back, never ahead
+        scores = q @ k.transpose(-2, -1) / self.head_dim ** 0.5          # how well each query matches each key
+        ahead = torch.ones(length, k.shape[2], dtype=torch.bool).triu(k.shape[2] - length + 1)   # the keys after each query
+        weights = scores.masked_fill(ahead, float("-inf")).softmax(dim=-1)   # never look ahead; share out attention by match
+        mixed = weights @ v                                              # take that share of each value
         return self.o_proj(mixed.transpose(1, 2).reshape(batch, length, -1))
 
 
@@ -95,7 +98,8 @@ class Block(nn.Module):
     def forward(self, x, cos, sin, cache=None):
         x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back
         h = self.post_attention_layernorm(x)
-        return x + self.down_proj(F.silu(self.gate_proj(h)) * self.up_proj(h))         # think about it
+        gate = self.gate_proj(h)
+        return x + self.down_proj(gate * torch.sigmoid(gate) * self.up_proj(h))        # think about it: a gated network
 
 
 # ── 5. the model: embedding, blocks, output head ──────────────────────────────
