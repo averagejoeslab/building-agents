@@ -6,3 +6,7 @@ Qwen/Qwen3-0.6B in quark, thinking off, coached instructions, practice tasks:
 PASS  Join harbor.txt and cloud.txt, in that order, into both.txt.
 
 > Which file in this folder is the biggest? Write its name into answer.txt.
+  $ ls -l | grep -v 'size' | awk '{print $1}' | sort -nr | head -n1
+  < answer.txt
+FAIL  Which file in this folder is the biggest? Write its name into answer.txt.
+1/2 passed
