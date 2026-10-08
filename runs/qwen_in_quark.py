@@ -9,7 +9,7 @@
 # ///
 """Qwen3-0.6B as Qwen released it, untrained by us, in quark: quark.py's instructions and bash tool, a different model interface.
 The interface speaks Qwen's own format: its chat template renders the conversation and the tool, and the model calls a tool
-by writing <tool_call>{"name": ..., "arguments": ...}</tool_call>. Run from the repo: uv run --script runs/qwen_in_quark.py"""
+by writing <tool_call>{"name": ..., "arguments": ...}</tool_call>. Run from the repo: uv run --script runs/qwen_in_quark.py [think]"""
 import sys, re, json, torch, torch.nn.functional as F
 sys.path.insert(0, ".")
 import model as M, quark_local as Q, tasks as T
@@ -22,22 +22,24 @@ bash = {"type": "function", "function": {"name": "bash", "description": "Run a s
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
 INSTRUCTIONS = "You are quark, an agent. You act through bash, in /work. Today is 2026-10-08."          # quark.py's instructions
 END = M.encode("<|im_end|>")[0]
+THINK = "think" in sys.argv                              # Qwen3 can think first, in <think>…</think>, before it answers
+TEMPERATURE, TOP_P, MOST = (0.6, 0.95, 1500) if THINK else (0.7, 0.8, 400)   # Qwen's advice for each mode
 problems = []                                            # replies the interface could not turn into a tool call
 
 
 def assemble_context(conversation):
     return template.apply_chat_template([{"role": "system", "content": INSTRUCTIONS}] + conversation, tools=[bash],
-                                        add_generation_prompt=True, enable_thinking=False, tokenize=False)
+                                        add_generation_prompt=True, enable_thinking=THINK, tokenize=False)
 
 
 @torch.no_grad()
-def request_response(context, most=400):                 # Qwen's advice without thinking: temperature 0.7, top-p 0.8, top-k 20
+def request_response(context, most=MOST):
     ids, caches, out = torch.tensor([M.encode(context)]), [{} for _ in qwen.layers], []
     scores = qwen(ids, caches)[0, -1]
     for _ in range(most):
-        top = torch.topk(scores / 0.7, 20)
+        top = torch.topk(scores / TEMPERATURE, 20)
         probs = F.softmax(top.values, dim=-1)
-        keep = probs.cumsum(0) - probs < 0.8
+        keep = probs.cumsum(0) - probs < TOP_P
         next_id = top.indices[keep][torch.multinomial(probs[keep] / probs[keep].sum(), 1)]
         if next_id.item() == END:
             break
@@ -60,8 +62,9 @@ def handle_output(response, where):                      # the reply as text, pl
         results.append({"role": "tool", "content": Q.run(command, where)})
     if "<tool_call>" in response and not calls and not results:
         problems.append(response)
+    thought = "".join(re.findall(r"<think>(.*?)</think>", response, re.S)).strip()
     text = re.sub(r"<tool_call>.*?</tool_call>|<think>.*?</think>", "", response, flags=re.S).strip()
-    return {"role": "assistant", "content": text, "tool_calls": calls}, results
+    return {"role": "assistant", "content": text, "tool_calls": calls, "thought": thought}, results
 
 
 transcripts = []
@@ -78,11 +81,13 @@ def session(ask, where, turns=8):                        # quark's control flow:
 
 
 torch.manual_seed(0)
-print(f"{NAME}, untrained by us, in quark:")
+print(f"{NAME}, untrained by us, in quark, thinking {'on' if THINK else 'off'}:")
 T.score(session)
 print(f"tool calls the interface could not read: {len(problems)}", *problems[:3], sep="\n  ")
 for conversation in transcripts[:6:2] + transcripts[-4::2]:
     print("\n" + "─" * 70)
     for m in conversation:
         shown = m["content"] + "".join(f"\n$ {c['function']['arguments']['command']}" for c in m.get("tool_calls", []))
+        if m.get("thought"):
+            print(f"[thinking] {m['thought'][:600]}")
         print(f"[{m['role']}] {shown.strip()[:400]}")
