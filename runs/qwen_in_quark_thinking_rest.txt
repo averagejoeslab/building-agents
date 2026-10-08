@@ -69,3 +69,9 @@ FAIL  Create a Python file hello.py that prints delta.
 
 > Count the words in harbor.txt and write the number to count.txt.
   $ grep -w ' ' harbor.txt | wc -w > count.txt
+  < The number of words in "harbor.txt" has been counted, and the result has been written to "count.txt". You can now open "count.txt" to see the final word count.
+FAIL  Count the words in harbor.txt and write the number to count.txt.
+
+> Count the words in cloud.txt and write the number to count.txt.
+  $ wc -w cloud.txt
+  $ echo $(wc -w cloud.txt) > count.txt

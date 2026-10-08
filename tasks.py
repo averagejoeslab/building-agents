@@ -207,6 +207,7 @@ def make(kind, seed):                                    # a task, its folder, a
 
 
 EVALUATION = [(kind, 1000 * k + n) for k, kind in enumerate(TASKS) for n in range(2)]   # fixed: forty tasks, never trained on
+PRACTICE = [(kind, 2_000_000 + k) for k, kind in enumerate(TASKS)]          # one of each kind, other seeds: to try ideas on
 
 
 def score(attempt, tasks=EVALUATION, show=print):       # attempt(request, folder) does the work; the files decide
@@ -237,13 +238,14 @@ def sonnet(ask, where):                                  # quark with Sonnet and
 if __name__ == "__main__":
     if sys.argv[1] == "sonnet":
         score(sonnet)
-    else:                                                # a model we run ourselves: uv run tasks.py Qwen/Qwen3-0.6B [think] [from=N]
+    else:                                  # a model we run ourselves: uv run tasks.py Qwen/Qwen3-0.6B [think] [coached] [practice] [from=N]
         import model as M, quark_local
         ours, thinking = M.Release(sys.argv[1]), "think" in sys.argv
+        prompt, tasks = "coached" if "coached" in sys.argv else "plain", PRACTICE if "practice" in sys.argv else EVALUATION
         start = int(next((a[5:] for a in sys.argv if a.startswith("from=")), 0))   # carry on after an interruption
-        print(f"{sys.argv[1]} in quark, thinking {'on' if thinking else 'off'}:")
+        print(f"{sys.argv[1]} in quark, thinking {'on' if thinking else 'off'}, {prompt} instructions, {'practice' if tasks is PRACTICE else 'evaluation'} tasks:")
 
         def attempt(ask, where):
             print(f"\n> {ask}")
-            quark_local.session(ours, ask, where, thinking, show=lambda line: print("  " + line.replace("\n", "\n  "), flush=True))
-        score(attempt, EVALUATION[start:])
+            quark_local.session(ours, ask, where, thinking, prompt, show=lambda line: print("  " + line.replace("\n", "\n  "), flush=True))
+        score(attempt, tasks[start:])
