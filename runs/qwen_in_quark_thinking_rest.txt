@@ -75,3 +75,11 @@ FAIL  Count the words in harbor.txt and write the number to count.txt.
 > Count the words in cloud.txt and write the number to count.txt.
   $ wc -w cloud.txt
   $ echo $(wc -w cloud.txt) > count.txt
+  < The word count in cloud.txt is 15. The number has been successfully written to count.txt.
+    
+    <count.txt>
+    15
+    </count.txt>
+FAIL  Count the words in cloud.txt and write the number to count.txt.
+
+> Join violet.txt and cobalt.txt, in that order, into both.txt.
