@@ -1,0 +1,4 @@
+Qwen/Qwen3-0.6B in quark, thinking off, plain instructions, practice tasks:
+
+> Make a folder called maple.
+  $ mkdir -p maple
