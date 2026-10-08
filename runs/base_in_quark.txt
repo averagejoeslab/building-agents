@@ -1,0 +1,2910 @@
+Qwen/Qwen3-0.6B-Base in quark, thinking off, plain instructions, evaluation tasks:
+
+> Make a folder called stone.
+  < ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ �
+FAIL  Make a folder called stone.
+
+> Make a folder called falcon.
+  < }</toolset>
+    
+    </tools>
+    
+    # Queries
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <query></query> XML tags:
+    <query>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </query>
+    
+    For each function call, return a json object with function name and arguments within �件 XML tags:
+    �件
+    {"name": <function-name>, "arguments": <args-json-object>}
+    �件�件
+    �件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+    �件�件
+FAIL  Make a folder called falcon.
+
+> Create an empty file called stone.txt.
+  < }</工具></工具>
+    
+    # User Query
+    
+    The user query should be a JSON object with the following structure:
+    {"query": <user-query-json-object>}
+    }</user-query-json-object></user-query-json-object>
+    
+    # Functions
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within .headers.XML tags:
+    .headers
+    {"name": <function-name>, "arguments": <args-json-object>}
+    .headers.headers
+    {"type": "object", "properties": {"args": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+FAIL  Create an empty file called stone.txt.
+
+> Create an empty file called falcon.txt.
+  < # User Query
+    
+    The user queries you to respond with a message in the form of an XML tag:
+    <context>
+    {"type": "user", "message": <user-message>}
+    <context>
+    
+    # Output
+    
+    The user query should be responded to in the form of an XML tag:
+    <context>
+    {"type": "assistant", "response": <assistant-response>}
+    <context>
+    
+    # Rules
+    
+    You are a human agent, not a machine. Do not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You should not generate any output that is not in the XML format.
+    
+    You
+FAIL  Create an empty file called falcon.txt.
+
+> Write the word amber into a file called willow.txt.
+  < XML tag to ask the user for input. If the user types "exit", return an empty JSON object.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></functions> XML tags to find the function names and arguments that you need to call to complete the user query.</strong>
+    
+    <strong>Use the <functions></
+FAIL  Write the word amber into a file called willow.txt.
+
+> Write the word amber into a file called tiger.txt.
+  < }</.functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "
+FAIL  Write the word amber into a file called tiger.txt.
+
+> Count the lines in delta.txt and write the number to count.txt.
+  < }</.functions>
+    
+    # Rules
+    
+    You may call one or more functions to assist with the user query and output.
+    
+    You are provided with function signatures within <rules></rules> XML tags:
+    <rules>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </rules>
+    
+    For each function call, return a json object with function name and arguments within alleng XML tags:
+    alleng
+    {"name": <function-name>, "arguments": <args-json-object>}
+    alleng<strong>user</strong>
+    Tell the user to
+FAIL  Count the lines in delta.txt and write the number to count.txt.
+
+> Count the lines in tiger.txt and write the number to count.txt.
+  < �数字和字母的字符串为数字，字母的字符串为字母。请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z。
+    
+    请你设计一个函数，对数字和字母的字符串进行匹配，返回匹配后的字符串。�数字为1,2,3,4,5,6,7,8,9,0，字母为a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u
+FAIL  Count the lines in tiger.txt and write the number to count.txt.
+
+> Make a copy of stone.txt called harbor.txt.
+  < ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ �
+FAIL  Make a copy of stone.txt called harbor.txt.
+
+> Make a copy of river.txt called delta.txt.
+  < </tool>
+    
+    </tools>
+    
+    # Input
+    
+    For each function call, return a json object with function name and arguments within  ␈ ␈ ␈ XML tags:
+     ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ ␈ �
+FAIL  Make a copy of river.txt called delta.txt.
+
+> Rename harbor.txt to falcon.txt.
+  < }</ tools>
+    
+    # The user query
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <user-query></user-query> XML tags:
+    <user-query>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-query>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    # The user response
+    
+    You may call one or more functions to assist with the user response.
+    
+    You are provided with function signatures within <user-response></user-response> XML tags:
+    <user-response>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-response>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    # The user query
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <user-query></user-query> XML tags:
+    <user-query>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-query>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    # The user response
+    
+    You may call one or more functions to assist with the user response.
+    
+    You are provided with function signatures within <user-response></user-response> XML tags:
+    <user-response>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-response>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    # The user query
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <user-query></user-query> XML tags:
+    <user-query>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-query>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    # The user response
+    
+    You may call one or more functions to assist with the user response.
+    
+    You are provided with function signatures within <user-response></user-response> XML tags:
+    <user-response>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user-response>
+    
+    For each function call, return a json object with function name and arguments within _fields XML tags:
+    _fields
+    {"name": <function-name>, "arguments": <args-json-object>}
+    _fields
+    {"type": "string", "description": "The user's query", "required": true}
+    _fields
+    {"type": "string", "description": "The user's response", "required": true}
+    
+    For each function call, return a json object with function name and arguments within _fields XML
+FAIL  Rename harbor.txt to falcon.txt.
+
+> Rename cobalt.txt to cloud.txt.
+  < }</.functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and arguments within ulations XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    
+    </tools>
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object
+FAIL  Rename cobalt.txt to cloud.txt.
+
+> Delete willow.txt.
+  < larınızı. ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ �
+FAIL  Delete willow.txt.
+
+> Delete maple.txt.
+  < ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ �
+FAIL  Delete maple.txt.
+
+> Delete every .log file in this folder.
+  < }</tools>
+    
+    You may call one or more functions to assist with the user query.
+    You are provided with function signatures within <tools></tools> XML tags:
+    <tools>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </tools>
+    
+    For each function call, return a json object with function name and
+FAIL  Delete every .log file in this folder.
+
+> Delete every .log file in this folder.
+  < <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+    <strong>
+FAIL  Delete every .log file in this folder.
+
+> Make a folder called stone and move every .txt file into it.
+  < }</ tools>
+FAIL  Make a folder called stone and move every .txt file into it.
+
+> Make a folder called apple and move every .txt file into it.
+  < }</tool>
+    }</tools>
+    
+    # Functions
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within  ⛏ ⛏ ⛏ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+     ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏ ⛏
+FAIL  Make a folder called apple and move every .txt file into it.
+
+> Write the names of the files in this folder, one per line, into files.txt.
+  < <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a query.</strong>
+    <strong>Use the function to ask the user to write a
+FAIL  Write the names of the files in this folder, one per line, into files.txt.
+
+> Write the names of the files in this folder, one per line, into files.txt.
+  < }</functions>
+    
+    <strong>Notes</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function Call Syntax</strong>
+    
+    <strong>Function
+FAIL  Write the names of the files in this folder, one per line, into files.txt.
+
+> Which file contains the word zebra? Write its name into answer.txt.
+  < }</tool>
+    
+    # Query
+    
+    You are provided with a user query. You must process the query and return a response within  ⛈ ⛈ ⛈ ⛈ ⛈ XML tags:
+     ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ ⛈ �
+FAIL  Which file contains the word zebra? Write its name into answer.txt.
+
+> Which file contains the word zebra? Write its name into answer.txt.
+  < larınızı.
+FAIL  Which file contains the word zebra? Write its name into answer.txt.
+
+> Sort the lines of apple.txt alphabetically and save them to sorted.txt.
+  < }</functions>
+    }</tools>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    }</user>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # User
+    
+    You are provided with a JSON object containing user input within <user></user> XML tags:
+    <user>
+    {"type": "input", "input": {"type": "string", "prompt": "What is your name?"}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+    }</functions>
+    
+    # Function
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <functions></functions> XML tags:
+    <functions>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </functions>
+    
+    For each function call, return a json object with function name and arguments within __(*⋅⋅⋅*) XML tags:
+    __(*⋅⋅⋅*)
+    {"name": <function-name>, "arguments": <args-json-object>}
+    __(*⋅⋅⋅*)
+FAIL  Sort the lines of apple.txt alphabetically and save them to sorted.txt.
+
+> Sort the lines of maple.txt alphabetically and save them to sorted.txt.
+  < }</functions>
+    }</tools>
+    
+    # User
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <user></user> XML tags:
+    <user>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </user>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</user>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </assistant>
+    
+    For each function call, return a json object with function name and arguments within  ⚡ ⚡ ⚡ XML tags:
+    {"name": <function-name>, "arguments": <args-json-object>}
+    }</functions>
+    }</assistant>
+    
+    # Assistant
+    
+    You may call one or more functions to assist with the assistant query.
+    
+    You are provided with function signatures within <assistant></assistant> XML tags:
+    <assistant>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required":
+FAIL  Sort the lines of maple.txt alphabetically and save them to sorted.txt.
+
+> Add a line saying pixel to the end of apple.txt.
+  < </astics>
+FAIL  Add a line saying pixel to the end of apple.txt.
+
+> Add a line saying cloud to the end of delta.txt.
+  < ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇
+FAIL  Add a line saying cloud to the end of delta.txt.
+
+> Write the first line of river.txt into first.txt.
