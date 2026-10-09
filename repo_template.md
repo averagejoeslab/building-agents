@@ -55,20 +55,22 @@ Building agents
 │    ├─ What it does: tokens in, the next token out, repeated   [DIAGRAM]
 │    ├─ Its seven primitives; how they predict, together   [TABLE] [DIAGRAM]
 │    ├─ Building them: each in one line, then its code → model.py, checked against Qwen   [CODE] [CHECK]
-│    └─ Training it: one idea; three stages; every stage checked twice, before → after:
-│         its own held-out, decontaminated data (did it do its job?)
-│         and the agent's 32 tasks in quark (did it help the agent?)
-│         ├─ Pre-training: ours, from random numbers, on Shakespeare   [HELD-OUT BEFORE/AFTER]
+│    └─ Training it: one idea; three stages; every stage checked before → after on held-out,
+│         decontaminated data from its own source (did it train what it should?);
+│         from post-training on, the agent too: the 32 tasks in quark, before → after each step
+│         ├─ Pre-training: ours, from random numbers, on Shakespeare   [HELD-OUT LOSS]
 │         │    → the compute gap → Qwen3-0.6B-Base loaded into our code, every part checked   [RESULT] [CHECK]
-│         ├─ Our model in quark: one primitive changes, the model interface   [CODE]
-│         │    → Base on tasks.py: the starting point   [RESULT]
-│         ├─ Mid-training: shell pages, decontaminated, fixed steps   [DATA] [HELD-OUT] [tasks.py]
-│         ├─ Instruction-tuning: six kinds; public sets and verified sessions from training tasks
-│         │    kept apart from tasks.py; decontaminated   [DATA] [HELD-OUT] [same requests] [tasks.py]
-│         │    → a stop: RL only if the agent does the right thing some of the time
-│         ├─ RL in the harness: tries at training tasks, graded by their checks; the same update,
-│         │    weighted   [CODE] [HELD-OUT TRAINING TASKS] [tasks.py]
-│         └─ Stage by stage: same harness, same tasks, only the model changes   [TABLE]
+│         ├─ Mid-training: shell pages, decontaminated, fixed steps   [DATA]
+│         │    [HELD-OUT LOSS] [SHELL CHECK: few-shot, as a base model is asked; before = Base]
+│         ├─ Post-training
+│         │    ├─ Our model in quark: one primitive changes, the model interface   [CODE]
+│         │    │    → the mid-trained model on tasks.py: the agent before post-training   [RESULT]
+│         │    ├─ Instruction-tuning: six kinds; public sets and verified sessions from training tasks
+│         │    │    kept apart from tasks.py; decontaminated   [DATA] [HELD-OUT LOSS] [same requests] [tasks.py]
+│         │    │    → a stop: RL only if the agent does the right thing some of the time
+│         │    └─ RL in the harness: tries at training tasks, graded by their checks; the same update,
+│         │         weighted   [CODE] [HELD-OUT TRAINING TASKS] [tasks.py]
+│         └─ Stage by stage: each stage on its own check; the agent from post-training on   [TABLES]
 │
 ├─ What fell short, and what would fix it: each gap, its likely cause, the remedy   [RESULT]
 │

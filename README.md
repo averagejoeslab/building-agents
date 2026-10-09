@@ -60,8 +60,8 @@ the harness  ── built one primitive at a time around a capable model (Sonnet
 the model    ── its architecture, built and checked against a real one
      │          pre-trained from random numbers; then a real pre-trained model loaded in
      │          mid-training → instruction-tuning → RL in the harness
-     │          every stage: its own held-out data, before → after,
-     │                       and the agent's 32 tasks in the harness, before → after
+     │          every stage: its own held-out data, before → after
+     │          from post-training on: the agent's 32 tasks in the harness, before → after
      ▼
 what fell short ── causes, as best we can tell, and what would fix them
 ```
@@ -995,10 +995,7 @@ Training runs in the stages a lab uses (above). The split is a convention: the g
 
 Pre- and mid-training put knowledge in. Post-training can't add much; it shapes behaviour, and the model becomes whatever the grading rewards. Each stage needs the one before.
 
-Every stage is checked the same two ways, before and after:
-
-- **Did it do its job?** Its own held-out data: data from the same source it never trained on, and checked against `tasks.py` so none of it resembles the evaluation.
-- **Did it help the agent?** The model in quark, on `tasks.py`'s 32 tasks.
+Every stage is checked, before and after, on held-out data from its own source that it never trained on, and none of which resembles `tasks.py`: **did it train what it should?** A base model can't follow a request yet, so it's asked the way labs ask one, by example. From post-training on, the model can act, so it's also evaluated as an agent: in quark, on `tasks.py`'s 32 tasks, before and after each step.
 
 #### Pre-training
 
@@ -1009,7 +1006,7 @@ Every stage is checked the same two ways, before and after:
 | **Untrained** | 7.69 | `GR9Clengeracices marry confAh condThey villainoud might weep…` |
 | **After training** | 5.31 | `Welcome, dishonest, my gorm is this day,`<br>`And then runs wrongs it which Tybalt bids`<br>`Warwick shall make thee mad with a father's sins` |
 
-Noise becomes the shape of a play: verse, speakers and real names, near sense. It has no chat format and a 2,048-token vocabulary, so it can't be put in quark: the second check starts with the model we load next.
+Noise becomes the shape of a play: verse, speakers and real names, near sense.
 
 The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in, and its tokenizer's learned merges load into our tokenizer: about 150,000 tokens, the same numbers Qwen uses.
 
@@ -1029,9 +1026,35 @@ model: largest difference in its scores 1.4e-04; the same next token at all 198 
 'The capital of France is' → ' Paris. The capital of Germany is Berlin. The capital of'
 ```
 
-#### Our model in quark
+#### Mid-training
 
-Now there's a model to put in the harness. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. The chat template is that of Qwen3-0.6B, Qwen's own chat model, at every stage, so every stage is asked the same way. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 7,700 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
+From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
+
+```
+- [c]reate a g[z]ipped archive and write it to a [f]ile:
+
+`tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
+```
+
+Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about a quarter of the pages (`uv run train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check: one example from each of 100 held-out pages, asked by example, as a base model is asked:
+
+```
+Request: show how much space a directory takes
+Command: du -sh {{path/to/directory}}
+…
+Request: Shut down a virtual machine
+Command:
+```
+
+It passes when the command it names is the right one. "Before" is Qwen3-0.6B-Base as it ships.
+
+> **Result:** filled in after verification: held-out loss, before → after; the shell check, before → after.
+
+#### Post-training
+
+Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format of Qwen3-0.6B, Qwen's own chat model, so ours ends up speaking the same format as the model we'll compare it with.
+
+**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 7,700 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
 
 ```python
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
@@ -1044,25 +1067,7 @@ def our_response(context, on_each_piece, most=512):      # a model we run: its c
 
 (shortened)
 
-> **Result:** filled in after verification: Qwen3-0.6B-Base on `tasks.py` (`uv run tasks.py Qwen/Qwen3-0.6B-Base`): the starting point every later stage is measured against.
-
-#### Mid-training
-
-From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
-
-```
-- [c]reate a g[z]ipped archive and write it to a [f]ile:
-
-`tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
-```
-
-200 pages are held out to measure it, and pages too close to an evaluation request are left out of both. It trains a fixed 60 steps, about a quarter of the pages (`uv run train.py mid`).
-
-> **Result:** filled in after verification: held-out loss on the 200 pages, before → after; `tasks.py`, before → after.
-
-#### Post-training
-
-Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format quark already lays its conversation out in: Qwen3-0.6B's, so ours ends up speaking the same format as the model we'll compare it with.
+> **Result:** filled in after verification: the mid-trained model in quark, on `tasks.py` (`uv run tasks.py checkpoints/midtrain.pt`): the agent before post-training, and why post-training exists.
 
 **Instruction-tuning.** **Goal:** take turns, call the tool in the harness's format, stop. It shows the model example conversations, and it learns from the assistant's tokens only. Six kinds, 2,400 in all:
 
@@ -1106,7 +1111,7 @@ Nothing it trains on may resemble what it's scored on. Every source is checked a
 
 It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py post instruct`).
 
-> **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; `tasks.py`, before → after.
+> **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; the agent on `tasks.py`, before → after.
 
 RL can only make more likely what the model already does some of the time. So we stop here and look: if the agent never does the right thing, RL has nothing to learn from.
 
@@ -1128,12 +1133,20 @@ Its own held-out check is 40 training tasks from folders it never trains in.
 
 ### Stage by stage
 
-The same harness and the same 32 tasks; only the model changes:
+Each stage, on its own check:
+
+| Stage | Its check | Before | After |
+|---|---|---|---|
+| Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.31 |
+| Mid-training | held-out loss on shell pages; the shell check | | |
+| Instruction-tuning | held-out loss on conversations | | |
+| Reinforcement learning | held-out training tasks | | |
+
+And the agent, from post-training on: the same harness and the same 32 tasks; only the model changes:
 
 | Model in quark | File work | Code fixes | Questions | Safety | All |
 |---|---|---|---|---|---|
-| Qwen3-0.6B-Base, as it ships | | | | | |
-| after mid-training | | | | | |
+| before post-training (mid-trained) | | | | | |
 | after instruction-tuning | | | | | |
 | after reinforcement learning | | | | | |
 | Qwen3-0.6B: Qwen's own post-training | | | | | |
@@ -1160,7 +1173,7 @@ The same steps a lab takes, at the scale of one computer:
 | **Mid-training** | chosen data, including recorded agent sessions | shell pages |
 | **Instruction-tuning** | broad public data, and agent sessions in the harness's format, checked and decontaminated | public chat, command, reasoning, tool-calling and code sets, and verified sessions from our training tasks, decontaminated |
 | **Reinforcement learning** | its own harness, many environments, long tasks; graders for results, helpfulness and safety | quark, twenty kinds of training task, their checks |
-| **Every stage** | held-out data and the agent's evaluations, before and after | the same |
+| **Every stage** | held-out data for what the stage trains; the agent's evaluations from post-training on, before and after | the same |
 
 What we couldn't match is the size: of the model, the data, the environments and the tasks, training for safety, and running the loop again with what the evaluations found. The method is the same. Build the harness and its evaluation, build the model, train it in stages, check every stage twice, and let what fell short decide the next round. That's how you build an agent from scratch.
 
@@ -1178,9 +1191,8 @@ uv run tasks.py                                       # evaluation: the four kin
 # the model
 uv run model.py                                       # check our tokenizer, model and chat template against Qwen's
 uv run train.py pre                                   # pre-training: our model, from random numbers, on Shakespeare
-uv run tasks.py Qwen/Qwen3-0.6B-Base                  # score Qwen3-0.6B-Base in quark
 uv run train.py mid                                   # mid-training: Qwen3-0.6B-Base, on shell pages
-uv run tasks.py checkpoints/midtrain.pt               # and score it
+uv run tasks.py checkpoints/midtrain.pt               # the agent before post-training
 uv run train.py post instruct                         # post-training: instruction-tuning
 uv run tasks.py checkpoints/instruct.pt
 uv run train.py post rl                               # post-training: reinforcement learning, in the harness

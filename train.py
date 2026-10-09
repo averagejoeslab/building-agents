@@ -90,6 +90,24 @@ def shell_pages():                                       # tldr-pages (CC BY 4.0
     return [open(path).read() for path in sorted(glob.glob(f"{where}/pages/*/*.md"))]
 
 
+def examples(page):                                      # a page's examples: what it does, in plain English, and the command
+    return [(re.sub(r"[\[\]]", "", what), command) for what, command in re.findall(r"^- (.+?):\n\n`(.+?)`$", page, re.M)]
+
+
+SHOTS = ("Request: show how much space a directory takes\nCommand: du -sh {{path/to/directory}}\n\n"
+         "Request: print today's date\nCommand: date\n\n"
+         "Request: find files by name below the current directory\nCommand: find . -name {{name}}\n\n")
+
+
+@torch.no_grad()
+def shell_check(model, pairs):                           # asked as a base model is asked, by example: does it pick the right command?
+    right = 0
+    for what, command in pairs:
+        said = [w.strip("`") for w in model.generate(SHOTS + f"Request: {what}\nCommand:", most=24, temperature=0).split("\n")[0].split() if w != "sudo"]
+        right += bool(said) and said[0] == command.split()[0]
+    return f"{right}/{len(pairs)}"
+
+
 def chunks(model, texts, length=512):                    # the pages as one stream of tokens, cut into equal pieces
     ids = [i for t in texts for i in model.encode(t + "\n\n")]
     return torch.tensor(ids[:len(ids) // (length + 1) * (length + 1)]).view(-1, length + 1)
@@ -102,12 +120,15 @@ def chunk_loss(model, data):
 
 def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about a quarter of the pages
     model = ours(BASE)
-    pages = shell_pages()
+    every = shell_pages()
+    pages = [p for p in every if all(closest(what)[0] < 0.4 for what, _ in examples(p))]   # decontaminated: none near an evaluation request
     random.shuffle(pages)
     data, held_out = chunks(model, pages[200:]), chunks(model, pages[:200])[:32]   # 200 pages it never trains on
+    tests = [examples(p)[0] for p in pages[:200] if examples(p)][:100]             # one example from each: the shell check
     done = resume(model, "midtrain")
     if not done:
-        log(f"{len(pages):,} pages, {data.numel():,} tokens; held-out loss before: {chunk_loss(model, held_out):.3f}")
+        log(f"{len(pages):,} pages ({len(every) - len(pages)} left out, too near an evaluation request), {data.numel():,} tokens")
+        log(f"held-out loss before: {chunk_loss(model, held_out):.3f}; shell check before: {shell_check(model, tests)} right commands")
     optimizer = trainable(model.model, lr=1e-5)
     for step in range(done.get("step", 0) + 1, steps + 1):
         optimizer.zero_grad()
@@ -119,7 +140,7 @@ def midtrain(steps=60):                                  # a fixed number of ste
             save(model.model, "midtrain", step=step)
         if step % 25 == 0:
             log(f"step {step}: loss {loss.item():.3f}")
-    log(f"after {steps} steps; held-out loss after: {chunk_loss(model, held_out):.3f}")
+    log(f"after {steps} steps; held-out loss after: {chunk_loss(model, held_out):.3f}; shell check after: {shell_check(model, tests)} right commands")
     finish(model, "midtrain")
 
 
