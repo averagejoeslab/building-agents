@@ -142,7 +142,7 @@ next_id = order[torch.multinomial(ordered, 1)]                      # draw one
 scores = self.model(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]   # add it, go again; the cache keeps the rest
 ```
 
-That's the whole model, about 180 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` (`uv run model.py check`).
+That's the whole model, about 180 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` (`uv run model.py`).
 
 ### Training it
 
@@ -165,7 +165,7 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run model.py pretrain`).
+We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pre`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
@@ -178,7 +178,7 @@ The same code, trained on about 36 trillion tokens for months on a cluster of GP
 
 > **Result:** filled in after verification.
 
-A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model.py check`):
+A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model.py`):
 
 ```python
 class Release:
@@ -186,8 +186,10 @@ class Release:
 ```
 
 ```
-chat template and tokenizer: identical to the reference on 8 conversations, tools, tool results and thinking included
-model: largest difference in its scores 1.4e-04, same most likely token at all 196 positions: True
+tokenizer: the same tokens as Qwen's: True
+chat template: the same text as Qwen's: True
+model: largest difference in its scores 1.4e-04; the same next token at all 198 positions: True
+'The capital of France is' → ' Paris. The capital of Germany is Berlin. The capital of'
 ```
 
 #### Mid-training
@@ -200,7 +202,7 @@ From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-trai
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-200 pages are held out to measure it (`uv run model.py midtrain`).
+200 pages are held out to measure it (`uv run train.py mid`).
 
 > **Result:** filled in after verification.
 
@@ -236,11 +238,11 @@ How many lines are in harbor.csv?<|im_end|>
 harbor.csv has 5 lines.<|im_end|>                         ← learned
 ```
 
-It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run model.py instruct`).
+It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (the first half of `uv run train.py post`).
 
 > **Result:** filled in after verification: held-out loss and real replies, before and after.
 
-**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (`uv run model.py reason`).
+**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (the second half of `uv run train.py post`).
 
 Both are one function. Imitation weights every example 1; reinforcement learning weights each attempt by how much better or worse than the group it did:
 
@@ -1040,11 +1042,10 @@ You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-
 
 ```bash
 # the model
-uv run model.py check                                 # our tokenizer, model and chat template, against Qwen's
-uv run model.py pretrain                              # our model, from random numbers, on Shakespeare
-uv run model.py midtrain                              # Qwen3-0.6B-Base, on shell pages
-uv run model.py instruct                              # instruction-tuning
-uv run model.py reason                                # reinforcement learning on maths
+uv run model.py                                       # check our tokenizer, model and chat template against Qwen's
+uv run train.py pre                                   # pre-training: our model, from random numbers, on Shakespeare
+uv run train.py mid                                   # mid-training: Qwen3-0.6B-Base, on shell pages
+uv run train.py post                                  # post-training: instruction-tuning, then reinforcement learning
 
 # the harness
 cp .env.example .env                                  # then put your key in .env
