@@ -71,8 +71,8 @@ Each primitive in one line: what it does. The code, from [`model.py`](./model.py
 **Tokenizer: turns text into tokens, and back.**
 
 ```python
-def learn(cls, text, size):                         # byte-pair encoding: start from single bytes...
-    while 256 + len(merges) < size:
+def learn(cls, text, size, special=()):             # byte-pair encoding: start from single bytes...
+    while 256 + len(merges) + len(special) < size:
         pairs = collections.Counter()
         for w, n in words.items():
             for pair in zip(w, w[1:]):
@@ -102,9 +102,9 @@ q, k = rotate(q, cos, sin), rotate(k, cos, sin)  # turn each query and key by it
 **Attention: each token gathers what it needs from the tokens before it.**
 
 ```python
-q = self.q_proj(x)                               # what each token is looking for
-k = self.k_proj(x)                               # what each token offers
-v = self.v_proj(x)                               # what each token carries
+q = self.q_norm(self.q_proj(x).view(batch, length, self.heads, self.head_dim)).transpose(1, 2)      # what each token looks for
+k = self.k_norm(self.k_proj(x).view(batch, length, self.kv_heads, self.head_dim)).transpose(1, 2)   # what each token offers
+v = self.v_proj(x).view(batch, length, self.kv_heads, self.head_dim).transpose(1, 2)                # what each token carries
 scores = q @ k.transpose(-2, -1) / self.head_dim ** 0.5          # how well each query matches each key
 ahead = torch.ones(length, k.shape[2], dtype=torch.bool).triu(k.shape[2] - length + 1)   # the keys after each query
 weights = scores.masked_fill(ahead, float("-inf")).softmax(dim=-1)   # never look ahead; share out attention by match
@@ -134,12 +134,15 @@ return x @ self.embed_tokens.weight.T            # compare with every token's me
 
 ```python
 scores = scores / temperature                                       # sharpen or flatten
-scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # keep the likeliest
-next_id = torch.multinomial(F.softmax(scores, dim=-1), 1)           # draw one
-scores = self.model(next_id, caches, start=...)[0, -1]              # add it, and go again; earlier tokens are cached
+scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # keep the k likeliest
+probs = F.softmax(scores, dim=-1)
+ordered, order = probs.sort(descending=True)
+ordered[ordered.cumsum(0) - ordered >= top_p] = 0                   # and only as many as make up top_p
+next_id = order[torch.multinomial(ordered, 1)]                      # draw one
+scores = self.model(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]   # add it, go again; the cache keeps the rest
 ```
 
-That's the whole model, about 150 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` (`uv run model.py check`).
+That's the whole model, about 180 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` (`uv run model.py check`).
 
 ### Training it
 
