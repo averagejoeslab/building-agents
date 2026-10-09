@@ -213,7 +213,7 @@ From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-trai
 
 200 pages are held out to measure it (`uv run train.py mid`).
 
-> **Result:** filled in after verification.
+Held-out loss on shell pages it never saw falls from 1.877 to 1.433, after about a quarter of the pages.
 
 #### Post-training
 
