@@ -100,23 +100,26 @@ def chunk_loss(model, data):
     return sum(F.cross_entropy(model.model(c[None, :-1])[0], c[1:]).item() for c in data) / len(data)
 
 
-def midtrain(minutes=45):
+def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about a quarter of the pages
     model = ours(BASE)
     pages = shell_pages()
     random.shuffle(pages)
     data, held_out = chunks(model, pages[200:]), chunks(model, pages[:200])[:32]   # 200 pages it never trains on
-    log(f"{len(pages):,} pages, {data.numel():,} tokens; held-out loss before: {chunk_loss(model, held_out):.3f}")
-    optimizer, start, step = trainable(model.model, lr=1e-5), time.time(), 0
-    while time.time() - start < minutes * 60 and step < len(data) // 4:
+    done = resume(model, "midtrain")
+    if not done:
+        log(f"{len(pages):,} pages, {data.numel():,} tokens; held-out loss before: {chunk_loss(model, held_out):.3f}")
+    optimizer = trainable(model.model, lr=1e-5)
+    for step in range(done.get("step", 0) + 1, steps + 1):
         optimizer.zero_grad()
-        for piece in data[4 * step:4 * step + 4]:        # one pass at most: four pieces a step, one at a time to fit in memory
+        for piece in data[4 * step - 4:4 * step]:        # four pieces a step, one at a time to fit in memory
             loss = F.cross_entropy(model.model(piece[None, :-1])[0], piece[1:])
             (loss / 4).backward()
         optimizer.step()
-        step += 1
+        if step % 5 == 0:
+            save(model.model, "midtrain", step=step)
         if step % 25 == 0:
-            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; loss {loss.item():.3f}")
-    log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {chunk_loss(model, held_out):.3f}")
+            log(f"step {step}: loss {loss.item():.3f}")
+    log(f"after {steps} steps; held-out loss after: {chunk_loss(model, held_out):.3f}")
     finish(model, "midtrain")
 
 
@@ -570,6 +573,13 @@ def attempt(model, quark, kind, seed):                   # one try at a training
         shutil.rmtree(where, ignore_errors=True)
 
 
+def held_out_tasks(model, quark):                        # RL's own held-out check: training kinds, in folders it never trains on, once each
+    quark.TEMPERATURE = 0                                # the most likely reply, so the score repeats
+    passed = sum(attempt(model, quark, TRAINING[n % len(TRAINING)], seed=10_000 + n)[1] for n in range(40))
+    quark.TEMPERATURE = None                             # tries in training: sampled as its generation settings say
+    return f"{passed}/40"
+
+
 def rl(steps=60, group=8):                               # reinforcement learning in the harness: try training tasks, keep what passed
     import quark_production as quark
     model = ours("checkpoints/instruct.pt")
@@ -577,6 +587,8 @@ def rl(steps=60, group=8):                               # reinforcement learnin
     quark.OURS, quark.local, quark.TEMPERATURE = "ours", model, None   # its tries sampled as its generation settings say
     quark.allowed = lambda command: True                 # as tasks.py runs it: yes to every approval, so only the never list stops it
     quark.MAX_STEPS = 10                                 # a try that hasn't finished in 10 steps has failed
+    if not done:
+        log(f"held-out training tasks before: {held_out_tasks(model, quark)} passed")
     optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
     for step in range(done.get("step", 0) + 1, steps + 1):
         kind = TRAINING[(step - 1) % len(TRAINING)]      # the training tasks, never tasks.py's: that's the evaluation
@@ -589,6 +601,7 @@ def rl(steps=60, group=8):                               # reinforcement learnin
         if step % 10 == 0:
             log(f"  passed in training, last 10 tasks: {sum(passed[-10:]) / 10:.0%}")
         save(model.model, "rl", step=step, passed=passed)
+    log(f"held-out training tasks after: {held_out_tasks(model, quark)} passed")
     finish(model, "rl")
     log("score it in the harness: uv run tasks.py checkpoints/rl.pt")
 
