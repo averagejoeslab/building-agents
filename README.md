@@ -249,7 +249,13 @@ harbor.csv has 5 lines.<|im_end|>                         ← learned
 
 It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (the first half of `uv run train.py post`).
 
-> **Result:** filled in after verification: held-out loss and real replies, before and after.
+Held-out loss on 48 conversations it never saw falls from 2.974 to 0.554. The same three requests, before and after:
+
+| Asked | Before | After |
+|---|---|---|
+| *How do I make a cup of tea?* | `⚇ ⚇ ⚇ ⚇ ⚇ ⚇ …` | *To make a cup of tea, you will need … 1. Boil water … 2. Add the tea leaves … and let it steep for 2-3 minutes …* |
+| *Count the lines in notes.txt.* (with the bash tool) | `# Notes > This command is an alias of notes. # Notes …`, the shell pages, over and over | a tool call: `wc -l < notes.txt` |
+| *Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?* | a different question, then `⚙ ⚙ ⚙ …` | `<think>` Samantha has $25 + $100 = $125. Daisy has $50 + $125 = $175. … $400. `</think>` *The answer is 400.* |
 
 **Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (the second half of `uv run train.py post`).
 
@@ -269,7 +275,11 @@ def update(model, optimizer, texts, weights):            # make each text more l
 
 A trained model, and all it does is output tokens. Ask it to count the lines in a file, with a tool it can use, and it outputs the tokens for using the tool:
 
-> **Result:** filled in after verification.
+```
+> Count the lines in notes.txt.
+< <tool_call>
+  {"name": "bash", "arguments": {"command": "wc -l < notes.txt"}}
+```
 
 And then nothing happens. Nothing runs the command, nothing shows it the result, nothing lets it try again. Those are tokens, not actions. Turning one into the other is the harness.
 
