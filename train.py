@@ -273,8 +273,8 @@ def instruct():
 
 # ── 4. post-training: reinforcement learning with a verifier ────────────────
 
-def right(text, answer):                                 # the verifier: is the final number correct?
-    found = re.findall(r"answer is \$?(-?[\d,]*\.?\d+)", text)
+def right(text, answer):                                 # the verifier: is the last number in its reply, after any thinking, correct?
+    found = re.findall(r"-?[\d,]*\.?\d+", re.split(r"</?think>", text)[-1])   # it sometimes closes its thinking with <think>
     return bool(found) and float(found[-1].replace(",", "")) == float(answer.split("####")[1].strip().replace(",", ""))
 
 
@@ -282,51 +282,66 @@ def question(model, row):
     return model.chat([{"role": "user", "content": row["question"]}], thinking=True)
 
 
+def shots(rows):                                         # worked examples, in plain text: how a base model is asked
+    return "".join(f"Question: {r['question']}\nAnswer: {re.sub(r'<<.*?>>', '', r['answer'].split('####')[0]).strip()}"
+                   f"\nThe answer is {r['answer'].split('####')[1].strip()}.\n\n" for r in rows)
+
+
 @torch.no_grad()
-def samples(model, prompt, n, most=320, temperature=1.0):    # n answers to one question, generated side by side
+def samples(model, prompt, n, most=512, temperature=None, until=None):   # n answers side by side, and whether each finished
     ids, caches = torch.tensor([model.encode(prompt)] * n), [{} for _ in model.model.layers]
     scores, out, done = model.model(ids, caches)[:, -1], [[] for _ in range(n)], [False] * n
     for step in range(most):
-        scores[:, model.tokens:] = float("-inf")          # only real tokens: the rest of the output head is padding
-        next_ids = torch.multinomial(F.softmax(scores / temperature, dim=-1), 1)
+        next_ids = model.pick(scores, temperature)       # with Qwen's sampling settings: temperature 0.6, top-k 20, top-p 0.95
         for row, token in enumerate(next_ids[:, 0].tolist()):
             if not done[row]:
                 done[row] = token in model.stops
                 if not done[row]:
                     out[row].append(token)
+                    done[row] = bool(until) and until in model.decode(out[row][-8:])
         if all(done):
             break
         scores = model.model(next_ids, caches, start=ids.shape[1] + step)[:, -1]
-    return [model.decode(o) for o in out]
+    return [model.decode(o).split(until)[0] if until else model.decode(o) for o in out], done
 
 
-def accuracy(model, questions):                          # the fixed score: greedy answers to questions it never trains on
-    return sum(right(model.generate(question(model, row), most=320, temperature=0), row["answer"]) for row in questions) / len(questions)
+def accuracy(model, questions, prompt=None, until=None):   # the fixed score: greedy answers to questions it never trains on
+    results = [samples(model, (prompt or (lambda row: question(model, row)))(row), 1, temperature=0, until=until) for row in questions]
+    rights = sum(done[0] and right(texts[0], row["answer"]) for (texts, done), row in zip(results, questions))
+    return f"{rights / len(questions):.0%} right, {sum(not done[0] for _, done in results) / len(questions):.0%} cut off at the limit"
 
 
-def reason(minutes=90, group=8):
+def baselines(test, train):                              # where it starts: the same questions, grader and limit
+    base = Release(BASE)
+    log("Qwen3-0.6B-Base, four worked examples first:",
+        accuracy(base, test, lambda row: shots(train[:4]) + f"Question: {row['question']}\nAnswer:", until="\nQuestion:"))
+    qwen = Release(CHAT)
+    log("Qwen3-0.6B, Qwen's own post-training, thinking off to fit the limit:",
+        accuracy(qwen, test, lambda row: qwen.chat([{"role": "user", "content": row["question"]}])))
+
+
+def reason(steps=100, group=8):
     model = ours("checkpoints/instruct.pt")
     test, train = gsm8k("test")[:100], gsm8k("train")[400:]    # past the 400 used in instruction-tuning
     done = resume(model, "reason")
     if not done:
-        log(f"held-out accuracy before: {accuracy(model, test):.0%} of {len(test)} test questions")
-    optimizer, start, step, rewards = trainable(model.model, lr=2e-6), time.time() - 60 * done.get("minutes", 0), done.get("step", 0), done.get("rewards", [])
-    while time.time() - start < minutes * 60:
-        row = train[step]
-        step += 1
+        baselines(test, gsm8k("train"))
+        log(f"ours, instruction-tuned, before RL: {accuracy(model, test)}")
+    optimizer, rewards = trainable(model.model, lr=5e-6), done.get("rewards", [])
+    for step in range(done.get("step", 0) + 1, steps + 1):
+        row = train[step - 1]
         prompt = question(model, row)
-        answers = samples(model, prompt, group)
-        reward = torch.tensor([float(right(a, row["answer"])) for a in answers])
+        answers, finished = samples(model, prompt, group)
+        reward = torch.tensor([float(f and right(a, row["answer"])) for a, f in zip(answers, finished)])   # cut off: no answer
         rewards.append(reward.mean().item())
         if reward.std() > 0:                             # some right, some wrong: towards the right ones, away from the wrong
             advantage = (reward - reward.mean()) / reward.std()
-            update(model, optimizer, [prompt + a + "<|im_end|>" for a in answers], advantage.tolist())
+            update(model, optimizer, [prompt + a + ("<|im_end|>" if f else "") for a, f in zip(answers, finished)], advantage.tolist())
         if step % 10 == 0:
-            log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; right in training, last 10 questions: {sum(rewards[-10:]) / 10:.0%}")
+            log(f"step {step}: right in training, last 10 questions: {sum(rewards[-10:]) / 10:.0%}")
         if step % 5 == 0:
-            save(model.model, "reason", step=step, minutes=(time.time() - start) / 60, rewards=rewards)
-    save(model.model, "reason", step=step, minutes=minutes + 1, rewards=rewards)   # training done: a restart only re-scores
-    log(f"after {step} questions, {minutes} minutes; held-out accuracy after: {accuracy(model, test):.0%}")
+            save(model.model, "reason", step=step, rewards=rewards)
+    log(f"after {steps} questions; held-out accuracy after: {accuracy(model, test)}")
     finish(model, "reason")
 
 

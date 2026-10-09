@@ -278,29 +278,30 @@ class Release:
     def chat(self, messages, tools=None, thinking=False, prompt=True):   # the conversation as text, in the format it's trained on
         return self.template.render(messages=messages, tools=tools, add_generation_prompt=prompt, enable_thinking=thinking)
 
-    @torch.no_grad()
-    def generate(self, text, most=1000, temperature=None, top_k=None, top_p=None):   # sampling as its generation settings say
+    def pick(self, scores, temperature=None, top_k=None, top_p=None):   # the next token for each row, as its generation settings say
         temperature = self.settings.get("temperature", 1.0) if temperature is None else temperature
         top_k, top_p = top_k or self.settings.get("top_k", 0), top_p or self.settings.get("top_p", 1.0)
+        scores = scores.clone()
+        scores[:, self.tokens:] = float("-inf")          # only real tokens: the rest of the output head is padding
+        if temperature == 0:                             # always the most likely: for a fair, repeatable score
+            return scores.argmax(-1, keepdim=True)
+        scores = scores / temperature
+        if top_k:
+            scores = scores.masked_fill(scores < scores.topk(top_k).values[:, -1:], float("-inf"))   # only the k most likely
+        ordered, order = F.softmax(scores, dim=-1).sort(descending=True)
+        ordered[ordered.cumsum(-1) - ordered >= top_p] = 0                    # only the most likely, until they make up top_p
+        return order.gather(-1, torch.multinomial(ordered, 1))
+
+    @torch.no_grad()
+    def generate(self, text, most=1000, temperature=None, top_k=None, top_p=None):
         ids, caches, out = torch.tensor([self.encode(text)]), [{} for _ in self.model.layers], []
-        scores = self.model(ids, caches)[0, -1]
-        greedy = temperature == 0                        # always the most likely: for a fair, repeatable score
+        scores = self.model(ids, caches)[:, -1]
         for _ in range(most):
-            scores[self.tokens:] = float("-inf")         # only real tokens
-            if greedy:
-                scores = scores.masked_fill(scores < scores.max(), float("-inf"))
-            else:
-                scores = scores / temperature
-            if top_k:
-                scores = scores.masked_fill(scores < scores.topk(top_k).values[-1], float("-inf"))   # only the k most likely
-            probs = F.softmax(scores, dim=-1)
-            ordered, order = probs.sort(descending=True)
-            ordered[ordered.cumsum(0) - ordered >= top_p] = 0                 # only the most likely, until they make up top_p
-            next_id = order[torch.multinomial(ordered, 1)]
+            next_id = self.pick(scores, temperature, top_k, top_p)
             if next_id.item() in self.stops:
                 break
             out.append(next_id.item())
-            scores = self.model(next_id.view(1, 1), caches, start=ids.shape[1] + len(out) - 1)[0, -1]
+            scores = self.model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]
         return self.decode(out)
 
 # ── 8. checking it: our code, with Qwen's numbers, against Qwen's own ────────
