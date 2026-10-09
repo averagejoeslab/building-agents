@@ -2,18 +2,51 @@
 
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-Building an agent from scratch comes down to building two things: a **model** and a **harness**. Here's how the two make an agent:
+An agent is a model run inside a harness. Those are its two primitives:
 
 | Primitive | What it does |
 |---|---|
 | **Model** | takes tokens in and outputs the next token |
 | **Harness** | turns the model's tokens into actions, and the results back into tokens |
 
-The harness wraps the model: it captures input, assembles context, requests a response from the model, acts on the output, and decides what happens next. An agent is a model run inside a harness:
+The harness wraps the model: it captures input, assembles context, requests a response from the model, acts on the output, and decides what happens next. The model, inside it, outputs one token at a time, each added to its input before the next:
+
+```
+┌──────────────────────────── harness ────────────────────────────┐
+│                                                                 │
+│  input ─► context ─► ┌───────── model ─────────┐ ─► output ─┬───┼─► person
+│    ▲                 │ tokens in ─► next token │            │   │
+│    │                 │      ▲            │     │            │   │
+│    │                 │      └── append ◄─┘     │            │   │
+│    │                 └─────────────────────────┘            │   │
+│    └───────────────────── a tool's result ◄─────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 **Agent = Harness(Model)**
 
-Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of its training, and Sonnet drives the harness while we build it, because a real agent needs a capable model. Then our model goes into the harness and trains there. Every result shown is from a real run.
+Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere.
+
+This repo builds both from scratch, each from its own primitives, then trains the model to work inside the harness.
+
+**What the harness needs from the model.** The harness sends the model tokens: its instructions, a request, the tools it can use, and the results so far. It expects back either a tool call it can run, or an answer that ends the turn. So the model has to:
+
+1. understand the request;
+2. know what its tool can do;
+3. use the harness's format: take turns, call the tool, read the result, stop;
+4. pick the right action, check the result, and finish the task.
+
+Training gets it there one layer at a time:
+
+| Stage | It learns | So that it can | Ours |
+|---|---|---|---|
+| **Pre-training** | language and the world | understand the request | our model on Shakespeare, then Qwen3-0.6B-Base |
+| **Mid-training** | its domain | know its tool | shell pages |
+| **Instruction-tuning** | the turns and the tool format | work in a harness at all | four kinds of conversation |
+| **RL in the harness** | what actually finishes a task | do the work reliably | tasks, graded by the files they leave |
+
+The first three teach it by example; the last lets it try and grades the result, which needs a harness to try in. So we build the model and train it through instruction-tuning, build the harness, then put the model in the harness and train it there. Where our compute runs out, we swap in a stronger model and say so: Qwen's numbers for our model's knowledge, and Sonnet to build the harness, because each primitive's effect only shows with a capable model. Every result shown is from a real run.
 
 ## The model
 

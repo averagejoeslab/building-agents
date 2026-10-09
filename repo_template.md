@@ -7,17 +7,15 @@ Each section mirrors the other: what it does, its primitives, building them, mak
 Building agents
 │
 ├─ Intro
-│    ├─ Building an agent from scratch = building two things: a model and a harness
-│    ├─ How the two make an agent (table: model · harness, what each does)
-│    ├─ The harness wraps the model: captures input, assembles context,
-│    │    requests a response, acts on the output, decides what happens next
-│    ├─ Agent = Harness(Model)
-│    ├─ Neither works alone: the model is the engine, the harness the rest of the vehicle
-│    ├─ Each is itself built from primitives
-│    └─ The path, stated up front:
-│         we build everything ourselves; where compute runs out, we swap in a stronger model.
-│         Our model pre-trains small → Qwen loads in for mid- and post-training
-│         → Sonnet drives the harness while we build it → our model trains in the harness.
+│    ├─ What an agent is: a model run inside a harness, its two primitives   [TABLE]
+│    ├─ The harness wraps the model; the model outputs one token at a time
+│    │    (the model's loop inside the harness's loop)   [DIAGRAM]
+│    ├─ Agent = Harness(Model); neither works alone: engine and vehicle
+│    ├─ This repo: both built from scratch, then the model trained inside the harness
+│    ├─ What the harness needs from the model: four things   [LIST]
+│    ├─ Training gets it there one layer at a time: each stage, what it gives the agent   [TABLE]
+│    └─ The path: model → train through instruction-tuning → harness → train in the harness;
+│         where compute runs out, a stronger model, said so (Qwen's numbers; Sonnet for the harness)
 │
 ├─ The model
 │    ├─ What it does: tokens in, the next token out, appended, repeated   [DIAGRAM]
