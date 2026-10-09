@@ -84,7 +84,7 @@ The harness is everything around the model: it turns the model's tokens into act
 
 ### Building them
 
-We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear. Our own model comes after, into the harness built here.
+We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear, and outward from the model: first reach it, then give it a request, let it act, let it go again, and tell it where it is. Our own model comes after, into the harness built here.
 
 Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."*
 
@@ -845,6 +845,8 @@ With all six concerns folded in, that's [`quark_production.py`](./quark_producti
 
 ## The model
 
+quark works, with someone else's model in it. A lab trains its own, so we build ours: the architecture first, then training, stage by stage. Whatever we train goes into quark through the model interface, and is scored on the same 32 tasks Sonnet passed.
+
 A model predicts. Tokens go in, and it outputs the most probable next token, which is added to the input. It repeats until it outputs an end token.
 
 ```
@@ -984,7 +986,7 @@ loss = F.cross_entropy(model(inputs).flatten(0, 1), targets.flatten())   # how s
 optimizer.zero_grad(); loss.backward(); optimizer.step()                # nudge every number to be less so
 ```
 
-Training is usually split into three stages. The split is a convention: the goal is always to turn an untrained model into a useful one, and each stage has a different goal along the way, so it uses different data and a different idea of what's right:
+Training runs in the stages a lab uses (above). The split is a convention: the goal is always to turn an untrained model into a useful one, and each stage has a different goal along the way, so it uses different data and a different idea of what's right:
 
 | Stage | Goal | Data | What counts as right |
 |---|---|---|---|
@@ -1030,7 +1032,7 @@ model: largest difference in its scores 1.4e-04; the same next token at all 198 
 
 #### Our model in quark
 
-Now there's a model to put in the harness. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. The chat template is that of Qwen3-0.6B, Qwen's own chat model, at every stage, so every stage is asked the same way. Its context gets the one-line instructions quark.py began with, the ones it's trained on, not the 7,700 tokens Sonnet gets. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
+Now there's a model to put in the harness. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. The chat template is that of Qwen3-0.6B, Qwen's own chat model, at every stage, so every stage is asked the same way. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 7,700 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
 
 ```python
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
