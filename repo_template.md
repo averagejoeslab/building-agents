@@ -19,8 +19,13 @@ Building agents
 │    └─ Agent = Harness(Model); neither works alone: engine and vehicle
 │
 ├─ How frontier labs build agents
-│    ├─ Both, built for each other: the model first, in stages, each checked on held-out data;
-│    │    the harness and evaluations alongside, since post-training happens in the harness   [TABLE]
+│    ├─ The model first, in stages, then trained inside the harness   [NUMBERED STEPS]
+│    │    1. pre-training: language and general knowledge
+│    │    2. mid-training: domain expertise
+│    │    3. post-training, in the harness: instruction-tuning (the agent's behaviours),
+│    │       then RL (better at succeeding, from its wins and losses)
+│    │    4. agent evaluation from post-training on: held-out tasks, before and after each step
+│    │    every stage checked on held-out data that it trained what it needed to
 │    └─ Ship them together; the gaps found decide the next round
 │
 ├─ What this repo is

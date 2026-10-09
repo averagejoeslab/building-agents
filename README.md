@@ -38,17 +38,16 @@ Neither works alone. The model is an engine: it only turns, writing the tokens f
 
 ## How frontier labs build agents
 
-A lab building an agent in house builds both, and builds them for each other. The model comes first: it's trained in stages, each with its own data, each checked on held-out data it never trained on. The harness and the agent's evaluations are built alongside, because post-training happens inside the harness, and every stage is judged on the job the agent is for:
+A lab builds the model first, in stages, each with its own data and its own purpose, then trains it inside the agent's harness. Every stage is checked on held-out data it never trained on, to make sure it trained what it needed to:
 
-| Stage | Goal | What it gives the agent |
-|---|---|---|
-| **Pre-training** | predict the next token on trillions of tokens: web, books, code | language and knowledge, to understand the request |
-| **Mid-training** | the same task on chosen data: code, reasoning, the agent's domain | knowing its tools and its field |
-| **Harness and evaluations** | the loop, the tools, production hardening; tasks with known right answers | a place to act, and a way to tell if the job is done |
-| **Post-training** | imitate conversations and agent sessions in the harness's own format; then try tasks in the harness, graded by what they leave behind | taking turns, calling tools, stopping; then doing the work reliably |
-| **Evaluation, every stage** | held-out, decontaminated data for each stage; the agent's tasks before and after | knowing what each stage added, and what broke |
+1. **Pre-training** gives language and general knowledge: the model predicts the next token on trillions of tokens of web, books and code. Checked on held-out text.
+2. **Mid-training** gives domain expertise: the same task on chosen data, such as code, reasoning and the agent's field. Checked on held-out data from that domain.
+3. **Post-training** makes it an agent, in its harness:
+   - **Instruction-tuning** teaches the agent's behaviours: taking turns, calling its tools in the harness's format, stopping. It imitates example conversations and agent sessions. Checked on held-out conversations.
+   - **Reinforcement learning** makes it better at succeeding: it tries tasks in the harness and learns from its wins and losses, graded by what they leave behind. Checked on held-out tasks of the kind it trains on.
+4. **Agent evaluation**, from post-training on: the agent, in its harness, on held-out tasks of the job it will do, before and after each step, to see that instruction-tuning and RL made it behave as it should. Nothing it trains on may resemble them.
 
-Then it ships the two together, and the gaps the evaluations found decide the next round.
+Then it ships the model and harness together, and the gaps the evaluations found decide the next round.
 
 ## What this repo is
 
