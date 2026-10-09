@@ -1,0 +1,101 @@
+1552 conversations; held-out loss before: 2.974
+before:
+  > How do I make a cup of tea?
+  <  ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇
+  > Count the lines in notes.txt.
+  < # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    # Notes
+    
+    > This command is an alias of `notes`.
+    
+    #
+  > Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?
+  < A man is 20 years older than his son. In 20 years, his age will be twice the age of his son. What is the present age of the son? ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ �
+step 25: 22 minutes
