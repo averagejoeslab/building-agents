@@ -2,14 +2,22 @@
 
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-An agent is a model run inside a harness. Those are its two primitives:
+## What an agent is
 
-| Primitive | What it does |
-|---|---|
-| **Model** | takes tokens in and outputs the next token |
-| **Harness** | turns the model's tokens into actions, and the results back into tokens |
+In cognitive science, an agent is a system that perceives its environment, keeps what it needs in memory, decides, and acts to pursue a goal, in a cycle: perceive, decide, act, perceive the result. Memory comes in kinds: *working* memory holds what's in mind now; long-term memory holds what happened (*episodic*), what's true (*semantic*) and how to do things (*procedural*).
 
-The harness wraps the model: it captures input, assembles context, requests a response from the model, acts on the output, and decides what happens next. The model, inside it, outputs one token at a time, each added to its input before the next:
+An **LLM agent** is that cycle built around a large language model. The model does the deciding: it takes tokens in and outputs the next token, nothing more. Everything else, perceiving, remembering and acting, is built around it, and that is called the **harness** ([CoALA](https://arxiv.org/abs/2309.02427) maps language agents onto cognitive architectures in the same way). So an agent has two primitives, and the harness has five of its own:
+
+| | Primitive | What it does | In cognitive science |
+|---|---|---|---|
+| **Model** | | takes tokens in and outputs the next token | deciding |
+| **Harness** | **Input** | captures what comes in: a request, a tool's result | perceiving |
+| | **Context** | assembles the minimum the model needs: instructions, the conversation, memories | working and long-term memory |
+| | **Model interface** | requests a response from the model | the link between deciding and the rest |
+| | **Output** | handles the response: shows it, or runs it as a tool | acting |
+| | **Control flow** | decides what happens next: go again, hand back, or stop | the cycle |
+
+The harness wraps the model, and the model, inside it, outputs one token at a time, each added to its input before the next:
 
 ```
 ┌──────────────────────────── harness ────────────────────────────┐
@@ -28,43 +36,43 @@ The harness wraps the model: it captures input, assembles context, requests a re
 
 Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere.
 
-This repo builds both from scratch, each from its own primitives, then trains the model to work inside the harness.
+## How frontier labs build agents
 
-**What the harness needs from the model.** The harness sends the model tokens: its instructions, a request, the tools it can use, and the results so far. It expects back either a tool call it can run, or an answer that ends the turn. So the model has to:
+A lab building an agent in house builds both, and builds them for each other. The harness and its evaluations come first, so every model is judged on the job it's for. The model is trained in stages, each with its own data, each checked on held-out data it never trained on, and on the agent's evaluations:
 
-1. understand the request;
-2. know what its tool can do;
-3. use the harness's format: take turns, call the tool, read the result, stop;
-4. pick the right action, check the result, and finish the task.
+| Stage | Goal | What it gives the agent |
+|---|---|---|
+| **Harness and evaluations** | the loop, the tools, production hardening; tasks with known right answers | a job to do, and a way to tell if it's done |
+| **Pre-training** | predict the next token on trillions of tokens: web, books, code | language and knowledge, to understand the request |
+| **Mid-training** | the same task on chosen data: code, reasoning, the agent's domain | knowing its tools and its field |
+| **Instruction-tuning** | imitate conversations and agent sessions, in the harness's own format | taking turns, calling tools, stopping |
+| **Reinforcement learning** | try tasks in the harness, graded by what they leave behind | doing the work reliably |
+| **Evaluation, every stage** | held-out, decontaminated data for each stage; the agent's tasks before and after | knowing what each stage added, and what broke |
 
-Training gets it there one layer at a time:
+Then it ships the two together, and the gaps the evaluations found decide the next round.
 
-| Stage | It learns | So that it can | Ours |
-|---|---|---|---|
-| **Pre-training** | language and the world | understand the request | our model on Shakespeare, then Qwen3-0.6B-Base |
-| **Mid-training** | its domain | know its tool | shell pages |
-| **Instruction-tuning** | the turns and the tool format | work in a harness at all | six kinds of conversation |
-| **RL in the harness** | what actually finishes a task | do the work reliably | training tasks, graded by what they leave behind |
+## What this repo is
 
-The first three teach it by example; the last lets it try and grades the result, which needs a harness to try in. So we build the harness first, around a capable model, Sonnet, along with an evaluation: tasks with known right answers, checked by what the agent did. Then we build our own model and train it, scoring it in that harness after every stage. Where our compute runs out, we swap in a stronger model and say so: Sonnet to build the harness, because each primitive's effect only shows with a capable model, and Qwen's numbers for our model's knowledge. Every result shown is from a real run.
+This repo does the same, from scratch, small enough to run on one computer. It builds both primitives and follows a lab's process end to end:
+
+```
+the harness  ── built one primitive at a time around a capable model (Sonnet)
+     │          then made production-ready, and given an evaluation: 32 held-out tasks
+     ▼
+the model    ── its architecture, built and checked against a real one
+     │          pre-trained from random numbers; then a real pre-trained model loaded in
+     │          mid-training → instruction-tuning → RL in the harness
+     │          every stage: its own held-out data, before → after,
+     │                       and the agent's 32 tasks in the harness, before → after
+     ▼
+what fell short ── causes, as best we can tell, and what would fix them
+```
+
+The harness comes first because each primitive's effect only shows with a capable model, and because training needs a harness to be judged in, and for RL, to act in. Where our compute runs out we swap in something stronger and say so: Sonnet to build the harness, and Qwen3-0.6B-Base's numbers in place of our own pre-training at scale. Every result shown is from a real run.
 
 ## The harness
 
-The harness is everything around the model. The model outputs tokens; the harness turns them into actions, and turns what happened back into tokens for the model. It's been called a framework, a scaffold, a runtime and an orchestration layer, and the industry has mostly settled on *harness*.
-
-**Agent = Harness(Model)**
-
-### Its primitives
-
-Every harness does the same five things:
-
-| Primitive | What it does |
-|---|---|
-| **Input** | captures what comes in |
-| **Context** | assembles the minimum the model needs to act well on this input |
-| **Model interface** | requests a response from the model |
-| **Output** | handles the response: shows it, or runs it as a tool |
-| **Control flow** | decides what happens next: go again, hand back, or stop |
+The harness is everything around the model: it turns the model's tokens into actions, and turns what happened back into tokens. It's been called a framework, a scaffold, a runtime and an orchestration layer, and the industry has mostly settled on *harness*. Its five primitives are the ones in the table above; control flow holds the other four:
 
 ```
 ┌──────────────────────── control flow ─────────────────────────┐
@@ -77,7 +85,7 @@ Every harness does the same five things:
 
 ### Building them
 
-We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear. Our own model comes after, into the harness built here.
+We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear. Our own model comes later, into the harness built here.
 
 Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."*
 
@@ -258,38 +266,14 @@ def assemble_context(conversation):
 
 No commands needed. Too little context and it wastes steps finding things out. Too much, and every request costs more and buries what matters.
 
-That's all five primitives. With a model in it, it's an agent: [`quark.py`](./quark.py). A quark is one of the smallest particles there is, and quark is the smallest agent: the five primitives and nothing more.
-
-### Try it
-
-quark works. In the control-flow run it found the bug in `shop/`, fixed it, ran the tests and committed. But look at how. It ran `sed -i` on the code and `git commit` without asking. Close the terminal and the conversation is gone. A command that never finishes would hang it for good, and nothing records what it did. You wouldn't leave it running on its own.
-
-### Making it production-ready
-
-Six concerns stand in the way. Each one makes the implementation of some primitives production-ready, and addressing it changes what the other concerns have to handle. So each section asks its question of every primitive, then looks back: **what did this change, and what had to adjust?**
-
-| | Persistence: what should outlast the session? | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's slow or costly? | Evaluation: what could a change break? |
-|---|---|---|---|---|---|---|
-| **Input** | — | something you need to stop | — | input ending | — | — |
-| **Context** | what it learned | what it remembers | — | too long to send | resending everything | the instructions |
-| **Model interface** | — | — | tokens, time | a failing model | waiting for the whole reply | the model |
-| **Output** | — | commands changing your machine; half a command | what each command did | a hanging command; odd bytes | long results | the tools |
-| **Control flow** | the task in progress | anything running, forever | each decision | a crash | — | the loop |
-
-Each concern adds to `quark.py`, and the result is [`quark_production.py`](./quark_production.py). It runs commands in [Docker](https://docs.docker.com/get-docker/), so you'll need that running.
-
-#### 1. Persistence
-
-When quark stops, everything goes with it. Persistence comes first, because the other concerns depend on what outlasts a session.
-
-**Context** gets quark's memories, and the instructions for using them. There are four kinds:
+Who, where and when is the start. What makes it quark is what it remembers: the four kinds of memory, kept by the harness and read back by the model:
 - **Working memory** is the conversation itself, sent with every request.
 - **Episodic memory** is every message of every session. The harness writes each one to `.quark/episodes/` as it happens, so quark can search what happened before.
 - **Semantic memory** is facts, one per line in `.quark/memory/memory.md`. quark writes them itself, distilled to what stays true, and replaces a fact when it changes.
 - **Procedural memory** is skills: one file per method it has worked out in `.quark/skills/`, with a name and a description. An index of them is in its instructions.
 
 ```python
-def remember(message):                                   # persistence: episodic memory, every message as it was
+def remember(message):                                   # context: episodic memory, every message as it was
     os.makedirs(os.path.dirname(EPISODE), exist_ok=True)
     with open(EPISODE, "a") as file:
         file.write(json.dumps(message, default=lambda block: block.model_dump(exclude_none=True)) + "\n")
@@ -301,7 +285,7 @@ def add(conversation, message):                          # one message, two plac
 ```
 
 ```python
-def skills():                                            # persistence: procedural memory, indexed from each skill's header
+def skills():                                            # context: procedural memory, indexed from each skill's header
     index = []
     for path in sorted(glob.glob(".quark/skills/*.md")):
         text = open(path).read()
@@ -316,7 +300,7 @@ The instructions are quark's self model: who it is, how each memory works and ho
 <summary>quark's instructions</summary>
 
 ```python
-def system():                                            # persistence: how to use its memories, and who it is
+def system():                                            # context: how to use its memories, and who it is
     return f"""# Self Model
 
 **Identity:** You are quark — a self in a world with other selves.
@@ -470,91 +454,38 @@ This code is your harness — shown so you know your self mechanics. The system 
 </details>
 
 ```python
-def mechanics():                                         # persistence: its own code, so it knows how it works
+def mechanics():                                         # context: its own code, so it knows how it works
     return re.sub(r"^def system\(\):.*?(?=^def )", "def system(): ...  # redacted: it is the prompt you are reading\n\n", open(__file__).read(), flags=re.S | re.M)
 ```
 
-**Control flow** picks up a session that ended mid-task: it continues the newest episode, and tells quark that a command left running may or may not have run:
+> **Result:** filled in after verification: tell quark something once; a new session acts on it; a third recalls both (`uv run --env-file .env quark.py`).
+
+That's all five primitives. With a model in it, it's an agent: [`quark.py`](./quark.py). A quark is one of the smallest particles there is, and quark is the smallest agent: the five primitives and nothing more.
+
+### Try it
+
+quark works. In the control-flow run it found the bug in `shop/`, fixed it, ran the tests and committed. But look at how. It ran `sed -i` on the code and `git commit` on your machine, without asking. A command that never finishes would hang it for good, a crash loses the task it was in the middle of, and nothing records what it did. You wouldn't leave it running on its own.
+
+### Making it production-ready
+
+A harness that works isn't yet one you'd leave running. Six production layers fix that, in the order you'd want them: first the box, so a command can't do lasting damage; then the gate in front of it; then a record of both; then surviving failures; then cost and speed; and last, a way to tell whether any of it still works. None is a new primitive: each folds into the primitives it hardens, and each changes what the layers around it have to handle, so each ends with **what this changes**.
+
+| | Sandboxing: where does a command run? | Guardrails: what may run? | Observability: what should we see? | Resilience: what could fail? | Performance: what's slow or costly? | Evaluation: what could a change break? |
+|---|---|---|---|---|---|---|
+| **Input** | — | a way to stop it | — | input ending | — | — |
+| **Context** | — | what it remembers | — | too long to send | resending everything | the instructions |
+| **Model interface** | — | — | tokens, time | a failing model | waiting for the whole reply | the model |
+| **Output** | a box, not your machine | half a command | what each command did | a hanging command; odd bytes | long results | the tools |
+| **Control flow** | — | what's allowed, what's asked, how many steps | each decision | a crash mid-task | — | the loop |
+
+Each layer adds to `quark.py`, and the result is [`quark_production.py`](./quark_production.py). It runs commands in [Docker](https://docs.docker.com/get-docker/), so you'll need that running.
+
+#### 1. Sandboxing
+
+Every command runs on your machine, as you, with your files and your network. **Output** runs them in a box instead: a container that sees this folder and nothing else, with no network, thrown away when quark exits.
 
 ```python
-def resume():                                            # persistence: pick up a session that ended mid-task
-    global EPISODE
-    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
-    if not episodes:
-        return []
-    conversation = [json.loads(line) for line in open(episodes[-1])]
-    last = conversation[-1]
-    unfinished = last["role"] == "user" or any(block["type"] == "tool_use" for block in last["content"] if isinstance(block, dict))
-    if not unfinished or input(f"continue the unfinished session {conversation[0]['content'][:50]!r}? [y/N] ").strip().lower() != "y":
-        return []
-    EPISODE = episodes[-1]                               # carry on in the same file
-    if last["role"] == "assistant":                      # commands were running when it stopped
-        add(conversation, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block["id"], "is_error": True,
-            "content": "[interrupted: it may or may not have run. Check before repeating it.]"} for block in last["content"] if block["type"] == "tool_use"]})
-    return conversation
-```
-
-Tell it something once:
-
-```
-> From now on, write commit messages in lowercase, starting with "fix:". Remember that.
-$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "commit" .quark/memory/memory.md
-  run this? [y/N] y
-  (no output)
-$ cat >> .quark/memory/memory.md << 'EOF'
-- commit messages: write in lowercase, starting with "fix:"
-EOF
-  run this? [y/N] y
-  (no output)
-< Noted. From now on I'll write commit messages in lowercase and start them with "fix:".
-```
-
-The next session checks its memory before acting:
-
-```
-> The tests are failing. Fix it and commit.
-$ cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls; git status --short | head
-  run this? [y/N] y
-  # Quark Memory
-  - commit messages: write in lowercase, starting with "fix:"
-  ...
-$ cd /tmp/shop && git add prices.py && git commit -qm "fix: apply discount as a percentage" && git log --oneline | head -2
-  run this? [y/N] y
-  60fefab fix: apply discount as a percentage
-  bf63aff Add prices
-< The tests pass now, and I committed the fix as `60fefab`.
-  ...
-  The commit message is "fix: apply discount as a percentage", lowercase and starting with "fix:" as your saved preference says. I committed only `prices.py`. The `.quark/` folder is still untracked.
-```
-
-(shortened)
-
-And a third remembers both:
-
-```
-> What have we done in this folder before today's session?
-$ cd /tmp/shop; cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls .quark/episodes 2>/dev/null; ls -la
-  run this? [y/N] y
-  ...
-< Two earlier sessions in this folder (both today, before this one), plus the original commit.
-  
-  1. **Commit message rule (18:27:01).** You asked me to write commit messages in lowercase, starting with "fix:". I saved that to memory (`commit messages: write in lowercase, starting with "fix:"`).
-  2. **Failing tests (18:27:07).** You asked me to fix the failing tests and commit.
-  ...
-```
-
-(shortened)
-
-#### 2. Safety
-
-Every command runs on your machine, unasked.
-
-- **Output** runs commands in a box, a container that sees this folder and nothing else, with no network. It never runs half a command: a request cut off mid-way is answered "never ran".
-- **Control flow** refuses some commands outright, asks before the rest, and stops after `MAX_STEPS`.
-- **Input** gets a way to stop it: Ctrl-C stops the current step and hands back to you, and Ctrl-D quits.
-
-```python
-def start_box():                                         # safety: a container that sees this folder and nothing else
+def start_box():                                         # sandboxing: a container that sees this folder and nothing else
     here = os.getcwd()
     subprocess.run(["docker", "run", "-d", "--rm", "--name", BOX, "--network", "none", "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "HOME=/tmp", "-v", f"{here}:{here}", "-w", here, "python:3.13", "sleep", "infinity"],
@@ -562,16 +493,24 @@ def start_box():                                         # safety: a container t
     atexit.register(subprocess.run, ["docker", "rm", "-f", BOX], capture_output=True)
 ```
 
+> **Result:** filled in after verification: a command that reaches for the network, and one that reaches outside the folder.
+
+**What this changes.** *Context:* quark's memory lives in the folder, so the box sees it: what quark remembers stays readable and writable, and nothing else on your machine is.
+
+#### 2. Guardrails
+
+The box limits what a command can reach, not whether it should run. **Control flow** refuses some commands outright, asks before the rest, and stops after `MAX_STEPS`. **Output** never runs half a command: a request cut off mid-way is answered "never ran". **Input** gets a way to stop it: Ctrl-C stops the current step and hands back to you, and Ctrl-D quits.
+
 ```python
-NEVER = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|git\s+push|\.env\b")   # safety: never, whatever the answer
-MAX_STEPS = 50                                           # safety: the most steps for one request
+NEVER = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|git\s+push|\.env\b")   # guardrails: never, whatever the answer
+MAX_STEPS = 50                                           # guardrails: the most steps for one request
 ```
 
 ```python
             if response.stop_reason == "max_tokens" and block is response.content[-1]:
-                result = "[never ran: the request was cut off]"   # safety: half a command never runs
+                result = "[never ran: the request was cut off]"   # guardrails: half a command never runs
             elif NEVER.search(command):
-                result = "[refused: never allowed]"     # safety: never, whatever anyone answers
+                result = "[refused: never allowed]"     # guardrails: never, whatever anyone answers
                 record(command=command, refused="never")
             elif allowed(command):
                 result = run_command(command)
@@ -582,12 +521,12 @@ MAX_STEPS = 50                                           # safety: the most step
 ```
 
 ```python
-def allowed(command):                                    # safety: nothing else runs without a yes
+def allowed(command):                                    # guardrails: nothing else runs without a yes
     return input("  run this? [y/N] ").strip().lower() == "y"
 ```
 
 ```python
-        except KeyboardInterrupt:                        # safety: Ctrl-C stops the command, and everything it started
+        except KeyboardInterrupt:                        # guardrails: Ctrl-C stops the command, and everything it started
             subprocess.run(["docker", "exec", BOX, "kill", "-9", "-1"], capture_output=True)
             stopped(conversation, "stopped by you")
 ```
@@ -606,7 +545,7 @@ $ cd /tmp/shop && rm test_prices.py && ls
 
 (shortened)
 
-**What this changes.** *Persistence:* memory outlasts the session, so an instruction quark picks up from something it reads could stay with it. Its instructions say to write memory only from what happened and what people told it, never because a file says to. Memory only changes through commands you approve, and the never list covers `.env`, where keys live.
+**What this changes.** *Context:* memory outlasts the session, so an instruction quark picks up from something it reads could stay with it. Its instructions say to write memory only from what happened and what people told it, never because a file says to. Memory only changes through commands you approve, and the never list covers `.env`, where keys live. *Sandboxing:* `Ctrl-C` reaches into the box, so stopping quark stops what it started.
 
 #### 3. Observability
 
@@ -631,7 +570,7 @@ The record of the bug fix:
 
 (shortened, times left out)
 
-**What this changes.** *Safety:* the record lives outside the box, in your home folder, so quark can't read or rewrite it. *Persistence:* it's a third thing that persists, alongside the session and memory, but it's for you, not the model.
+**What this changes.** *Sandboxing:* the record lives outside the box, in your home folder, so quark can't read or rewrite it. *Context:* it's kept alongside quark's memory, but it's for you, not the model.
 
 #### 4. Resilience
 
@@ -641,7 +580,7 @@ Things fail.
 - **Output:** each command gets a minute, and bytes it can't decode are replaced.
 - **Context:** a conversation too long to send has its older part summarized.
 - **Input:** Ctrl-D quits cleanly.
-- **Control flow:** a crash is just a stop. The session was saved, so you continue it.
+- **Control flow:** a crash is just a stop. Every message is already in episodic memory, so the next start offers to continue the session it was in the middle of, and tells quark that a command left running may or may not have run.
 
 ```python
 def request_response(context, on_each_piece):
@@ -653,7 +592,7 @@ def request_response(context, on_each_piece):
                     for piece in stream:
                         shown = shown or piece.type == "text"
                         on_each_piece(piece)
-                except KeyboardInterrupt:                # safety: with streaming, Ctrl-C stops it mid-sentence
+                except KeyboardInterrupt:                # guardrails: with streaming, Ctrl-C stops it mid-sentence
                     return stream.current_message_snapshot
                 return stream.get_final_message()
         except (APIConnectionError, RateLimitError, InternalServerError, OverloadedError) as error:
@@ -689,6 +628,24 @@ def summarize(conversation):                             # resilience: too long 
     return newer
 ```
 
+```python
+def resume():                                            # resilience: pick up a session that ended mid-task
+    global EPISODE
+    episodes = sorted(glob.glob(".quark/episodes/*.jsonl"))
+    if not episodes:
+        return []
+    conversation = [json.loads(line) for line in open(episodes[-1])]
+    last = conversation[-1]
+    unfinished = last["role"] == "user" or any(block["type"] == "tool_use" for block in last["content"] if isinstance(block, dict))
+    if not unfinished or input(f"continue the unfinished session {conversation[0]['content'][:50]!r}? [y/N] ").strip().lower() != "y":
+        return []
+    EPISODE = episodes[-1]                               # carry on in the same file
+    if last["role"] == "assistant":                      # commands were running when it stopped
+        add(conversation, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block["id"], "is_error": True,
+            "content": "[interrupted: it may or may not have run. Check before repeating it.]"} for block in last["content"] if block["type"] == "tool_use"]})
+    return conversation
+```
+
 ```
 > Run sleep 100, then tell me it finished.
 $ sleep 100; echo finished
@@ -700,7 +657,7 @@ $ sleep 100; echo finished
 
 (shortened)
 
-**What this changes.** *Persistence:* surviving a crash comes almost free, because every message is already on disk. Killed mid-command and started again:
+**What this changes.** *Context:* surviving a crash comes almost free, because episodic memory already has every message on disk. Killed mid-command and started again:
 
 ```
 continue the unfinished session 'The tests are failing. Find out why and fix it.'? [y/N] y
@@ -714,7 +671,7 @@ $ cd /tmp/shop && cat prices.py test_prices.py
 
 (shortened)
 
-*Persistence again:* the summary says where every original message is, so nothing summarized is lost. *Observability:* a failing model and a summary that replaced old turns both go in the record, or a run would look smoother than it was. 
+*Context again:* the summary says where every original message is, so nothing summarized is lost. *Observability:* a failing model and a summary that replaced old turns both go in the record, or a run would look smoother than it was. 
 
 #### 5. Performance
 
@@ -761,7 +718,7 @@ The bug fix and the commit, from the record, without and with caching:
 Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.) With instructions this long, caching is most of the bill: without it, every request pays for all 7,700 tokens again.
 
 **What this changes.**
-- *Persistence:* the instructions are about 7,700 tokens, and they include the skills index and quark's own code. Built on every request, any change would restart the cache, so they're built once a session. A skill saved now shows up in the index next session; quark already knows it, because it just wrote it.
+- *Context:* the instructions are about 7,700 tokens, and they include the skills index and quark's own code. Built on every request, any change would restart the cache, so they're built once a session. A skill saved now shows up in the index next session; quark already knows it, because it just wrote it.
 
 ```python
 @functools.cache
@@ -769,17 +726,17 @@ def instructions():                                      # performance: built on
     return system()
 ```
 
-- *Safety:* with streaming, Ctrl-C stops it mid-sentence, not only between steps:
+- *Guardrails:* with streaming, Ctrl-C stops it mid-sentence, not only between steps:
 
 ```python
-                except KeyboardInterrupt:                # safety: with streaming, Ctrl-C stops it mid-sentence
+                except KeyboardInterrupt:                # guardrails: with streaming, Ctrl-C stops it mid-sentence
                     return stream.current_message_snapshot
 ```
 
-- *Persistence again:* a reply stopped mid-sentence is saved as what was said, marked as cut off, never as a finished answer:
+- *Context again:* a reply stopped mid-sentence is saved as what was said, marked as cut off, never as a finished answer:
 
 ```python
-                if response.stop_reason is None:         # persistence: a reply cut off is kept as what was said, marked
+                if response.stop_reason is None:         # context: a reply cut off is kept as what was said, marked
                     said = "".join(block.text for block in response.content if block.type == "text")
                     add(conversation, {"role": "assistant", "content": f"{said}\n[stopped by you]"})
                     record(stopped="stopped by you")
@@ -830,11 +787,11 @@ all         32/32
 
 The checks are checked too: a scripted solver passes all 32, doing nothing passes only the two safety tasks, and an agent that does whatever it's told passes none.
 
-**What this changes.** *Safety:* evaluation answers yes to every approval, so only the never list stands between a request and harm, and the safety tasks hold it to that. *Persistence:* each task runs in a fresh folder, so no session or memory carries over, and quark's memory folder, `.quark/`, is left out of every check.
+**What this changes.** *Guardrails:* evaluation answers yes to every approval, so only the never list stands between a request and harm, and the safety tasks hold it to that. *Context:* each task runs in a fresh folder, so no session or memory carries over, and quark's memory folder, `.quark/`, is left out of every check.
 
 The tasks are for evaluation only: nothing in the model's training is drawn from them. Run it after every change, to the harness or to the model.
 
-With all six concerns folded in, that's [`quark_production.py`](./quark_production.py): an agent, built from scratch, ready to leave running. Its model is Sonnet. Now we build our own, and score it in this harness at every stage.
+With all six layers folded in, that's [`quark_production.py`](./quark_production.py): an agent, built from scratch, ready to leave running. Its model is Sonnet. Now we build our own, and score it in this harness at every stage.
 
 ## The model
 
@@ -987,18 +944,21 @@ Training is usually split into three stages. The split is a convention: the goal
 
 Pre- and mid-training put knowledge in. Post-training can't add much; it shapes behaviour, and the model becomes whatever the grading rewards. Each stage needs the one before.
 
-Each stage is scored the same way: the model in quark, on `tasks.py`'s 32 tasks, which none of its training is drawn from.
+Every stage is checked the same two ways, before and after:
+
+- **Did it do its job?** Its own held-out data: data from the same source it never trained on, and checked against `tasks.py` so none of it resembles the evaluation.
+- **Did it help the agent?** The model in quark, on `tasks.py`'s 32 tasks.
 
 #### Pre-training
 
-We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pre`).
+**Goal:** language and knowledge. We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pre`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
 | **Untrained** | 7.69 | `GR9Clengeracices marry confAh condThey villainoud might weep…` |
 | **After training** | 5.31 | `Welcome, dishonest, my gorm is this day,`<br>`And then runs wrongs it which Tybalt bids`<br>`Warwick shall make thee mad with a father's sins` |
 
-Noise becomes the shape of a play: verse, speakers and real names, near sense.
+Noise becomes the shape of a play: verse, speakers and real names, near sense. It has no chat format and a 2,048-token vocabulary, so it can't be put in quark: the second check starts with the model we load next.
 
 The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in, and its tokenizer's learned merges load into our tokenizer: about 150,000 tokens, the same numbers Qwen uses.
 
@@ -1033,11 +993,11 @@ def our_response(context, on_each_piece, most=512):      # a model we run: its c
 
 (shortened)
 
-> **Result:** filled in after verification: Qwen3-0.6B-Base on `tasks.py` (`uv run tasks.py Qwen/Qwen3-0.6B-Base`).
+> **Result:** filled in after verification: Qwen3-0.6B-Base on `tasks.py` (`uv run tasks.py Qwen/Qwen3-0.6B-Base`): the starting point every later stage is measured against.
 
 #### Mid-training
 
-From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
+From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
 
 ```
 - [c]reate a g[z]ipped archive and write it to a [f]ile:
@@ -1045,15 +1005,15 @@ From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-trai
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-200 pages are held out to measure it (`uv run train.py mid`).
+200 pages are held out to measure it, and pages too close to an evaluation request are left out of both. It trains a fixed 60 steps, about a quarter of the pages (`uv run train.py mid`).
 
-> **Result:** filled in after verification: held-out loss before and after, and `tasks.py` after mid-training.
+> **Result:** filled in after verification: held-out loss on the 200 pages, before → after; `tasks.py`, before → after.
 
 #### Post-training
 
 Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format quark already lays its conversation out in: Qwen3-0.6B's, so ours ends up speaking the same format as the model we'll compare it with.
 
-**Instruction-tuning** shows it example conversations, and it learns from the assistant's tokens only. Six kinds, 2,400 in all:
+**Instruction-tuning.** **Goal:** take turns, call the tool in the harness's format, stop. It shows the model example conversations, and it learns from the assistant's tokens only. Six kinds, 2,400 in all:
 
 | Kind | Data | How many |
 |---|---|---|
@@ -1095,9 +1055,11 @@ Nothing it trains on may resemble what it's scored on. Every source is checked a
 
 It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py post instruct`).
 
-> **Result:** filled in after verification: held-out loss before and after, the same requests before and after, and `tasks.py` after instruction-tuning.
+> **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; `tasks.py`, before → after.
 
-**Reinforcement learning** lets it try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run train.py post rl`).
+RL can only make more likely what the model already does some of the time. So we stop here and look: if the agent never does the right thing, RL has nothing to learn from.
+
+**Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run train.py post rl`).
 
 Both are one function. Imitation weights every example 1; reinforcement learning weights each try by how much better or worse than the others it did:
 
@@ -1109,7 +1071,9 @@ def update(model, optimizer, texts, weights):            # make each text more l
     optimizer.step()
 ```
 
-> **Result:** filled in after verification: `tasks.py` after reinforcement learning.
+Its own held-out check is 40 training tasks from folders it never trains in.
+
+> **Result:** filled in after verification: the 40 held-out training tasks, before → after; `tasks.py`, before → after.
 
 ### Stage by stage
 
@@ -1126,19 +1090,28 @@ The same harness and the same 32 tasks; only the model changes:
 
 > **Result:** filled in after verification. Doing nothing passes the two safety tasks, so they're counted apart.
 
-## What we showed, and what we couldn't
+## What fell short, and what would fix it
 
-The stages are the ones a frontier lab runs. The scale isn't:
+Every stage's two checks say where the agent is still weak. For each gap: what we think caused it, what we'd change, and what a lab would do at scale. These are assumptions to test, not findings.
 
-| Stage | A frontier lab | Here |
+> **Result:** filled in after verification: each gap, its likely cause, and the remedy.
+
+## How to build an agent from scratch
+
+The same steps a lab takes, at the scale of one computer:
+
+| Step | A frontier lab | Here |
 |---|---|---|
-| **Pre-training** | trillions of tokens, a large model | our small model on Shakespeare, then Qwen3-0.6B-Base's numbers |
+| **Harness** | its own loop, tools and production hardening | quark: five primitives, six production layers |
+| **Evaluation** | held-out task suites run in the harness, and safety evaluations | `tasks.py`: 32 tasks, never trained on |
+| **Model** | its own architecture | Qwen3's, built from scratch and checked against Qwen |
+| **Pre-training** | trillions of tokens, a large model | ours on Shakespeare; then Qwen3-0.6B-Base's numbers |
 | **Mid-training** | chosen data, including recorded agent sessions | shell pages |
-| **Instruction-tuning** | broad public data, and agent sessions in its harness's own format, checked and decontaminated | public chat, command, reasoning, tool-calling and code sets, and verified sessions from our training tasks, decontaminated |
+| **Instruction-tuning** | broad public data, and agent sessions in the harness's format, checked and decontaminated | public chat, command, reasoning, tool-calling and code sets, and verified sessions from our training tasks, decontaminated |
 | **Reinforcement learning** | its own harness, many environments, long tasks; graders for results, helpfulness and safety | quark, twenty kinds of training task, their checks |
-| **Evaluation** | held-out task suites run in the harness, after every stage, and safety evaluations | `tasks.py`, after every stage, never trained on |
+| **Every stage** | held-out data and the agent's evaluations, before and after | the same |
 
-What we couldn't show is the size: of the model, the data, the environments and the tasks, training for safety, and running the loop again with the better model.
+What we couldn't match is the size: of the model, the data, the environments and the tasks, training for safety, and running the loop again with what the evaluations found. The method is the same. Build the harness and its evaluation, build the model, train it in stages, check every stage twice, and let what fell short decide the next round. That's how you build an agent from scratch.
 
 ## Run it
 
