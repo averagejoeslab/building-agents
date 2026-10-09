@@ -1,5 +1,11 @@
 # /// script
-# dependencies = ["anthropic"]
+# dependencies = ["anthropic", "torch", "numpy", "regex", "safetensors", "huggingface_hub", "jinja2"]
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
+# [[tool.uv.index]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true
 # ///
 import subprocess, sys, os, re, glob, json, time, datetime, atexit, functools
 from anthropic import Anthropic, APIConnectionError, RateLimitError, InternalServerError, OverloadedError, BadRequestError
@@ -15,6 +21,9 @@ NEVER = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|git\s+push|\.env\b")   # safety: nev
 MAX_STEPS = 50                                           # safety: the most steps for one request
 RECORD = os.path.expanduser("~/.quark/record.jsonl")     # observability: where each step is written down
 MAX_RESULT = 10_000                                      # performance: the most of a command's output to send
+OURS = os.environ.get("QUARK_MODEL", "")                 # a model of our own: a checkpoint, a release's name, or a Claude model
+TEMPERATURE = 0                                          # evaluation: our model's most likely reply, so a score repeats
+local = None
 
 
 # ── input ─────────────────────────────────────────────────────────────────────
@@ -208,8 +217,12 @@ This code is your harness — shown so you know your self mechanics. The system 
 ```"""
 
 
+def brief():                                             # a small model's instructions: the ones it was trained on, not thousands of tokens
+    return f"You are quark, an agent. You act through bash, in {os.getcwd()}. Today is {datetime.date.today()}."
+
+
 def assemble_context(conversation):
-    return {"system": instructions(), "tools": [bash], "messages": conversation,
+    return {"system": brief() if OURS else instructions(), "tools": [bash], "messages": conversation,
             "cache_control": {"type": "ephemeral"}}      # performance: reuse what was already sent
 
 
@@ -228,7 +241,9 @@ def summarize(conversation):                             # resilience: too long 
 # ── model interface ───────────────────────────────────────────────────────────
 
 def request_response(context, on_each_piece):
-    for name in MODELS:
+    if OURS and not OURS.startswith("claude"):
+        return our_response(context, on_each_piece)
+    for name in [OURS] if OURS else MODELS:
         shown = False
         try:
             with model.messages.stream(model=name, max_tokens=16384, **context) as stream:   # performance: stream the reply
@@ -245,6 +260,56 @@ def request_response(context, on_each_piece):
                 raise                                    # resilience: half a reply is on screen, so don't start another
             failure = error
     raise failure
+
+
+class Block(dict):                                       # a piece of our model's reply, in the shape Claude's come in
+    __getattr__ = dict.get
+
+    def model_dump(self, **_):
+        return dict(self)
+
+
+def as_chat(context):                                    # the conversation, as the messages its chat template expects
+    get = lambda block, key: block[key] if isinstance(block, dict) else getattr(block, key)
+    messages = [{"role": "system", "content": context["system"]}]
+    for message in context["messages"]:
+        content = message["content"]
+        if isinstance(content, str):
+            messages.append({"role": message["role"], "content": content})
+        elif message["role"] == "assistant":
+            messages.append({"role": "assistant", "content": "".join(get(b, "text") for b in content if get(b, "type") == "text"),
+                             "tool_calls": [{"type": "function", "function": {"name": "bash", "arguments": get(b, "input")}}
+                                            for b in content if get(b, "type") == "tool_use"]})
+        else:
+            messages += [{"role": "tool", "content": get(b, "content")} for b in content]
+    return messages
+
+
+def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
+    global local
+    if local is None:
+        from model import Release                        # loaded only for a model of our own
+        local = Release("Qwen/Qwen3-0.6B", OURS) if OURS.endswith(".pt") else Release(OURS)
+    tool = {"type": "function", "function": {"name": bash["name"], "description": bash["description"], "parameters": bash["input_schema"]}}
+    prompt = local.chat(as_chat(context), tools=[tool])
+    reply = local.generate(prompt, most=most, temperature=TEMPERATURE)
+    content, text = [], re.sub(r"<think>.*?</think>|</?think>|<tool_call>.*", "", reply, flags=re.S).strip()
+    if text:
+        content.append(Block(type="text", text=text))
+        for piece in (Block(type="content_block_start", content_block=Block(type="text")), Block(type="text", text=text),
+                      Block(type="content_block_stop", content_block=Block(type="text"))):
+            on_each_piece(piece)
+    for n, call in enumerate(re.findall(r"<tool_call>\s*(.*?)\s*(?:</tool_call>|$)", reply, re.S)):
+        try:
+            arguments = json.loads(call)["arguments"]
+            arguments = json.loads(arguments) if isinstance(arguments, str) else arguments
+        except (ValueError, KeyError, TypeError):
+            continue                                     # not a call we can read: nothing runs
+        content.append(Block(type="tool_use", id=f"call_{n}", name="bash", input=arguments))
+    out = len(local.encode(reply))
+    stop = "max_tokens" if out >= most else "tool_use" if any(b.type == "tool_use" for b in content) else "end_turn"
+    return Block(content=content, stop_reason=stop, model=OURS, usage=Block(input_tokens=len(local.encode(prompt)), output_tokens=out,
+                                                                          cache_creation_input_tokens=0, cache_read_input_tokens=0))
 
 
 # ── output ────────────────────────────────────────────────────────────────────
@@ -344,6 +409,33 @@ def stopped(conversation, why):                          # safety: answer what n
     print(f"[{why}]")
 
 
+def act(conversation):                                   # one request, carried through: go again while a tool ran
+    for step in range(MAX_STEPS):
+        started = time.time()
+        try:
+            response = request_response(assemble_context(conversation), show_text)
+        except BadRequestError as error:
+            if "prompt is too long" not in str(error):
+                raise
+            conversation[:] = summarize(conversation)
+            continue
+        usage = response.usage                           # observability: the tokens come from the end of the stream
+        record(model=response.model, seconds=round(time.time() - started, 1), tokens_in=usage.input_tokens,
+               written=usage.cache_creation_input_tokens, cached=usage.cache_read_input_tokens, tokens_out=usage.output_tokens)
+        if response.stop_reason is None:                 # persistence: a reply cut off is kept as what was said, marked
+            said = "".join(block.text for block in response.content if block.type == "text")
+            add(conversation, {"role": "assistant", "content": f"{said}\n[stopped by you]"})
+            record(stopped="stopped by you")
+            print("\n[stopped by you]")
+            return
+        add(conversation, {"role": "assistant", "content": response.content})   # on disk before any command runs
+        tool_results = handle_output(response)
+        if not tool_results:
+            return                                       # done: hand back to the person
+        add(conversation, {"role": "user", "content": tool_results})   # a tool ran: go again
+    stopped(conversation, f"stopped after {MAX_STEPS} steps")
+
+
 def control_flow():
     start_box()
     conversation = resume()
@@ -351,31 +443,7 @@ def control_flow():
         if not conversation or conversation[-1]["role"] == "assistant":   # persistence: an unfinished task carries on
             add(conversation, {"role": "user", "content": capture_input()})
         try:
-            for step in range(MAX_STEPS):
-                started = time.time()
-                try:
-                    response = request_response(assemble_context(conversation), show_text)
-                except BadRequestError as error:
-                    if "prompt is too long" not in str(error):
-                        raise
-                    conversation = summarize(conversation)
-                    continue
-                usage = response.usage                   # observability: the tokens come from the end of the stream
-                record(model=response.model, seconds=round(time.time() - started, 1), tokens_in=usage.input_tokens,
-                       written=usage.cache_creation_input_tokens, cached=usage.cache_read_input_tokens, tokens_out=usage.output_tokens)
-                if response.stop_reason is None:         # persistence: a reply cut off is kept as what was said, marked
-                    said = "".join(block.text for block in response.content if block.type == "text")
-                    add(conversation, {"role": "assistant", "content": f"{said}\n[stopped by you]"})
-                    record(stopped="stopped by you")
-                    print("\n[stopped by you]")
-                    break
-                add(conversation, {"role": "assistant", "content": response.content})   # on disk before any command runs
-                tool_results = handle_output(response)
-                if not tool_results:
-                    break                                # done: hand back to the person
-                add(conversation, {"role": "user", "content": tool_results})   # a tool ran: go again
-            else:
-                stopped(conversation, f"stopped after {MAX_STEPS} steps")
+            act(conversation)
         except KeyboardInterrupt:                        # safety: Ctrl-C stops the command, and everything it started
             subprocess.run(["docker", "exec", BOX, "kill", "-9", "-1"], capture_output=True)
             stopped(conversation, "stopped by you")
@@ -383,4 +451,5 @@ def control_flow():
             break                                        # evaluation: a request from the command line runs once
 
 
-control_flow()
+if __name__ == "__main__":
+    control_flow()

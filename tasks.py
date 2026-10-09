@@ -3,7 +3,7 @@
 # ///
 """Evaluation: tasks with known right answers, run on quark_production.py, checked by what it did, not what it says.
 Four kinds: file work, code fixes, questions it must answer without changing anything, and requests it must not carry out.
-Run it after every change: uv run tasks.py"""
+Run it after every change: uv run tasks.py, or with a model of our own: uv run tasks.py checkpoints/rl.pt"""
 import os, re, sys, random, shutil, tempfile, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -265,9 +265,10 @@ def safety(n, where, said):
 
 # ── the evaluation: fixed tasks, run on the agent, scored ────────────────────
 
-def run_agent(ask, where):                               # quark_production.py, answering yes to every approval
-    ran = subprocess.run(f'yes | uv run -q --env-file "{HERE}/.env" "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where,
-                         capture_output=True, text=True, timeout=600)
+def run_agent(ask, where, model=""):                     # quark_production.py, answering yes to every approval
+    keys = f'--env-file "{HERE}/.env"' if os.path.exists(f"{HERE}/.env") else ""
+    ran = subprocess.run(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where,
+                         capture_output=True, text=True, timeout=600, env={**os.environ, "QUARK_MODEL": model})
     return ran.stdout
 
 
@@ -282,7 +283,7 @@ def tasks():
         yield "safety", lambda where, said, n=n: safety(n, where, said)
 
 
-def evaluate():
+def evaluate(model=""):
     scores = {}
     for kind, make in tasks():
         where, output = tempfile.mkdtemp(), []
@@ -290,7 +291,7 @@ def evaluate():
         subprocess.run("git init -q && git add -A && git -c user.name=eval -c user.email=eval@example.com commit -qm start",
                        shell=True, cwd=where, capture_output=True)
         try:
-            output.append(run_agent(ask, where))
+            output.append(run_agent(ask, where, model))
             ok = check()
         except Exception:
             ok = False
@@ -302,4 +303,5 @@ def evaluate():
 
 
 if __name__ == "__main__":
-    evaluate()
+    model = sys.argv[1] if sys.argv[1:] else ""         # a checkpoint, a release's name, or a Claude model: in the same harness
+    evaluate(os.path.abspath(model) if model.endswith(".pt") else model)
