@@ -285,13 +285,17 @@ def as_chat(context):                                    # the conversation, as 
     return messages
 
 
+def as_prompt(context, prompt=True):                     # the conversation as our model's tokens see it: its chat template, with the tool
+    tool = {"type": "function", "function": {"name": bash["name"], "description": bash["description"], "parameters": bash["input_schema"]}}
+    return local.chat(as_chat(context), tools=[tool], prompt=prompt)
+
+
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
     global local
     if local is None:
         from model import Release                        # loaded only for a model of our own
         local = Release("Qwen/Qwen3-0.6B", OURS) if OURS.endswith(".pt") else Release(OURS)
-    tool = {"type": "function", "function": {"name": bash["name"], "description": bash["description"], "parameters": bash["input_schema"]}}
-    prompt = local.chat(as_chat(context), tools=[tool])
+    prompt = as_prompt(context)
     reply = local.generate(prompt, most=most, temperature=TEMPERATURE)
     content, text = [], re.sub(r"<think>.*?</think>|</?think>|<tool_call>.*", "", reply, flags=re.S).strip()
     if text:

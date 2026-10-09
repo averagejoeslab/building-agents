@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["torch", "numpy", "regex", "safetensors", "huggingface_hub", "jinja2", "datasets"]
+# dependencies = ["torch", "numpy", "regex", "safetensors", "huggingface_hub", "jinja2", "datasets", "anthropic"]
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # [[tool.uv.index]]
@@ -8,7 +8,7 @@
 # explicit = true
 # ///
 """Training the model we built, one stage at a time, each starting from the last: uv run train.py pre | mid | post [instruct | rl]"""
-import sys, os, re, glob, json, time, random, shutil, datetime, tempfile, subprocess, urllib.request
+import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, contextlib, subprocess, urllib.request
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 from model import Model, Tokenizer, Release, load_real, generate
@@ -191,25 +191,25 @@ def instruction_data(model):                             # four kinds of convers
     return data
 
 
-def tokens_and_mask(model, text):                        # learn only what the assistant says, and the end of its turn
+def tokens_and_mask(model, text, most=768):              # learn only what the assistant says, and the end of its turn
     ids, learn = [], []
     for n, piece in enumerate(re.split(r"(?<=<\|im_start\|>assistant\n)(.*?<\|im_end\|>)", text, flags=re.S)):
         piece_ids = model.encode(piece)
         ids += piece_ids
         learn += [n % 2 == 1] * len(piece_ids)
-    return ids[:768], learn[:768]
+    return ids[:most], learn[:most]
 
 
-def logprob(model, text):                                # how likely the model finds what the assistant said, per token
-    ids, learn = tokens_and_mask(model, text)
+def logprob(model, text, most=768):                      # how likely the model finds what the assistant said, per token
+    ids, learn = tokens_and_mask(model, text, most)
     ids, keep = torch.tensor([ids]), torch.tensor([learn[1:]])
     return -F.cross_entropy(model.model(ids[:, :-1], keep=keep), ids[:, 1:][keep])
 
 
-def update(model, optimizer, texts, weights):            # one step: make each text more likely, in proportion to its weight
+def update(model, optimizer, texts, weights, most=768):  # one step: make each text more likely, in proportion to its weight
     optimizer.zero_grad()
     for text, weight in zip(texts, weights):             # one at a time, to fit in memory
-        (-weight * logprob(model, text) / len(texts)).backward()
+        (-weight * logprob(model, text, most) / len(texts)).backward()
     optimizer.step()
 
 
@@ -273,8 +273,47 @@ def instruct():
 
 # ── 4. post-training, part two: reinforcement learning, in the harness ──────
 
-def rl():                                                # it needs a harness to act in: built after the harness
-    log("RL in the harness: not written yet")
+def attempt(model, quark, kind, seed):                   # one try at a task, in quark, in a fresh folder: what was said, and did it pass?
+    import tasks
+    where, here = tempfile.mkdtemp(), os.getcwd()
+    rng = random.Random(seed)
+    tasks.fill(rng, where)
+    ask, check = kind(rng, where)
+    os.chdir(where)
+    quark.BOX, quark.EPISODE = f"quark-rl-{os.getpid()}", ".quark/episodes/try.jsonl"
+    try:
+        quark.start_box()                                # its commands run in a container that sees only this folder
+        conversation = [{"role": "user", "content": ask}]
+        with contextlib.redirect_stdout(io.StringIO()):
+            quark.act(conversation)                      # the harness's own loop: our model, its tool, until it hands back
+        return quark.as_prompt(quark.assemble_context(conversation), prompt=False), check()
+    finally:
+        subprocess.run(["docker", "rm", "-f", quark.BOX], capture_output=True)
+        os.chdir(here)
+        shutil.rmtree(where, ignore_errors=True)
+
+
+def rl(steps=60, group=8):                               # reinforcement learning in the harness: try tasks, keep what passed
+    import quark_production as quark, tasks
+    model = ours("checkpoints/instruct.pt")
+    done = resume(model, "rl")
+    quark.OURS, quark.local, quark.TEMPERATURE = "ours", model, None   # its tries sampled as its generation settings say
+    quark.allowed = lambda command: True                 # as tasks.py runs it: yes to every approval, so only the never list stops it
+    quark.MAX_STEPS = 10                                 # a try that hasn't finished in 10 steps has failed
+    optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
+    for step in range(done.get("step", 0) + 1, steps + 1):
+        kind = tasks.FILES[(step - 1) % len(tasks.FILES)]     # the twenty kinds of file work, in folders never scored on
+        tries = [attempt(model, quark, kind, seed=1000 + step) for _ in range(group)]
+        reward = torch.tensor([float(ok) for _, ok in tries])
+        passed.append(reward.mean().item())
+        if reward.std() > 0:                             # some passed, some failed: towards the ones that passed
+            update(model, optimizer, [text for text, _ in tries], ((reward - reward.mean()) / reward.std()).tolist(), most=1536)
+        log(f"step {step}: {kind.__name__}, {int(reward.sum())}/{group} passed")
+        if step % 10 == 0:
+            log(f"  passed in training, last 10 tasks: {sum(passed[-10:]) / 10:.0%}")
+        save(model.model, "rl", step=step, passed=passed)
+    finish(model, "rl")
+    log("score it in the harness: uv run tasks.py checkpoints/rl.pt")
 
 
 def post(*parts):                                        # post-training: imitate good conversations, then learn from graded tries
