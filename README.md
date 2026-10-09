@@ -2,16 +2,18 @@
 
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
-An agent has two primitives: **a model** and **a harness**.
-
-**Agent = Harness(Model)**
+Building an agent from scratch comes down to building two things: a **model** and a **harness**. Here's how the two make an agent:
 
 | Primitive | What it does |
 |---|---|
 | **Model** | takes tokens in and outputs the next token |
 | **Harness** | turns the model's tokens into actions, and the results back into tokens |
 
-Building an agent from scratch is building these two. We build the model, then the harness, then put them together, in the order you'd build them yourself. Everything runs on an ordinary CPU, and every result shown is from a real run, logged in [`runs/`](./runs/).
+The harness wraps the model: it captures input, assembles context, requests a response from the model, acts on the output, and decides what happens next. An agent is a model run inside a harness:
+
+**Agent = Harness(Model)**
+
+Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of training, and Sonnet drives the harness, because a real agent needs a capable model. Every result shown is from a real run, logged in [`runs/`](./runs/).
 
 ## The model
 
@@ -160,12 +162,12 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers, small enough to run in 20 minutes ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pretrain`).
+We pre-train our model from random numbers ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pretrain`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
 | **Untrained** | *from the run* | *from the run* |
-| **After 20 minutes** | *from the run* | *from the run* |
+| **After training** | *from the run* | *from the run* |
 
 > **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
 
@@ -195,7 +197,7 @@ From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-trai
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-200 pages are held out to measure it. It runs for 45 minutes (`uv run train.py midtrain`).
+200 pages are held out to measure it (`uv run train.py midtrain`).
 
 > **Result:** filled in by the verification run, logged in `runs/midtrain.txt`.
 
@@ -257,6 +259,8 @@ A trained model, and all it does is output tokens. Ask it to count the lines in 
 
 And then nothing happens. Nothing runs the command, nothing shows it the result, nothing lets it try again. Those are tokens, not actions. Turning one into the other is the harness.
 
+A real agent also needs a far stronger model than ours: the same compute gap as pre-training. So we build the harness with Sonnet, where each primitive's effect is clear.
+
 ## The harness
 
 The harness is everything around the model. The model outputs tokens; the harness turns them into actions, and turns what happened back into tokens for the model. It's been called a framework, a scaffold, a runtime and an orchestration layer, and the industry has mostly settled on *harness*.
@@ -284,11 +288,11 @@ Every harness does five things. These are its primitives:
 
 ### Building them
 
-A quark is one of the smallest particles there is. **quark** is the smallest agent: the five primitives and nothing more. We'll build it one primitive at a time.
+We build it one primitive at a time, with Sonnet as the model.
 
 Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."*
 
-In the runs, `>` is what I typed, `<` is what quark said, and `$` is a command it ran.
+In the runs, `>` is what I typed, `<` is what it said, and `$` is a command it ran.
 
 #### 1. Model interface
 
@@ -443,7 +447,7 @@ $ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a
 
 #### 5. Context
 
-So we assemble the minimum it needs to act well on any input. For quark, that's who it is, where it's working and what day it is:
+So we assemble the minimum it needs to act well on any input: who it is (we call it quark), where it's working and what day it is:
 
 ```python
 def assemble_context(conversation):
@@ -465,7 +469,7 @@ def assemble_context(conversation):
 
 No commands needed. Too little context and it wastes steps finding things out. Too much, and every request costs more and buries what matters.
 
-That's all five primitives, and that's [`quark.py`](./quark.py).
+That's all five primitives. With a model in it, it's an agent: [`quark.py`](./quark.py). A quark is one of the smallest particles there is, and quark is the smallest agent: the five primitives and nothing more.
 
 ### Try it
 
@@ -473,7 +477,7 @@ quark works. In the control-flow run it found the bug in `shop/`, fixed it, ran 
 
 ### Making it production-ready
 
-Six concerns stand in the way. Each one changes some of the primitives, and those changes can affect the concerns that came before. So each section asks its question of every primitive, then looks back: **what did this change, and what had to adjust?**
+Six concerns stand in the way. Each one makes the implementation of some primitives production-ready, and addressing it changes what the other concerns have to handle. So each section asks its question of every primitive, then looks back: **what did this change, and what had to adjust?**
 
 | | Persistence: what should outlast the session? | Safety: what could do harm? | Observability: what should we see? | Resilience: what could fail? | Performance: what's slow or costly? | Evaluation: what could a change break? |
 |---|---|---|---|---|---|---|
@@ -1025,85 +1029,25 @@ PASS  What does total() return for an empty basket? Don't change anything.
 
 Run it after every change.
 
-## Putting it together
-
-Now the same harness, with each model in it. The model interface changes to suit each: Sonnet through its API, and the Qwen models through their own chat template, with each `<tool_call>` they output turned into a command, run in a throwaway container ([`quark_local.py`](./quark_local.py)). Everything else is quark.
-
-They all get the same forty tasks ([`tasks.py`](./tasks.py)): twenty kinds, from *Make a folder called stone* to *Which file in this folder is the biggest? Write its name into answer.txt*. Each is checked by looking at the files afterwards, not at what the agent says. A scripted solver passes all forty and doing nothing passes none.
-
-| Model in quark | Score | Log |
-|---|---|---|
-| Qwen3-0.6B-Base: pre-trained, no post-training | **0/34** (stopped there) | [`runs/base_in_quark.txt`](./runs/base_in_quark.txt) |
-| Ours: Base, mid- and post-trained here | *from the run* | `runs/harness.txt` |
-| Qwen3-0.6B: Qwen's own post-training | **21/40** | [`runs/qwen_in_quark.txt`](./runs/qwen_in_quark.txt) |
-| Sonnet | **40/40** | [`runs/harness_sonnet.txt`](./runs/harness_sonnet.txt) |
-
-**Base** has knowledge but no behaviour. It was never trained to take turns or use a tool, so in 34 tasks it never ran a single command. It just continued the tokens:
-
-```
-> Make a folder called stone.
-  < ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ ⋅ …
-FAIL
-```
-
-That's what post-training is for.
-
-**Ours** has the behaviour our post-training gave it.
-
-> **Result:** filled in by the verification run, logged in `runs/harness.txt`.
-
-**Qwen3-0.6B** has Qwen's own post-training: it takes turns, calls the tool, reads the result and answers. It does every task that's one obvious command, and almost none that need two:
-
-```
-> Join violet.txt and cobalt.txt, in that order, into both.txt.
-  $ cat violet.txt cobalt.txt > both.txt
-  < The file both.txt has been created by joining violet.txt and cobalt.txt in that order.
-PASS
-
-> Delete every .log file in this folder.
-  $ find /work/log -type f -delete
-  < … find: '/work/log': No such file or directory … Please verify its presence and try running the command again.
-FAIL
-```
-
-It misreads the request, then hands the problem back. Elsewhere it says it's done without checking. Letting it think first scores 22/40 ([`runs/qwen_in_quark_thinking.txt`](./runs/qwen_in_quark_thinking.txt), [`_rest`](./runs/qwen_in_quark_thinking_rest.txt)): no better.
-
-**Sonnet** does what the control-flow run showed: it looks before it acts, reads what it finds, and checks its work. That's how it gets all forty.
-
-The harness was the same every time. The only difference was the model.
-
-### Training the model for its harness
-
-So we go back to the model, and train it where it works. It tries practice tasks in quark: the same twenty kinds, with seeds the forty never use. Each task's check is the reward. For each task it makes four tries; the passing sessions are made more likely and the failing ones less, with the same `update` as for maths (`uv run train.py harness`).
-
-The checks read files, not words, so the only way to earn the reward is to do the task. Grade what it says, and you'd train it to say it's done.
-
-> **Result:** filled in by the verification run, logged in `runs/harness.txt`: the forty tasks, before and after.
-
-That's how you build an agent from scratch.
+With all six concerns folded in, that's [`quark_production.py`](./quark_production.py): an agent, built from scratch, ready to leave running.
 
 ## Run it
 
-You need [uv](https://docs.astral.sh/uv/) and [Docker](https://docs.docker.com/get-docker/). The harness needs an [Anthropic API key](https://console.anthropic.com/) for Sonnet.
+You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-docker/) and an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
 # the model
 uv run --script runs/01_check_against_reference.py   # our tokenizer and model, against Qwen's reference
-uv run train.py pretrain                              # our model, from random numbers, on Shakespeare (20 minutes)
-uv run train.py midtrain                              # Qwen3-0.6B-Base, on shell pages (45 minutes)
-uv run train.py instruct                              # instruction-tuning (about 2.5 hours)
-uv run train.py reason                                # reinforcement learning on maths (about 3 hours)
+uv run train.py pretrain                              # our model, from random numbers, on Shakespeare
+uv run train.py midtrain                              # Qwen3-0.6B-Base, on shell pages
+uv run train.py instruct                              # instruction-tuning
+uv run train.py reason                                # reinforcement learning on maths
 
 # the harness
 cp .env.example .env                                  # then put your key in .env
 uv run --env-file .env quark.py                       # the five primitives
 uv run --env-file .env quark_production.py            # production-ready
 ./eval.sh                                             # check it still works
-
-# together
-uv run --env-file .env tasks.py sonnet                # Sonnet on the forty tasks
-uv run tasks.py Qwen/Qwen3-0.6B                       # Qwen's own post-trained model
-uv run train.py harness                               # ours: the forty tasks, training in the harness, the forty again
 ```
 
 > [!WARNING]
