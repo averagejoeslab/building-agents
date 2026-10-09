@@ -1,8 +1,9 @@
 # repo_template
 
 The structure of the README, and the files that back it. The README follows a frontier lab's process, from scratch, at the
-scale of one computer: the harness and its evaluation first, around a capable model; then a model of our own, built and trained
-in stages, each checked on its own held-out data and in the harness; then what fell short, and what would fix it.
+scale of one computer, with one change of order for teaching: a lab builds the model first; we build the harness and its
+evaluation first, around a capable model; then a model of our own, built and trained in stages, each checked on its own held-out
+data and in the harness; then what fell short, and what would fix it.
 
 ## The README
 
@@ -18,13 +19,14 @@ Building agents
 │    └─ Agent = Harness(Model); neither works alone: engine and vehicle
 │
 ├─ How frontier labs build agents
-│    ├─ Both, built for each other: harness and evaluations first; the model in stages,
-│    │    each checked on held-out data and on the agent's evaluations   [TABLE]
+│    ├─ Both, built for each other: the model first, in stages, each checked on held-out data;
+│    │    the harness and evaluations alongside, since post-training happens in the harness   [TABLE]
 │    └─ Ship them together; the gaps found decide the next round
 │
 ├─ What this repo is
 │    ├─ The same process, from scratch, on one computer   [DIAGRAM]
-│    └─ Why the harness first; the swaps, said up front (Sonnet; Qwen's numbers); every result real
+│    └─ The one change of order, for teaching: the harness first; the swaps, said up front
+│         (Sonnet; Qwen's numbers); every result real
 │
 ├─ The harness
 │    ├─ What it does; its loop   [DIAGRAM]

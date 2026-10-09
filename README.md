@@ -38,13 +38,13 @@ Neither works alone. The model is an engine: it only turns, writing the tokens f
 
 ## How frontier labs build agents
 
-A lab building an agent in house builds both, and builds them for each other. The harness and its evaluations come first, so every model is judged on the job it's for. The model is trained in stages, each with its own data, each checked on held-out data it never trained on, and on the agent's evaluations:
+A lab building an agent in house builds both, and builds them for each other. The model comes first: it's trained in stages, each with its own data, each checked on held-out data it never trained on. The harness and the agent's evaluations are built alongside, because post-training happens inside the harness, and every stage is judged on the job the agent is for:
 
 | Stage | Goal | What it gives the agent |
 |---|---|---|
-| **Harness and evaluations** | the loop, the tools, production hardening; tasks with known right answers | a job to do, and a way to tell if it's done |
 | **Pre-training** | predict the next token on trillions of tokens: web, books, code | language and knowledge, to understand the request |
 | **Mid-training** | the same task on chosen data: code, reasoning, the agent's domain | knowing its tools and its field |
+| **Harness and evaluations** | the loop, the tools, production hardening; tasks with known right answers | a place to act, and a way to tell if the job is done |
 | **Post-training** | imitate conversations and agent sessions in the harness's own format; then try tasks in the harness, graded by what they leave behind | taking turns, calling tools, stopping; then doing the work reliably |
 | **Evaluation, every stage** | held-out, decontaminated data for each stage; the agent's tasks before and after | knowing what each stage added, and what broke |
 
@@ -52,7 +52,7 @@ Then it ships the two together, and the gaps the evaluations found decide the ne
 
 ## What this repo is
 
-This repo does the same, from scratch, small enough to run on one computer. It builds both primitives and follows a lab's process end to end:
+This repo does the same, from scratch, small enough to run on one computer. It builds both primitives and follows a lab's process end to end, with one change of order, for teaching: the harness comes first.
 
 ```
 the harness  ── built one primitive at a time around a capable model (Sonnet)
@@ -67,7 +67,7 @@ the model    ── its architecture, built and checked against a real one
 what fell short ── causes, as best we can tell, and what would fix them
 ```
 
-The harness comes first because each primitive's effect only shows with a capable model, and because training needs a harness to be judged in, and for RL, to act in. Where our compute runs out we swap in something stronger and say so: Sonnet to build the harness, and Qwen3-0.6B-Base's numbers in place of our own pre-training at scale. Every result shown is from a real run.
+A lab starts with the model. We start with the harness because it's easier to learn on: around a capable model each primitive's effect is clear, and once it exists, it's where every stage of our model's training is judged and where RL acts. Where our compute runs out we swap in something stronger and say so: Sonnet to build the harness, and Qwen3-0.6B-Base's numbers in place of our own pre-training at scale. Every result shown is from a real run.
 
 ## The harness
 
