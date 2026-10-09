@@ -13,7 +13,7 @@ The harness wraps the model: it captures input, assembles context, requests a re
 
 **Agent = Harness(Model)**
 
-Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of training, and Sonnet drives the harness, because a real agent needs a capable model. Every result shown is from a real run, logged in [`runs/`](./runs/).
+Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of training, and Sonnet drives the harness, because a real agent needs a capable model. Every result shown is from a real run.
 
 ## The model
 
@@ -139,7 +139,7 @@ next_id = torch.multinomial(F.softmax(scores, dim=-1), 1)           # draw one
 scores = self.model(next_id, caches, start=...)[0, -1]              # add it, and go again; earlier tokens are cached
 ```
 
-That's the whole model, about 150 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` ([`runs/01_check_against_reference.txt`](./runs/01_check_against_reference.txt)).
+That's the whole model, about 150 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00003, and outputs `" Paris"` (`uv run model.py check`).
 
 ### Training it
 
@@ -162,20 +162,20 @@ Pre- and mid-training put knowledge in. Post-training can't add much; it shapes 
 
 #### Pre-training
 
-We pre-train our model from random numbers ([`train.py`](./train.py)): the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pretrain`).
+We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run model.py pretrain`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
 | **Untrained** | *from the run* | *from the run* |
 | **After training** | *from the run* | *from the run* |
 
-> **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
+> **Result:** filled in after verification.
 
 The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in, and its tokenizer's learned merges load into our tokenizer: about 150,000 tokens, the same numbers Qwen uses. Continuing `ROMEO:`, the same prompt as ours:
 
-> **Result:** filled in by the verification run, logged in `runs/pretrain.txt`.
+> **Result:** filled in after verification.
 
-A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference ([`runs/02_qwen_as_shipped.txt`](./runs/02_qwen_as_shipped.txt)):
+A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model.py check`):
 
 ```python
 class Release:
@@ -197,9 +197,9 @@ From here on we train Qwen3-0.6B-Base. Mid-training is the same task as pre-trai
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-200 pages are held out to measure it (`uv run train.py midtrain`).
+200 pages are held out to measure it (`uv run model.py midtrain`).
 
-> **Result:** filled in by the verification run, logged in `runs/midtrain.txt`.
+> **Result:** filled in after verification.
 
 #### Post-training
 
@@ -233,11 +233,11 @@ How many lines are in harbor.csv?<|im_end|>
 harbor.csv has 5 lines.<|im_end|>                         ← learned
 ```
 
-It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py instruct`).
+It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run model.py instruct`).
 
-> **Result:** filled in by the verification run, logged in `runs/instruct.txt`: held-out loss and real replies, before and after.
+> **Result:** filled in after verification: held-out loss and real replies, before and after.
 
-**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (`uv run train.py reason`).
+**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (`uv run model.py reason`).
 
 Both are one function. Imitation weights every example 1; reinforcement learning weights each attempt by how much better or worse than the group it did:
 
@@ -249,13 +249,13 @@ def update(model, optimizer, texts, weights):            # make each text more l
     optimizer.step()
 ```
 
-> **Result:** filled in by the verification run, logged in `runs/reason.txt`: accuracy on 100 test questions, before and after.
+> **Result:** filled in after verification: accuracy on 100 test questions, before and after.
 
 ### What we have
 
 A trained model, and all it does is output tokens. Ask it to count the lines in a file, with a tool it can use, and it outputs the tokens for using the tool:
 
-> **Result:** filled in by the verification run, logged in `runs/instruct.txt`.
+> **Result:** filled in after verification.
 
 And then nothing happens. Nothing runs the command, nothing shows it the result, nothing lets it try again. Those are tokens, not actions. Turning one into the other is the harness.
 
@@ -1037,11 +1037,11 @@ You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-
 
 ```bash
 # the model
-uv run --script runs/01_check_against_reference.py   # our tokenizer and model, against Qwen's reference
-uv run train.py pretrain                              # our model, from random numbers, on Shakespeare
-uv run train.py midtrain                              # Qwen3-0.6B-Base, on shell pages
-uv run train.py instruct                              # instruction-tuning
-uv run train.py reason                                # reinforcement learning on maths
+uv run model.py check                                 # our tokenizer, model and chat template, against Qwen's
+uv run model.py pretrain                              # our model, from random numbers, on Shakespeare
+uv run model.py midtrain                              # Qwen3-0.6B-Base, on shell pages
+uv run model.py instruct                              # instruction-tuning
+uv run model.py reason                                # reinforcement learning on maths
 
 # the harness
 cp .env.example .env                                  # then put your key in .env

@@ -1,4 +1,0 @@
-tokenizer: same tokens as the reference on 5 texts: True
-tokens: [785, 6722, 315, 9625, 374]
-max difference in scores 2.9e-05; same next token: True
-' Paris. The capital of Germany is Berlin. The capital of Italy is Rome. The capital of Spain' 20 tokens in 1.9s

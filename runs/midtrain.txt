@@ -1,4 +1,0 @@
-6,785 pages, 1,046,007 tokens; held-out loss before: 1.877
-step 25: 19 minutes; loss 1.764
-step 50: 37 minutes; loss 1.506
-after 61 steps, 45 minutes; held-out loss after: 1.433
