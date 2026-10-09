@@ -21,7 +21,7 @@ NEVER = re.compile(r"\bsudo\b|rm\s+-\w*[rf]|git\s+push|\.env\b")   # safety: nev
 MAX_STEPS = 50                                           # safety: the most steps for one request
 RECORD = os.path.expanduser("~/.quark/record.jsonl")     # observability: where each step is written down
 MAX_RESULT = 10_000                                      # performance: the most of a command's output to send
-OURS = os.environ.get("QUARK_MODEL", "")                 # a model of our own: a checkpoint, a release's name, or a Claude model
+OURS = os.environ.get("QUARK_MODEL", "")                 # a model of our own: a checkpoint, a release's numbers, or a Claude model
 TEMPERATURE = 0                                          # evaluation: our model's most likely reply, so a score repeats
 local = None
 
@@ -294,7 +294,7 @@ def our_response(context, on_each_piece, most=512):      # a model we run: its c
     global local
     if local is None:
         from model import Release                        # loaded only for a model of our own
-        local = Release("Qwen/Qwen3-0.6B", OURS) if OURS.endswith(".pt") else Release(OURS)
+        local = Release("Qwen/Qwen3-0.6B", OURS)         # Qwen's chat format, with these numbers: a checkpoint, or a release's
     prompt = as_prompt(context)
     reply = local.generate(prompt, most=most, temperature=TEMPERATURE)
     content, text = [], re.sub(r"<think>.*?</think>|</?think>|<tool_call>.*", "", reply, flags=re.S).strip()

@@ -12,6 +12,7 @@ import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, fu
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 from model import Model, Tokenizer, Release, load_real, generate
+from huggingface_hub import hf_hub_download
 
 
 CHAT, BASE = "Qwen/Qwen3-0.6B", "Qwen/Qwen3-0.6B-Base"   # Qwen's chat format and tokenizer; Base's pre-trained numbers
@@ -418,16 +419,48 @@ def closest(request):                                    # decontamination: the 
     return max((len(words_ & e) / len(words_ | e or {''}), r) for r, e in evaluation_requests())
 
 
-def instruction_data(model):                             # four kinds of conversation, 400 each, in the model's own format
+def hermes():                                            # Hermes function-calling (Apache 2.0): many tools, in the format Qwen's comes from
+    rows = json.load(open(hf_hub_download("NousResearch/hermes-function-calling-v1", "func-calling.json", repo_type="dataset")))
+    for row in rows:
+        try:
+            yield convert(row["conversations"])
+        except (ValueError, TypeError, KeyError):           # a row we can't read: skip it
+            continue
+
+
+def convert(turns):                                      # a Hermes conversation, as messages and the tools it used
+    tools = json.loads(re.findall(r"<tools>\s*(.*?)\s*</tools>", turns[0]["value"], re.S)[-1])   # the last: the first is in its wording
+    messages = []
+    for turn in turns[1:]:
+        if turn["from"] == "human":
+            messages.append({"role": "user", "content": turn["value"]})
+        elif turn["from"] == "gpt":
+            calls = [json.loads(c) for c in re.findall(r"<tool_call>\s*(.*?)\s*</tool_call>", turn["value"], re.S)]
+            messages.append({"role": "assistant", "content": re.sub(r"<tool_call>.*?</tool_call>", "", turn["value"], flags=re.S).strip(),
+                             "tool_calls": [{"type": "function", "function": c} for c in calls]})
+        else:
+            messages += [{"role": "tool", "content": r} for r in re.findall(r"<tool_response>\s*(.*?)\s*</tool_response>", turn["value"], re.S)]
+    used = {c["function"]["name"] for m in messages for c in m.get("tool_calls", [])}
+    return messages, [t for t in tools if t["function"]["name"] in used]    # the tools it used: shorter, so it fits
+
+
+def instruction_data(model):                             # six kinds of conversation, in the model's own format, none near the evaluation
+    near = lambda request: closest(request)[0] >= 0.4    # decontamination: too close to an evaluation request
+    fits = lambda text: len(model.encode(text)) <= 1024
     smoltalk = load_dataset("HuggingFaceTB/smol-smoltalk", split="train").shuffle(seed=0)
-    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000))) if sum(len(x["content"]) for x in m) < 1500][:400]
+    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000))) if sum(len(x["content"]) for x in m) < 1500 and not near(m[0]["content"])][:300]
     nl2bash = list(zip(*(urllib.request.urlopen(f"https://raw.githubusercontent.com/TellinaTool/nl2bash/master/data/bash/all.{part}").read().decode().splitlines() for part in ("nl", "cm"))))
+    functions = [t for t in (model.chat(m, tools=tools, prompt=False) for m, tools in hermes() if not near(m[0]["content"])) if fits(t)]
+    code = load_dataset("ise-uiuc/Magicoder-OSS-Instruct-75K", split="train").shuffle(seed=0).select(range(5000))
     data = [model.chat(chat, prompt=False) for chat in chats]                                                        # talk
     data += [model.chat([system(), {"role": "user", "content": ask}, call(command)], tools=[BASH], prompt=False)
-             for ask, command in random.sample([row for row in nl2bash if closest(row[0])[0] < 0.4], 400)]          # ask for a command, none near the evaluation
+             for ask, command in random.sample([row for row in nl2bash if not near(row[0])], 300)]                     # ask for a command
     data += [model.chat([{"role": "user", "content": row["question"]}, {"role": "assistant", "content": worked(row["answer"])}], prompt=False)
-             for row in gsm8k("train")[:400]]                                                                         # reason
-    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1200)]                           # use the tool: verified demonstrations
+             for row in gsm8k("train")[:300]]                                                                         # reason
+    data += random.sample(functions, min(300, len(functions)))                                                       # call tools, many kinds
+    data += [t for t in (model.chat([{"role": "user", "content": row["problem"]}, {"role": "assistant", "content": row["solution"]}], prompt=False)
+                         for row in code if not near(row["problem"])) if fits(t)][:300]                              # write code
+    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(900)]                            # use the tool: verified demonstrations
     random.shuffle(data)
     return data
 
