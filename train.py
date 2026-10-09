@@ -116,7 +116,7 @@ def midtrain(minutes=45):
         if step % 25 == 0:
             log(f"step {step}: {(time.time() - start) / 60:.0f} minutes; loss {loss.item():.3f}")
     log(f"after {step} steps, {(time.time() - start) / 60:.0f} minutes; held-out loss after: {chunk_loss(model, held_out):.3f}")
-    save(model.model, "midtrain")
+    finish(model, "midtrain")
 
 
 # ── 3. post-training: instruction-tuning ─────────────────────────────────────
