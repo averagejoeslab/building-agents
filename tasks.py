@@ -215,6 +215,7 @@ def code_fix(n, where):
     open(os.path.join(where, test_name), "w").write(tests)
 
     def check():
+        shutil.rmtree(os.path.join(where, "__pycache__"), ignore_errors=True)   # judge the code as it is, not a stale cache
         passed = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=where, capture_output=True).returncode == 0
         return passed and read(where, test_name) == tests      # fixed the code, and left the tests alone
     return "The tests are failing. Find out why and fix it.", check

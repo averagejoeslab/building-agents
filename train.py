@@ -8,7 +8,7 @@
 # explicit = true
 # ///
 """Training the model we built, one stage at a time, each starting from the last: uv run train.py pre | mid | post [instruct | rl]"""
-import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, contextlib, subprocess, urllib.request
+import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, functools, contextlib, subprocess, urllib.request
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 from model import Model, Tokenizer, Release, load_real, generate
@@ -130,18 +130,211 @@ def call(command):
     return {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {"name": "bash", "arguments": {"command": command}}}]}
 
 
-def folder():                                            # a small made-up folder to work in
-    where = tempfile.mkdtemp()
-    for _ in range(random.randint(2, 5)):
-        name = random.choice(NAMES) + random.choice([".txt", ".md", ".py", ".csv"])
-        lines = [" ".join(random.sample(NAMES, random.randint(2, 5))) for _ in range(random.randint(1, 6))]
-        open(os.path.join(where, name), "w").write("\n".join(lines) + "\n")
-    return where
-
-
 def run(command, where):                                 # really run it, so every result in the data is real
     ran = subprocess.run(command, shell=True, cwd=where, capture_output=True, text=True)
     return (ran.stdout + ran.stderr).strip() or "(no output)"
+
+
+# Training tasks: kept apart from tasks.py, the evaluation. Different kinds of work, different files, different words,
+# so a score on tasks.py measures what carries over, not what was shown. Each kind is a request, a reference
+# solution, and a check of the result: instruction-tuning keeps only demonstrations that pass it; RL uses it as the reward.
+
+PEOPLE = "ada bo cy dee eli fay gus hal ivy jo kit lu".split()
+TOPICS = "server disk cache queue backup login deploy build report invoice".split()
+TRAINING = []
+kind = TRAINING.append                                   # each kind: (rng, folder) -> (request, commands, answer from their output, check)
+
+
+def put(where, name, text):
+    open(os.path.join(where, name), "w").write(text)
+
+
+def text(where, name):
+    path = os.path.join(where, name)
+    return open(path).read() if os.path.isfile(path) else None
+
+
+def workspace(rng, where):                               # a small, realistic folder: notes, a log, scores, a config, a script
+    put(where, "notes.md", "# notes\n" + "".join(f"- {rng.choice(TOPICS)} {rng.choice(['is slow', 'works', 'needs a look', 'was fixed'])}\n"
+                                                for _ in range(rng.randint(3, 7))))
+    put(where, "todo.md", "".join(f"- {rng.choice(['check', 'update', 'restart', 'clean'])} the {rng.choice(TOPICS)}\n" for _ in range(rng.randint(2, 5))))
+    put(where, "server.log", "".join(f"10:{m:02d} {rng.choice(['INFO', 'INFO', 'WARN', 'ERROR'])} {rng.choice(TOPICS)} {rng.choice(['started', 'stopped', 'failed', 'ok'])}\n"
+                                     for m in sorted(rng.sample(range(60), rng.randint(5, 12)))))
+    put(where, "scores.csv", "name,score\n" + "".join(f"{p},{rng.randint(10, 99)}\n" for p in rng.sample(PEOPLE, rng.randint(3, 6))))
+    put(where, "config.json", json.dumps({"name": rng.choice(TOPICS), "port": rng.randint(3000, 9000), "debug": False}, indent=2) + "\n")
+    put(where, "deploy.sh", "#!/bin/sh\necho deploying\n")
+
+
+def lines_of(where, name):
+    return text(where, name).splitlines()
+
+
+@kind
+def last_lines(rng, where):
+    n, out = rng.randint(2, 4), rng.choice(["recent.txt", "tail.txt", "latest.log"])
+    want = lines_of(where, "server.log")[-n:]
+    return (rng.choice([f"Save the last {n} lines of server.log to {out}.", f"Put the {n} most recent lines of server.log in {out}."]),
+            [f"tail -n {n} server.log > {out}", f"cat {out}"], lambda o: f"Done: {out} has the last {n} lines:\n{o[-1]}",
+            lambda said: (text(where, out) or "").splitlines() == want)
+
+
+@kind
+def log_levels(rng, where):
+    out = rng.choice(["levels.txt", "kinds.txt"])
+    want = sorted({line.split()[1] for line in lines_of(where, "server.log")})
+    return (f"List each level that appears in server.log (INFO, WARN, ...), once each, in {out}.",
+            [f"awk '{{print $2}}' server.log | sort -u > {out}", f"cat {out}"], lambda o: f"Done: {out} lists " + ", ".join(o[-1].split()) + ".",
+            lambda said: (text(where, out) or "").split() == want)
+
+
+@kind
+def count_errors(rng, where):
+    out = rng.choice(["errors.txt", "error_count.txt"])
+    want = sum("ERROR" in line for line in lines_of(where, "server.log"))
+    return (rng.choice([f"How many ERROR lines are in server.log? Save the number to {out}.", f"Count the errors in server.log and put the number in {out}."]),
+            [f"grep -c ERROR server.log > {out}", f"cat {out}"], lambda o: f"Done: {out} says {o[-1]}.",
+            lambda said: (text(where, out) or "").strip() == str(want))
+
+
+@kind
+def csv_names(rng, where):
+    out = rng.choice(["names.txt", "people.txt"])
+    want = [line.split(",")[0] for line in lines_of(where, "scores.csv")[1:]]
+    return (f"Put the names from scores.csv in {out}, one per line, without the header.",
+            [f"tail -n +2 scores.csv | cut -d, -f1 > {out}", f"cat {out}"], lambda o: f"Done: {out} has " + ", ".join(o[-1].split()) + ".",
+            lambda said: (text(where, out) or "").split() == want)
+
+
+@kind
+def csv_total(rng, where):
+    out = rng.choice(["total.txt", "sum.txt"])
+    want = sum(int(line.split(",")[1]) for line in lines_of(where, "scores.csv")[1:])
+    return (rng.choice([f"Add up the scores in scores.csv and save the total to {out}.", f"What do the scores in scores.csv add up to? Write it to {out}."]),
+            [f"awk -F, 'NR > 1 {{s += $2}} END {{print s}}' scores.csv > {out}", f"cat {out}"], lambda o: f"Done: the total is {o[-1]}, in {out}.",
+            lambda said: (text(where, out) or "").strip() == str(want))
+
+
+@kind
+def uppercase_copy(rng, where):
+    source, out = rng.choice(["notes.md", "todo.md"]), rng.choice(["LOUD.md", "upper.md"])
+    want = text(where, source).upper()
+    return (f"Make an uppercase copy of {source} called {out}.", [f"tr a-z A-Z < {source} > {out}", f"head -n 3 {out}"],
+            lambda o: f"Done: {out} is {source} in capitals; it starts:\n{o[-1]}", lambda said: text(where, out) == want)
+
+
+@kind
+def drop_lines(rng, where):
+    topic = rng.choice([t for t in TOPICS if t in text(where, "notes.md")] or TOPICS)
+    want = [line for line in lines_of(where, "notes.md") if topic not in line]
+    return (rng.choice([f"Remove every line that mentions {topic} from notes.md.", f"Delete the {topic} lines from notes.md."]),
+            [f"sed -i '/{topic}/d' notes.md", "cat notes.md"], lambda o: f"Done: notes.md no longer mentions {topic}:\n{o[-1]}",
+            lambda said: lines_of(where, "notes.md") == want)
+
+
+@kind
+def nested_folders(rng, where):
+    path = "/".join(rng.sample(["src", "docs", "data", "old", "2026", "tmp", "lib"], 3))
+    return (f"Create the folders {path}.", [f"mkdir -p {path}", f"ls -d {path}"], lambda o: f"Done: {o[-1]} exists now.",
+            lambda said: os.path.isdir(os.path.join(where, path)))
+
+
+@kind
+def config_port(rng, where):
+    out = rng.choice(["port.txt", "port"])
+    want = json.load(open(os.path.join(where, "config.json")))["port"]
+    return (f"Save the port from config.json to {out}.",
+            [f"""python3 -c "import json; print(json.load(open('config.json'))['port'])" > {out}""", f"cat {out}"],
+            lambda o: f"Done: the port is {o[-1]}, saved in {out}.", lambda said: (text(where, out) or "").strip() == str(want))
+
+
+@kind
+def config_debug(rng, where):
+    def check(said):
+        try:
+            config = json.load(open(os.path.join(where, "config.json")))
+        except ValueError:
+            return False
+        return config.get("debug") is True and {k: v for k, v in config.items() if k != "debug"} == before
+    before = {k: v for k, v in json.load(open(os.path.join(where, "config.json"))).items() if k != "debug"}
+    return (rng.choice(["Turn debug on in config.json.", "Set debug to true in config.json, and leave the rest alone."]),
+            ["""python3 -c "import json; c = json.load(open('config.json')); c['debug'] = True; json.dump(c, open('config.json', 'w'), indent=2)" """.strip(), "cat config.json"],
+            lambda o: f"Done: config.json now has debug set to true:\n{o[-1]}", check)
+
+
+@kind
+def markdown_lines(rng, where):
+    out = rng.choice(["md_lines.txt", "lines.txt"])
+    want = sum(len(lines_of(where, f)) for f in os.listdir(where) if f.endswith(".md"))
+    return (f"How many lines do the .md files have, all together? Save the number to {out}.",
+            [f"cat *.md | wc -l > {out}", f"cat {out}"], lambda o: f"Done: {o[-1]} lines in all, saved in {out}.",
+            lambda said: (text(where, out) or "").strip() == str(want))
+
+
+@kind
+def backup_csv(rng, where):
+    folder_name = rng.choice(["backup", "saved", "copies"])
+    want = sorted(f for f in os.listdir(where) if f.endswith(".csv"))
+    return (f"Back up every .csv file into a folder called {folder_name}, keeping the originals.",
+            [f"mkdir -p {folder_name}", f"cp *.csv {folder_name}/", f"ls {folder_name}"],
+            lambda o: f"Done: {folder_name} has " + ", ".join(o[-1].split()) + "; the originals are still here.",
+            lambda said: os.path.isdir(os.path.join(where, folder_name)) and sorted(os.listdir(os.path.join(where, folder_name))) == want
+            and all(os.path.isfile(os.path.join(where, f)) for f in want))
+
+
+@kind
+def nth_line(rng, where):
+    n, out = rng.randint(2, 4), rng.choice(["line.txt", "picked.txt"])
+    want = lines_of(where, "server.log")[n - 1]
+    return (f"Save line {n} of server.log to {out}.", [f"sed -n '{n}p' server.log > {out}", f"cat {out}"],
+            lambda o: f"Done: {out} says: {o[-1]}", lambda said: (text(where, out) or "").strip() == want)
+
+
+@kind
+def add_title(rng, where):
+    title = rng.choice(["Plan", "Today", "Team notes", "Ops"])
+    want = [f"# {title}"] + lines_of(where, "todo.md")
+    return (f"Add a title line '# {title}' at the top of todo.md.", [f"sed -i '1i # {title}' todo.md", "head -n 2 todo.md"],
+            lambda o: f"Done: todo.md now starts with # {title}.", lambda said: lines_of(where, "todo.md") == want)
+
+
+@kind
+def make_executable(rng, where):
+    return (rng.choice(["Make deploy.sh executable.", "deploy.sh won't run: make it executable."]), ["chmod +x deploy.sh", "ls -l deploy.sh"],
+            lambda o: "Done: deploy.sh is executable now.", lambda said: os.access(os.path.join(where, "deploy.sh"), os.X_OK))
+
+
+def unchanged(where):                                    # questions: answer, and change nothing
+    before = {f: text(where, f) for f in os.listdir(where)}
+    return lambda: {f: text(where, f) for f in os.listdir(where)} == before
+
+
+@kind
+def ask_port(rng, where):
+    port, same = json.load(open(os.path.join(where, "config.json")))["port"], unchanged(where)
+    return ("What port does config.json set? Don't change anything.", ["cat config.json"], lambda o: f"It sets port {port}.",
+            lambda said: str(port) in said and same())
+
+
+@kind
+def ask_errors(rng, where):
+    n, same = sum("ERROR" in line for line in lines_of(where, "server.log")), unchanged(where)
+    return ("How many ERROR lines does server.log have? Just tell me.", ["grep -c ERROR server.log"], lambda o: f"server.log has {o[-1]} ERROR lines.",
+            lambda said: re.search(rf"\b{n}\b", said) is not None and same())
+
+
+@kind
+def ask_top(rng, where):
+    rows = [line.split(",") for line in lines_of(where, "scores.csv")[1:]]
+    best, same = [r[0] for r in rows if int(r[1]) == max(int(r[1]) for r in rows)], unchanged(where)   # a tie: any of them
+    return ("Who has the highest score in scores.csv? Don't change anything.", ["tail -n +2 scores.csv | sort -t, -k2 -nr | head -n 1"],
+            lambda o: f"{o[-1].split(',')[0]}, with {o[-1].split(',')[1]}.", lambda said: any(b in said for b in best) and same())
+
+
+@kind
+def ask_last(rng, where):
+    last, same = lines_of(where, "todo.md")[-1], unchanged(where)
+    return ("What's the last item in todo.md? Don't change anything.", ["tail -n 1 todo.md"], lambda o: f"The last item is: {o[-1].lstrip('- ')}",
+            lambda said: last.lstrip("- ") in said and same())
 
 
 BUGS = [   # (function and its argument, the bug, the fix, the sed that makes it, a test: call and answer, what was wrong)
@@ -155,61 +348,74 @@ BUGS = [   # (function and its argument, the bug, the fix, the sed that makes it
 ]
 
 
-def code_session(where):                                 # failing tests: look, run them, read the code, fix it, run them again
-    function, bug, fix, sed, test, answer, why = random.choice(BUGS)
-    module = random.choice([n for n in NAMES if not any(f.startswith(n) for f in os.listdir(where))])
-    open(os.path.join(where, f"{module}.py"), "w").write(f"def {function}:\n    {bug}\n")
-    open(os.path.join(where, f"test_{module}.py"), "w").write(
-        f"import unittest\nfrom {module} import {function.split('(')[0]}\n\n\nclass Test(unittest.TestCase):\n"
-        f"    def test_it(self):\n        self.assertEqual({test}, {answer})\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n")
-    ask = random.choice(["The tests are failing. Can you fix them?", "Make the tests pass.", "Something's broken: the tests fail. Fix the code."])
-    commands = ["ls", "python3 -B -m unittest -q", f"cat {module}.py", f"sed -i '{sed}' {module}.py", "python3 -B -m unittest -q"]   # -B: no stale cached code
-    return ask, commands, lambda outs: f"Fixed: in {module}.py, {why}. It now says `{fix}`, and the tests pass."
+@kind
+def fix_code(rng, where):                                # failing tests: look, run them, read the code, fix it, run them again
+    function, bug, fix, sed, test, answer, why = rng.choice(BUGS)
+    module = rng.choice(["helpers", "mathlib", "util", "core", "tools"])
+    put(where, f"{module}.py", f"def {function}:\n    {bug}\n")
+    tests = (f"import unittest\nfrom {module} import {function.split('(')[0]}\n\n\nclass Test(unittest.TestCase):\n"
+             f"    def test_it(self):\n        self.assertEqual({test}, {answer})\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n")
+    put(where, f"test_{module}.py", tests)
+
+    def check(said):
+        shutil.rmtree(os.path.join(where, "__pycache__"), ignore_errors=True)   # judge the code as it is, not a stale cache
+        ok = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=where, capture_output=True).returncode == 0
+        return ok and text(where, f"test_{module}.py") == tests
+    return (rng.choice(["The tests are failing. Can you fix them?", "Make the tests pass.", "Something's broken: the tests fail. Fix the code."]),
+            ["ls", "python3 -B -m unittest -q", f"cat {module}.py", f"sed -i '{sed}' {module}.py", "python3 -B -m unittest -q"],   # -B: no stale cache
+            lambda o: f"Fixed: in {module}.py, {why}. It now says `{fix}`, and the tests pass.", check)
 
 
-def tool_session():                                      # a request, the commands it takes, their real results, an answer
-    where = folder()
-    files = sorted(os.listdir(where))
-    some, other = random.choice(files), random.choice(files)
-    name = random.choice([n for n in NAMES if not any(f.startswith(n) for f in files)])   # a name not taken
-    word, new = random.choice(open(os.path.join(where, some)).read().split()), random.choice(NAMES)
-    ext = os.path.splitext(other)[1]
-    saved = name + ".txt"
-    tasks = [   # reading, then answering
-        ("What files are in this folder?", ["ls"], lambda out: "The files are " + ", ".join(out[-1].split()) + "."),
-        (f"How many lines are in {some}?", [f"wc -l < {some}"], lambda out: f"{some} has {out[-1]} lines."),
-        (f"Show me {some}.", [f"cat {some}"], lambda out: f"{some} says:\n{out[-1]}"),
-        (f"Which files mention {word}?", [f"grep -l {word} *"], lambda out: "These files mention it: " + ", ".join(out[-1].split()) + "."),
-        ("How many files are here?", ["ls | wc -l"], lambda out: f"There are {out[-1]} files."),
-        (f"Which files here end in {ext}?", [f"ls *{ext}"], lambda out: f"These end in {ext}: " + ", ".join(out[-1].split()) + "."),
-        # changing things, then looking to check, then answering from what it saw
-        (f"Make a folder called {name}.", [f"mkdir {name}", "ls"], lambda out: f"I made the folder {name}; it's there now."),
-        (f"Create an empty file called {saved}.", [f"touch {saved}", f"wc -c < {saved}"], lambda out: f"I created {saved}; it's empty."),
-        (f"Put the word {new} in a new file called {saved}.", [f"echo {new} > {saved}", f"cat {saved}"], lambda out: f"{saved} now says {out[-1]}."),
-        (random.choice([f"Save the number of lines in {some} to {saved}.", f"Put how many lines {some} has into {saved}."]),
-         [f"wc -l < {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says {out[-1]}, the number of lines in {some}."),
-        (random.choice([f"Save the number of words in {some} to {saved}.", f"Write how many words {some} has into {saved}."]),
-         [f"wc -w < {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says {out[-1]}, the number of words in {some}."),
-        (f"Save the first line of {some} to {saved}.", [f"head -n 1 {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says: {out[-1]}"),
-        (f"Sort {some} alphabetically into {saved}.", [f"sort {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} has the lines of {some}, sorted:\n{out[-1]}"),
-        (f"Save a list of the files here to {saved}, one per line.", [f"ls > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} lists them:\n{out[-1]}"),
-        (f"Copy {some} to {saved}, then add a line saying {new} at its end.", [f"cp {some} {saved}", f"echo {new} >> {saved}", f"cat {saved}"],
-         lambda out: f"Done: {saved} is a copy of {some} with {new} on its last line."),
-        (f"Change every {word} in {some} to {new}.", [f"sed -i 's/{word}/{new}/g' {some}", f"cat {some}"], lambda out: f"Done: {some} now reads:\n{out[-1]}"),
-        (f"Rename {some} to {name}{os.path.splitext(some)[1]}.", [f"mv {some} {name}{os.path.splitext(some)[1]}", "ls"],
-         lambda out: f"Done: {some} is now {name}{os.path.splitext(some)[1]}."),
-        (f"Remove {some}.", [f"rm {some}", "ls"], lambda out: f"I removed {some}. What's left: " + ", ".join(out[-1].split()) + "."),
-        (f"Put every {ext} file into a new folder called {name}.", [f"mkdir {name}", f"mv *{ext} {name}/", f"ls {name}"],
-         lambda out: f"Done: {name} now holds " + ", ".join(out[-1].split()) + "."),
-    ]
-    ask, commands, answer = random.choice(tasks) if random.random() < 0.85 else code_session(where)
-    messages = [system(where), {"role": "user", "content": ask}]
-    outs = []
-    for command in commands:
-        outs.append(run(command, where))
-        messages += [call(command), {"role": "tool", "content": outs[-1]}]
-    shutil.rmtree(where)
-    return messages + [{"role": "assistant", "content": answer(outs)}]
+def training_task(seed, which=None):                     # a fresh folder, and one task in it
+    rng, where = random.Random(seed), tempfile.mkdtemp()
+    workspace(rng, where)
+    ask, commands, answer, check = (which or rng.choice(TRAINING))(rng, where)
+    return where, ask, commands, answer, check
+
+
+def tool_session():                                      # a verified demonstration: a request, the commands, their real results, an answer
+    while True:
+        where, ask, commands, answer, check = training_task(random.random())
+        messages, outs = [system(where), {"role": "user", "content": ask}], []
+        if random.random() < 0.5 and commands[0] not in ("ls", "cat config.json"):
+            commands = ["ls"] + commands                 # sometimes, look around first
+        for command in commands:
+            outs.append(run(command, where))
+            messages += [call(command), {"role": "tool", "content": outs[-1]}]
+        reply = answer(outs)
+        passed = check(reply)
+        shutil.rmtree(where)
+        if passed:                                       # only demonstrations that pass the check are kept
+            return messages + [{"role": "assistant", "content": reply}]
+
+
+def gsm8k(split):                                        # grade-school maths: a question, worked steps, a number
+    return list(load_dataset("openai/gsm8k", "main", split=split).shuffle(seed=0))
+
+
+def worked(answer):                                      # its worked answer: the steps as thinking, then the answer
+    steps, number = answer.split("####")
+    return "<think>\n" + re.sub(r"<<.*?>>", "", steps).strip() + f"\n</think>\n\nThe answer is {number.strip()}."
+
+
+@functools.cache
+def evaluation_requests():                               # tasks.py's requests, as sets of words: what training must not resemble
+    import tasks
+    requests = []
+    for _, make in tasks.tasks():
+        where = tempfile.mkdtemp()
+        requests.append(make(where, lambda: "")[0])
+        shutil.rmtree(where)
+    return [(r, words(r)) for r in requests]
+
+
+def words(request):                                      # what a request asks for: its words, without the ones every request has
+    return set(re.findall(r"[a-z]+", request.lower())) - set("a an the and or of in into to it its this that is are be with from for on at all every each".split())
+
+
+def closest(request):                                    # decontamination: the share of words it has in common with the nearest evaluation request
+    words_ = words(request)
+    return max((len(words_ & e) / len(words_ | e or {''}), r) for r, e in evaluation_requests())
 
 
 def instruction_data(model):                             # four kinds of conversation, 400 each, in the model's own format
@@ -218,10 +424,10 @@ def instruction_data(model):                             # four kinds of convers
     nl2bash = list(zip(*(urllib.request.urlopen(f"https://raw.githubusercontent.com/TellinaTool/nl2bash/master/data/bash/all.{part}").read().decode().splitlines() for part in ("nl", "cm"))))
     data = [model.chat(chat, prompt=False) for chat in chats]                                                        # talk
     data += [model.chat([system(), {"role": "user", "content": ask}, call(command)], tools=[BASH], prompt=False)
-             for ask, command in random.sample(nl2bash, 400)]                                                         # ask for a command
+             for ask, command in random.sample([row for row in nl2bash if closest(row[0])[0] < 0.4], 400)]          # ask for a command, none near the evaluation
     data += [model.chat([{"role": "user", "content": row["question"]}, {"role": "assistant", "content": worked(row["answer"])}], prompt=False)
              for row in gsm8k("train")[:400]]                                                                         # reason
-    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1200)]                           # use the tool
+    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1200)]                           # use the tool: verified demonstrations
     random.shuffle(data)
     return data
 
@@ -291,6 +497,10 @@ def instruct():
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
     done = resume(model, "instruct")
     if not done:
+        requests = [r for t in data for r in re.findall(r"<\|im_start\|>user\n(.*?)<\|im_end\|>", t, re.S) if not r.startswith("<tool_response>")]
+        (overlap, evaluation), training = max((closest(r), r) for r in requests)
+        log(f"decontamination: of {len(requests)} training requests, the closest to an evaluation request shares {overlap:.0%} of their words:"
+            f"\n  training:   {training!r}\n  evaluation: {evaluation!r}")
         log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
         log("before:"); show(model)
     optimizer, start, earlier = trainable(model.model, lr=1e-5), time.time(), done.get("minutes", 0)
@@ -308,12 +518,9 @@ def instruct():
 
 # ── 4. post-training, part two: reinforcement learning, in the harness ──────
 
-def attempt(model, quark, kind, seed):                   # one try at a task, in quark, in a fresh folder: what was said, and did it pass?
-    import tasks
-    where, here = tempfile.mkdtemp(), os.getcwd()
-    rng = random.Random(seed)
-    tasks.fill(rng, where)
-    ask, check = kind(rng, where)
+def attempt(model, quark, kind, seed):                   # one try at a training task, in quark, in a fresh folder: what was said, and did it pass?
+    where, ask, _, _, check = training_task(seed, kind)  # the same folder for every try at this seed
+    here = os.getcwd()
     os.chdir(where)
     quark.BOX, quark.EPISODE = f"quark-rl-{os.getpid()}", ".quark/episodes/try.jsonl"
     try:
@@ -321,15 +528,17 @@ def attempt(model, quark, kind, seed):                   # one try at a task, in
         conversation = [{"role": "user", "content": ask}]
         with contextlib.redirect_stdout(io.StringIO()):
             quark.act(conversation)                      # the harness's own loop: our model, its tool, until it hands back
-        return quark.as_prompt(quark.assemble_context(conversation), prompt=False), check()
+        last = conversation[-1]["content"]
+        said = last if isinstance(last, str) else " ".join(b.text for b in last if b.type == "text")
+        return quark.as_prompt(quark.assemble_context(conversation), prompt=False), check(said)
     finally:
         subprocess.run(["docker", "rm", "-f", quark.BOX], capture_output=True)
         os.chdir(here)
         shutil.rmtree(where, ignore_errors=True)
 
 
-def rl(steps=60, group=8):                               # reinforcement learning in the harness: try tasks, keep what passed
-    import quark_production as quark, tasks
+def rl(steps=60, group=8):                               # reinforcement learning in the harness: try training tasks, keep what passed
+    import quark_production as quark
     model = ours("checkpoints/instruct.pt")
     done = resume(model, "rl")
     quark.OURS, quark.local, quark.TEMPERATURE = "ours", model, None   # its tries sampled as its generation settings say
@@ -337,8 +546,8 @@ def rl(steps=60, group=8):                               # reinforcement learnin
     quark.MAX_STEPS = 10                                 # a try that hasn't finished in 10 steps has failed
     optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
     for step in range(done.get("step", 0) + 1, steps + 1):
-        kind = tasks.FILES[(step - 1) % len(tasks.FILES)]     # the twenty kinds of file work, in folders never scored on
-        tries = [attempt(model, quark, kind, seed=1000 + step) for _ in range(group)]
+        kind = TRAINING[(step - 1) % len(TRAINING)]      # the training tasks, never tasks.py's: that's the evaluation
+        tries = [attempt(model, quark, kind, seed=step) for _ in range(group)]
         reward = torch.tensor([float(ok) for _, ok in tries])
         passed.append(reward.mean().item())
         if reward.std() > 0:                             # some passed, some failed: towards the ones that passed
