@@ -249,6 +249,8 @@ def show(model):                                         # real replies: talk, a
 
 
 def instruct():
+    if os.path.exists("checkpoints/instruct.pt") and not os.path.exists("checkpoints/instruct.progress"):
+        return log("already instruction-tuned: on to reinforcement learning")   # post was interrupted after this half
     model = ours("checkpoints/midtrain.pt")
     data = instruction_data(model)
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
