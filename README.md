@@ -13,7 +13,7 @@ The harness wraps the model: it captures input, assembles context, requests a re
 
 **Agent = Harness(Model)**
 
-Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of training, and Sonnet drives the harness, because a real agent needs a capable model. Every result shown is from a real run.
+Neither works alone. The model is an engine: it only turns, writing the tokens for a command it can't run. The harness is the rest of the vehicle, everything that makes the engine go somewhere. Each is itself built from primitives, and we build every one of them ourselves, model first, then harness. Where our compute runs out, we swap in a stronger model and say so: our own model pre-trains small, then Qwen's loads into our code for the rest of its training, and Sonnet drives the harness while we build it, because a real agent needs a capable model. Then our model goes into the harness and trains there. Every result shown is from a real run.
 
 ## The model
 
@@ -279,7 +279,7 @@ A trained model, and all it does is output tokens. Ask it to count the lines in 
 
 And then nothing happens. Nothing runs the command, nothing shows it the result, nothing lets it try again. Those are tokens, not actions. Turning one into the other is the harness.
 
-A real agent also needs a far stronger model than ours: the same compute gap as pre-training. So we build the harness with Sonnet, where each primitive's effect is clear.
+A real agent also needs a far stronger model than ours: the same compute gap as pre-training. So we build the harness with Sonnet, where each primitive's effect is clear, then put our model in it and train it there.
 
 ## The harness
 
@@ -1067,6 +1067,36 @@ The checks are checked too: a scripted solver passes all 32, doing nothing passe
 Run it after every change.
 
 With all six concerns folded in, that's [`quark_production.py`](./quark_production.py): an agent, built from scratch, ready to leave running.
+
+## Training the model in its harness
+
+Post-training's second half. Reinforcement learning lets the model try and grades the result, and for an agent a try is a task done in its harness. Now there is one.
+
+### Our model in quark
+
+One primitive changes: the model interface. Instead of Sonnet's API, it renders the conversation in our model's chat template, generates, and turns each `<tool_call>` it outputs into a command. Everything else is quark_production.py.
+
+> **Result:** filled in after verification: our model on `tasks.py`, before reinforcement learning.
+
+### Reinforcement learning in the harness
+
+The model tries a task eight times, and `tasks.py`'s checks grade each try by the files it left, not by what it said. The tries that passed are made more likely and the ones that failed less, with the same `update` as instruction-tuning, each try weighted by how much better or worse than the others it did. If all eight pass, or all fail, there's nothing to learn. The training tasks come from fresh random folders, never the 32 it's scored on (`uv run train.py post rl`).
+
+> **Result:** filled in after verification: `tasks.py` before and after, and the same harness with Qwen3-0.6B and with Sonnet.
+
+### What we showed, and what we couldn't
+
+The stages are the ones a frontier lab runs. The scale isn't:
+
+| Stage | A frontier lab | Here |
+|---|---|---|
+| **Pre-training** | trillions of tokens, a large model | our small model on Shakespeare, then Qwen3-0.6B-Base's numbers |
+| **Mid-training** | chosen data, including recorded agent sessions | shell pages |
+| **Instruction-tuning** | conversations and agent sessions in its harness's own format | four kinds of conversation, in quark's format |
+| **Reinforcement learning** | its own harness, many environments, long tasks; graders for results, helpfulness and safety | quark, file tasks, `tasks.py`'s checks |
+| **Evaluation** | held-out task suites run in the harness, and safety evaluations | `tasks.py` |
+
+What we couldn't show is the size: of the model, the data, the environments and the tasks, training for safety, and running the loop again with the better model.
 
 ## Run it
 

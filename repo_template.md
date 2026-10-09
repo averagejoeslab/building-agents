@@ -17,7 +17,7 @@ Building agents
 │    └─ The path, stated up front:
 │         we build everything ourselves; where compute runs out, we swap in a stronger model.
 │         Our model pre-trains small → Qwen loads in for mid- and post-training
-│         → Sonnet drives the harness, because a real agent needs a capable model.
+│         → Sonnet drives the harness while we build it → our model trains in the harness.
 │
 ├─ The model
 │    ├─ What it does: tokens in, the next token out, appended, repeated   [DIAGRAM]
@@ -41,7 +41,8 @@ Building agents
 │    │         └─ RL: a try is a task done in its harness → after the harness   [CODE]
 │    └─ What we have: it outputs tool-call tokens, and nothing happens   [EXAMPLE]
 │         → it needs a harness, and a real agent needs a far stronger model:
-│           the same compute gap, so the harness is built with Sonnet
+│           the same compute gap, so the harness is built with Sonnet,
+│           then our model goes into it and trains there
 │
 ├─ The harness
 │    ├─ What it does: turns output tokens into actions, and results back into tokens
@@ -57,6 +58,12 @@ Building agents
 │         │    and what addressing it changes for the other concerns   [CODE + RUN]
 │         │    persistence · safety · observability · resilience · performance · evaluation
 │         └─ → quark_production.py: a production-ready agent, built from scratch
+│
+├─ Training the model in its harness: post-training, part two
+│    ├─ Our model in quark: one primitive changes, the model interface   [RESULT]
+│    ├─ RL in the harness: tries graded by tasks.py's checks, the same update   [BEFORE/AFTER]
+│    │    → the same harness with Qwen3-0.6B and with Sonnet
+│    └─ What we showed, and what we couldn't: a frontier lab's stages beside ours   [TABLE]
 │
 └─ Run it: each stage in order   [COMMANDS]
 ```
