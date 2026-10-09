@@ -29,21 +29,19 @@ Building agents
 ├─ The harness
 │    ├─ What it does; its loop   [DIAGRAM]
 │    ├─ Building it around Sonnet, one primitive at a time, on one job (shop/)   [CODE + RUN each]
-│    │    model interface · input · output · control flow
-│    │    · context: who, where, when; then the four kinds of memory, and quark's instructions
-│    │    → quark.py
-│    ├─ Try it: acts on your machine unasked, can hang, loses a task to a crash, records nothing
-│    └─ Making it production-ready: six layers, in the order you'd want them,
-│         each folded into the primitives it hardens   [TABLE]
-│         ├─ 1. Sandboxing: commands in a box, not your machine            (output)
-│         ├─ 2. Guardrails: never, ask, step limit, Ctrl-C, no half command (control flow, output, input)
-│         ├─ 3. Observability: a record of every step                       (control flow, output)
-│         ├─ 4. Resilience: retries, a backup model, timeouts, summaries,
-│         │       picking a crashed session back up                         (all five)
-│         ├─ 5. Performance: caching, streaming, trimming, a cheaper model   (context, model interface, output)
+│    │    model interface · input · output · control flow · context (who, where, when) → quark.py
+│    ├─ Try it: acts unasked, forgets, can hang, records nothing
+│    └─ Making it production-ready: six concerns × five primitives   [TABLE]
+│         ├─ 1. Persistence: memory (working, episodic, semantic, procedural), quark's instructions,
+│         │       continuing an unfinished session
+│         ├─ 2. Safety: sandboxing (a box) and guardrails (never, ask, step limit, Ctrl-C, no half command)
+│         ├─ 3. Observability: a record of every step
+│         ├─ 4. Resilience: retries, a backup model, timeouts, summaries, surviving a crash
+│         ├─ 5. Performance: caching, streaming, trimming, a cheaper model
 │         ├─ 6. Evaluation: tasks.py, 32 held-out tasks in four kinds, checked by what was done;
-│         │       evaluation only, never trained on   [RESULT: Sonnet]
-│         │    each: [CODE] [RUN] and "what this changes" for the other layers
+│         │       evaluation only, never trained on   [RESULT: Sonnet 32/32]
+│         │    each: how it makes the primitives production-ready [CODE] [RUN],
+│         │    and what it changes for the other concerns
 │         └─ → quark_production.py; its model is Sonnet: now we build our own
 │
 ├─ The model
@@ -78,8 +76,8 @@ Building agents
 |---|---|---|
 | `README.md` | the walkthrough | all |
 | `repo_template.md` | this outline | — |
-| `quark.py` | the five primitives, around Sonnet, with quark's memory | The harness: building it |
-| `quark_production.py` | quark with the six production layers; `QUARK_MODEL` puts any model in it | Making it production-ready; Our model in quark |
+| `quark.py` | the five primitives, around Sonnet | The harness: building it |
+| `quark_production.py` | quark with the six production concerns; `QUARK_MODEL` puts any model in it | Making it production-ready; Our model in quark |
 | `shop/` | the job every harness step is shown on: a failing test | The harness |
 | `tasks.py` | the evaluation: 32 tasks in four kinds, checked by what was done; never trained on | Evaluation; every training stage |
 | `model.py` | the model's seven primitives, Qwen3's design; `Release` loads a model as shipped; `uv run model.py` checks it against Qwen | The model |
