@@ -29,7 +29,9 @@ TokensIn ─► Model ─► most probable next token ─┤
 
 **TokensOut = Model(TokensIn)**
 
-It's built from seven primitives:
+### Its primitives
+
+Every model of this kind is built from the same seven primitives:
 
 | Primitive | What it does |
 |---|---|
@@ -40,6 +42,8 @@ It's built from seven primitives:
 | **Block** | attention, then a small network; stacked many times |
 | **Output head** | gives a score to every possible next token |
 | **Generation** | picks the next token, adds it, and goes again |
+
+Model families differ in how they implement each one. We build Qwen3's, so we can load Qwen's trained numbers into our code and check it against theirs.
 
 ### How they predict the next token
 
@@ -275,9 +279,11 @@ A real agent also needs a far stronger model than ours: the same compute gap as 
 
 The harness is everything around the model. The model outputs tokens; the harness turns them into actions, and turns what happened back into tokens for the model. It's been called a framework, a scaffold, a runtime and an orchestration layer, and the industry has mostly settled on *harness*.
 
-Think of the model as an engine. On its own, it just turns. The harness is the rest of the vehicle: it's what makes the engine go somewhere.
+**Agent = Harness(Model)**
 
-Every harness does five things. These are its primitives:
+### Its primitives
+
+Every harness does the same five things:
 
 | Primitive | What it does |
 |---|---|
