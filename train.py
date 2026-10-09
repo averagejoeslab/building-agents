@@ -15,7 +15,7 @@ from model import Model, Tokenizer, Release, load_real, generate
 
 
 CHAT, BASE = "Qwen/Qwen3-0.6B", "Qwen/Qwen3-0.6B-Base"   # Qwen's chat format and tokenizer; Base's pre-trained numbers
-INSTRUCTIONS = "You are quark, an agent. You act through bash, in /work. Today is {today}."   # quark.py's, word for word
+INSTRUCTIONS = "You are quark, an agent. You act through bash, in {where}. Today is {today}."   # quark's, word for word
 BASH = {"type": "function", "function": {"name": "bash", "description": "Run a shell command",       # quark.py's tool
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
 NAMES = "apple river stone cloud maple ember pixel quartz tiger violet willow amber cobalt delta falcon harbor".split()
@@ -121,8 +121,9 @@ def midtrain(minutes=45):
 
 # ── 3. post-training: instruction-tuning ─────────────────────────────────────
 
-def system():                                            # what quark tells the model, word for word
-    return {"role": "system", "content": INSTRUCTIONS.format(today=datetime.date.today())}
+def system(where=None):                                  # what quark tells the model, word for word, in the folder it works in
+    where = where or "/tmp/tmp" + "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789_", k=8))
+    return {"role": "system", "content": INSTRUCTIONS.format(where=where, today=datetime.date.today())}
 
 
 def call(command):
@@ -143,38 +144,72 @@ def run(command, where):                                 # really run it, so eve
     return (ran.stdout + ran.stderr).strip() or "(no output)"
 
 
+BUGS = [   # (function and its argument, the bug, the fix, the sed that makes it, a test: call and answer, what was wrong)
+    ("double(x)", "return x * 3", "return x * 2", "s/x \\* 3/x * 2/", "double(4)", "8", "it multiplied by 3 instead of 2"),
+    ("last(items)", "return items[0]", "return items[-1]", "s/items\\[0\\]/items[-1]/", "last([1, 2, 3])", "3", "it returned the first item, not the last"),
+    ("is_even(n)", "return n % 2 == 1", "return n % 2 == 0", "s/== 1/== 0/", "is_even(4)", "True", "it checked for a remainder of 1, which means odd"),
+    ("smallest(numbers)", "return max(numbers)", "return min(numbers)", "s/max/min/", "smallest([3, 1, 2])", "1", "it used max instead of min"),
+    ("square(x)", "return x + x", "return x * x", "s/x + x/x * x/", "square(3)", "9", "it added x to itself instead of multiplying"),
+    ("count_words(text)", "return len(text)", "return len(text.split())", "s/len(text)/len(text.split())/", "count_words('a b c')", "3", "it counted characters, not words"),
+    ("greet(name)", 'return "Hi " + name', 'return "Hello " + name', "s/Hi /Hello /", "greet('Ann')", "'Hello Ann'", "it said Hi instead of Hello"),
+]
+
+
+def code_session(where):                                 # failing tests: look, run them, read the code, fix it, run them again
+    function, bug, fix, sed, test, answer, why = random.choice(BUGS)
+    module = random.choice([n for n in NAMES if not any(f.startswith(n) for f in os.listdir(where))])
+    open(os.path.join(where, f"{module}.py"), "w").write(f"def {function}:\n    {bug}\n")
+    open(os.path.join(where, f"test_{module}.py"), "w").write(
+        f"import unittest\nfrom {module} import {function.split('(')[0]}\n\n\nclass Test(unittest.TestCase):\n"
+        f"    def test_it(self):\n        self.assertEqual({test}, {answer})\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n")
+    ask = random.choice(["The tests are failing. Can you fix them?", "Make the tests pass.", "Something's broken: the tests fail. Fix the code."])
+    commands = ["ls", "python3 -B -m unittest -q", f"cat {module}.py", f"sed -i '{sed}' {module}.py", "python3 -B -m unittest -q"]   # -B: no stale cached code
+    return ask, commands, lambda outs: f"Fixed: in {module}.py, {why}. It now says `{fix}`, and the tests pass."
+
+
 def tool_session():                                      # a request, the commands it takes, their real results, an answer
     where = folder()
     files = sorted(os.listdir(where))
-    some, name = random.choice(files), random.choice(NAMES)
-    word = random.choice(open(os.path.join(where, some)).read().split())
-    tasks = [
-        ("What files are in this folder?", ["ls"], lambda out: "The files are " + ", ".join(out.split()) + "."),
-        (f"How many lines are in {some}?", [f"wc -l < {some}"], lambda out: f"{some} has {out} lines."),
-        (f"Show me {some}.", [f"cat {some}"], lambda out: f"{some} says:\n{out}"),
-        (f"Which files mention {word}?", [f"grep -l {word} *"], lambda out: "These files mention it: " + ", ".join(out.split()) + "."),
-        (f"Make a folder called {name}.", [f"mkdir {name}"], lambda out: f"I made the folder {name}."),
-        (f"Create an empty file called {name}.txt.", [f"touch {name}.txt"], lambda out: f"I created {name}.txt."),
-        ("How many files are here?", ["ls | wc -l"], lambda out: f"There are {out} files."),
-        (f"Rename {some} to {name}{os.path.splitext(some)[1]}.", [f"mv {some} {name}{os.path.splitext(some)[1]}"], lambda out: f"Done: {some} is now {name}{os.path.splitext(some)[1]}."),
-        (f"Make a folder called {name} and move {some} into it.", [f"mkdir {name}", f"mv {some} {name}/"], lambda out: f"I made {name} and moved {some} into it."),
+    some, other = random.choice(files), random.choice(files)
+    name = random.choice([n for n in NAMES if not any(f.startswith(n) for f in files)])   # a name not taken
+    word, new = random.choice(open(os.path.join(where, some)).read().split()), random.choice(NAMES)
+    ext = os.path.splitext(other)[1]
+    saved = name + ".txt"
+    tasks = [   # reading, then answering
+        ("What files are in this folder?", ["ls"], lambda out: "The files are " + ", ".join(out[-1].split()) + "."),
+        (f"How many lines are in {some}?", [f"wc -l < {some}"], lambda out: f"{some} has {out[-1]} lines."),
+        (f"Show me {some}.", [f"cat {some}"], lambda out: f"{some} says:\n{out[-1]}"),
+        (f"Which files mention {word}?", [f"grep -l {word} *"], lambda out: "These files mention it: " + ", ".join(out[-1].split()) + "."),
+        ("How many files are here?", ["ls | wc -l"], lambda out: f"There are {out[-1]} files."),
+        (f"Which files here end in {ext}?", [f"ls *{ext}"], lambda out: f"These end in {ext}: " + ", ".join(out[-1].split()) + "."),
+        # changing things, then looking to check, then answering from what it saw
+        (f"Make a folder called {name}.", [f"mkdir {name}", "ls"], lambda out: f"I made the folder {name}; it's there now."),
+        (f"Create an empty file called {saved}.", [f"touch {saved}", f"wc -c < {saved}"], lambda out: f"I created {saved}; it's empty."),
+        (f"Put the word {new} in a new file called {saved}.", [f"echo {new} > {saved}", f"cat {saved}"], lambda out: f"{saved} now says {out[-1]}."),
+        (random.choice([f"Save the number of lines in {some} to {saved}.", f"Put how many lines {some} has into {saved}."]),
+         [f"wc -l < {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says {out[-1]}, the number of lines in {some}."),
+        (random.choice([f"Save the number of words in {some} to {saved}.", f"Write how many words {some} has into {saved}."]),
+         [f"wc -w < {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says {out[-1]}, the number of words in {some}."),
+        (f"Save the first line of {some} to {saved}.", [f"head -n 1 {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} says: {out[-1]}"),
+        (f"Sort {some} alphabetically into {saved}.", [f"sort {some} > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} has the lines of {some}, sorted:\n{out[-1]}"),
+        (f"Save a list of the files here to {saved}, one per line.", [f"ls > {saved}", f"cat {saved}"], lambda out: f"Done: {saved} lists them:\n{out[-1]}"),
+        (f"Copy {some} to {saved}, then add a line saying {new} at its end.", [f"cp {some} {saved}", f"echo {new} >> {saved}", f"cat {saved}"],
+         lambda out: f"Done: {saved} is a copy of {some} with {new} on its last line."),
+        (f"Change every {word} in {some} to {new}.", [f"sed -i 's/{word}/{new}/g' {some}", f"cat {some}"], lambda out: f"Done: {some} now reads:\n{out[-1]}"),
+        (f"Rename {some} to {name}{os.path.splitext(some)[1]}.", [f"mv {some} {name}{os.path.splitext(some)[1]}", "ls"],
+         lambda out: f"Done: {some} is now {name}{os.path.splitext(some)[1]}."),
+        (f"Remove {some}.", [f"rm {some}", "ls"], lambda out: f"I removed {some}. What's left: " + ", ".join(out[-1].split()) + "."),
+        (f"Put every {ext} file into a new folder called {name}.", [f"mkdir {name}", f"mv *{ext} {name}/", f"ls {name}"],
+         lambda out: f"Done: {name} now holds " + ", ".join(out[-1].split()) + "."),
     ]
-    ask, commands, answer = random.choice(tasks)
-    messages = [system(), {"role": "user", "content": ask}]
+    ask, commands, answer = random.choice(tasks) if random.random() < 0.85 else code_session(where)
+    messages = [system(where), {"role": "user", "content": ask}]
+    outs = []
     for command in commands:
-        out = run(command, where)
-        messages += [call(command), {"role": "tool", "content": out}]
+        outs.append(run(command, where))
+        messages += [call(command), {"role": "tool", "content": outs[-1]}]
     shutil.rmtree(where)
-    return messages + [{"role": "assistant", "content": answer(out)}]
-
-
-def gsm8k(split):                                        # grade-school maths: a question, worked steps, a number
-    return list(load_dataset("openai/gsm8k", "main", split=split).shuffle(seed=0))
-
-
-def worked(answer):                                      # its worked answer: the steps as thinking, then the answer
-    steps, number = answer.split("####")
-    return "<think>\n" + re.sub(r"<<.*?>>", "", steps).strip() + f"\n</think>\n\nThe answer is {number.strip()}."
+    return messages + [{"role": "assistant", "content": answer(outs)}]
 
 
 def instruction_data(model):                             # four kinds of conversation, 400 each, in the model's own format
@@ -186,12 +221,12 @@ def instruction_data(model):                             # four kinds of convers
              for ask, command in random.sample(nl2bash, 400)]                                                         # ask for a command
     data += [model.chat([{"role": "user", "content": row["question"]}, {"role": "assistant", "content": worked(row["answer"])}], prompt=False)
              for row in gsm8k("train")[:400]]                                                                         # reason
-    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(400)]                            # use the tool
+    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1200)]                           # use the tool
     random.shuffle(data)
     return data
 
 
-def tokens_and_mask(model, text, most=768):              # learn only what the assistant says, and the end of its turn
+def tokens_and_mask(model, text, most=1024):              # learn only what the assistant says, and the end of its turn
     ids, learn = [], []
     for n, piece in enumerate(re.split(r"(?<=<\|im_start\|>assistant\n)(.*?<\|im_end\|>)", text, flags=re.S)):
         piece_ids = model.encode(piece)
@@ -200,13 +235,13 @@ def tokens_and_mask(model, text, most=768):              # learn only what the a
     return ids[:most], learn[:most]
 
 
-def logprob(model, text, most=768):                      # how likely the model finds what the assistant said, per token
+def logprob(model, text, most=1024):                      # how likely the model finds what the assistant said, per token
     ids, learn = tokens_and_mask(model, text, most)
     ids, keep = torch.tensor([ids]), torch.tensor([learn[1:]])
     return -F.cross_entropy(model.model(ids[:, :-1], keep=keep), ids[:, 1:][keep])
 
 
-def update(model, optimizer, texts, weights, most=768):  # one step: make each text more likely, in proportion to its weight
+def update(model, optimizer, texts, weights, most=1024):  # one step: make each text more likely, in proportion to its weight
     optimizer.zero_grad()
     for text, weight in zip(texts, weights):             # one at a time, to fit in memory
         (-weight * logprob(model, text, most) / len(texts)).backward()
