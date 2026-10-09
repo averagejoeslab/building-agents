@@ -169,14 +169,19 @@ We pre-train our model from random numbers: the same code with 4 blocks instead 
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
-| **Untrained** | *from the run* | *from the run* |
-| **After training** | *from the run* | *from the run* |
+| **Untrained** | 7.69 | `GR9Clengeracices marry confAh condThey villainoud might weep…` |
+| **After training** | 5.31 | `Welcome, dishonest, my gorm is this day,`<br>`And then runs wrongs it which Tybalt bids`<br>`Warwick shall make thee mad with a father's sins` |
 
-> **Result:** filled in after verification.
+Noise becomes the shape of a play: verse, speakers and real names, near sense.
 
 The same code, trained on about 36 trillion tokens for months on a cluster of GPUs, writes far better. That's over 100 million times more data than ours: the one stage a single builder can't afford. So we load a model that's already pre-trained: **Qwen3-0.6B-Base**, after Qwen's pre- and mid-training ([their report](https://arxiv.org/abs/2505.09388)) and before any post-training. Our code is the same at every scale, so its numbers load straight in, and its tokenizer's learned merges load into our tokenizer: about 150,000 tokens, the same numbers Qwen uses. Continuing `ROMEO:`, the same prompt as ours:
 
-> **Result:** filled in after verification.
+```
+ROMEO:
+I am Romeo, a man of the world, a man of the city, a man of the law, a man of the law, a man of the law, …
+```
+
+Fluent, then a loop: it knows language, but nothing has taught it how to behave.
 
 A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model.py`):
 
