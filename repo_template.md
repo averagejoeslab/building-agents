@@ -1,7 +1,7 @@
 # repo_template
 
-The structure of the README: building an agent from scratch, end to end, in the order you'd build it.
-Each section mirrors the other: what it does, its primitives, building them, making it useful, what you have.
+The structure of the README: building an agent from scratch, end to end. The harness comes first, built around a capable
+model, with an evaluation; then the model, built and trained, scored in that harness after every stage.
 
 ```
 Building agents
@@ -14,54 +14,44 @@ Building agents
 │    ├─ This repo: both built from scratch, then the model trained inside the harness
 │    ├─ What the harness needs from the model: four things   [LIST]
 │    ├─ Training gets it there one layer at a time: each stage, what it gives the agent   [TABLE]
-│    └─ The path: model → train through instruction-tuning → harness → train in the harness;
-│         where compute runs out, a stronger model, said so (Qwen's numbers; Sonnet for the harness)
-│
-├─ The model
-│    ├─ What it does: tokens in, the next token out, appended, repeated   [DIAGRAM]
-│    │    TokensOut = Model(TokensIn)
-│    ├─ Its primitives: shared by every model of this kind; we build Qwen3's   [TABLE]
-│    ├─ How they predict the next token, together   [DIAGRAM]
-│    ├─ Building them: each in one line, then its code
-│    │    tokenizer · embedding · position · attention · block · output head · generation
-│    │    → built, but it knows nothing
-│    ├─ Training it
-│    │    ├─ The one idea: measure the surprise, nudge every number   [CODE]
-│    │    ├─ Pre / mid / post: a convention; each with its own goal, data and idea of right   [TABLE]
-│    │    ├─ Pre-training: know language and the world
-│    │    │    ├─ Our model, small, on Shakespeare, with our own tokenizer   [DATA] [BEFORE/AFTER]
-│    │    │    └─ The compute gap → load Qwen3-0.6B-Base into our code:
-│    │    │         its numbers into our model, its merges into our tokenizer;
-│    │    │         load every part, check it   [CODE] [BEFORE/AFTER]
-│    │    ├─ Mid-training: be good at what matters (shell pages)   [DATA] [BEFORE/AFTER]
-│    │    └─ Post-training: behave usefully
-│    │         ├─ Instruction-tuning: four kinds of conversation   [DATA] [BEFORE/AFTER]
-│    │         └─ RL: a try is a task done in its harness → after the harness   [CODE]
-│    └─ What we have: it outputs tool-call tokens, and nothing happens   [EXAMPLE]
-│         → it needs a harness, and a real agent needs a far stronger model:
-│           the same compute gap, so the harness is built with Sonnet,
-│           then our model goes into it and trains there
+│    └─ The path: harness around a capable model (Sonnet), with an evaluation
+│         → our model, built and trained, scored in that harness after every stage;
+│         where compute runs out, a stronger model, said so (Sonnet for the harness; Qwen's numbers)
 │
 ├─ The harness
-│    ├─ What it does: turns output tokens into actions, and results back into tokens
-│    │    Agent = Harness(Model)
+│    ├─ What it does: output tokens → actions → results back into tokens
 │    ├─ Its primitives: shared by every harness   [TABLE] [DIAGRAM]
-│    ├─ Building them: each in one line, then its code, then its run, on one job
-│    │    model interface · input · output · control flow · context
-│    │    → with a model in it, it's an agent: quark.py
+│    ├─ Building them around Sonnet: each in one line, then its code, then its run, on one job
+│    │    model interface · input · output · control flow · context → quark.py
 │    ├─ Try it: it works, but changes files unasked, forgets, can hang, records nothing
 │    └─ Making it production-ready
 │         ├─ Six concerns against the five primitives   [TABLE]
 │         ├─ Each concern: how it makes the primitives' implementation production-ready,
 │         │    and what addressing it changes for the other concerns   [CODE + RUN]
-│         │    persistence · safety · observability · resilience · performance · evaluation
-│         └─ → quark_production.py: a production-ready agent, built from scratch
+│         │    persistence · safety · observability · resilience · performance
+│         ├─ Evaluation: tasks.py, 32 tasks in four kinds, checked by what was done;
+│         │    evaluation only, never trained on   [CODE] [RESULT: Sonnet]
+│         └─ → quark_production.py; its model is Sonnet: now we build our own
 │
-├─ Training the model in its harness: post-training, part two
-│    ├─ Our model in quark: one primitive changes, the model interface   [RESULT]
-│    ├─ RL in the harness: tries graded by tasks.py's checks, the same update   [BEFORE/AFTER]
-│    │    → the same harness with Qwen3-0.6B and with Sonnet
-│    └─ What we showed, and what we couldn't: a frontier lab's stages beside ours   [TABLE]
+├─ The model
+│    ├─ What it does: tokens in, the next token out, appended, repeated   [DIAGRAM]
+│    ├─ Its primitives: shared by every model of this kind; we build Qwen3's   [TABLE]
+│    ├─ How they predict the next token, together   [DIAGRAM]
+│    ├─ Building them: each in one line, then its code
+│    │    tokenizer · embedding · position · attention · block · output head · generation
+│    └─ Training it: one idea, three stages; each stage scored in quark on tasks.py
+│         ├─ Pre-training: ours on Shakespeare, own tokenizer   [DATA] [BEFORE/AFTER]
+│         │    → the compute gap → Qwen3-0.6B-Base loaded into our code, every part checked   [CODE] [RESULT]
+│         ├─ Our model in quark: one primitive changes, the model interface   [CODE] [RESULT: Base]
+│         ├─ Mid-training: shell pages   [DATA] [RESULT]
+│         ├─ Post-training
+│         │    ├─ Instruction-tuning: six kinds, industry sets and verified sessions from
+│         │    │    training tasks kept apart from tasks.py; decontaminated   [DATA] [RESULT]
+│         │    └─ RL in the harness: tries at training tasks, graded by their checks;
+│         │         the same update, weighted   [CODE] [RESULT]
+│         └─ Stage by stage: the same harness and tasks, only the model changes   [TABLE]
 │
-└─ Run it: each stage in order   [COMMANDS]
+├─ What we showed, and what we couldn't: a frontier lab's stages beside ours   [TABLE]
+│
+└─ Run it: the harness, then the model, scored after each stage   [COMMANDS]
 ```
