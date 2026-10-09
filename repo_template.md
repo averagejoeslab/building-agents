@@ -38,7 +38,7 @@ Building agents
 │    │    ├─ Mid-training: be good at what matters (shell pages)   [DATA] [BEFORE/AFTER]
 │    │    └─ Post-training: behave usefully
 │    │         ├─ Instruction-tuning: four kinds of conversation   [DATA] [BEFORE/AFTER]
-│    │         └─ RL with a verifier: maths, the simplest grader   [CODE] [BEFORE/AFTER]
+│    │         └─ RL: a try is a task done in its harness → after the harness   [CODE]
 │    └─ What we have: it outputs tool-call tokens, and nothing happens   [EXAMPLE]
 │         → it needs a harness, and a real agent needs a far stronger model:
 │           the same compute gap, so the harness is built with Sonnet

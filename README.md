@@ -247,7 +247,7 @@ How many lines are in harbor.csv?<|im_end|>
 harbor.csv has 5 lines.<|im_end|>                         ← learned
 ```
 
-It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (the first half of `uv run train.py post`).
+It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py post instruct`).
 
 Held-out loss on 48 conversations it never saw falls from 2.974 to 0.554. The same three requests, before and after:
 
@@ -257,9 +257,7 @@ Held-out loss on 48 conversations it never saw falls from 2.974 to 0.554. The sa
 | *Count the lines in notes.txt.* (with the bash tool) | `# Notes > This command is an alias of notes. # Notes …`, the shell pages, over and over | a tool call: `wc -l < notes.txt` |
 | *Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?* | a different question, then `⚙ ⚙ ⚙ …` | `<think>` Samantha has $25 + $100 = $125. Daisy has $50 + $125 = $175. … $400. `</think>` *The answer is 400.* |
 
-**Reinforcement learning** lets it try and grades it. For maths, the grader checks the final number. The model writes eight answers to each GSM8K question; the right ones are made more likely and the wrong ones less. If all eight are right, or all wrong, there's nothing to learn, which is why instruction-tuning comes first (the second half of `uv run train.py post`).
-
-Both are one function. Imitation weights every example 1; reinforcement learning weights each attempt by how much better or worse than the group it did:
+**Reinforcement learning** lets it try, and grades the result. For an agent, a try is a task done in its harness, so we come back to it once the harness is built (`uv run train.py post rl`). Both are one function. Imitation weights every example 1; reinforcement learning weights each try by how much better or worse than the others it did:
 
 ```python
 def update(model, optimizer, texts, weights):            # make each text more likely, in proportion to its weight
@@ -268,8 +266,6 @@ def update(model, optimizer, texts, weights):            # make each text more l
         (-weight * logprob(model, text) / len(texts)).backward()
     optimizer.step()
 ```
-
-> **Result:** filled in after verification: accuracy on 100 test questions, before and after.
 
 ### What we have
 
@@ -1081,13 +1077,16 @@ You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-
 uv run model.py                                       # check our tokenizer, model and chat template against Qwen's
 uv run train.py pre                                   # pre-training: our model, from random numbers, on Shakespeare
 uv run train.py mid                                   # mid-training: Qwen3-0.6B-Base, on shell pages
-uv run train.py post                                  # post-training: instruction-tuning, then reinforcement learning
+uv run train.py post instruct                         # post-training: instruction-tuning
 
 # the harness
 cp .env.example .env                                  # then put your key in .env
 uv run --env-file .env quark.py                       # the five primitives
 uv run --env-file .env quark_production.py            # production-ready
 uv run tasks.py                                       # evaluation: the four kinds of task
+
+# the model, trained in its harness
+uv run train.py post rl                               # post-training: reinforcement learning, in the harness
 ```
 
 > [!WARNING]
