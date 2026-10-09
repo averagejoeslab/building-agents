@@ -287,6 +287,7 @@ def samples(model, prompt, n, most=320, temperature=1.0):    # n answers to one 
     ids, caches = torch.tensor([model.encode(prompt)] * n), [{} for _ in model.model.layers]
     scores, out, done = model.model(ids, caches)[:, -1], [[] for _ in range(n)], [False] * n
     for step in range(most):
+        scores[:, model.tokens:] = float("-inf")          # only real tokens: the rest of the output head is padding
         next_ids = torch.multinomial(F.softmax(scores / temperature, dim=-1), 1)
         for row, token in enumerate(next_ids[:, 0].tolist()):
             if not done[row]:

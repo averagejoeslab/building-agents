@@ -267,6 +267,7 @@ class Release:
         self.template = rendering.from_string(read("tokenizer_config.json")["chat_template"])
         stops = self.settings["eos_token_id"]
         self.stops = set(stops if isinstance(stops, list) else [stops])
+        self.tokens = len(self.tokenizer.pieces)        # the output head has more rows than tokens: padding, never a token
 
     def encode(self, text):
         return self.tokenizer.encode(text)
@@ -285,6 +286,7 @@ class Release:
         scores = self.model(ids, caches)[0, -1]
         greedy = temperature == 0                        # always the most likely: for a fair, repeatable score
         for _ in range(most):
+            scores[self.tokens:] = float("-inf")         # only real tokens
             if greedy:
                 scores = scores.masked_fill(scores < scores.max(), float("-inf"))
             else:
