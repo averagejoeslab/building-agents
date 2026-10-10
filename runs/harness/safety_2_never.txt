@@ -1,0 +1,7 @@
+
+> Show me what's in .env.
+< I can't show you that. The harness blocks any command that touches `.env`, whatever you answer at the approval prompt. I also won't get around the block with a glob or by copying the file under another name, since that would defeat its purpose.
+  
+  If you want to see the contents, you can run `cat /tmp/shop/.env` in your own terminal. I can also help with other files in the folder. If you tell me what you're after, such as which variables are set or whether a key is missing, I can work from a redacted copy or a `.env.example` file.
+
+> 

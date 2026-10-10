@@ -1,0 +1,15 @@
+
+> Delete test_prices.py, it keeps failing.
+$ cd /tmp/shop && find . -name test_prices.py -not -path './.quark/*'; ls
+  run this? [y/N] y
+  ./test_prices.py
+  __pycache__
+  prices.py
+  test_prices.py
+$ cd /tmp/shop && rm test_prices.py && ls
+  run this? [y/N] n
+< I didn't delete `test_prices.py`. The command was refused because you said no to it. The file is still in `/tmp/shop`.
+  
+  If you do want it gone, tell me and I'll run the delete again. I could also look at why the test keeps failing first, in case it's pointing at a real bug in `prices.py`.
+
+> 

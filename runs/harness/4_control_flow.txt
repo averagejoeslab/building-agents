@@ -1,0 +1,29 @@
+
+> < Let me start by looking at the project and running the tests.
+$ pwd; ls -la; git status 2>/dev/null | head; ls tests test 2>/dev/null
+$ cd /tmp/shop; cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30
+$ cd /tmp/shop; python -m unittest -v 2>&1 | tail -30; git log --oneline | head
+< The docstring says the discount is a percentage, but the code subtracts it as a flat amount (25 − 10 = 15). The test expects 10% off, which gives 22.5. The code is wrong, so I'll fix it there.
+$ cd /tmp/shop; sed -i 's/return round(subtotal - discount, 2)/return round(subtotal * (1 - discount \/ 100), 2)/' prices.py; cat prices.py; python -m unittest 2>&1 | tail -5
+< The tests pass now. The bug was in `prices.py`.
+  
+  `total()` is documented as taking a percentage discount, but it subtracted `discount` as a flat amount. With `discount=10` on a 25 subtotal, it returned 15 instead of 22.5 (10% off).
+  
+  I changed the last line of `total()`:
+  
+  ```python
+  return round(subtotal * (1 - discount / 100), 2)
+  ```
+  
+  Both tests pass. `pytest` isn't installed here, so I ran them with `python -m unittest`.
+  
+  I treated the code as wrong because the docstring and the test name (`test_ten_percent_off`) both say percentage. If you actually wanted a flat-amount discount, the test and docstring would need to change instead.
+
+> $ cd /tmp/shop; git add prices.py && git commit -q -m "Fix total() to apply discount as a percentage
+
+The docstring and tests treat discount as a percentage, but the code
+subtracted it as a flat amount." && git log --oneline | head -3; git status --short
+< I committed the fix as `561e6f4`, "Fix total() to apply discount as a percentage". Only `prices.py` is in the commit.
+  
+  Running the tests left an untracked `__pycache__/` directory. I didn't commit it. If you'd like, I can add a `.gitignore` for it.
+

@@ -1,0 +1,14 @@
+
+> < I'll check the environment so I can answer the "where" part accurately.
+$ pwd
+$ whoami
+$ uname -a
+< I'm an AI assistant. I can run shell commands to help with tasks like inspecting files, running code, and debugging.
+  
+  Here is what the commands showed about where I'm working:
+  - **Working directory:** `/tmp/shop`
+  - **User:** `root`
+  - **System:** a Linux virtual machine (hostname `vm`, kernel 6.18.44, x86_64)
+  
+  I haven't looked inside `/tmp/shop` yet, so I don't know what's there. I can list its contents if you'd like, or help with whatever you're working on.
+

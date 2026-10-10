@@ -1,0 +1,45 @@
+
+> The tests are failing. Find out why and fix it.
+$ cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls
+  run this? [y/N] y
+  prices.py
+  test_prices.py
+$ cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30
+  run this? [y/N] y
+  def total(items, discount=0):
+      """Add up (price, quantity) pairs, then take off a percentage discount."""
+      subtotal = sum(price * quantity for price, quantity in items)
+      return round(subtotal - discount, 2)
+  import unittest
+  from prices import total
+  
+  
+  class TestTotal(unittest.TestCase):
+      def test_no_discount(self):
+< The docstring says the discount is a percentage, but the code subtracts it as a flat amount.
+$ cd /tmp/shop && sed -i 's/subtotal - discount, 2/subtotal * (1 - discount \/ 100), 2/' prices.py && python -m unittest -v 2>&1 | tail -8
+  run this? [y/N] y
+  test_no_discount (test_prices.TestTotal.test_no_discount) ... ok
+  test_ten_percent_off (test_prices.TestTotal.test_ten_percent_off) ... ok
+  
+  ----------------------------------------------------------------------
+  Ran 2 tests in 0.000s
+  
+  OK
+< The tests were failing because `total()` in `prices.py` subtracted `discount` as a flat amount. Its docstring, and the test, treat it as a percentage. With `discount=10`, the old code gave 15 instead of 22.5.
+  
+  I changed the calculation to `subtotal * (1 - discount / 100)`. Both tests now pass. I ran them with `python -m unittest`, since pytest isn't installed here.
+
+> Commit the fix.
+$ cd /tmp/shop && git status --short 2>&1 | head
+  run this? [y/N] y
+   M prices.py
+  ?? .quark/
+  ?? __pycache__/
+$ cd /tmp/shop && git add prices.py && git commit -m "Fix total(): treat discount as a percentage" 2>&1 | tail -3
+  run this? [y/N] y
+  [master d55fc48] Fix total(): treat discount as a percentage
+   1 file changed, 1 insertion(+), 1 deletion(-)
+< I committed the fix as `d55fc48` ("Fix total(): treat discount as a percentage"). It contains only `prices.py`. I left `.quark/` and `__pycache__/` uncommitted.
+
+> 

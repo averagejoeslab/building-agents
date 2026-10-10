@@ -1,0 +1,18 @@
+text: 320,093 tokens of 2,048 kinds; model: 3,672,832 numbers, all random
+before: "ROMEO:\nGR9Clengeracices marry confAh condThey villainoud might weepRYnot her youump dgelo three�centioorseHa quar justham banishnder^ play are wishV sometHaolingbrokevers till ere fareINIUS-morrowNord'er deep speakGR eye brothermen lady� YORK Tybalt II" held-out loss 7.69
+step 100: loss 5.65
+step 200: loss 5.05
+step 300: loss 4.61
+step 400: loss 4.33
+step 500: loss 3.90
+step 600: loss 3.90
+step 700: loss 3.49
+step 800: loss 3.58
+step 900: loss 3.21
+step 1000: loss 2.76
+step 1100: loss 2.92
+step 1200: loss 2.84
+step 1300: loss 2.35
+step 1400: loss 2.18
+after 1405 steps, 20 minutes: "ROMEO:\nTwo of thy Romeoful days is smoak\nTo choose anointed jewry till now,\nSent both of them, and you shall publace;\nBut marve thy turn, I'll prove you at night.\nI saw you to my young lady" held-out loss 5.28
+Qwen3-0.6B-Base, trained on about 36 trillion tokens: 'ROMEO:\nI am Romeo, a man of the world, a man of the city, a man of the law, a man of the law, a man of the law, a man of the law, a man of the law, a man of the law, a man of the law, a man'

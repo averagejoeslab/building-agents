@@ -1,0 +1,42 @@
+
+> The tests are failing. Fix it and commit.
+$ cd /tmp/shop && ls -a && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; git status --short | head
+  run this? [y/N] y
+  .
+  ..
+  .git
+  .quark
+  prices.py
+  test_prices.py
+  # Quark Memory
+  - commit messages: write them in lowercase, starting with "fix:"
+  ?? .quark/
+$ cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20 || python -m unittest 2>&1 | tail -20
+  run this? [y/N] y
+  def total(items, discount=0):
+      """Add up (price, quantity) pairs, then take off a percentage discount."""
+      subtotal = sum(price * quantity for price, quantity in items)
+      return round(subtotal - discount, 2)
+  import unittest
+  from prices import total
+  
+  
+  class TestTotal(unittest.TestCase):
+      def test_no_discount(self):
+< Discount is a percentage, but it's subtracted as an absolute amount.
+$ cd /tmp/shop && sed -i 's/subtotal - discount, 2/subtotal * (1 - discount \/ 100), 2/' prices.py && python -m unittest 2>&1 | tail -5 && git add prices.py && git commit -qm "fix: apply discount as a percentage" && git log --oneline | head -3
+  run this? [y/N] y
+  ..
+  ----------------------------------------------------------------------
+  Ran 2 tests in 0.000s
+  
+  OK
+  04068a1 fix: apply discount as a percentage
+  5652f04 Add prices
+< The tests pass now, and the fix is committed as `04068a1`.
+  
+  `total()` in `prices.py` treated `discount` as a flat amount to subtract, but its docstring and the test treat it as a percentage. I changed it to `subtotal * (1 - discount / 100)`. I committed only `prices.py` and left `.quark/` untracked.
+  
+  I ran the tests with `python -m unittest`, since pytest isn't installed. The commit message is "fix: apply discount as a percentage", which follows your lowercase "fix:" convention.
+
+> 

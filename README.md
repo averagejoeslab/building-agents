@@ -1035,7 +1035,7 @@ Every stage is checked, before and after, on held-out data from its own source t
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
 | **Untrained** | 7.69 | `GR9Clengeracices marry confAh condThey villainoud might weep…` |
-| **After training** | 5.31 | `Welcome, dishonest, my gorm is this day,`<br>`And then runs wrongs it which Tybalt bids`<br>`Warwick shall make thee mad with a father's sins` |
+| **After training** | 5.28 | `Two of thy Romeoful days is smoak`<br>`To choose anointed jewry till now,`<br>`Sent both of them, and you shall publace;` |
 
 Noise becomes the shape of a play: verse, speakers and real names, near sense.
 
@@ -1182,7 +1182,7 @@ Each stage, on its own check:
 
 | Stage | Its check | Before | After |
 |---|---|---|---|
-| Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.31 |
+| Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.28 |
 | Mid-training | held-out loss on shell pages; the shell check | | |
 | Instruction-tuning | held-out loss on conversations | | |
 | Reinforcement learning | held-out training tasks | | |

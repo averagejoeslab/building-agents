@@ -1,0 +1,40 @@
+
+> {
+  "id": "msg_011Cft1CZ6AmGufFXGV5vjkg",
+  "container": null,
+  "content": [
+    {
+      "signature": "CAQSswUKEAgSGAI4AUIIdGhpbmtpbmcSDHWIMq3mxJZhwG/klRoMCPjMC0XevVvzHT8hIjAscAvUoYBT6H3B4FNKbgTGH5wO5lhw7En/lnVqEY5WhtIxe/irvdXvDsW2IJt8UcIq0AQxFrO301ux+P8qzffDP6RxVBImx8bTudLMUbak88KD7JPolIUli1P3mPTqZeNkWmWddxnnci84QpmTDq2WqYd6q7ofToeoCgxrtEg4p/bdcdI+6XviFXegYaUSBUCgV13T0LsloQJXTMt/jTkyM4P5vSg7R5S21+ASW9O4g+Bi3JuaUhwwlSUuyxRZmsUNKzW28/w1KB2sNgM106tiuJk/e5+lUN9WFvmy6bZkllq6nDlONfRX9i2XMS6OWMXzty39AMIV084YFknqcig3xQmouOj7+jH4WQ+RmTNtQiASbNmTWMsvMBSq22TdHbHM3KDRAzuigs1YvVHtFDO6Kuz2H/rEAo+8jVGBY6TuWFvZYariVQqYbUgyzq5KDSqVYSTFDAneYhdDV1Y5xsS0t9nFdGq/8cQaP/wbixbKRygyrV+HV641OZ04WqAgnlWNuyChV+X3vKHI09lBhz1fUYvGgOmNUq61ekEzyN+68fVh/4dDJ+YjSlpHHsaQVH78h9KQqjaUGcR8DHhxLWlUr+o3s1VfC0ZFRxkAMuN4HuRQDRtsI0lZ46Tdv0qqqypOgnusdK2Y1f8SAxV5k8EMkHIxMpxyWqRADQxIkeJELFYk0nh4cbYdLrUsZhdIkDs6Wi7pF2UFz1LWPf8Hd6XOKW1yA7BxaLw9xuGUaSIjjHOPiadnHpJ3B81KiTSxQwrBT0FrIszmouC5cRerYyD6kKPblFGOny6ZZR5qwqsHUArA8KAauzuwAoLMdqP0w4cYk6fZHlxAkJqc1XkGBr547OeCGAE=",
+      "thinking": "",
+      "type": "thinking"
+    },
+    {
+      "citations": null,
+      "text": "I don't have anything to debug yet. Your message didn't include code, test output, or repo access. To track this down, I need a few things:\n\n1. **The failing test output**: the full error message and stack trace, copied as text.\n2. **The relevant code**: the function or module under test, and the test itself.\n3. **How you run the tests**: for example `pytest`, `npm test`, or `cargo test`, plus the language and framework.\n4. **Recent changes**: what you changed before the tests started failing, or whether they have never passed.\n\nIf you can, run the tests again and paste the output here, along with the files named in the traceback. I'll work out the cause and suggest a fix.\n\nIn the meantime, these checks resolve a lot of failing-test problems:\n- Reinstall or update dependencies (stale lockfile or `node_modules`/venv).\n- Look for tests that depend on order, time, environment variables, or external services.\n- Run a single failing test in isolation to see whether it passes alone (which points to shared state).\n- Use `git diff` or `git bisect` to find the commit that broke it.",
+      "type": "text"
+    }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 24,
+    "output_tokens": 381,
+    "output_tokens_details": {
+      "thinking_tokens": 36
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}

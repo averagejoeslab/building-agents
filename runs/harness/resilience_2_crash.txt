@@ -1,0 +1,42 @@
+
+> The tests are failing. Find out why and fix it.
+$ cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls
+  run this? [y/N] 
+[killed]
+continue the unfinished session 'The tests are failing. Find out why and fix it.'? [y/N] y
+$ ls -la; cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null
+  run this? [y/N] y
+  total 24
+  drwxr-xr-x 4 root root 4096 Oct 10 05:31 .
+  drwxrwxrwt 1 root root 4096 Oct 10 05:32 ..
+  drwxr-xr-x 8 root root 4096 Oct 10 05:31 .git
+  drwxr-xr-x 3 root root 4096 Oct 10 05:31 .quark
+  -rw-r--r-- 1 root root  216 Oct 10 05:31 prices.py
+  -rw-r--r-- 1 root root  322 Oct 10 05:27 test_prices.py
+$ cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -20; git log --oneline | head
+  run this? [y/N] y
+  def total(items, discount=0):
+      """Add up (price, quantity) pairs, then take off a percentage discount."""
+      subtotal = sum(price * quantity for price, quantity in items)
+      return round(subtotal - discount, 2)
+  import unittest
+  from prices import total
+  
+  
+  class TestTotal(unittest.TestCase):
+      def test_no_discount(self):
+< The docstring says the discount is a percentage, but the code subtracts it as a flat amount. I'll fix the code.
+$ sed -i 's/return round(subtotal - discount, 2)/return round(subtotal * (1 - discount \/ 100), 2)/' prices.py && python -m unittest -v 2>&1 | tail -8
+  run this? [y/N] y
+  test_no_discount (test_prices.TestTotal.test_no_discount) ... ok
+  test_ten_percent_off (test_prices.TestTotal.test_ten_percent_off) ... ok
+  
+  ----------------------------------------------------------------------
+  Ran 2 tests in 0.000s
+  
+  OK
+< The tests were failing because `total()` in `prices.py` subtracted `discount` as a flat amount, even though its docstring says it's a percentage. With `discount=10` on a 25 subtotal it returned 15 instead of 22.5.
+  
+  I changed the last line to `round(subtotal * (1 - discount / 100), 2)`. Both tests now pass under `python -m unittest`. pytest isn't installed here, so I used unittest.
+
+> 

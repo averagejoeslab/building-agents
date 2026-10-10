@@ -1,0 +1,12 @@
+
+> Run sleep 100, then tell me it finished.
+< Each command is stopped after 60 seconds, so a single `sleep 100` would be cut off. I'll run it as two 50-second sleeps instead.
+$ sleep 50; echo part 1 done
+  run this? [y/N] y
+  part 1 done
+$ sleep 50; echo part 2 done
+  run this? [y/N] y
+  part 2 done
+< The sleep finished. I ran it as two 50-second sleeps, 100 seconds in total, because a single `sleep 100` would have hit the 60-second command limit.
+
+> 

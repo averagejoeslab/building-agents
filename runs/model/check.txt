@@ -1,0 +1,4 @@
+tokenizer: the same tokens as Qwen's: True
+chat template: the same text as Qwen's: True
+model: largest difference in its scores 1.4e-04; the same next token at all 198 positions: True
+'The capital of France is' → ' Paris. The capital of Germany is Berlin. The capital of'

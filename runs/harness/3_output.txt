@@ -1,0 +1,3 @@
+
+> < I'll start by looking at the project structure and running the tests.
+$ pwd; ls -la; git status 2>/dev/null | head; git log --oneline 2>/dev/null | head -5

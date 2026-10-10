@@ -1,0 +1,13 @@
+
+> From now on, write commit messages in lowercase, starting with "fix:". Remember that.
+$ mkdir -p .quark/memory && [ ! -f .quark/memory/memory.md ] && echo "# Quark Memory" > .quark/memory/memory.md; grep -i "commit" .quark/memory/memory.md
+  run this? [y/N] y
+  (no output)
+$ cat >> .quark/memory/memory.md << 'EOF'
+- commit messages: write them in lowercase, starting with "fix:"
+EOF
+  run this? [y/N] y
+  (no output)
+< I've saved that. From now on I'll write commit messages in lowercase and start them with "fix:".
+
+> 

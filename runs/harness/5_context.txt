@@ -1,0 +1,5 @@
+
+> < I'm quark, an agent that works by running shell commands through bash. My working directory is /tmp/shop. Today's date is 2026-10-10.
+  
+  I haven't run any commands yet, so I haven't looked at what's in the directory. If you'd like, I can list its contents or start on a task.
+

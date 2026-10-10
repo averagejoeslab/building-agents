@@ -1,0 +1,35 @@
+
+> What have we done in this folder before today's session?
+$ cd /tmp/shop; ls -la; cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills .quark/episodes 2>/dev/null; grep -m1 -H "" .quark/episodes/*.jsonl 2>/dev/null | grep -v 2026-10-10T05-29-34 | cut -c1-250
+  run this? [y/N] y
+  total 28
+  drwxr-xr-x 5 root root 4096 Oct 10 05:29 .
+  drwxrwxrwt 1 root root 4096 Oct 10 05:29 ..
+  drwxr-xr-x 8 root root 4096 Oct 10 05:29 .git
+  drwxr-xr-x 4 root root 4096 Oct 10 05:29 .quark
+  drwxrwxrwx 2 root root 4096 Oct 10 05:29 __pycache__
+  -rw-r--r-- 1 root root  228 Oct 10 05:29 prices.py
+  -rw-r--r-- 1 root root  322 Oct 10 05:27 test_prices.py
+  # Quark Memory
+  - commit messages: write them in lowercase, starting with "fix:"
+$ cd /tmp/shop; git log --stat | head -30; grep -o '"command": "[^"]*"' .quark/episodes/2026-10-10T05-29-24.jsonl; tail -n 2 .quark/episodes/2026-10-10T05-29-24.jsonl | cut -c1-500
+  run this? [y/N] y
+  commit 04068a1b3bceb89149657047e593cf87ea658185
+  Author: Claude <noreply@anthropic.com>
+  Date:   Sat Oct 10 05:29:30 2026 +0000
+  
+      fix: apply discount as a percentage
+  
+   prices.py | 2 +-
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  
+  commit 5652f04f3d0fe96424618b081cf7e536d108169c
+< Before today's session, we did three things in this folder (`/tmp/shop`, a small Python project with `prices.py` and `test_prices.py`):
+  
+  1. **Set up the project.** The first commit, `5652f04 "Add prices"`, added `prices.py` and its tests.
+  2. **Saved a commit-message rule.** You asked me to write commit messages in lowercase, starting with "fix:". I saved that to memory.
+  3. **Fixed the failing tests.** `total()` in `prices.py` treated `discount` as a flat amount to subtract, but the docstring and the test treat it as a percentage. I changed it to `subtotal * (1 - discount / 100)`. The tests passed under `python -m unittest` (pytest isn't installed). I committed only `prices.py` as `04068a1 "fix: apply discount as a percentage"`, which follows your message rule. `.quark/` is still untracked.
+  
+  No skills have been saved yet. Memory holds only the commit-message rule.
+
+> 
