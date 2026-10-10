@@ -7,7 +7,7 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""Training the model we built, one stage at a time, each starting from the last: uv run model/train.py pre | mid | post [instruct | rl]"""
+"""Training the model we built, one stage at a time, each starting from the last: uv run model/train.py pre | mid | check | post [instruct | rl]"""
 import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, functools, contextlib, subprocess, urllib.request
 from datasets import load_dataset
 import torch, torch.nn.functional as F
@@ -118,10 +118,22 @@ def asked(page):                                         # the page up to its la
     return head + "`", command
 
 
-def fits(said, command):                                 # the right command: any value for a {{placeholder}}, either form of a {{[-a|--all]}}
-    pattern = "".join("(" + "|".join(map(re.escape, part[3:-3].split("|"))) + ")" if part.startswith("{{[") else
-                      ".+?" if part.startswith("{{") else re.escape(part) for part in re.split(r"(\{\{.+?\}\})", command.removeprefix("sudo ")))
-    return re.fullmatch(pattern, said.strip().removeprefix("sudo ")) is not None   # with sudo or without
+def parts(command):                                      # a command's words: a {{placeholder}} stays whole, spaces and all
+    return re.findall(r"(?:\{\{.+?\}\}|[^\s{])+", command.removeprefix("sudo "))
+
+
+def pattern(word):                                       # a reference word as a pattern: any value for a {{placeholder}}; either form of {{[-a|--all]}}, or as written
+    return "".join("(" + "|".join(map(re.escape, part[3:-3].split("|") + [part])) + ")" if part.startswith("{{[") else
+                   ".+?" if part.startswith("{{") else re.escape(part) for part in re.split(r"(\{\{.+?\}\})", word))
+
+
+def forms(word):                                         # the ways a word can be read: a {{[-a|--all]}} it wrote is either form too
+    return [word] + (word[3:-3].split("|") if re.fullmatch(r"\{\{\[.+\]\}\}", word) else [])
+
+
+def fits(said, command):                                 # the right command: the same first word, and every word of the reference present, in any order
+    said, wanted = parts(said), parts(command)
+    return bool(said) and said[0] == wanted[0] and all(any(re.fullmatch(pattern(w), f) for s in said for f in forms(s)) for w in wanted[1:])
 
 
 @torch.no_grad()
@@ -181,6 +193,15 @@ def midtrain(steps=60):                                  # a fixed number of ste
             log(f"step {step}: loss {loss.item():.3f}")
     log(f"after {steps} steps; held-out loss after: {chunk_loss(model, held_out):.3f}; shell check after: {shell_check(model, tests)} right commands")
     finish(model, "midtrain")
+
+
+def checks():                                            # mid-training's two checks again, on the same held-out pages, without training: Base, then ours
+    global LOG
+    os.makedirs("runs/training", exist_ok=True); LOG = "runs/training/midtrain.txt"
+    base = ours(BASE)
+    _, held_out, tests = prepared("midtrain", lambda: mid_data(base))
+    for name, model in [("before", base), ("after", ours("models/midtrain.pt"))]:
+        log(f"checked again, {name}: held-out loss {chunk_loss(model, held_out):.3f}; shell check {shell_check(model, tests)} right commands")
 
 
 # ── 3. post-training: instruction-tuning ─────────────────────────────────────
@@ -681,4 +702,4 @@ def post(*parts):                                        # post-training: imitat
 if __name__ == "__main__":
     torch.manual_seed(0); random.seed(0)
     os.makedirs("data", exist_ok=True); os.makedirs("models", exist_ok=True)
-    {"pre": pretrain, "mid": midtrain, "post": post}[sys.argv[1]](*sys.argv[2:])
+    {"pre": pretrain, "mid": midtrain, "check": checks, "post": post}[sys.argv[1]](*sys.argv[2:])

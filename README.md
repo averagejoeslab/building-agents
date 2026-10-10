@@ -1091,9 +1091,14 @@ Pages with an example too close to an evaluation request are left out, and 200 o
 `
 ```
 
-It passes when it writes the right command, with any value for a `{{placeholder}}`.
+It passes when it names the right command and every word of the page's, in any order, with any value for a `{{placeholder}}`. Order and exact flags vary between right answers, so the check asks for the words, not the string (`uv run model/train.py check` runs both checks again, on Base and on ours, without training).
 
-> **Result:** filled in after verification: held-out loss, before → after; the shell check, before → after.
+| | Held-out loss | Shell check |
+|---|---|---|
+| **Before: Qwen3-0.6B-Base** | 1.896 | 48/100 |
+| **After 60 steps** | 1.411 | 53/100 |
+
+It predicts the pages far better, and names the right command a little more often. The loss is on the pages' every token, most of them prose and placeholders; the command is a few words of each, and Base already knew most of them. Mid-training here is a small dose: an eighth of the pages, once. The run is in [`runs/training/midtrain.txt`](./runs/training/midtrain.txt).
 
 #### Post-training
 
@@ -1183,7 +1188,7 @@ Each stage, on its own check:
 | Stage | Its check | Before | After |
 |---|---|---|---|
 | Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.28 |
-| Mid-training | held-out loss on shell pages; the shell check | | |
+| Mid-training | held-out loss on shell pages; the shell check | 1.896; 48/100 | 1.411; 53/100 |
 | Instruction-tuning | held-out loss on conversations | | |
 | Reinforcement learning | held-out training tasks | | |
 

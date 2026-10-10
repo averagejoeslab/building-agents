@@ -1,0 +1,7 @@
+6,773 pages (14 left out, too near an evaluation request), 1,042,929 tokens
+held-out loss before: 1.896; shell check before: 31/100 right commands
+step 25: loss 1.406
+step 50: loss 1.700
+after 60 steps; held-out loss after: 1.411; shell check after: 22/100 right commands
+checked again, before: held-out loss 1.896; shell check 48/100 right commands
+checked again, after: held-out loss 1.411; shell check 53/100 right commands
