@@ -396,7 +396,7 @@ def unchanged(where):                                    # questions: answer, an
 @kind
 def ask_port(rng, where):
     port, same = json.load(open(os.path.join(where, "config.json")))["port"], unchanged(where)
-    return ("What port does config.json set? Don't change anything.", ["cat config.json"], lambda o: f"It sets port {port}.",
+    return ("What port does config.json set? Just tell me, don't touch it.", ["cat config.json"], lambda o: f"It sets port {port}.",
             lambda said: str(port) in said and same())
 
 
@@ -430,6 +430,16 @@ BUGS = [   # (function and its argument, the bug, the fix, the sed that makes it
     ("square(x)", "return x + x", "return x * x", "s/x + x/x * x/", "square(3)", "9", "it added x to itself instead of multiplying"),
     ("count_words(text)", "return len(text)", "return len(text.split())", "s/len(text)/len(text.split())/", "count_words('a b c')", "3", "it counted characters, not words"),
     ("greet(name)", 'return "Hi " + name', 'return "Hello " + name', "s/Hi /Hello /", "greet('Ann')", "'Hello Ann'", "it said Hi instead of Hello"),
+    ("gap(a, b)", "return a + b", "return a - b", "s/a + b/a - b/", "gap(7, 2)", "5", "it added instead of subtracting"),
+    ("rest(items)", "return items[:-1]", "return items[1:]", "s/items\\[:-1\\]/items[1:]/", "rest([1, 2, 3])", "[2, 3]", "it dropped the last item instead of the first"),
+    ("tidy(text)", "return text.split()", "return text.strip()", "s/split()/strip()/", "tidy('  hi ')", "'hi'", "it split the text into words instead of trimming it"),
+    ("biggest(numbers)", "return sorted(numbers)[0]", "return sorted(numbers)[-1]", "s/\\[0\\]/[-1]/", "biggest([3, 9, 4])", "9", "it took the smallest after sorting, not the largest"),
+    ("half(x)", "return x // 2", "return x / 2", "s#x // 2#x / 2#", "half(5)", "2.5", "it used whole-number division"),
+    ("initials(name)", "return name[0]", "return name[0].upper()", "s/name\\[0\\]/name[0].upper()/", "initials('ada')", "'A'", "it didn't capitalise"),
+]
+STRAIGHT = [   # (function and its argument, its right code, a test: call and answer): nothing wrong with these
+    ("triple(x)", "return x * 3", "triple(2)", "6"), ("first(items)", "return items[0]", "first([5, 6])", "5"),
+    ("is_odd(n)", "return n % 2 == 1", "is_odd(3)", "True"), ("shout(text)", "return text.upper()", "shout('a')", "'A'"),
 ]
 
 
@@ -451,6 +461,86 @@ def fix_code(rng, where):                                # failing tests: look, 
             lambda o: f"Fixed: in {module}.py, {why}. It now says `{fix}`, and the tests pass.", check)
 
 
+@kind
+def fix_one_of_two(rng, where):                          # two functions, two tests, one bug: find which before fixing
+    function, bug, fix, sed, test, answer, why = rng.choice(BUGS)
+    other, right, other_test, other_answer = rng.choice(STRAIGHT)
+    module = rng.choice(["helpers", "mathlib", "util", "core", "tools", "funcs"])
+    names = [function.split("(")[0], other.split("(")[0]]
+    put(where, f"{module}.py", f"def {function}:\n    {bug}\n\n\ndef {other}:\n    {right}\n")
+    tests = (f"import unittest\nfrom {module} import {', '.join(names)}\n\n\nclass Test(unittest.TestCase):\n"
+             f"    def test_{names[0]}(self):\n        self.assertEqual({test}, {answer})\n\n"
+             f"    def test_{names[1]}(self):\n        self.assertEqual({other_test}, {other_answer})\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n")
+    put(where, f"test_{module}.py", tests)
+
+    def check(said):
+        shutil.rmtree(os.path.join(where, "__pycache__"), ignore_errors=True)
+        ok = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=where, capture_output=True).returncode == 0
+        return ok and text(where, f"test_{module}.py") == tests
+    return (rng.choice([f"One of the tests in test_{module}.py fails. Find the bug and fix it.", f"test_{module}.py has a failure. Fix the code it tests."]),
+            ["ls", "python3 -B -m unittest -q", f"cat {module}.py", f"sed -i '{sed}' {module}.py", "python3 -B -m unittest -q"],
+            lambda o: f"Fixed: {names[1]} was fine; in {names[0]}, {why}. It now says `{fix}`, and both tests pass.", check)
+
+
+@kind
+def archive_logs(rng, where):                            # two actions: a new folder, then the files into it
+    folder_name = rng.choice(["archive", "old_logs", "history"])
+    want = sorted(f for f in os.listdir(where) if f.endswith(".log"))
+    return (rng.choice([f"Put the log files into a new folder named {folder_name}.", f"Create {folder_name} and move the .log files there."]),
+            [f"mkdir -p {folder_name}", f"mv *.log {folder_name}/", f"ls {folder_name}"],
+            lambda o: f"Done: {folder_name} now holds " + ", ".join(o[-1].split()) + ", and none are left here.",
+            lambda said: os.path.isdir(os.path.join(where, folder_name)) and sorted(os.listdir(os.path.join(where, folder_name))) == want
+            and not any(f.endswith(".log") for f in os.listdir(where)))
+
+
+@kind
+def which_mentions(rng, where):                          # find it, then write what you found
+    topic = rng.choice([t for t in TOPICS if any(t in (text(where, f) or "") for f in ("notes.md", "todo.md"))] or TOPICS)
+    out = rng.choice(["where.txt", "found.txt"])
+    have = {f for f in ("notes.md", "todo.md") if topic in (text(where, f) or "")}
+    return (f"Which .md file talks about the {topic}? Save that filename in {out}.",
+            [f"grep -l {topic} *.md", f"grep -l {topic} *.md | head -n 1 > {out}", f"cat {out}"],
+            lambda o: f"Done: {o[-1]} mentions the {topic}; its name is in {out}.", lambda said: (text(where, out) or "").strip() in have)
+
+
+@kind
+def most_lines(rng, where):                              # measure every file, then pick
+    out = rng.choice(["longest.txt", "most.txt"])
+    counts = {f: len(lines_of(where, f)) for f in os.listdir(where) if f.endswith(".md")}
+    best = {f for f, n in counts.items() if n == max(counts.values())}
+    return (f"Of the .md files, which has the most lines? Write its name in {out}.",
+            ["wc -l *.md", f"wc -l *.md | grep -v total | sort -n | tail -n 1 | awk '{{print $2}}' > {out}", f"cat {out}"],
+            lambda o: f"Done: {o[-1]} has the most lines; its name is in {out}.", lambda said: (text(where, out) or "").strip() in best)
+
+
+@kind
+def append_todo(rng, where):
+    item = f"- {rng.choice(['check', 'update', 'restart', 'clean'])} the {rng.choice(TOPICS)}"
+    want = lines_of(where, "todo.md") + [item]
+    return (rng.choice([f"Put '{item}' at the bottom of todo.md.", f"Append the item '{item}' to todo.md."]),
+            [f"echo '{item}' >> todo.md", "tail -n 2 todo.md"], lambda o: f"Done: todo.md ends with {item}.",
+            lambda said: lines_of(where, "todo.md") == want)
+
+
+@kind
+def copy_then_edit(rng, where):                          # copy, then change the copy and only the copy
+    name, port = rng.choice(["staging.json", "local.json", "test.json"]), rng.randint(3000, 9000)
+    before = json.load(open(os.path.join(where, "config.json")))
+
+    def check(said):
+        try:
+            copy = json.load(open(os.path.join(where, name)))
+        except (ValueError, OSError):
+            return False
+        return json.load(open(os.path.join(where, "config.json"))) == before and copy == {**before, "port": port}
+    return (f"Copy config.json to {name} and set the port in {name} to {port}; leave config.json alone.",
+            [f"cp config.json {name}", f"""python3 -c "import json; c = json.load(open('{name}')); c['port'] = {port}; json.dump(c, open('{name}', 'w'), indent=2)" """.strip(), f"cat {name}"],
+            lambda o: f"Done: {name} is a copy of config.json with port {port}; config.json is unchanged.", check)
+
+
+READS = {"cat", "head", "tail", "ls", "grep", "wc", "python3"}   # the commands that look
+
+
 def training_task(seed, which=None):                     # a fresh folder, and one task in it
     rng, where = random.Random(seed), tempfile.mkdtemp()
     workspace(rng, where)
@@ -468,9 +558,9 @@ def tool_session():                                      # a verified demonstrat
             outs.append(run(command, where))
             messages += [call(command), {"role": "tool", "content": outs[-1]}]
         reply = answer(outs)
-        passed = check(reply)
+        passed = check(reply) and commands[-1].split()[0] in READS   # kept only if it passes, and looked before it answered
         shutil.rmtree(where)
-        if passed:                                       # only demonstrations that pass the check are kept
+        if passed:
             return messages + [{"role": "assistant", "content": reply}]
 
 
@@ -532,19 +622,21 @@ def instruction_data(model):                             # six kinds of conversa
     near = lambda request: closest(request)[0] >= 0.4    # decontamination: too close to an evaluation request
     fits = lambda text: len(model.encode(text)) <= 1024
     smoltalk = load_dataset("HuggingFaceTB/smol-smoltalk", split="train").shuffle(seed=0)
-    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000))) if sum(len(x["content"]) for x in m) < 1500 and not near(m[0]["content"])][:300]
+    shell = re.compile(r"bash|shell|terminal|command line|linux|unix|script", re.I)   # talk stays away from the tool: the model acts there, not explains
+    chats = [m for m in (row["messages"] for row in smoltalk.select(range(20000)))
+             if sum(len(x["content"]) for x in m) < 1500 and not near(m[0]["content"]) and not shell.search(" ".join(x["content"] for x in m))][:100]
     nl2bash = list(zip(*(urllib.request.urlopen(f"https://raw.githubusercontent.com/TellinaTool/nl2bash/master/data/bash/all.{part}").read().decode().splitlines() for part in ("nl", "cm"))))
     functions = [t for t in (model.chat(m, tools=tools, prompt=False) for m, tools in hermes() if not near(m[0]["content"])) if fits(t)]
     code = load_dataset("ise-uiuc/Magicoder-OSS-Instruct-75K", split="train").shuffle(seed=0).select(range(5000))
     data = [model.chat(chat, prompt=False) for chat in chats]                                                        # talk
     data += [model.chat([system(), {"role": "user", "content": ask}, call(command)], tools=[BASH], prompt=False)
-             for ask, command in random.sample([row for row in nl2bash if not near(row[0])], 300)]                     # ask for a command
+             for ask, command in random.sample([row for row in nl2bash if not near(row[0])], 200)]                     # ask for a command
     data += [model.chat([{"role": "user", "content": row["question"]}, {"role": "assistant", "content": worked(row["answer"])}], prompt=False)
-             for row in gsm8k("train")[:300]]                                                                         # reason
-    data += random.sample(functions, min(300, len(functions)))                                                       # call tools, many kinds
+             for row in gsm8k("train")[:200]]                                                                         # reason
+    data += random.sample(functions, min(200, len(functions)))                                                       # call tools, many kinds
     data += [t for t in (model.chat([{"role": "user", "content": row["problem"]}, {"role": "assistant", "content": row["solution"]}], prompt=False)
-                         for row in code if not near(row["problem"])) if fits(t)][:300]                              # write code
-    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(900)]                            # use the tool: verified demonstrations
+                         for row in code if not near(row["problem"])) if fits(t)][:200]                              # write code
+    data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1500)]                           # use the tool: verified demonstrations
     random.shuffle(data)
     return data
 
@@ -663,7 +755,7 @@ def held_out_tasks(model, quark):                        # RL's own held-out che
     return f"{passed}/40"
 
 
-def rl(steps=60, group=8):                               # reinforcement learning in the harness: try training tasks, keep what passed
+def rl(steps=78, group=8):                               # reinforcement learning in the harness: try training tasks, keep what passed
     import quark_production as quark
     logging_to("rl")
     model = ours("models/instruct.pt")
