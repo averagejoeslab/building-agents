@@ -1048,17 +1048,19 @@ From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is 
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about a quarter of the pages (`uv run train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check: one example from each of 100 held-out pages, asked by example, as a base model is asked:
+Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about an eighth of the pages (`uv run train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check on 100 of them. A base model is asked by example, so each is shown as the page shows it, its other examples first, then its last request:
 
 ```
-Request: show how much space a directory takes
-Command: du -sh {{path/to/directory}}
-…
-Request: Shut down a virtual machine
-Command:
+- Stop a service:
+
+`systemctl stop {{unit}}`
+
+- Show the status of a service:
+
+`
 ```
 
-It passes when the command it names is the right one. "Before" is Qwen3-0.6B-Base as it ships.
+It passes when it writes the right command, with any value for a `{{placeholder}}`.
 
 > **Result:** filled in after verification: held-out loss, before → after; the shell check, before → after.
 

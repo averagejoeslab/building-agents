@@ -94,18 +94,24 @@ def examples(page):                                      # a page's examples: wh
     return [(re.sub(r"[\[\]]", "", what), command) for what, command in re.findall(r"^- (.+?):\n\n`(.+?)`$", page, re.M)]
 
 
-SHOTS = ("Request: show how much space a directory takes\nCommand: du -sh {{path/to/directory}}\n\n"
-         "Request: print today's date\nCommand: date\n\n"
-         "Request: find files by name below the current directory\nCommand: find . -name {{name}}\n\n")
+def asked(page):                                         # the page up to its last example's request, as the page itself shows it
+    head, command = page[:page.rindex("`", 0, page.rindex("`"))], examples(page)[-1][1]
+    return head + "`", command
+
+
+def fits(said, command):                                 # the right command: any value for a {{placeholder}}, either form of a {{[-a|--all]}}
+    pattern = "".join("(" + "|".join(map(re.escape, part[3:-3].split("|"))) + ")" if part.startswith("{{[") else
+                      ".+?" if part.startswith("{{") else re.escape(part) for part in re.split(r"(\{\{.+?\}\})", command.removeprefix("sudo ")))
+    return re.fullmatch(pattern, said.strip().removeprefix("sudo ")) is not None   # with sudo or without
 
 
 @torch.no_grad()
-def shell_check(model, pairs):                           # asked as a base model is asked, by example: does it pick the right command?
+def shell_check(model, pages):                           # asked as a base model is asked, by example: the page's own examples, then its last request
     right = 0
-    for what, command in pairs:
-        said = [w.strip("`") for w in model.generate(SHOTS + f"Request: {what}\nCommand:", most=24, temperature=0).split("\n")[0].split() if w != "sudo"]
-        right += bool(said) and said[0] == command.split()[0]
-    return f"{right}/{len(pairs)}"
+    for page in pages:
+        prompt, command = asked(page)
+        right += fits(model.generate(prompt, most=48, temperature=0).split("`")[0], command)
+    return f"{right}/{len(pages)}"
 
 
 def chunks(model, texts, length=512):                    # the pages as one stream of tokens, cut into equal pieces
@@ -130,12 +136,12 @@ def mid_data(model):
     pages = [p for p in every if all(closest(what)[0] < 0.4 for what, _ in examples(p))]   # decontaminated: none near an evaluation request
     random.shuffle(pages)
     data, held_out = chunks(model, pages[200:]), chunks(model, pages[:200])[:32]   # 200 pages it never trains on
-    tests = [examples(p)[0] for p in pages[:200] if examples(p)][:100]             # one example from each: the shell check
+    tests = [p for p in pages[:200] if len(examples(p)) > 1 and "alias of" not in p][:100]   # the shell check: pages with examples to go by
     log(f"{len(pages):,} pages ({len(every) - len(pages)} left out, too near an evaluation request), {data.numel():,} tokens")
     return data, held_out, tests
 
 
-def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about a quarter of the pages
+def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about an eighth of the pages
     model = ours(BASE)
     data, held_out, tests = prepared("midtrain", lambda: mid_data(model))
     done = resume(model, "midtrain")
