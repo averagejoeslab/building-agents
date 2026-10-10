@@ -72,7 +72,7 @@ A lab starts with the model. We start with the harness because it's easier to le
 harness/      the harness, in the order it's built: one file per primitive, then quark.py,
               quark_production.py, and tasks.py, its evaluation; shop/ is the job it's built on
 model/        the model: model.py, its seven primitives; train.py, its training, stage by stage
-data/         what training reads: downloaded or built on first use, not committed
+data/         what training reads: the text, the shell pages tokenized, the 2,400 conversations; built on first use, and committed
 models/       what training writes: one model per stage, not committed
 runs/         what each step printed, committed: every number in this README comes from here
 ```
