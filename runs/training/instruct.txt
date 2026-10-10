@@ -1,0 +1,32 @@
+decontamination: of 2360 training requests, the closest to an evaluation request shares 38% of their words:
+  training:   'Put the names from scores.csv in names.txt, one per line, without the header.'
+  evaluation: 'Write the names of the files in this folder, one per line, into files.txt.'
+2352 conversations; held-out loss before: 2.233
+before:
+  > How do I make a cup of tea?
+  <  ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙
+  > Count the lines in notes.txt.
+  < # Notes
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <notes></notes> XML tags:
+    <notes>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties
+  > Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?
+  < The number of students in a class is 20. The number of boys is 1/4 of the total number of students. How many girls are there in the class? ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ �
