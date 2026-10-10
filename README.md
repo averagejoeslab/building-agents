@@ -1210,9 +1210,9 @@ Each is a habit, not a lack of knowledge: it has the commands. That's what RL is
 
 RL can only make more likely what the model already does some of the time. So RL starts with its own held-out check, and goes on only if the agent passes some of it: if it never does the right thing, RL has nothing to learn from, and instruction-tuning needs fixing first.
 
-**Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less, each weighted by how it did against the other seven, capped at ±1. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first. The steps are a fifth the size of instruction-tuning's: imitation pulls the model towards real text, RL pushes it away from its own, and a push too big breaks it (`uv run model/train.py post rl`).
+**Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run model/train.py post rl`).
 
-Both are one function. Imitation weights every example 1; reinforcement learning weights each try by how much better or worse than the others it did:
+Both are one function. Imitation weights every example 1; reinforcement learning weights a try that passed 1 and a try that failed 0:
 
 ```python
 def update(model, optimizer, texts, weights, most=1024):  # one step: make each text more likely, in proportion to its weight
@@ -1221,6 +1221,8 @@ def update(model, optimizer, texts, weights, most=1024):  # one step: make each 
         (-weight * logprob(model, text, most) / len(texts)).backward()
     optimizer.step()
 ```
+
+A lab's RL also makes the failed tries *less* likely, weighting each try by how it did against the others, and keeps the model from drifting with a penalty for straying from a reference copy. We tried the first half without the second, twice: weighted both ways, the model broke in two steps ([`runs/training/rl-first-try.txt`](./runs/training/rl-first-try.txt)); with a fifth of the step and the weights capped, it learned for two rounds, then came apart in the third ([`rl-second-try.txt`](./runs/training/rl-second-try.txt)). Pushed away from its own words, a model this small drifts off its format, and once every try fails there is no signal left to come back on. The reference copy would double the memory, so we keep the wins and leave the losses alone, which can't drift: it's imitation of its own successes.
 
 Its own held-out check is 40 training tasks from folders it never trains in.
 
