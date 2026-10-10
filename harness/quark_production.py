@@ -293,6 +293,7 @@ def as_prompt(context, prompt=True):                     # the conversation as o
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
     global local
     if local is None:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "model"))
         from model import Release                        # loaded only for a model of our own
         local = Release("Qwen/Qwen3-0.6B", OURS)         # Qwen's chat format, with these numbers: a checkpoint, or a release's
     prompt = as_prompt(context)

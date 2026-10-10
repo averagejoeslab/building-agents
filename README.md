@@ -66,7 +66,16 @@ the model    ── its architecture, built and checked against a real one
 what fell short ── causes, as best we can tell, and what would fix them
 ```
 
-A lab starts with the model. We start with the harness because it's easier to learn on: around a capable model each primitive's effect is clear, and once it exists, it's where every stage of our model's training is judged and where RL acts. Where our compute runs out we swap in something stronger and say so: Sonnet to build the harness, and Qwen3-0.6B-Base's numbers in place of our own pre-training at scale. Every result shown is from a real run.
+A lab starts with the model. We start with the harness because it's easier to learn on: around a capable model each primitive's effect is clear, and once it exists, it's where every stage of our model's training is judged and where RL acts. Where our compute runs out we swap in something stronger and say so: Sonnet to build the harness, and Qwen3-0.6B-Base's numbers in place of our own pre-training at scale. Every result shown is from a real run, and the run is in the repo:
+
+```
+harness/      the harness, in the order it's built: one file per primitive, then quark.py,
+              quark_production.py, and tasks.py, its evaluation; shop/ is the job it's built on
+model/        the model: model.py, its seven primitives; train.py, its training, stage by stage
+data/         what training reads: downloaded or built on first use, not committed
+models/       what training writes: one model per stage, not committed
+runs/         what each step printed, committed: every number in this README comes from here
+```
 
 ## The harness
 
@@ -85,22 +94,22 @@ The harness is everything around the model: it turns the model's tokens into act
 
 We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear, and outward from the model: first reach it, then give it a request, let it act, let it go again, and tell it where it is. Our own model comes after, into the harness built here.
 
-Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."* To follow along, put your [Anthropic API key](https://console.anthropic.com/) in `.env`, and give the job its own folder, a git repository, so the agent can commit:
+Every step gets the same job. A small project, [`shop/`](./harness/shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."* To follow along, you need [uv](https://docs.astral.sh/uv/) and an [Anthropic API key](https://console.anthropic.com/) in `.env`. Give the job its own folder, a git repository, so the agent can commit:
 
 ```bash
 cp .env.example .env                                  # then put your key in .env
-cp -r shop /tmp/shop && git -C /tmp/shop init -q && git -C /tmp/shop add -A && git -C /tmp/shop commit -qm "Add prices"
+cp -r harness/shop /tmp/shop && git -C /tmp/shop init -q && git -C /tmp/shop add -A && git -C /tmp/shop commit -qm "Add prices"
 git -C /tmp/shop config user.name "$(git config user.name)"     # the repository's own copy of who you are:
 git -C /tmp/shop config user.email "$(git config user.email)"   # later, commands run in a box that can't see your settings
 ```
 
-Put each step's code in a file and run it from that folder: `cd /tmp/shop && uv run --env-file <this repo>/.env --with anthropic python step.py`.
+Each step is a file in `harness/`, the one before it plus one primitive. Run it from the job's folder: `cd /tmp/shop && uv run --env-file <this repo>/.env <this repo>/harness/1_model_interface.py`.
 
 In the runs, `>` is what I typed, `<` is what it said, and `$` is a command it ran.
 
 #### 1. Model interface
 
-We have a model, and no way to reach it. So we request a response:
+We have a model, and no way to reach it. So we request a response ([`1_model_interface.py`](./harness/1_model_interface.py)):
 
 ```python
 from anthropic import Anthropic
@@ -137,7 +146,7 @@ Tokens in, tokens out. But the request is written into the code: nobody can ask 
 
 #### 2. Input
 
-So we capture what comes in:
+So we capture what comes in ([`2_input.py`](./harness/2_input.py)):
 
 ```python
 def capture_input():
@@ -165,7 +174,7 @@ It can only talk. It can't look at a file, and its answer is still raw.
 
 #### 3. Output
 
-So we give it a tool, bash, and handle the response: show its words, run its commands.
+So we give it a tool, bash, and handle the response: show its words, run its commands ([`3_output.py`](./harness/3_output.py)).
 
 ```python
 bash = {"name": "bash", "description": "Run a shell command",
@@ -200,7 +209,7 @@ It acted, and then it stopped. The result of that command went nowhere, so the m
 
 #### 4. Control flow
 
-So we decide what happens next. If a tool ran, its result goes back and the model goes again. If not, it's your turn.
+So we decide what happens next. If a tool ran, its result goes back and the model goes again. If not, it's your turn ([`4_control_flow.py`](./harness/4_control_flow.py)).
 
 ```python
 def control_flow():
@@ -251,7 +260,7 @@ $ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a
 
 #### 5. Context
 
-So we assemble the minimum it needs to act well on any input: who it is (we call it quark), where it's working and what day it is:
+So we assemble the minimum it needs to act well on any input: who it is (we call it quark), where it's working and what day it is ([`quark.py`](./harness/quark.py)):
 
 ```python
 def assemble_context(conversation):
@@ -273,7 +282,7 @@ def assemble_context(conversation):
 
 No commands needed. Too little context and it wastes steps finding things out. Too much, and every request costs more and buries what matters.
 
-That's all five primitives. With a model in it, it's an agent: [`quark.py`](./quark.py). A quark is one of the smallest particles there is, and quark is the smallest agent: the five primitives and nothing more.
+That's all five primitives. With a model in it, it's an agent: [`quark.py`](./harness/quark.py). A quark is one of the smallest particles there is, and quark is the smallest agent: the five primitives and nothing more.
 
 ### Try it
 
@@ -291,7 +300,7 @@ Six concerns stand in the way. Each one makes the implementation of some primiti
 | **Output** | — | commands changing your machine; half a command | what each command did | a hanging command; odd bytes | long results | the tools |
 | **Control flow** | the task in progress | anything running, forever | each decision | a crash | — | the loop |
 
-Each concern adds to `quark.py`, and the result is [`quark_production.py`](./quark_production.py). It runs commands in [Docker](https://docs.docker.com/get-docker/), so you'll need that running.
+Each concern adds to `quark.py`, and the result is [`quark_production.py`](./harness/quark_production.py). It runs commands in [Docker](https://docs.docker.com/get-docker/), so you'll need that running.
 
 #### 1. Persistence
 
@@ -811,7 +820,7 @@ def instructions():                                      # performance: built on
 
 #### 6. Evaluation
 
-Any change can change what quark does, as every "What this changes" above shows: to the harness, or to the model in it. [`tasks.py`](./tasks.py) gives quark tasks with known right answers, each in a fresh folder, and checks what it did, not what it says. There are four kinds, one for each way an agent goes wrong:
+Any change can change what quark does, as every "What this changes" above shows: to the harness, or to the model in it. [`tasks.py`](./harness/tasks.py) gives quark tasks with known right answers, each in a fresh folder, and checks what it did, not what it says. There are four kinds, one for each way an agent goes wrong:
 
 | Kind | Example | Passes when |
 |---|---|---|
@@ -824,7 +833,7 @@ Each task runs quark_production.py the way a person would, answering yes to ever
 
 ```python
 def run_agent(ask, where, model=""):                     # quark_production.py, answering yes to every approval
-    keys = f'--env-file "{HERE}/.env"' if os.path.exists(f"{HERE}/.env") else ""
+    keys = f'--env-file "{ROOT}/.env"' if os.path.exists(f"{ROOT}/.env") else ""
     with subprocess.Popen(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where, text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env={**os.environ, "QUARK_MODEL": model},
                           start_new_session=True) as ran:
@@ -837,7 +846,7 @@ def run_agent(ask, where, model=""):                     # quark_production.py, 
 ```
 
 ```
-$ uv run tasks.py
+$ uv run harness/tasks.py
 PASS  file work   Make a folder called stone.
 PASS  file work   Create an empty file called falcon.txt.
 …
@@ -859,7 +868,7 @@ The checks are checked too: a scripted solver passes all 32, doing nothing passe
 
 The tasks are for evaluation only: nothing in the model's training is drawn from them. Run it after every change, to the harness or to the model.
 
-With all six concerns folded in, that's [`quark_production.py`](./quark_production.py): an agent, built from scratch, ready to leave running. Its model is Sonnet. Now we build our own, and score it in this harness at every stage.
+With all six concerns folded in, that's [`quark_production.py`](./harness/quark_production.py): an agent, built from scratch, ready to leave running. Its model is Sonnet. Now we build our own, and score it in this harness at every stage.
 
 ## The model
 
@@ -918,7 +927,7 @@ In a trained model, the primitives work together like this. These are the real n
 
 ### Building them
 
-Each primitive in one line: what it does. The code, from [`model.py`](./model.py), shows how.
+Each primitive in one line: what it does. The code, from [`model.py`](./model/model.py), shows how.
 
 **Tokenizer: turns text into tokens, and back.**
 
@@ -996,7 +1005,7 @@ return order.gather(-1, torch.multinomial(ordered, 1))           # draw one
 scores = self.model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]   # add it, go again; the cache keeps the rest
 ```
 
-That's the whole model, about 180 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00014, and outputs `" Paris"` (`uv run model.py`).
+That's the whole model, about 180 lines. Load Qwen's trained numbers into it and it agrees with Qwen's own implementation to within 0.00014, and outputs `" Paris"` (`uv run model/model.py`).
 
 ### Training it
 
@@ -1021,7 +1030,7 @@ Every stage is checked, before and after, on held-out data from its own source t
 
 #### Pre-training
 
-**Goal:** language and knowledge. We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run train.py pre`).
+**Goal:** language and knowledge. We pre-train our model from random numbers: the same code with 4 blocks instead of 28, on about a million characters of Shakespeare's plays, with our tokenizer learning 2,048 tokens from the same text. The last tenth is held out, never trained on, to measure it fairly (`uv run model/train.py pre`).
 
 | | Held-out loss | Continuing `ROMEO:` |
 |---|---|---|
@@ -1041,7 +1050,7 @@ I am Romeo, a man of the world, a man of the city, a man of the law, a man of th
 
 Fluent, then a loop: it knows language, but nothing has taught it how to behave.
 
-A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model.py`):
+A model is more than its numbers: it ships with its tokenizer, a *chat template* that lays out a conversation the way it was trained on, and settings for generating. Miss one and it breaks quietly, so load every part from its own file and check it against the reference (`uv run model/model.py`):
 
 ```python
 class Release:
@@ -1065,7 +1074,7 @@ From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is 
 `tar czf {{path/to/target.tar.gz}} {{path/to/file1 path/to/file2 ...}}`
 ```
 
-Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about an eighth of the pages (`uv run train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check on 100 of them. A base model is asked by example, so each is shown as the page shows it, its other examples first, then its last request:
+Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about an eighth of the pages (`uv run model/train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check on 100 of them. A base model is asked by example, so each is shown as the page shows it, its other examples first, then its last request:
 
 ```
 # docker buildx stop
@@ -1090,7 +1099,7 @@ It passes when it writes the right command, with any value for a `{{placeholder}
 
 Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format of Qwen3-0.6B, Qwen's own chat model, so ours ends up speaking the same format as the model we'll compare it with.
 
-**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 9,400 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
+**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 9,400 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=models/instruct.pt`, or any stage's numbers):
 
 ```python
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
@@ -1103,7 +1112,7 @@ def our_response(context, on_each_piece, most=512):      # a model we run: its c
 
 (shortened)
 
-> **Result:** filled in after verification: the mid-trained model in quark, on `tasks.py` (`uv run tasks.py checkpoints/midtrain.pt`): the agent before post-training, and why post-training exists.
+> **Result:** filled in after verification: the mid-trained model in quark, on `tasks.py` (`uv run harness/tasks.py models/midtrain.pt`): the agent before post-training, and why post-training exists.
 
 **Instruction-tuning.** **Goal:** take turns, call the tool in the harness's format, stop. It shows the model example conversations, and it learns from the assistant's tokens only. Six kinds, 2,400 in all:
 
@@ -1145,13 +1154,13 @@ Done: config.json now has debug set to true: …<|im_end|>   ← learned: answer
 
 Nothing it trains on may resemble what it's scored on. Every source is checked against `tasks.py`'s requests, and anything sharing 40% or more of its words with one is left out: NL2Bash had *delete all the log files in the current folder*, nearly an evaluation task word for word.
 
-It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run train.py post instruct`).
+It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run model/train.py post instruct`).
 
 > **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; the agent on `tasks.py`, before → after.
 
 RL can only make more likely what the model already does some of the time. So RL starts with its own held-out check, and goes on only if the agent passes some of it: if it never does the right thing, RL has nothing to learn from, and instruction-tuning needs fixing first.
 
-**Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run train.py post rl`).
+**Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run model/train.py post rl`).
 
 Both are one function. Imitation weights every example 1; reinforcement learning weights each try by how much better or worse than the others it did:
 
@@ -1215,24 +1224,24 @@ What we couldn't match is the size: of the model, the data, the environments and
 
 ## Run it
 
-You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-docker/) and an [Anthropic API key](https://console.anthropic.com/).
+You need [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/get-docker/) and an [Anthropic API key](https://console.anthropic.com/). Every command runs from the repo's folder, and writes what it printed to `runs/`.
 
 ```bash
 # the harness
 cp .env.example .env                                  # then put your key in .env
-uv run --env-file .env quark.py                       # the five primitives
-uv run --env-file .env quark_production.py            # production-ready
-uv run tasks.py                                       # evaluation: the four kinds of task
+uv run --env-file .env harness/quark.py               # the five primitives (harness/1_… to 4_… are the steps to it)
+uv run --env-file .env harness/quark_production.py    # production-ready
+uv run harness/tasks.py                               # evaluation: the four kinds of task
 
 # the model
-uv run model.py                                       # check our tokenizer, model and chat template against Qwen's
-uv run train.py pre                                   # pre-training: our model, from random numbers, on Shakespeare
-uv run train.py mid                                   # mid-training: Qwen3-0.6B-Base, on shell pages
-uv run tasks.py checkpoints/midtrain.pt               # the agent before post-training
-uv run train.py post instruct                         # post-training: instruction-tuning
-uv run tasks.py checkpoints/instruct.pt
-uv run train.py post rl                               # post-training: reinforcement learning, in the harness
-uv run tasks.py checkpoints/rl.pt
+uv run model/model.py                                 # check our tokenizer, model and chat template against Qwen's
+uv run model/train.py pre                             # pre-training: our model, from random numbers, on Shakespeare
+uv run model/train.py mid                             # mid-training: Qwen3-0.6B-Base, on shell pages
+uv run harness/tasks.py models/midtrain.pt            # the agent before post-training
+uv run model/train.py post instruct                   # post-training: instruction-tuning
+uv run harness/tasks.py models/instruct.pt
+uv run model/train.py post rl                         # post-training: reinforcement learning, in the harness
+uv run harness/tasks.py models/rl.pt
 ```
 
 > [!WARNING]

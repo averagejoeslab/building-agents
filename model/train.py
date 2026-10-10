@@ -7,12 +7,17 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""Training the model we built, one stage at a time, each starting from the last: uv run train.py pre | mid | post [instruct | rl]"""
+"""Training the model we built, one stage at a time, each starting from the last: uv run model/train.py pre | mid | post [instruct | rl]"""
 import sys, os, re, io, glob, json, time, random, shutil, datetime, tempfile, functools, contextlib, subprocess, urllib.request
 from datasets import load_dataset
 import torch, torch.nn.functional as F
 from model import Model, Tokenizer, Release, load_real, generate
 from huggingface_hub import hf_hub_download
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo: data/ comes in, models/ come out, runs/ is the record
+sys.path.insert(0, os.path.join(ROOT, "harness"))
+os.chdir(ROOT)
+LOG = None                                               # runs/training/<stage>.txt: what each stage printed, kept
 
 
 CHAT, BASE = "Qwen/Qwen3-0.6B", "Qwen/Qwen3-0.6B-Base"   # Qwen's chat format and tokenizer; Base's pre-trained numbers
@@ -23,7 +28,18 @@ NAMES = "apple river stone cloud maple ember pixel quartz tiger violet willow am
 
 
 def log(*words):
-    print(" ".join(str(w) for w in words), flush=True)
+    line = " ".join(str(w) for w in words)
+    print(line, flush=True)
+    if LOG:
+        open(LOG, "a").write(line + "\n")
+
+
+def logging_to(stage):                                   # a fresh record for this stage's run; a resumed run adds to it
+    global LOG
+    os.makedirs("runs/training", exist_ok=True)
+    LOG = f"runs/training/{stage}.txt"
+    if not os.path.exists(f"models/{stage}.progress"):
+        open(LOG, "w").close()
 
 
 # ── 1. pre-training: predict the next token of raw text ───────────────────────
@@ -32,10 +48,13 @@ PROMPT = "ROMEO:\n"
 
 
 def pretrain_text():                                     # Shakespeare: about a million characters of plays
-    return urllib.request.urlopen("https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt").read().decode()
+    if not os.path.exists("data/shakespeare.txt"):
+        open("data/shakespeare.txt", "w").write(urllib.request.urlopen("https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt").read().decode())
+    return open("data/shakespeare.txt").read()
 
 
 def pretrain(minutes=20):
+    logging_to("pretrain")
     text = pretrain_text()
     tokenizer = Tokenizer.learn(text, 2048)           # our own tokenizer, learned from the same text
     data = torch.tensor(tokenizer.encode(text))
@@ -83,7 +102,7 @@ def ours(weights):                                       # our model: Qwen's cha
 
 
 def shell_pages():                                       # tldr-pages (CC BY 4.0): short pages on shell commands, with examples
-    where = "checkpoints/tldr"
+    where = "data/tldr"
     if not os.path.isdir(where):
         subprocess.run(f"git clone -q --depth 1 --filter=blob:none --sparse https://github.com/tldr-pages/tldr.git {where} && "
                        f"git -C {where} sparse-checkout set pages/common pages/linux", shell=True, check=True)
@@ -125,7 +144,7 @@ def chunk_loss(model, data):
 
 
 def prepared(name, make):                                # data that's slow to make, made once and kept, so a restart reuses it
-    path = f"checkpoints/{name}.data"
+    path = f"data/{name}.pt"
     if not os.path.exists(path):
         torch.save(make(), path)
     return torch.load(path)
@@ -142,6 +161,7 @@ def mid_data(model):
 
 
 def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about an eighth of the pages
+    logging_to("midtrain")
     model = ours(BASE)
     data, held_out, tests = prepared("midtrain", lambda: mid_data(model))
     done = resume(model, "midtrain")
@@ -540,22 +560,22 @@ def trainable(model, lr):                                # every number, the voc
 
 
 def save(model, name, **progress):                       # the numbers, and how far it got, so an interruption costs little
-    torch.save({k: v.to(torch.bfloat16) for k, v in model.state_dict().items()}, f"checkpoints/{name}.pt")
-    json.dump(progress, open(f"checkpoints/{name}.progress", "w"))
+    torch.save({k: v.to(torch.bfloat16) for k, v in model.state_dict().items()}, f"models/{name}.pt")
+    json.dump(progress, open(f"models/{name}.progress", "w"))
 
 
 def resume(model, name):                                 # carry on from the last save, if there is one (the optimizer starts afresh)
-    if not os.path.exists(f"checkpoints/{name}.progress"):
+    if not os.path.exists(f"models/{name}.progress"):
         return {}
-    model.model.load_state_dict({k: v.float() for k, v in torch.load(f"checkpoints/{name}.pt").items()})
-    progress = json.load(open(f"checkpoints/{name}.progress"))
+    model.model.load_state_dict({k: v.float() for k, v in torch.load(f"models/{name}.pt").items()})
+    progress = json.load(open(f"models/{name}.progress"))
     log(f"carrying on from {progress}")
     return progress
 
 
 def finish(model, name):
     save(model.model, name)
-    os.remove(f"checkpoints/{name}.progress")
+    os.remove(f"models/{name}.progress")
 
 
 def show(model):                                         # real replies: talk, a tool call, and reasoning
@@ -566,9 +586,10 @@ def show(model):                                         # real replies: talk, a
 
 
 def instruct():
-    if os.path.exists("checkpoints/instruct.pt") and not os.path.exists("checkpoints/instruct.progress"):
+    if os.path.exists("models/instruct.pt") and not os.path.exists("models/instruct.progress"):
         return log("already instruction-tuned")
-    model = ours("checkpoints/midtrain.pt")
+    logging_to("instruct")
+    model = ours("models/midtrain.pt")
     data = prepared("instruct", lambda: instruction_data(model))
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
     done = resume(model, "instruct")
@@ -623,7 +644,8 @@ def held_out_tasks(model, quark):                        # RL's own held-out che
 
 def rl(steps=60, group=8):                               # reinforcement learning in the harness: try training tasks, keep what passed
     import quark_production as quark
-    model = ours("checkpoints/instruct.pt")
+    logging_to("rl")
+    model = ours("models/instruct.pt")
     done = resume(model, "rl")
     quark.OURS, quark.local, quark.TEMPERATURE = "ours", model, None   # its tries sampled as its generation settings say
     quark.allowed = lambda command: True                 # as tasks.py runs it: yes to every approval, so only the never list stops it
@@ -648,7 +670,7 @@ def rl(steps=60, group=8):                               # reinforcement learnin
         save(model.model, "rl", step=step, passed=passed)
     log(f"held-out training tasks after: {held_out_tasks(model, quark)} passed")
     finish(model, "rl")
-    log("score it in the harness: uv run tasks.py checkpoints/rl.pt")
+    log("score it in the harness: uv run harness/tasks.py models/rl.pt")
 
 
 def post(*parts):                                        # post-training: imitate good conversations, then learn from graded tries
@@ -658,5 +680,5 @@ def post(*parts):                                        # post-training: imitat
 
 if __name__ == "__main__":
     torch.manual_seed(0); random.seed(0)
-    os.makedirs("checkpoints", exist_ok=True)
+    os.makedirs("data", exist_ok=True); os.makedirs("models", exist_ok=True)
     {"pre": pretrain, "mid": midtrain, "post": post}[sys.argv[1]](*sys.argv[2:])

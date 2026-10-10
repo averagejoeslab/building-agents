@@ -8,7 +8,7 @@
 # explicit = true
 # ///
 """A language model built from its primitives, in the design of Qwen3. Run it to check it against Qwen's own: uv run model.py"""
-import json, unicodedata, collections
+import os, json, unicodedata, collections
 import regex, jinja2.sandbox
 import torch, torch.nn as nn, torch.nn.functional as F, torch.utils.checkpoint
 from huggingface_hub import hf_hub_download
@@ -311,11 +311,18 @@ BASH = {"type": "function", "function": {"name": "bash", "description": "Run a s
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
 
 
+CHECK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "runs", "model", "check.txt")   # the record of the check
+
+
 def log(*words):
-    print(" ".join(str(w) for w in words), flush=True)
+    line = " ".join(str(w) for w in words)
+    print(line, flush=True)
+    open(CHECK, "a").write(line + "\n")
 
 
 def check():
+    os.makedirs(os.path.dirname(CHECK), exist_ok=True)
+    open(CHECK, "w").close()
     from transformers import AutoTokenizer, AutoModelForCausalLM
     reference = AutoTokenizer.from_pretrained(CHAT)
     texts = ["The capital of France is", "ROMEO:\nBut, soft! what light through yonder window breaks?", "def f(x):\n    return x**2\n",
@@ -335,5 +342,5 @@ def check():
     log("'The capital of France is' →", repr(generate(load_real(), "The capital of France is", most=12)))
 
 
-if __name__ == "__main__":                               # uv run model.py: check our code against Qwen's own
+if __name__ == "__main__":                               # uv run model/model.py: check our code against Qwen's own
     check()

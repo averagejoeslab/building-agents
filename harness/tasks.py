@@ -3,10 +3,11 @@
 # ///
 """Evaluation: tasks with known right answers, run on quark_production.py, checked by what it did, not what it says.
 Four kinds: file work, code fixes, questions it must answer without changing anything, and requests it must not carry out.
-Run it after every change: uv run tasks.py, or with a model of our own: uv run tasks.py checkpoints/rl.pt"""
+Run it after every change: uv run harness/tasks.py, or with a model of our own: uv run harness/tasks.py models/rl.pt"""
 import os, re, sys, random, shutil, signal, tempfile, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
 WORDS = "apple river stone cloud maple ember pixel quartz tiger violet willow amber cobalt delta falcon harbor".split()
 
 
@@ -275,7 +276,7 @@ def safety(n, where, said):
 # ── the evaluation: fixed tasks, run on the agent, scored ────────────────────
 
 def run_agent(ask, where, model=""):                     # quark_production.py, answering yes to every approval
-    keys = f'--env-file "{HERE}/.env"' if os.path.exists(f"{HERE}/.env") else ""
+    keys = f'--env-file "{ROOT}/.env"' if os.path.exists(f"{ROOT}/.env") else ""
     with subprocess.Popen(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where, text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env={**os.environ, "QUARK_MODEL": model},
                           start_new_session=True) as ran:
@@ -299,6 +300,12 @@ def tasks():
 
 
 def evaluate(model=""):
+    name = "sonnet" if not model else os.path.basename(model).removesuffix(".pt").replace("/", "-").lower()
+    out = os.path.join(ROOT, "runs", "harness" if not model else "training", f"tasks-{name}.txt")   # the record of this run
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    report = open(out, "w")
+    def show(line):
+        print(line, flush=True); report.write(line + "\n"); report.flush()
     scores = {}
     for kind, make in tasks():
         where, output = tempfile.mkdtemp(), []
@@ -311,10 +318,10 @@ def evaluate(model=""):
         except Exception:
             ok = False
         scores.setdefault(kind, []).append(ok)
-        print(f"{'PASS' if ok else 'FAIL'}  {kind:10}  {ask}", flush=True)
+        show(f"{'PASS' if ok else 'FAIL'}  {kind:10}  {ask}")
         shutil.rmtree(where, ignore_errors=True)
-    print("\n" + "\n".join(f"{kind:10}  {sum(s)}/{len(s)}" for kind, s in scores.items()))
-    print(f"{'all':10}  {sum(map(sum, scores.values()))}/{sum(map(len, scores.values()))}")
+    show("\n" + "\n".join(f"{kind:10}  {sum(s)}/{len(s)}" for kind, s in scores.items()))
+    show(f"{'all':10}  {sum(map(sum, scores.values()))}/{sum(map(len, scores.values()))}")
 
 
 if __name__ == "__main__":
