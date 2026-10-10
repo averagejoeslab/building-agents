@@ -1,0 +1,2 @@
+FAIL  file work   Make a folder called stone.
+PASS  file work   Create an empty file called falcon.txt.

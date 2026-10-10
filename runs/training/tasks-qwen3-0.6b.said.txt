@@ -1,0 +1,10 @@
+=== FAIL  Make a folder called stone.
+$ mkdir -p /tmp/stone
+  run this? [y/N]   (no output)
+< The folder "stone" has been created successfully at `/tmp/stone`.
+
+=== PASS  Create an empty file called falcon.txt.
+$ touch falcon.txt
+  run this? [y/N]   (no output)
+< The file `falcon.txt` has been created successfully.
+

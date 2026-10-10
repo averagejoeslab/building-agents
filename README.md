@@ -1236,7 +1236,7 @@ Held-out training tasks: **12/40 → 28/40**. In training, the twenty kinds come
 
 The first ten kinds are file work, and they climb: `nested_folders` went 2/8, 7/8, 7/8; `nth_line` 1/8, 6/8, 6/8. The second ten include the four question kinds and the code fix, which never passed a single try in any round: there was nothing to make more likely. RL sharpens what the model can already do some of the time; it can't give it what it never does.
 
-> **Result:** filled in after verification: `tasks.py`, before → after.
+In quark, on `tasks.py` (`uv run harness/tasks.py models/rl.pt`): **18/32, the same 18.** The transcripts changed ([`runs/training/tasks-rl.said.txt`](./runs/training/tasks-rl.said.txt)): the format slips are gone, no bare JSON and no wandering into the template; `find /` became `find .`. What's left is what RL never had a signal on. The code fixes still go `ls`, then an invented diagnosis. Asked to make a folder and move the `.txt` files into it, it makes the folder and reports both done. RL made the agent more reliable at what it could already do, and the evaluation's failures were the things it couldn't.
 
 ### Stage by stage
 
@@ -1255,17 +1255,26 @@ And the agent, from post-training on: the same harness and the same 32 tasks; on
 |---|---|---|---|---|---|
 | before post-training (mid-trained) | 0/20 | 0/5 | 0/5 | 2/2 | 2/32 |
 | after instruction-tuning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
-| after reinforcement learning | | | | | |
+| after reinforcement learning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
 | Qwen3-0.6B: Qwen's own post-training | | | | | |
-| Sonnet | | | | | |
+| Sonnet | 20/20 | 5/5 | 5/5 | 2/2 | 32/32 |
 
-> **Result:** filled in after verification. Doing nothing passes the two safety tasks, so they're counted apart.
+Doing nothing passes the two safety tasks, so they're counted apart. Every row is from the same harness, the same tasks and the same yes to every approval; only the model changes ([`runs/`](./runs/)).
 
 ## What fell short, and what would fix it
 
-Every stage's two checks say where the agent is still weak. For each gap: what we think caused it, what we'd change, and what a lab would do at scale. These are assumptions to test, not findings.
+Every stage's checks say where the agent is still weak. For each gap: what we think caused it, what we'd change, and what a lab does at scale. These are assumptions to test, not findings.
 
-> **Result:** filled in after verification: each gap, its likely cause, and the remedy.
+| What fell short | The likely cause | What would fix it | What a lab does |
+|---|---|---|---|
+| **Code fixes, 0/5 at every stage.** It runs `ls` and explains the failure without reading a file or running a test. | The tool sessions it imitated are mostly one command and an answer; a code fix is five or six. And `fix_code` never passed a try in RL, so RL had nothing to make more likely. | More multi-step demonstrations, read → run → edit → run again; and an easier code kind in training, one the model passes sometimes, so RL has a foothold. | Thousands of long agent sessions in the harness, and tasks graded in stages, so a partly right try earns something. |
+| **It says *Done* without checking.** Made the folder, reported the move too. | The demonstrations end with an answer from what it saw; the model learned the answer and skipped the seeing. The checks grade the end state, so a false *Done* fails, but only RL's kinds got that signal. | Demonstrations where the check step is the point: a try that answers without looking is left out of the data. | Graders for the answer's honesty as well as the result. |
+| **It says instead of doing.** *To add a line, you can use…*, the right command in a code block, never run. | 300 talk conversations taught it to explain shell commands in prose; nothing told it when to explain and when to act. | Keep the talk away from the shell: explain cooking, act on files. | The same, at scale: the mix is tuned, and the harness's format is enforced in every session. |
+| **RL raised its own check and not the evaluation.** 12/40 → 28/40 in training kinds; 18/32 → 18/32 on `tasks.py`. | The kinds RL improved, single-step file work, were already passing the evaluation; the evaluation's failures are kinds RL never got a signal on. | A curriculum: training kinds that start where the model is and step towards what the evaluation asks. | Many environments, far more tries, and a model big enough that most kinds pass some of the time. |
+| **RL drifted, twice.** Pushed away from its own failed tries, the model lost its format in two steps, then in three rounds. | No anchor: a lab penalises straying from a reference copy of the model, and we had no memory for a second model. | The reference copy, once the memory is there; or a smaller step with both directions and the penalty. | A KL penalty to the reference, clipped updates, and a step size tuned on thousands of runs. |
+| **The reasoning has the shape and not the sum.** *$125 + $175 = $200.* | 0.6 billion numbers. | A bigger model: this is the one gap no data fixes at this size. | Scale. |
+
+The agent got better at being an agent in this harness, 2 → 18 → 18 of 32, with the gains from instruction-tuning and the reliability from RL; the gaps say what the next round would train.
 
 ## How to build an agent from scratch
 
