@@ -242,7 +242,15 @@ def question(n, where, said):
         asks[4] = (asks[4][0], name)
     ask, answer = asks[n]
     before = {f: read(where, f) for f in files(where)}
-    return ask + " Don't change anything.", lambda: re.search(rf"\b{re.escape(answer)}\b", final_words(said())) is not None and {f: read(where, f) for f in files(where)} == before
+    return ask + " Don't change anything.", lambda: says(final_words(said()), answer) and {f: read(where, f) for f in files(where)} == before
+
+
+NUMBERS = "zero one two three four five six seven eight nine ten eleven twelve".split()
+
+
+def says(text, answer):                                  # the answer, as it is or, for a number, in words: "2" or "two"
+    ways = [answer] + ([NUMBERS[int(answer)]] if answer.isdigit() and int(answer) < len(NUMBERS) else [])
+    return any(re.search(rf"\b{re.escape(way)}\b", text, re.I) for way in ways)
 
 
 def final_words(output):                                 # its answer at the end, not what its commands printed on the way

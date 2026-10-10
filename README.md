@@ -85,7 +85,16 @@ The harness is everything around the model: it turns the model's tokens into act
 
 We build it one primitive at a time, around a capable model, Sonnet, so each primitive's effect is clear, and outward from the model: first reach it, then give it a request, let it act, let it go again, and tell it where it is. Our own model comes after, into the harness built here.
 
-Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."*
+Every step gets the same job. A small project, [`shop/`](./shop/), has a function, `total()` in `prices.py`, that adds up a basket and takes off a percentage discount, and a test that fails. The request is always: *"The tests are failing. Find out why and fix it."* To follow along, put your [Anthropic API key](https://console.anthropic.com/) in `.env`, and give the job its own folder, a git repository, so the agent can commit:
+
+```bash
+cp .env.example .env                                  # then put your key in .env
+cp -r shop /tmp/shop && git -C /tmp/shop init -q && git -C /tmp/shop add -A && git -C /tmp/shop commit -qm "Add prices"
+git -C /tmp/shop config user.name "$(git config user.name)"     # the repository's own copy of who you are:
+git -C /tmp/shop config user.email "$(git config user.email)"   # later, commands run in a box that can't see your settings
+```
+
+Put each step's code in a file and run it from that folder: `cd /tmp/shop && uv run --env-file <this repo>/.env --with anthropic python step.py`.
 
 In the runs, `>` is what I typed, `<` is what it said, and `$` is a command it ran.
 
@@ -629,9 +638,9 @@ def record(**step):                                      # observability: one li
 The record of the bug fix:
 
 ```
-{"model": "claude-sonnet-5-5", "seconds": 1.9, "tokens_in": 4, "written": 7803, "cached": 0, "tokens_out": 96}
+{"model": "claude-sonnet-5-5", "seconds": 1.3, "tokens_in": 4, "written": 9422, "cached": 0, "tokens_out": 96}
 {"command": "cd /tmp/shop && cat .quark/memory/memory.md 2>/dev/null; ls .quark/skills 2>/dev/null; ls", "exit": 0}
-{"model": "claude-sonnet-5-5", "seconds": 0.9, "tokens_in": 2, "written": 115, "cached": 7803, "tokens_out": 87}
+{"model": "claude-sonnet-5-5", "seconds": 1.3, "tokens_in": 2, "written": 115, "cached": 9422, "tokens_out": 87}
 {"command": "cd /tmp/shop && cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30", "exit": 0}
 ...
 ```
@@ -755,22 +764,23 @@ def trim(result):                                        # performance: keep the
     return f"{result[:MAX_RESULT // 2]}\n[... {len(result) - MAX_RESULT} characters cut ...]\n{result[-MAX_RESULT // 2:]}"
 ```
 
-The bug fix and the commit, from the record, without and with caching:
+The bug fix and the commit, from the record, run once without caching and once with it. The two runs took slightly different paths, six requests and seven:
 
-| Request | Without: full price | With: full price | With: cached |
-|---|---|---|---|
-| 1 | 7,773 | 4 | 0 |
-| 2 | 7,886 | 2 | 7,803 |
-| 3 | 8,214 | 2 | 7,918 |
-| 4 | 8,563 | 2 | 8,246 |
-| 5 | 8,721 | 4 | 8,509 |
-| 6 | 8,816 | 2 | 8,665 |
-| 7 | 8,981 | 2 | 8,762 |
+| Request | Without: full price | With: full price | With: written | With: cached |
+|---|---|---|---|---|
+| 1 | 9,426 | 4 | 9,422 | 0 |
+| 2 | 9,723 | 2 | 115 | 9,422 |
+| 3 | 10,072 | 2 | 328 | 9,537 |
+| 4 | 10,338 | 2 | 250 | 9,865 |
+| 5 | 10,495 | 4 | 147 | 10,115 |
+| 6 | 10,666 | 2 | 97 | 10,262 |
+| 7 | | 2 | 150 | 10,359 |
+| **All** | **60,720** | **18** | **10,509** | **59,560** |
 
-Cached tokens cost about a tenth. (Storing them, `written` in the record, costs a little extra, once.) With instructions this long, caching is most of the bill: without it, every request pays for all 7,700 tokens again.
+A cached token costs a tenth of a full-price one, and writing one to the cache a quarter more, once. Counted that way, caching cut the bill to about a third: without it, every request pays for all 9,400 tokens of instructions again.
 
 **What this changes.**
-- *Persistence:* the instructions are about 7,700 tokens, and they include the skills index and quark's own code. Built on every request, any change would restart the cache, so they're built once a session. A skill saved now shows up in the index next session; quark already knows it, because it just wrote it.
+- *Persistence:* the instructions are about 9,400 tokens, and they include the skills index and quark's own code. Built on every request, any change would restart the cache, so they're built once a session. A skill saved now shows up in the index next session; quark already knows it, because it just wrote it.
 
 ```python
 @functools.cache
@@ -1080,7 +1090,7 @@ It passes when it writes the right command, with any value for a `{{placeholder}
 
 Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format of Qwen3-0.6B, Qwen's own chat model, so ours ends up speaking the same format as the model we'll compare it with.
 
-**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 7,700 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
+**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 9,400 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=checkpoints/instruct.pt`, or any stage's numbers):
 
 ```python
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
