@@ -1,12 +1,69 @@
 held-out training tasks before: 12/40 passed
-step 1: last_lines, 6/8 passed
+step 1: last_lines, 8/8 passed
 step 2: log_levels, 1/8 passed
 step 3: count_errors, 5/8 passed
 step 4: csv_names, 4/8 passed
-step 5: csv_total, 0/8 passed
-step 6: uppercase_copy, 0/8 passed
-step 7: drop_lines, 0/8 passed
-step 8: nested_folders, 0/8 passed
-step 9: config_port, 0/8 passed
-step 10: config_debug, 0/8 passed
-  passed in training, last 10 tasks: 20%
+step 5: csv_total, 2/8 passed
+step 6: uppercase_copy, 2/8 passed
+step 7: drop_lines, 2/8 passed
+step 8: nested_folders, 2/8 passed
+step 9: config_port, 6/8 passed
+step 10: config_debug, 5/8 passed
+  passed in training, last 10 tasks: 46%
+step 11: markdown_lines, 7/8 passed
+step 12: backup_csv, 0/8 passed
+step 13: nth_line, 1/8 passed
+step 14: add_title, 6/8 passed
+step 15: make_executable, 1/8 passed
+step 16: ask_port, 0/8 passed
+step 17: ask_errors, 0/8 passed
+step 18: ask_top, 0/8 passed
+step 19: ask_last, 0/8 passed
+step 20: fix_code, 0/8 passed
+  passed in training, last 10 tasks: 19%
+step 21: last_lines, 4/8 passed
+step 22: log_levels, 6/8 passed
+step 23: count_errors, 7/8 passed
+step 24: csv_names, 5/8 passed
+step 25: csv_total, 5/8 passed
+step 26: uppercase_copy, 5/8 passed
+step 27: drop_lines, 5/8 passed
+step 28: nested_folders, 7/8 passed
+step 29: config_port, 4/8 passed
+step 30: config_debug, 7/8 passed
+  passed in training, last 10 tasks: 69%
+step 31: markdown_lines, 6/8 passed
+step 32: backup_csv, 0/8 passed
+step 33: nth_line, 6/8 passed
+step 34: add_title, 6/8 passed
+step 35: make_executable, 7/8 passed
+step 36: ask_port, 0/8 passed
+step 37: ask_errors, 0/8 passed
+step 38: ask_top, 0/8 passed
+step 39: ask_last, 0/8 passed
+step 40: fix_code, 0/8 passed
+  passed in training, last 10 tasks: 31%
+step 41: last_lines, 4/8 passed
+step 42: log_levels, 4/8 passed
+step 43: count_errors, 7/8 passed
+step 44: csv_names, 5/8 passed
+step 45: csv_total, 8/8 passed
+step 46: uppercase_copy, 6/8 passed
+step 47: drop_lines, 7/8 passed
+step 48: nested_folders, 7/8 passed
+step 49: config_port, 6/8 passed
+step 50: config_debug, 5/8 passed
+  passed in training, last 10 tasks: 74%
+step 51: markdown_lines, 5/8 passed
+step 52: backup_csv, 0/8 passed
+step 53: nth_line, 6/8 passed
+step 54: add_title, 6/8 passed
+step 55: make_executable, 7/8 passed
+step 56: ask_port, 0/8 passed
+step 57: ask_errors, 0/8 passed
+step 58: ask_top, 0/8 passed
+step 59: ask_last, 0/8 passed
+step 60: fix_code, 0/8 passed
+  passed in training, last 10 tasks: 30%
+held-out training tasks after: 28/40 passed
+score it in the harness: uv run harness/tasks.py models/rl.pt

@@ -1226,7 +1226,17 @@ A lab's RL also makes the failed tries *less* likely, weighting each try by how 
 
 Its own held-out check is 40 training tasks from folders it never trains in.
 
-> **Result:** filled in after verification: the 40 held-out training tasks, before → after; `tasks.py`, before → after.
+Held-out training tasks: **12/40 → 28/40**. In training, the twenty kinds come round three times; the share of tries that passed, round by round ([`runs/training/rl.txt`](./runs/training/rl.txt)):
+
+| Round | Steps 1–10 | Steps 11–20 |
+|---|---|---|
+| 1 | 46% | 19% |
+| 2 | 69% | 31% |
+| 3 | 74% | 30% |
+
+The first ten kinds are file work, and they climb: `nested_folders` went 2/8, 7/8, 7/8; `nth_line` 1/8, 6/8, 6/8. The second ten include the four question kinds and the code fix, which never passed a single try in any round: there was nothing to make more likely. RL sharpens what the model can already do some of the time; it can't give it what it never does.
+
+> **Result:** filled in after verification: `tasks.py`, before → after.
 
 ### Stage by stage
 
@@ -1237,7 +1247,7 @@ Each stage, on its own check:
 | Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.28 |
 | Mid-training | held-out loss on shell pages; the shell check | 1.896; 48/100 | 1.411; 53/100 |
 | Instruction-tuning | held-out loss on conversations | 2.260 | 0.496 |
-| Reinforcement learning | held-out training tasks | | |
+| Reinforcement learning | held-out training tasks | 12/40 | 28/40 |
 
 And the agent, from post-training on: the same harness and the same 32 tasks; only the model changes:
 
