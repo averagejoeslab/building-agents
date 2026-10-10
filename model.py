@@ -39,7 +39,7 @@ class Tokenizer:
         self.cache = {}
 
     @classmethod
-    def learn(cls, text, size, special=()):              # learn merges from text until there are `size` tokens
+    def learn(cls, text, size, special=()):             # byte-pair encoding: start from single bytes...
         words = collections.Counter("".join(BYTES[b] for b in w.encode()) for w in regex.findall(WORDS, text))
         words = {tuple(w): n for w, n in words.items()}
         merges = []
@@ -47,11 +47,11 @@ class Tokenizer:
             pairs = collections.Counter()
             for w, n in words.items():
                 for pair in zip(w, w[1:]):
-                    pairs[pair] += n
+                    pairs[pair] += n                    # ...count every neighbouring pair...
             if not pairs:
                 break
-            best = max(pairs, key=pairs.get)             # the commonest neighbouring pair becomes one token
-            merges.append(best)
+            best = max(pairs, key=pairs.get)
+            merges.append(best)                         # ...and make the commonest one a new token
             words = {cls.merge(w, best): n for w, n in words.items()}
         return cls(merges, special)
 
@@ -121,7 +121,7 @@ def decode(ids):
 
 def rotary(length, dim, theta=1_000_000.0, start=0):     # position: rotate each vector by an angle that grows along the text
     frequencies = 1.0 / theta ** (torch.arange(0, dim, 2).float() / dim)
-    angles = torch.outer(torch.arange(start, start + length).float(), frequencies)
+    angles = torch.outer(torch.arange(start, start + length).float(), frequencies)   # an angle that grows along the input
     angles = torch.cat([angles, angles], dim=-1)
     return angles.cos(), angles.sin()
 
@@ -154,10 +154,10 @@ class Attention(nn.Module):
 
     def forward(self, x, cos, sin, cache=None):
         batch, length, _ = x.shape
-        q = self.q_norm(self.q_proj(x).view(batch, length, self.heads, self.head_dim)).transpose(1, 2)
-        k = self.k_norm(self.k_proj(x).view(batch, length, self.kv_heads, self.head_dim)).transpose(1, 2)
-        v = self.v_proj(x).view(batch, length, self.kv_heads, self.head_dim).transpose(1, 2)
-        q, k = rotate(q, cos, sin), rotate(k, cos, sin)
+        q = self.q_norm(self.q_proj(x).view(batch, length, self.heads, self.head_dim)).transpose(1, 2)      # what each token looks for
+        k = self.k_norm(self.k_proj(x).view(batch, length, self.kv_heads, self.head_dim)).transpose(1, 2)   # what each token offers
+        v = self.v_proj(x).view(batch, length, self.kv_heads, self.head_dim).transpose(1, 2)                # what each token carries
+        q, k = rotate(q, cos, sin), rotate(k, cos, sin)  # turn each query and key by its angle: nearby tokens line up
         if cache is not None:                            # generating: keep what earlier tokens offered, so they aren't recomputed
             if "k" in cache:
                 k, v = torch.cat([cache["k"], k], dim=2), torch.cat([cache["v"], v], dim=2)
@@ -167,7 +167,7 @@ class Attention(nn.Module):
         scores = q @ k.transpose(-2, -1) / self.head_dim ** 0.5          # how well each query matches each key
         ahead = torch.ones(length, k.shape[2], dtype=torch.bool).triu(k.shape[2] - length + 1)   # the keys after each query
         weights = scores.masked_fill(ahead, float("-inf")).softmax(dim=-1)   # never look ahead; share out attention by match
-        mixed = weights @ v                                              # take that share of each value
+        mixed = weights @ v                              # take that share of each value
         return self.o_proj(mixed.transpose(1, 2).reshape(batch, length, -1))
 
 
@@ -182,8 +182,8 @@ class Block(nn.Module):
         self.down_proj = nn.Linear(hidden, dim, bias=False)
 
     def forward(self, x, cos, sin, cache=None):
-        x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back
-        h = self.post_attention_layernorm(x)
+        x = x + self.self_attn(self.input_layernorm(x), cos, sin, cache)               # look back (attention)
+        h = self.post_attention_layernorm(x)                                            # keep the numbers a steady size
         gate = self.gate_proj(h)
         return x + self.down_proj(gate * torch.sigmoid(gate) * self.up_proj(h))        # think about it: a gated network
 
@@ -194,7 +194,7 @@ class Model(nn.Module):
     def __init__(self, vocab=151936, dim=1024, layers=28, heads=16, kv_heads=8, head_dim=128, hidden=3072, theta=1_000_000.0):
         super().__init__()
         self.head_dim, self.theta = head_dim, theta
-        self.embed_tokens = nn.Embedding(vocab, dim)     # what each token means
+        self.embed_tokens = nn.Embedding(vocab, dim)     # a row of 1,024 numbers per token; training puts related tokens close
         self.layers = nn.ModuleList([Block(dim, hidden, heads, kv_heads, head_dim) for _ in range(layers)])
         self.norm = RMSNorm(dim)
         for weight in self.parameters():                 # start from small random numbers; training fills in the rest
@@ -212,7 +212,7 @@ class Model(nn.Module):
         x = self.norm(x)
         if keep is not None:                             # training: score only the positions it learns from, to save memory
             x = x[keep]
-        return x @ self.embed_tokens.weight.T            # output head: a score for every possible next token
+        return x @ self.embed_tokens.weight.T            # compare with every token's meaning: 151,936 scores
 
 
 # ── 6. generation: one token at a time ────────────────────────────────────────
@@ -285,12 +285,12 @@ class Release:
         scores[:, self.tokens:] = float("-inf")          # only real tokens: the rest of the output head is padding
         if temperature == 0:                             # always the most likely: for a fair, repeatable score
             return scores.argmax(-1, keepdim=True)
-        scores = scores / temperature
+        scores = scores / temperature                    # sharpen or flatten
         if top_k:
-            scores = scores.masked_fill(scores < scores.topk(top_k).values[:, -1:], float("-inf"))   # only the k most likely
+            scores = scores.masked_fill(scores < scores.topk(top_k).values[:, -1:], float("-inf"))   # keep the k likeliest
         ordered, order = F.softmax(scores, dim=-1).sort(descending=True)
-        ordered[ordered.cumsum(-1) - ordered >= top_p] = 0                    # only the most likely, until they make up top_p
-        return order.gather(-1, torch.multinomial(ordered, 1))
+        ordered[ordered.cumsum(-1) - ordered >= top_p] = 0                    # and only as many as make up top_p
+        return order.gather(-1, torch.multinomial(ordered, 1))           # draw one
 
     @torch.no_grad()
     def generate(self, text, most=1000, temperature=None, top_k=None, top_p=None):
@@ -301,7 +301,7 @@ class Release:
             if next_id.item() in self.stops:
                 break
             out.append(next_id.item())
-            scores = self.model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]
+            scores = self.model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]   # add it, go again; the cache keeps the rest
         return self.decode(out)
 
 # ── 8. checking it: our code, with Qwen's numbers, against Qwen's own ────────

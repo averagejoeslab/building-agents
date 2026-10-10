@@ -651,7 +651,9 @@ Things fail.
 
 ```python
 def request_response(context, on_each_piece):
-    for name in MODELS:
+    if OURS and not OURS.startswith("claude"):
+        return our_response(context, on_each_piece)
+    for name in [OURS] if OURS else MODELS:          # resilience: if one keeps failing, try the next
         shown = False
         try:
             with model.messages.stream(model=name, max_tokens=16384, **context) as stream:   # performance: stream the reply
@@ -731,7 +733,7 @@ Every request resends everything, and you wait in silence for the whole reply.
 - **Output:** words appear as they arrive.
 
 ```python
-    return {"system": instructions(), "tools": [bash], "messages": conversation,
+    return {"system": brief() if OURS else instructions(), "tools": [bash], "messages": conversation,
             "cache_control": {"type": "ephemeral"}}      # performance: reuse what was already sent
 ```
 
@@ -785,12 +787,12 @@ def instructions():                                      # performance: built on
 - *Persistence again:* a reply stopped mid-sentence is saved as what was said, marked as cut off, never as a finished answer:
 
 ```python
-                if response.stop_reason is None:         # persistence: a reply cut off is kept as what was said, marked
-                    said = "".join(block.text for block in response.content if block.type == "text")
-                    add(conversation, {"role": "assistant", "content": f"{said}\n[stopped by you]"})
-                    record(stopped="stopped by you")
-                    print("\n[stopped by you]")
-                    break
+        if response.stop_reason is None:                 # persistence: a reply cut off is kept as what was said, marked
+            said = "".join(block.text for block in response.content if block.type == "text")
+            add(conversation, {"role": "assistant", "content": f"{said}\n[stopped by you]"})
+            record(stopped="stopped by you")
+            print("\n[stopped by you]")
+            return
 ```
 
 - *Resilience:* a stream can fail halfway. The backup model only takes over if nothing has been shown yet (the `shown` check in `request_response`, above).
@@ -966,11 +968,14 @@ return x @ self.embed_tokens.weight.T            # compare with every token's me
 **Generation: picks the next token and goes again.**
 
 ```python
-scores = scores / temperature                                       # sharpen or flatten
+scores = scores / temperature                    # sharpen or flatten
 scores = scores.masked_fill(scores < scores.topk(top_k).values[:, -1:], float("-inf"))   # keep the k likeliest
 ordered, order = F.softmax(scores, dim=-1).sort(descending=True)
-ordered[ordered.cumsum(-1) - ordered >= top_p] = 0                  # and only as many as make up top_p
-next_id = order.gather(-1, torch.multinomial(ordered, 1))           # draw one
+ordered[ordered.cumsum(-1) - ordered >= top_p] = 0                    # and only as many as make up top_p
+return order.gather(-1, torch.multinomial(ordered, 1))           # draw one
+```
+
+```python
 scores = self.model(next_id, caches, start=ids.shape[1] + len(out) - 1)[:, -1]   # add it, go again; the cache keeps the rest
 ```
 
@@ -1120,10 +1125,10 @@ RL can only make more likely what the model already does some of the time. So we
 Both are one function. Imitation weights every example 1; reinforcement learning weights each try by how much better or worse than the others it did:
 
 ```python
-def update(model, optimizer, texts, weights):            # make each text more likely, in proportion to its weight
+def update(model, optimizer, texts, weights, most=1024):  # one step: make each text more likely, in proportion to its weight
     optimizer.zero_grad()
-    for text, weight in zip(texts, weights):
-        (-weight * logprob(model, text) / len(texts)).backward()
+    for text, weight in zip(texts, weights):             # one at a time, to fit in memory
+        (-weight * logprob(model, text, most) / len(texts)).backward()
     optimizer.step()
 ```
 

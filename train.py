@@ -52,8 +52,8 @@ def pretrain(minutes=20):
         starts = torch.randint(len(data) - 257, (16,))
         inputs = torch.stack([data[i:i + 256] for i in starts])
         targets = torch.stack([data[i + 1:i + 257] for i in starts])  # the same text, one token on: the next one
-        loss = F.cross_entropy(model(inputs).flatten(0, 1), targets.flatten())
-        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        loss = F.cross_entropy(model(inputs).flatten(0, 1), targets.flatten())   # how surprised was it?
+        optimizer.zero_grad(); loss.backward(); optimizer.step()                # nudge every number to be less so
         if step % 100 == 0:
             log(f"step {step}: loss {loss.item():.2f}")
     log(f"after {step} steps, {minutes} minutes:", repr(PROMPT + speak()), f"held-out loss {held_out_loss(model, held_out):.2f}")

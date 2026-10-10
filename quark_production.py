@@ -243,7 +243,7 @@ def summarize(conversation):                             # resilience: too long 
 def request_response(context, on_each_piece):
     if OURS and not OURS.startswith("claude"):
         return our_response(context, on_each_piece)
-    for name in [OURS] if OURS else MODELS:
+    for name in [OURS] if OURS else MODELS:          # resilience: if one keeps failing, try the next
         shown = False
         try:
             with model.messages.stream(model=name, max_tokens=16384, **context) as stream:   # performance: stream the reply
