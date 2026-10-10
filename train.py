@@ -118,17 +118,30 @@ def chunk_loss(model, data):
     return sum(F.cross_entropy(model.model(c[None, :-1])[0], c[1:]).item() for c in data) / len(data)
 
 
-def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about a quarter of the pages
-    model = ours(BASE)
+def prepared(name, make):                                # data that's slow to make, made once and kept, so a restart reuses it
+    path = f"checkpoints/{name}.data"
+    if not os.path.exists(path):
+        torch.save(make(), path)
+    return torch.load(path)
+
+
+def mid_data(model):
     every = shell_pages()
     pages = [p for p in every if all(closest(what)[0] < 0.4 for what, _ in examples(p))]   # decontaminated: none near an evaluation request
     random.shuffle(pages)
     data, held_out = chunks(model, pages[200:]), chunks(model, pages[:200])[:32]   # 200 pages it never trains on
     tests = [examples(p)[0] for p in pages[:200] if examples(p)][:100]             # one example from each: the shell check
+    log(f"{len(pages):,} pages ({len(every) - len(pages)} left out, too near an evaluation request), {data.numel():,} tokens")
+    return data, held_out, tests
+
+
+def midtrain(steps=60):                                  # a fixed number of steps, so a rerun does the same: about a quarter of the pages
+    model = ours(BASE)
+    data, held_out, tests = prepared("midtrain", lambda: mid_data(model))
     done = resume(model, "midtrain")
     if not done:
-        log(f"{len(pages):,} pages ({len(every) - len(pages)} left out, too near an evaluation request), {data.numel():,} tokens")
         log(f"held-out loss before: {chunk_loss(model, held_out):.3f}; shell check before: {shell_check(model, tests)} right commands")
+        save(model.model, "midtrain", step=0)            # the checks before are done: a restart goes straight to training
     optimizer = trainable(model.model, lr=1e-5)
     for step in range(done.get("step", 0) + 1, steps + 1):
         optimizer.zero_grad()
@@ -550,7 +563,7 @@ def instruct():
     if os.path.exists("checkpoints/instruct.pt") and not os.path.exists("checkpoints/instruct.progress"):
         return log("already instruction-tuned")
     model = ours("checkpoints/midtrain.pt")
-    data = instruction_data(model)
+    data = prepared("instruct", lambda: instruction_data(model))
     test, data = data[:48], data[48:]                    # held out: the fixed score for this stage
     done = resume(model, "instruct")
     if not done:
@@ -560,6 +573,7 @@ def instruct():
             f"\n  training:   {training!r}\n  evaluation: {evaluation!r}")
         log(f"{len(data)} conversations; held-out loss before: {held_out(model, test):.3f}")
         log("before:"); show(model)
+        save(model.model, "instruct", step=0, minutes=0)  # the checks before are done: a restart goes straight to training
     optimizer, start, earlier = trainable(model.model, lr=1e-5), time.time(), done.get("minutes", 0)
     for step in range(done.get("step", 0) + 1, len(data) // 8 + 1):   # one pass: a second made the held-out loss rise
         update(model, optimizer, data[8 * step - 8:8 * step], [1.0] * 8)    # every example counts the same: imitate it
