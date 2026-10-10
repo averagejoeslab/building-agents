@@ -1066,7 +1066,7 @@ model: largest difference in its scores 1.4e-04; the same next token at all 198 
 
 #### Mid-training
 
-From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,785 short pages on shell commands, each a plain-English line and the command for it:
+From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is the same task as pre-training, predicting every next token, on tokens chosen for the job. Our agent will act through bash, so the data is [tldr-pages](https://github.com/tldr-pages/tldr) (CC BY 4.0): 6,787 short pages on shell commands, each a plain-English line and the command for it:
 
 ```
 - [c]reate a g[z]ipped archive and write it to a [f]ile:
@@ -1222,7 +1222,7 @@ def update(model, optimizer, texts, weights, most=1024):  # one step: make each 
     optimizer.step()
 ```
 
-A lab's RL also makes the failed tries *less* likely, weighting each try by how it did against the others, and keeps the model from drifting with a penalty for straying from a reference copy. We tried the first half without the second, twice: weighted both ways, the model broke in two steps ([`runs/training/rl-first-try.txt`](./runs/training/rl-first-try.txt)); with a fifth of the step and the weights capped, it learned for two rounds, then came apart in the third ([`rl-second-try.txt`](./runs/training/rl-second-try.txt)). Pushed away from its own words, a model this small drifts off its format, and once every try fails there is no signal left to come back on. The reference copy would double the memory, so we keep the wins and leave the losses alone, which can't drift: it's imitation of its own successes.
+A lab's RL also makes the failed tries *less* likely, weighting each try by how it did against the others, and keeps the model from drifting with a penalty for straying from a reference copy. We tried the first half without the second, twice: weighted both ways, the model broke in two steps ([`runs/training/rl-first-try.txt`](./runs/training/rl-first-try.txt)); with a fifth of the step and the weights capped, it learned for two rounds, then came apart in the third ([`rl-second-try.txt`](./runs/training/rl-second-try.txt)). Pushed away from its own words, a model this small drifts off its format, and once every try fails there is no signal left to come back on. The reference copy would double the memory, so we keep the wins and leave the losses alone: imitation of its own successes. Even that broke at the first step size ([`rl-third-try.txt`](./runs/training/rl-third-try.txt)): trained on its own words, the model needs a small step, a tenth of instruction-tuning's, and with it the wins alone held for all three rounds.
 
 Its own held-out check is 40 training tasks from folders it never trains in.
 
@@ -1256,10 +1256,10 @@ And the agent, from post-training on: the same harness and the same 32 tasks; on
 | before post-training (mid-trained) | 0/20 | 0/5 | 0/5 | 2/2 | 2/32 |
 | after instruction-tuning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
 | after reinforcement learning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
-| Qwen3-0.6B: Qwen's own post-training | | | | | |
+| Qwen3-0.6B: Qwen's own post-training | 9/20 | 0/5 | 3/5 | 2/2 | 14/32 |
 | Sonnet | 20/20 | 5/5 | 5/5 | 2/2 | 32/32 |
 
-Doing nothing passes the two safety tasks, so they're counted apart. Every row is from the same harness, the same tasks and the same yes to every approval; only the model changes ([`runs/`](./runs/)).
+Doing nothing passes the two safety tasks, so they're counted apart. Every row is from the same harness, the same tasks and the same yes to every approval; only the model changes ([`runs/`](./runs/)). Qwen's own post-training of the same base, on far more data than ours, scores lower in this harness: it was trained for every harness, and ours for this one. Sonnet shows what a model built at scale does in it.
 
 ## What fell short, and what would fix it
 
@@ -1271,7 +1271,7 @@ Every stage's checks say where the agent is still weak. For each gap: what we th
 | **It says *Done* without checking.** Made the folder, reported the move too. | The demonstrations end with an answer from what it saw; the model learned the answer and skipped the seeing. The checks grade the end state, so a false *Done* fails, but only RL's kinds got that signal. | Demonstrations where the check step is the point: a try that answers without looking is left out of the data. | Graders for the answer's honesty as well as the result. |
 | **It says instead of doing.** *To add a line, you can use…*, the right command in a code block, never run. | 300 talk conversations taught it to explain shell commands in prose; nothing told it when to explain and when to act. | Keep the talk away from the shell: explain cooking, act on files. | The same, at scale: the mix is tuned, and the harness's format is enforced in every session. |
 | **RL raised its own check and not the evaluation.** 12/40 → 28/40 in training kinds; 18/32 → 18/32 on `tasks.py`. | The kinds RL improved, single-step file work, were already passing the evaluation; the evaluation's failures are kinds RL never got a signal on. | A curriculum: training kinds that start where the model is and step towards what the evaluation asks. | Many environments, far more tries, and a model big enough that most kinds pass some of the time. |
-| **RL drifted, twice.** Pushed away from its own failed tries, the model lost its format in two steps, then in three rounds. | No anchor: a lab penalises straying from a reference copy of the model, and we had no memory for a second model. | The reference copy, once the memory is there; or a smaller step with both directions and the penalty. | A KL penalty to the reference, clipped updates, and a step size tuned on thousands of runs. |
+| **RL drifted, three times.** Pushed away from its own failed tries, the model lost its format in two steps, then in three rounds; its own wins at too big a step broke it as fast. | No anchor, and a step sized for imitating real text: a lab penalises straying from a reference copy of the model, and we had no memory for a second model. | The reference copy, once the memory is there, and both directions back with it. | A KL penalty to the reference, clipped updates, and a step size tuned on thousands of runs. |
 | **The reasoning has the shape and not the sum.** *$125 + $175 = $200.* | 0.6 billion numbers. | A bigger model: this is the one gap no data fixes at this size. | Scale. |
 
 The agent got better at being an agent in this harness, 2 → 18 → 18 of 32, with the gains from instruction-tuning and the reliability from RL; the gaps say what the next round would train.
