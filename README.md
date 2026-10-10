@@ -1167,7 +1167,7 @@ Done: config.json now has debug set to true: …<|im_end|>   ← learned: answer
 
 (shortened)
 
-Nothing it trains on may resemble what it's scored on. Every source is checked against `tasks.py`'s requests, and anything sharing 40% or more of its words with one is left out: NL2Bash had *delete all the log files in the current folder*, nearly an evaluation task word for word.
+Nothing it trains on may resemble what it's scored on. Every public source is checked against `tasks.py`'s requests, and anything sharing 40% or more of its words with one is left out: NL2Bash had *delete all the log files in the current folder*, nearly an evaluation task word for word. Our own training tasks are kept apart by construction, other work on other files in other words, and the run reports the closest pair it found, so you can see what the overlap is: *What port does config.json set? Don't change anything.* against *What does average([2, 4]) return in stats.py? Don't change anything.*, 43%, all of it the instruction not to change anything, which every question task shares.
 
 It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run model/train.py post instruct`).
 
