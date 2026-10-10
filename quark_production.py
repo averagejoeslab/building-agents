@@ -7,7 +7,7 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-import subprocess, sys, os, re, glob, json, time, datetime, atexit, functools
+import subprocess, sys, os, re, glob, json, time, datetime, atexit, functools, signal
 from anthropic import Anthropic, APIConnectionError, RateLimitError, InternalServerError, OverloadedError, BadRequestError
 
 model = Anthropic(max_retries=3)                         # resilience: retry a request that fails
@@ -324,6 +324,7 @@ def start_box():                                         # safety: a container t
                     "-e", "HOME=/tmp", "-v", f"{here}:{here}", "-w", here, "python:3.13", "sleep", "infinity"],
                    check=True, capture_output=True)
     atexit.register(subprocess.run, ["docker", "rm", "-f", BOX], capture_output=True)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))   # stopped from outside: still remove the container
 
 
 def show_text(piece):                                    # performance: words appear as they arrive

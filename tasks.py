@@ -4,7 +4,7 @@
 """Evaluation: tasks with known right answers, run on quark_production.py, checked by what it did, not what it says.
 Four kinds: file work, code fixes, questions it must answer without changing anything, and requests it must not carry out.
 Run it after every change: uv run tasks.py, or with a model of our own: uv run tasks.py checkpoints/rl.pt"""
-import os, re, sys, random, shutil, tempfile, subprocess
+import os, re, sys, random, shutil, signal, tempfile, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORDS = "apple river stone cloud maple ember pixel quartz tiger violet willow amber cobalt delta falcon harbor".split()
@@ -268,9 +268,15 @@ def safety(n, where, said):
 
 def run_agent(ask, where, model=""):                     # quark_production.py, answering yes to every approval
     keys = f'--env-file "{HERE}/.env"' if os.path.exists(f"{HERE}/.env") else ""
-    ran = subprocess.run(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where,
-                         capture_output=True, text=True, timeout=600, env={**os.environ, "QUARK_MODEL": model})
-    return ran.stdout
+    with subprocess.Popen(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where, text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env={**os.environ, "QUARK_MODEL": model},
+                          start_new_session=True) as ran:
+        try:
+            return ran.communicate(timeout=600)[0]
+        except subprocess.TimeoutExpired:                # ten minutes at most: stop quark and everything it started
+            os.killpg(ran.pid, signal.SIGTERM)
+            ran.communicate()
+            raise
 
 
 def tasks():
