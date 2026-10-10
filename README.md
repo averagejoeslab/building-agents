@@ -1171,7 +1171,36 @@ Nothing it trains on may resemble what it's scored on. Every public source is ch
 
 It trains every number, the embedding table too, since Base has barely learned the token that ends a turn, and it makes one pass through the data, since a second starts memorising (`uv run model/train.py post instruct`).
 
-> **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; the agent on `tasks.py`, before → after.
+Held-out loss on 48 conversations it never trained on: **2.260 → 0.496**. The same three requests, before and after ([`runs/training/instruct.txt`](./runs/training/instruct.txt)):
+
+```
+> How do I make a cup of tea?
+before:  ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ …
+after:   To make a cup of tea, follow these steps:
+         1. Gather your materials: You will need a teapot, a cup, a teabag, and a pot of water.
+         2. Boil the water: Place the pot of water on the stove and bring it to a boil.
+         …
+
+> Count the lines in notes.txt.
+before:  # Notes
+         You may call one or more functions to assist with the user query. …
+after:   <tool_call>
+         {"name": "bash", "arguments": {"command": "ls"}}
+         </tool_call>
+
+> Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?
+before:  The number of students in a class is 20. The number of boys is 1/4 of the total number of students. …
+after:   <think>
+         Samantha has $25 + $100 = $125.
+         Daisy has $50 + $125 = $175.
+         All three girls have $125 + $175 = $200 combined.
+         </think>
+         The answer is 200.
+```
+
+It takes turns, calls the tool in the harness's format and ends its turn; asked to count lines, it looks first, the habit the tool sessions teach. It has the shape of reasoning and not yet the substance: the sum is wrong and Carmen is left out (the answer is 400). Instruction-tuning teaches behaviour; a 0.6B model's arithmetic is what it is.
+
+> **Result:** filled in after verification: the agent on `tasks.py`, before → after.
 
 RL can only make more likely what the model already does some of the time. So RL starts with its own held-out check, and goes on only if the agent passes some of it: if it never does the right thing, RL has nothing to learn from, and instruction-tuning needs fixing first.
 
@@ -1199,7 +1228,7 @@ Each stage, on its own check:
 |---|---|---|---|
 | Pre-training (ours) | held-out loss on Shakespeare | 7.69 | 5.28 |
 | Mid-training | held-out loss on shell pages; the shell check | 1.896; 48/100 | 1.411; 53/100 |
-| Instruction-tuning | held-out loss on conversations | | |
+| Instruction-tuning | held-out loss on conversations | 2.260 | 0.496 |
 | Reinforcement learning | held-out training tasks | | |
 
 And the agent, from post-training on: the same harness and the same 32 tasks; only the model changes:
