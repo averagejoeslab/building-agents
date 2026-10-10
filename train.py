@@ -623,7 +623,11 @@ def rl(steps=60, group=8):                               # reinforcement learnin
     quark.allowed = lambda command: True                 # as tasks.py runs it: yes to every approval, so only the never list stops it
     quark.MAX_STEPS = 10                                 # a try that hasn't finished in 10 steps has failed
     if not done:
-        log(f"held-out training tasks before: {held_out_tasks(model, quark)} passed")
+        before = held_out_tasks(model, quark)
+        log(f"held-out training tasks before: {before} passed")
+        if before.startswith("0/"):                      # never right: every group of tries would all fail, and there'd be nothing to learn
+            sys.exit("RL needs the agent to pass some of the time: improve instruction-tuning first")
+        save(model.model, "rl", step=0, passed=[])       # the check before is done: a restart goes straight to training
     optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
     for step in range(done.get("step", 0) + 1, steps + 1):
         kind = TRAINING[(step - 1) % len(TRAINING)]      # the training tasks, never tasks.py's: that's the evaluation

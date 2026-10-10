@@ -1125,7 +1125,7 @@ It trains every number, the embedding table too, since Base has barely learned t
 
 > **Result:** filled in after verification: held-out loss on 48 conversations it never trained on, before → after; the same requests answered before → after; the agent on `tasks.py`, before → after.
 
-RL can only make more likely what the model already does some of the time. So we stop here and look: if the agent never does the right thing, RL has nothing to learn from.
+RL can only make more likely what the model already does some of the time. So RL starts with its own held-out check, and goes on only if the agent passes some of it: if it never does the right thing, RL has nothing to learn from, and instruction-tuning needs fixing first.
 
 **Reinforcement learning in the harness.** **Goal:** do the work reliably. It lets the model try, and grades the result. For an agent, a try is a task done in its harness, and the harness is built. The model tries a training task eight times in quark, and the task's check grades each try by what it left behind, not by what it said. The tries that passed are made more likely and the ones that failed less. If all eight pass, or all fail, there's nothing to learn, so instruction-tuning has to get it right some of the time first (`uv run train.py post rl`).
 
