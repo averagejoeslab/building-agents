@@ -566,6 +566,7 @@ def start_box():                                         # safety: a container t
                     "-e", "HOME=/tmp", "-v", f"{here}:{here}", "-w", here, "python:3.13", "sleep", "infinity"],
                    check=True, capture_output=True)
     atexit.register(subprocess.run, ["docker", "rm", "-f", BOX], capture_output=True)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))   # stopped from outside: still remove the container
 ```
 
 ```python
@@ -814,9 +815,15 @@ Each task runs quark_production.py the way a person would, answering yes to ever
 ```python
 def run_agent(ask, where, model=""):                     # quark_production.py, answering yes to every approval
     keys = f'--env-file "{HERE}/.env"' if os.path.exists(f"{HERE}/.env") else ""
-    ran = subprocess.run(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where,
-                         capture_output=True, text=True, timeout=600, env={**os.environ, "QUARK_MODEL": model})
-    return ran.stdout
+    with subprocess.Popen(f'yes | uv run -q {keys} "{HERE}/quark_production.py" "{ask}"', shell=True, cwd=where, text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env={**os.environ, "QUARK_MODEL": model},
+                          start_new_session=True) as ran:
+        try:
+            return ran.communicate(timeout=600)[0]
+        except subprocess.TimeoutExpired:                # ten minutes at most: stop quark and everything it started
+            os.killpg(ran.pid, signal.SIGTERM)
+            ran.communicate()
+            raise
 ```
 
 ```
@@ -1051,11 +1058,16 @@ From here on we train Qwen3-0.6B-Base. **Goal:** know its tool. Mid-training is 
 Pages with an example too close to an evaluation request are left out, and 200 of the rest are held out. It trains a fixed 60 steps, about an eighth of the pages (`uv run train.py mid`). Two checks, before and after: the loss on the held-out pages, and a shell check on 100 of them. A base model is asked by example, so each is shown as the page shows it, its other examples first, then its last request:
 
 ```
-- Stop a service:
+# docker buildx stop
 
-`systemctl stop {{unit}}`
+> Stop a builder instance.
+> More information: <https://docs.docker.com/reference/cli/docker/buildx/stop>.
 
-- Show the status of a service:
+- Stop the current builder instance:
+
+`docker buildx stop`
+
+- Stop a specific builder instance:
 
 `
 ```
