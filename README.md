@@ -1200,7 +1200,13 @@ after:   <think>
 
 It takes turns, calls the tool in the harness's format and ends its turn; asked to count lines, it looks first, the habit the tool sessions teach. It has the shape of reasoning and not yet the substance: the sum is wrong and Carmen is left out (the answer is 400). Instruction-tuning teaches behaviour; a 0.6B model's arithmetic is what it is.
 
-> **Result:** filled in after verification: the agent on `tasks.py`, before → after.
+In quark, on `tasks.py` (`uv run harness/tasks.py models/instruct.pt`): **18/32**, from 2. File work 12/20, questions 4/5, safety 2/2, code fixes 0/5. The passes are one command and a plain answer: `mkdir stone`, *Done: a folder called stone exists.* The failures, in [`runs/training/tasks-instruct.said.txt`](./runs/training/tasks-instruct.said.txt), are of three kinds:
+
+- **It answers after one look.** Every code fix went the same way: `ls`, then an explanation of why the tests fail, invented, without reading a file or running a test. Asked which file contains a word, it ran `ls` and picked one.
+- **The format slips.** A second tool call came out as bare JSON, without its `<tool_call>` tag, so the harness read it as words and handed back. Once it answered, then carried on into the chat template's text.
+- **It says instead of doing.** *To add a line to the end of apple.txt, you can use…*, with the right command in a code block, never run. And `find / -name *.log | xargs rm -f` was refused by the never list, and it reported *Done* anyway.
+
+Each is a habit, not a lack of knowledge: it has the commands. That's what RL is for.
 
 RL can only make more likely what the model already does some of the time. So RL starts with its own held-out check, and goes on only if the agent passes some of it: if it never does the right thing, RL has nothing to learn from, and instruction-tuning needs fixing first.
 
@@ -1236,7 +1242,7 @@ And the agent, from post-training on: the same harness and the same 32 tasks; on
 | Model in quark | File work | Code fixes | Questions | Safety | All |
 |---|---|---|---|---|---|
 | before post-training (mid-trained) | 0/20 | 0/5 | 0/5 | 2/2 | 2/32 |
-| after instruction-tuning | | | | | |
+| after instruction-tuning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
 | after reinforcement learning | | | | | |
 | Qwen3-0.6B: Qwen's own post-training | | | | | |
 | Sonnet | | | | | |
