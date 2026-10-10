@@ -677,7 +677,7 @@ def rl(steps=60, group=8):                               # reinforcement learnin
         if before.startswith("0/"):                      # never right: every group of tries would all fail, and there'd be nothing to learn
             sys.exit("RL needs the agent to pass some of the time: improve instruction-tuning first")
         save(model.model, "rl", step=0, passed=[])       # the check before is done: a restart goes straight to training
-    optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
+    optimizer, passed = trainable(model.model, lr=1e-6), done.get("passed", [])   # a tenth of instruction-tuning's step: trained on its own words, a model this small drifts, and a big step drifts it in two
     for step in range(done.get("step", 0) + 1, steps + 1):
         kind = TRAINING[(step - 1) % len(TRAINING)]      # the training tasks, never tasks.py's: that's the evaluation
         tries = [attempt(model, quark, kind, seed=step) for _ in range(group)]
