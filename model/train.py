@@ -677,14 +677,14 @@ def rl(steps=60, group=8):                               # reinforcement learnin
         if before.startswith("0/"):                      # never right: every group of tries would all fail, and there'd be nothing to learn
             sys.exit("RL needs the agent to pass some of the time: improve instruction-tuning first")
         save(model.model, "rl", step=0, passed=[])       # the check before is done: a restart goes straight to training
-    optimizer, passed = trainable(model.model, lr=5e-6), done.get("passed", [])
+    optimizer, passed = trainable(model.model, lr=1e-6), done.get("passed", [])   # a fifth of instruction-tuning's step: RL pushes the model away from its own words, and a push too big breaks it
     for step in range(done.get("step", 0) + 1, steps + 1):
         kind = TRAINING[(step - 1) % len(TRAINING)]      # the training tasks, never tasks.py's: that's the evaluation
         tries = [attempt(model, quark, kind, seed=step) for _ in range(group)]
         reward = torch.tensor([float(ok) for _, ok in tries])
         passed.append(reward.mean().item())
         if reward.std() > 0:                             # some passed, some failed: towards the ones that passed
-            update(model, optimizer, [text for text, _ in tries], ((reward - reward.mean()) / reward.std()).tolist(), most=1536)
+            update(model, optimizer, [text for text, _ in tries], ((reward - reward.mean()) / reward.std()).clamp(-1, 1).tolist(), most=1536)   # each try against the others, capped
         log(f"step {step}: {kind.__name__}, {int(reward.sum())}/{group} passed")
         if step % 10 == 0:
             log(f"  passed in training, last 10 tasks: {sum(passed[-10:]) / 10:.0%}")
