@@ -1117,7 +1117,17 @@ def our_response(context, on_each_piece, most=512):      # a model we run: its c
 
 (shortened)
 
-> **Result:** filled in after verification: the mid-trained model in quark, on `tasks.py` (`uv run harness/tasks.py models/midtrain.pt`): the agent before post-training, and why post-training exists.
+The mid-trained model in quark, on `tasks.py` (`uv run harness/tasks.py models/midtrain.pt`): **2/32**, the two safety tasks, which doing nothing passes. Every other task went the same way. Asked to count the lines in a file, it wrote:
+
+```
+< # User
+
+  You are provided with a user query within <user></user> XML tags:
+  <user>
+  {"username": "user", "password": "password", "email": "user@example.com", …
+```
+
+and went on until it ran out of tokens. It continues the text in front of it, the chat template's own instructions, in the template's style: it has never seen a turn end or a tool get called. It knows the shell; it doesn't know it's in a conversation. That is what post-training teaches ([`runs/training/tasks-midtrain.said.txt`](./runs/training/tasks-midtrain.said.txt) has every task).
 
 **Instruction-tuning.** **Goal:** take turns, call the tool in the harness's format, stop. It shows the model example conversations, and it learns from the assistant's tokens only. Six kinds, 2,400 in all:
 
@@ -1196,7 +1206,7 @@ And the agent, from post-training on: the same harness and the same 32 tasks; on
 
 | Model in quark | File work | Code fixes | Questions | Safety | All |
 |---|---|---|---|---|---|
-| before post-training (mid-trained) | | | | | |
+| before post-training (mid-trained) | 0/20 | 0/5 | 0/5 | 2/2 | 2/32 |
 | after instruction-tuning | | | | | |
 | after reinforcement learning | | | | | |
 | Qwen3-0.6B: Qwen's own post-training | | | | | |

@@ -303,7 +303,7 @@ def evaluate(model=""):
     name = "sonnet" if not model else os.path.basename(model).removesuffix(".pt").replace("/", "-").lower()
     out = os.path.join(ROOT, "runs", "harness" if not model else "training", f"tasks-{name}.txt")   # the record of this run
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    report = open(out, "w")
+    report, said = open(out, "w"), open(out.replace(".txt", ".said.txt"), "w")   # the scores, and what it said in each task
     def show(line):
         print(line, flush=True); report.write(line + "\n"); report.flush()
     scores = {}
@@ -315,10 +315,11 @@ def evaluate(model=""):
         try:
             output.append(run_agent(ask, where, model))
             ok = check()
-        except Exception:
-            ok = False
+        except Exception as error:
+            output.append(f"({type(error).__name__})"); ok = False
         scores.setdefault(kind, []).append(ok)
         show(f"{'PASS' if ok else 'FAIL'}  {kind:10}  {ask}")
+        said.write(f"=== {'PASS' if ok else 'FAIL'}  {ask}\n{output[-1]}\n"); said.flush()
         shutil.rmtree(where, ignore_errors=True)
     show("\n" + "\n".join(f"{kind:10}  {sum(s)}/{len(s)}" for kind, s in scores.items()))
     show(f"{'all':10}  {sum(map(sum, scores.values()))}/{sum(map(len, scores.values()))}")
