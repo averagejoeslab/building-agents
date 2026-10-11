@@ -638,7 +638,11 @@ def instruction_data(model):                             # six kinds of conversa
                          for row in code if not near(row["problem"])) if fits(t)][:200]                              # write code
     data += [model.chat(tool_session(), tools=[BASH], prompt=False) for _ in range(1500)]                           # use the tool: verified demonstrations
     random.shuffle(data)
-    return data
+    return [consistent(t) for t in data]
+
+
+def consistent(text):                                    # the template puts an empty <think> block in some assistant turns and not others:
+    return text.replace("<think>\n\n</think>\n\n", "")   # none anywhere, so every turn starts the same way, and so does the prompt
 
 
 def tokens_and_mask(model, text, most=1024):              # learn only what the assistant says, and the end of its turn

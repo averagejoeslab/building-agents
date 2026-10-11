@@ -1,0 +1,72 @@
+decontamination: of 2360 training requests, the closest to an evaluation request shares 38% of their words:
+  training:   'Put the names from scores.csv in names.txt, one per line, without the header.'
+  evaluation: 'Write the names of the files in this folder, one per line, into files.txt.'
+2352 conversations; held-out loss before: 2.233
+before:
+  > How do I make a cup of tea?
+  <  ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙ ⚙
+  > Count the lines in notes.txt.
+  < # Notes
+    
+    You may call one or more functions to assist with the user query.
+    
+    You are provided with function signatures within <notes></notes> XML tags:
+    <notes>
+    {"type": "function", "function": {"name": "bash", "description": "Run a shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    </notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}}
+    }</notes>
+    
+    For each function call, return a json object with function name and arguments within []{"type": "object", "properties
+  > Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?
+  < The number of students in a class is 20. The number of boys is 1/4 of the total number of students. How many girls are there in the class? ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ ⚇ �
+carrying on from {'step': 0, 'minutes': 0}
+step 25: 31 minutes
+step 50: 64 minutes
+step 75: 95 minutes
+step 100: 123 minutes
+step 125: 151 minutes
+step 150: 180 minutes
+step 175: 209 minutes
+step 200: 237 minutes
+step 225: 265 minutes
+step 250: 291 minutes
+step 275: 318 minutes
+after 294 steps, 338 minutes; held-out loss after: 0.304
+after:
+  > How do I make a cup of tea?
+  < To make a cup of tea, follow these steps:
+    
+    1. Gather the necessary ingredients: water, tea leaves, sugar, and optionally, milk or honey.
+    
+    2. Boil the water: Place the water in a pot and bring it to a boil.
+    
+    3. Add the tea leaves: Once the water is boiling, add the tea leaves to the pot and let them steep for 2-3 minutes.
+    
+    4. Remove the tea leaves: After steeping, remove the tea leaves from the pot and let them cool slightly.
+    
+    5. Add sugar: If desired, add sugar to the cooled tea and stir until dissolved.
+    
+    6. Serve the tea: Pour the tea into a cup and enjoy!
+  > Count the lines in notes.txt.
+  < <tool_call>
+    {"name": "bash", "arguments": {"command": "ls"}}
+    </tool_call>
+  > Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three girls have combined?
+  < <think>
+    Samantha has $25 + $100 = $125.
+    Daisy has $50 + $125 = $175.
+    The three girls have $100 + $125 + $175 = $400 combined.
+    </think>
+    
+    The answer is 400.
