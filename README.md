@@ -1317,3 +1317,28 @@ uv run harness/tasks.py models/rl.pt
 
 > [!WARNING]
 > `quark.py` runs the model's commands on your machine without asking. Run it somewhere you can afford to lose.
+
+## A second round
+
+The gaps above are a lab's to-do list, so we did what a lab does: changed the data, not the evaluation, and trained again from the same mid-trained model. Round one's data, models and runs are kept in `round1/` folders.
+
+**What changed.** Six new training kinds for what the agent failed: work in two steps (make a folder and move files into it, find a file then write its name, measure every file then pick one, copy a file then edit the copy), and a code fix with two functions and one bug. Fourteen bug shapes instead of seven. The public data cut from 1,500 conversations to 900, the talk among them filtered to say nothing about shells, and the verified sessions raised from 900 to 1,500. And a demonstration is kept only if its last command before the answer was a look: `cat`, `ls`, `wc`, a test run.
+
+**Three bugs it found first.** Each cost a run; each is the kind of thing a lab's pipeline is built to catch:
+
+- *The chat template is part of the model.* Qwen's template puts an empty `<think>` block into some assistant turns and not others, and into every prompt at generation time. Trained on the mix, the first round-two model dropped or doubled its `<tool_call>` tag whenever a session had more than one step, and every multi-step task failed ([`runs/training/instruct-first-try.txt`](./runs/training/instruct-first-try.txt)). The training text is now rendered one way, with no empty block anywhere, and the prompt ends where the turn begins.
+- *A check can be wrong.* The four question kinds compare the folder before and after; in quark, the folder gains quark's own `.quark/`, so those kinds could never pass in RL. In round one they scored 0/8 at every step for that reason, not the model's ([`rl-first-try.txt`](./runs/training/rl-first-try.txt), round two's first RL try, shows the same). `tasks.py` already left `.quark/` out; the training check now does too.
+- *A task that times out is a result.* Three code fixes in the evaluation ran past ten minutes. Round one's model gave up after `ls`; this one ran the tests, read the failure, and kept going.
+
+**Instruction-tuning, round two.** Held-out loss **1.940 → 0.287** (round one: 2.260 → 0.496). In quark, on `tasks.py`: **18/32** again, but not the same 18:
+
+| Model in quark | File work | Code fixes | Questions | Safety | All |
+|---|---|---|---|---|---|
+| round one, after instruction-tuning | 12/20 | 0/5 | 4/5 | 2/2 | 18/32 |
+| round two, after instruction-tuning | 13/20 | 0/5 | 3/5 | 2/2 | 18/32 |
+
+The transcripts changed more than the score ([`runs/training/tasks-instruct.said.txt`](./runs/training/tasks-instruct.said.txt)). "Delete every .log file" and "make tiger and move every .txt file into it", which round one never passed, pass with two commands each. Every task now begins with a look and ends with a check. The code fixes go `ls`, run the tests, read the traceback, and then stall or run out of time, where round one stopped at `ls` and invented a cause. The new failures are commands it half-knows: `wc -s`, `grep -l zebra *.md` when the file is `.txt`, `python3 -c "print('harbor')" > hello.py`, which writes the word, not a program.
+
+**Reinforcement learning, round two.** Its own check before training: **37/40** held-out training tasks (round one, under the broken check, 12/40). Then one full round over all 26 kinds, eight tries each: 25 kinds passed **8/8**, one (`csv_total`) **0/8**. Not one group was mixed, so not one update happened; the model after 26 steps is the model before, to the last digit ([`runs/training/rl.txt`](./runs/training/rl.txt)). RL learns from the difference between a try that passed and one that failed; a curriculum the model has mastered gives it nothing, and so does one it can't touch.
+
+**What round two says.** Data moved the agent from guessing to working: it looks, acts, checks and reports what it saw, the four habits the demonstrations teach, and the multi-step tasks it was built for now pass. It did not move the score, because the score's remaining failures are a different gap: commands it doesn't quite know (`wc`'s flags, how `grep` takes a pattern, that a Python file holds code) and code fixes it can start but not finish in time. That is mid-training's job, more shell and code, not post-training's, and it is where a lab would spend the next round. And RL needs a curriculum that sits between the two: kinds this model passes some of the time. At 8/8 and 0/8, there is nothing to reinforce.

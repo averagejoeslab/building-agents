@@ -1,0 +1,30 @@
+held-out training tasks before: 37/40 passed
+step 1: last_lines, 8/8 passed
+step 2: log_levels, 8/8 passed
+step 3: count_errors, 8/8 passed
+step 4: csv_names, 8/8 passed
+step 5: csv_total, 0/8 passed
+step 6: uppercase_copy, 8/8 passed
+step 7: drop_lines, 8/8 passed
+step 8: nested_folders, 8/8 passed
+step 9: config_port, 8/8 passed
+step 10: config_debug, 8/8 passed
+  passed in training, last 10 tasks: 90%
+step 11: markdown_lines, 8/8 passed
+step 12: backup_csv, 8/8 passed
+step 13: nth_line, 8/8 passed
+step 14: add_title, 8/8 passed
+step 15: make_executable, 8/8 passed
+step 16: ask_port, 8/8 passed
+step 17: ask_errors, 8/8 passed
+step 18: ask_top, 8/8 passed
+step 19: ask_last, 8/8 passed
+step 20: fix_code, 8/8 passed
+  passed in training, last 10 tasks: 100%
+step 21: fix_one_of_two, 8/8 passed
+step 22: archive_logs, 8/8 passed
+step 23: which_mentions, 8/8 passed
+step 24: most_lines, 8/8 passed
+step 25: append_todo, 8/8 passed
+step 26: copy_then_edit, 8/8 passed
+step 27: last_lines, 8/8 passed
