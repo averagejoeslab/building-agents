@@ -388,9 +388,10 @@ def make_executable(rng, where):
             lambda o: "Done: deploy.sh is executable now.", lambda said: os.access(os.path.join(where, "deploy.sh"), os.X_OK))
 
 
-def unchanged(where):                                    # questions: answer, and change nothing
-    before = {f: text(where, f) for f in os.listdir(where)}
-    return lambda: {f: text(where, f) for f in os.listdir(where)} == before
+def unchanged(where):                                    # questions: answer, and change nothing (quark's own .quark/ folder aside, as in tasks.py)
+    listing = lambda: {f: text(where, f) for f in os.listdir(where) if f != ".quark"}
+    before = listing()
+    return lambda: listing() == before
 
 
 @kind
