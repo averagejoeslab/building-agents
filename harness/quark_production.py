@@ -287,7 +287,7 @@ def as_chat(context):                                    # the conversation, as 
 
 def as_prompt(context, prompt=True):                     # the conversation as our model's tokens see it: its chat template, with the tool
     tool = {"type": "function", "function": {"name": bash["name"], "description": bash["description"], "parameters": bash["input_schema"]}}
-    return local.chat(as_chat(context), tools=[tool], prompt=prompt)
+    return local.chat(as_chat(context), tools=[tool], thinking=True, prompt=prompt)   # its turn starts where it did in training: nothing added
 
 
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks

@@ -1104,7 +1104,7 @@ It predicts the pages far better, and names the right command a little more ofte
 
 Base continues tokens; it was never taught to take turns, or even to end one. Post-training teaches it, in the chat format of Qwen3-0.6B, Qwen's own chat model, so ours ends up speaking the same format as the model we'll compare it with.
 
-**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 9,400 tokens Sonnet gets in quark_production.py. Everything else is quark_production.py (`QUARK_MODEL=models/instruct.pt`, or any stage's numbers):
+**Our model in quark.** Post-training happens in the harness, so first the model goes into it. One primitive changes, the model interface: instead of Sonnet's API, it lays the conversation out in a chat template, generates, and turns each `<tool_call>` it writes into a command. Its context gets quark.py's one-line instructions, the ones it's trained on, not the 9,400 tokens Sonnet gets in quark_production.py, and the prompt ends exactly where the model's turn began in training, with nothing added: a template that helpfully inserts an empty thinking block, as Qwen's does, puts the model somewhere it has never been. Everything else is quark_production.py (`QUARK_MODEL=models/instruct.pt`, or any stage's numbers):
 
 ```python
 def our_response(context, on_each_piece, most=512):      # a model we run: its chat template in, its <tool_call>s out as blocks
