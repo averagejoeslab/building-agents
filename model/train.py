@@ -696,10 +696,11 @@ def finish(model, name):
 
 
 def show(model):                                         # real replies: talk, a tool call, and reasoning
-    for messages, tools, thinking in [([{"role": "user", "content": "How do I make a cup of tea?"}], None, False),
-                                      ([system(), {"role": "user", "content": "Count the lines in notes.txt."}], [BASH], False),
-                                      ([{"role": "user", "content": gsm8k("test")[0]["question"]}], None, True)]:
-        log(f"  > {messages[-1]['content']}\n  < " + model.generate(model.chat(messages, tools, thinking), most=300, temperature=0).replace("\n", "\n    "))
+    for messages, tools in [([{"role": "user", "content": "How do I make a cup of tea?"}], None),
+                            ([system(), {"role": "user", "content": "Count the lines in notes.txt."}], [BASH]),
+                            ([{"role": "user", "content": gsm8k("test")[0]["question"]}], None)]:
+        prompt = model.chat(messages, tools, thinking=True)   # as the harness prompts it: its turn starts where it did in training
+        log(f"  > {messages[-1]['content']}\n  < " + model.generate(prompt, most=300, temperature=0).replace("\n", "\n    "))
 
 
 def instruct():
