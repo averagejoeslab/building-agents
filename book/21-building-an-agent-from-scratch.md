@@ -11,7 +11,7 @@ Here is the whole path, as a lab walks it and as this book did, at the scale of 
 | **Mid-training** | Chosen data, including recorded agent sessions | Shell command pages |
 | **Post-training** | Broad conversations; then the agent's own sessions | Public conversation, command, reasoning, tool and code data |
 | **The harness** | Its own loop, tools and production hardening | quark: five parts, six production concerns |
-| **The evaluation** | Held-out task suites in the harness, and safety evaluations | 32 tasks, never trained on |
+| **The evaluation** | Held-out task suites in the harness, and safety and security evaluations | 32 tasks, never trained on |
 | **Training in the harness** | Agent sessions in the harness's format, checked and decontaminated; RL in many environments, on long tasks, with graders for results, helpfulness and safety | Verified sessions from twenty kinds of training task; RL on their checks |
 | **Every stage** | Held-out data for what the stage trains; the agent's evaluations from post-training on | The same |
 
@@ -24,7 +24,7 @@ What we couldn't match was size: of the model, the data, the environments, the t
 3. **Pre-train it** on as much text as you can, for language and knowledge. Check it on held-out text.
 4. **Mid-train it** on what the job needs. Check it on held-out material from that field.
 5. **Post-train it** to take turns and follow requests. Check it on held-out conversations.
-6. **Build the harness:** model interface, input, output, control flow, context. Make it ready to leave running: persistence, safety, observability, resilience, performance.
+6. **Build the harness:** model interface, input, output, control flow, context. Make it ready to leave running: persistence, safety & security, observability, resilience, performance.
 7. **Build the evaluation:** tasks with known answers, checked by what was done, never trained on.
 8. **Train the model in its harness:** first by example, with real sessions in the harness's own format; then by practice, on tasks it passes some of the time.
 9. **Check every stage twice:** on its own held-out data, and as an agent, in its harness, on the evaluation.
@@ -39,7 +39,7 @@ procedure BUILD_AGENT(job):
     model   ← MIDTRAIN(model, text for the job)                -- Ch 8: next token, chosen data
     model   ← INSTRUCT(model, conversations)                   -- Ch 9: assistant tokens only
     harness ← HARNESS(input, context, model_interface, output, control_flow)   -- Ch 10–13
-    harness ← HARDEN(harness, persistence, safety, observability, resilience, performance)  -- Ch 14
+    harness ← HARDEN(harness, persistence, safety & security, observability, resilience, performance)  -- Ch 14
     eval    ← TASKS(job, known answers, checks of what was done)              -- Ch 15
     assert eval(harness(capable model)) is perfect             -- the body is proven
     loop:                                                      -- rounds

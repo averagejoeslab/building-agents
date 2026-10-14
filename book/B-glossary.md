@@ -25,6 +25,7 @@ Each term is defined where it's first used; this is the list in one place, with 
 | **Embedding** | The vector a token is turned into: a row of the embedding table | 5 |
 | **Episodic memory** | Memory of what happened; here, every message of every session, on disk | 1, 14 |
 | **Evaluation** | Tasks with known right answers, never trained on, checked by what the agent did | 15 |
+| **Exfiltration** | Getting data, such as a key, out of the machine the agent runs on | 14 |
 | **Gradient** | How much the loss would change per unit change in a parameter | 6 |
 | **Greedy decoding** | Always picking the most likely token (temperature 0) | 4 |
 | **GRPO** | Group relative policy optimization: policy gradient with the group's own average reward as the baseline | 18 |
@@ -36,6 +37,7 @@ Each term is defined where it's first used; this is the list in one place, with 
 | **Learning rate** | The size of each gradient step | 6 |
 | **Logits** | The model's raw scores for every token, before softmax | 4 |
 | **Loss** | A number measuring how wrong the model's predictions were; training makes it smaller | 6 |
+| **Memory poisoning** | Getting an instruction saved to an agent's long-term memory, so it steers every later session | 14 |
 | **Mid-training** | Next-token prediction on data chosen for the job | 8 |
 | **Model** | The part of an agent that decides: tokens in, next token out | 3, 4 |
 | **Model interface** | The harness part that sends the context to the model and brings back its response | 11, 16 |
@@ -48,11 +50,14 @@ Each term is defined where it's first used; this is the list in one place, with 
 | **PPO** | Proximal policy optimization: a policy-gradient method that clips how far each step can move the policy | 18 |
 | **Pre-training** | Next-token prediction on as much text as possible | 7 |
 | **Procedural memory** | Memory of how to do things; in the model's weights, and here in a folder of skills | 1, 14 |
+| **Prompt injection** | Text in something the agent reads, written to steer it as if it were an instruction | 14 |
 | **Reinforcement learning (RL)** | Training from graded tries rather than given examples | 18 |
 | **Residual connection** | Adding a part's output to its input rather than replacing it, so signal passes through many blocks | 5 |
 | **Reward** | The grade of a try; here, 1 if the task's check passes, 0 if not | 18 |
 | **RMSNorm** | Rescaling a vector to a steady size; used before attention and the network in each block | 5 |
 | **RoPE (rotary position embedding)** | Marking position by rotating queries and keys by an angle that grows along the text | 5 |
+| **Safety** | Guardrails against the agent's own mistakes: the box, approvals, the never list, step limits | 14 |
+| **Security** | Guardrails against someone turning the agent against you: untrusted input, secrets, memory poisoning, tampering | 14 |
 | **Self model** | Instructions written from the agent's own point of view: who it is, its body, its memories | 13 |
 | **Semantic memory** | Memory of what's true; here, a file of facts, one per line | 1, 14 |
 | **Softmax** | Turning scores into probabilities: exponentiate each, divide by the total | 4 |

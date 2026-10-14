@@ -57,7 +57,7 @@ procedure CONTROL_FLOW():
             conversation.append(USER(results))       -- a tool ran: go again
 ```
 
-Two things to notice. The conversation is a plain list of messages, each with a role (`user` or `assistant`) and content (text, or blocks). It's the agent's entire working memory, and it's rebuilt into a context on every call. And the model only ever *asks* to act, by emitting a `TOOL_USE` block; the harness decides whether and how to carry it out. That split is where every safety measure in Chapter 14 will go.
+Two things to notice. The conversation is a plain list of messages, each with a role (`user` or `assistant`) and content (text, or blocks). It's the agent's entire working memory, and it's rebuilt into a context on every call. And the model only ever *asks* to act, by emitting a `TOOL_USE` block; the harness decides whether and how to carry it out. That split is where every safety and security measure in Chapter 14 will go.
 
 ### Building around a borrowed mind
 
