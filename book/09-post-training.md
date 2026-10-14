@@ -2,7 +2,7 @@
 
 **Goal:** turn a model that continues text into one that takes turns, answers what it's asked, and stops.
 
-A base model is like someone who has read everything and never had a conversation. Post-training teaches it to have one. It comes in two kinds, and an agent needs both:
+A base model continues text. Post-training teaches it to take turns. It comes in two kinds, and an agent needs both:
 
 - **Instruction-tuning** teaches by example. The model is shown conversations and learns to write the way the assistant in them does.
 - **Reinforcement learning** teaches by practice. The model tries things, its tries are graded, and it learns to do more of what earned a good grade.
@@ -32,7 +32,7 @@ a.txt has 3 lines.<|im_end|>
 
 Everything is tokens, including the markers: `<|im_start|>` and `<|im_end|>` are single special tokens. When a tool is available, the template adds its description to the system turn, in a fixed wording that tells the model to call it with `<tool_call>…</tool_call>` holding JSON. A tool's result comes back as a `user` turn wrapped in `<tool_response>`.
 
-The template is a Jinja program stored in `tokenizer_config.json`. Our `Release.chat` renders it exactly as Qwen's library does, and the check in Chapter 5 confirmed the text matches to the character. That matters more than it sounds: Chapter 20 tells what happened when a template detail was off.
+The template is a Jinja program stored in `tokenizer_config.json`. Our `Release.chat` renders it exactly as Qwen's library does, and the check in Chapter 5 confirmed the text matches to the character. Chapter 20 tells what happened when a template detail was off.
 
 When the harness wants a reply, it lays out the conversation and ends with `<|im_start|>assistant\n`. The model writes from there. When it writes `<|im_end|>`, its turn is over.
 
@@ -69,7 +69,7 @@ def logprob(model, text, most=1024):     # log-probability of what the assistant
     return -F.cross_entropy(model.model(ids[:, :-1], keep=keep), ids[:, 1:][keep])
 ```
 
-`learn[1:]` shifts the mask by one, because position *i* predicts token *i* + 1: the first assistant token is predicted from the `assistant\n` marker, and `<|im_end|>` is predicted from the assistant's last word. Learning to write `<|im_end|>` is what teaches the model to *stop*, and a base model has barely seen that token.
+`learn[1:]` shifts the mask by one, because position *i* predicts token *i* + 1: the first assistant token is predicted from the `assistant\n` marker, and `<|im_end|>` is predicted from the assistant's last word. Learning to write `<|im_end|>` is what teaches the model to stop, and a base model has barely seen that token.
 
 The training step is the same two lines as every stage, with a weight that will matter in Chapter 18:
 
@@ -117,7 +117,7 @@ for step in range(1, len(data) // 8 + 1):            # one pass: a second made t
 
 ### Before and after
 
-Held-out loss on the 48 conversations: **2.260 → 0.496**. More telling is what the model writes. The same three requests, before and after, from `runs/training/round1/instruct.txt`:
+Held-out loss on the 48 conversations: **2.260 → 0.496**. What the model writes shows more. The same three requests, before and after, from `runs/training/round1/instruct.txt`:
 
 **"How do I make a cup of tea?"** Before, a line of repeated symbols: the base model, with no idea what an assistant turn is, emits a token and keeps emitting it. After:
 
@@ -154,8 +154,8 @@ The answer is 200.
 
 *(The names in this example have been changed from the ones in the GSM8K question and the recorded reply; everything else is as the model wrote it.)*
 
-It now takes turns, answers what was asked, and stops. It has the *shape* of reasoning but not yet the substance: it left Pearl out, and the right answer is 400. Instruction-tuning teaches behavior. It can't give a 600-million-parameter model arithmetic it doesn't have.
+It now takes turns, answers what was asked, and stops. The reasoning is wrong: it left Pearl out, and the right answer is 400. Instruction-tuning teaches behavior; it can't give a 600-million-parameter model arithmetic it doesn't have.
 
-We have a mind that can hold a conversation. It still can't do anything. Now we build its body.
+The model can hold a conversation. It still can't act. Part III builds the harness.
 
 > **Reproduce it:** `uv run model/train.py post instruct`, about six hours on a CPU. The data pipeline needs network access on first run. Appendix A has the details.

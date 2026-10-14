@@ -2,7 +2,7 @@
 
 ### Model interface: reach the mind
 
-We have a model and no way to reach it. The **model interface** sends it a request and brings back the response. For Sonnet, that means an HTTP call to Anthropic's API, which the `anthropic` library wraps. The whole of `1_model_interface.py`:
+The **model interface** sends the model a request and brings back the response. For Sonnet, that means an HTTP call to Anthropic's API, which the `anthropic` library wraps. The whole of `1_model_interface.py`:
 
 ```python
 from anthropic import Anthropic
@@ -26,7 +26,7 @@ print(response.model_dump_json(indent=2))
 }
 ```
 
-Tokens in, tokens out. The model can reason about failing tests in general, but it has nothing to reason about. And the request is written into the program: nobody can ask it anything else.
+The model can reason about failing tests in general, but has nothing to reason about. And the request is written into the program: nobody can ask it anything else.
 
 ### Input: let someone ask
 
@@ -49,7 +49,7 @@ Now anyone can type the request:
 "I don't have the code or the test output yet, so I can't tell why the tests are failing. Could you share: ..."
 ```
 
-The same answer. It can only talk. It can't look at a file.
+The same answer: it can't look at a file.
 
 ### Output: let it act
 
@@ -86,7 +86,7 @@ input ─► model ─► [ TEXT "I'll start by exploring the project" ]
                   [ TOOL_RESULT tool_use_id=toolu_01, content="/tmp/shop\nprices.py\ntest_prices.py" ]
 ```
 
-**Why one tool?** You could give an agent dozens: one to read a file, one to write, one to search, one to run tests. Or one general tool. Through the shell, an agent can do nearly anything a person at that computer can do: read and change files, run programs, run tests, use version control, reach the network. One general tool keeps the harness simple, and a model already knows the shell from training. More tools earn their place when the general one can't do a job, or can't do it safely.
+**Why one tool?** You could give an agent dozens: one to read a file, one to write, one to search, one to run tests. Or one general tool. Through the shell, an agent can do nearly anything a person at that computer can do: read and change files, run programs, run tests, use version control, reach the network. One general tool keeps the harness simple, and a model already knows the shell from training. More tools are added when the general one can't do a job, or can't do it safely.
 
 Now it acts:
 
@@ -96,8 +96,6 @@ Now it acts:
 $ pwd; ls -la; git status 2>/dev/null | head
 ```
 
-And then it stops.
+Then it stops.
 
-The command ran. It printed a list of files. `handle_output` returned the result. But nothing sent that result back to the model. The model asked to look, the harness looked, and nobody told the model what was seen. It's like opening a door and never looking through it. What came back from acting is new input, from the world rather than from a person, and nothing carries it to the mind.
-
-The fourth part closes that gap.
+The command ran and printed a list of files, and `handle_output` returned the result, but nothing sent that result back to the model. What came back from acting is new input, from the world rather than from a person, and nothing carries it to the model. The fourth part does.

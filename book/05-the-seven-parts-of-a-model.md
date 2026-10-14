@@ -1,6 +1,6 @@
 ## 5. The Seven Parts of a Model
 
-Every model of this kind, from the smallest to the largest in the world, is built from the same seven parts. Model families differ in the details of each one, but not in what the parts are.
+A model of this kind is built from seven parts. Model families differ in the details of each one, but not in what the parts are.
 
 | Part | What it does | In `model.py` |
 |---|---|---|
@@ -12,11 +12,11 @@ Every model of this kind, from the smallest to the largest in the world, is buil
 | **Output head** | Gives a score to every possible next token | `x @ embed_tokens.weight.T` |
 | **Generation** | Picks the next token, appends it, and goes again | `generate`, `Release.pick` |
 
-We build Qwen3's version of each, so that once ours is built, we can load the weights Qwen trained into it and check that our model does exactly what theirs does. The whole thing is in [`model/model.py`](../model/model.py). The architecture is a **transformer**, the design behind every major language model since 2017; this chapter is a tour of one.
+We build Qwen3's version of each, so that once ours is built, we can load the weights Qwen trained into it and check that our model does exactly what theirs does. The whole thing is in [`model/model.py`](../model/model.py). The architecture is a **transformer**, the design behind the major language models since 2017.
 
 ### The shape of the data
 
-Before the parts, the shapes. A batch of text is a tensor (an array) of token ids, shaped `[batch, length]`. The embedding turns it into `[batch, length, dim]`, where `dim` is the model's width, 1,024 for Qwen3-0.6B. Every block takes and returns that shape. The output head turns it into `[batch, length, vocab]`, one score per token in the vocabulary, at every position.
+First, the shapes. A batch of text is a tensor (an array) of token ids, shaped `[batch, length]`. The embedding turns it into `[batch, length, dim]`, where `dim` is the model's width, 1,024 for Qwen3-0.6B. Every block takes and returns that shape. The output head turns it into `[batch, length, vocab]`, one score per token in the vocabulary, at every position.
 
 ```
 ids            [B, L]            integers
@@ -50,7 +50,7 @@ The model's sizes, from Qwen's `config.json`:
 
 ### 1. Tokenizer
 
-A model can't read letters, only numbers. The tokenizer decides what the pieces are, by **byte-pair encoding** (BPE). It starts with every byte as its own token, then repeatedly merges the most frequent neighbouring pair into a new token. The learned merges, in order, *are* the tokenizer.
+A model can't read letters, only numbers. The tokenizer decides what the pieces are, by **byte-pair encoding** (BPE). It starts with every byte as its own token, then repeatedly merges the most frequent neighbouring pair into a new token. The learned merges, in order, are the tokenizer.
 
 ```python
 class Tokenizer:
@@ -74,7 +74,7 @@ class Tokenizer:
         return cls(merges, special)
 ```
 
-Three details worth knowing:
+Three details:
 
 - **The `WORDS` regex** pre-splits text so merges never cross a word boundary. It separates contractions (`'s`, `'re`), runs of letters, single digits, punctuation, and whitespace. Qwen's regex is close to GPT-4's, except that it splits numbers into single digits.
 - **`BYTES`** maps each of the 256 byte values to a printable character, so a token can be stored as a string even when it holds bytes that aren't valid text on their own (the first byte of a multi-byte character, say).
@@ -96,7 +96,7 @@ To encode a word, split it into bytes and apply the merges, earliest-learned fir
 
 *Shortened from `model/model.py`, where the full version is.*
 
-Common words end up as one token; rare words as several. For pre-training (Chapter 7) we learn a 2,048-token vocabulary from Shakespeare with this code. For the real model we load Qwen's 151,669 merges into the same class, and check that we produce the same ids as Qwen's own tokenizer on a set of tricky strings (mixed scripts, emoji, tabs, Windows line endings): the record in `runs/model/check.txt` says `tokenizer: the same tokens as Qwen's: True`.
+Common words end up as one token; rare words as several. For pre-training (Chapter 7) we learn a 2,048-token vocabulary from Shakespeare with this code. For the full-size model we load Qwen's 151,669 merges into the same class, and check that we produce the same ids as Qwen's own tokenizer on a set of tricky strings (mixed scripts, emoji, tabs, Windows line endings): the record in `runs/model/check.txt` says `tokenizer: the same tokens as Qwen's: True`.
 
 ### 2. Embedding
 
@@ -107,7 +107,7 @@ self.embed_tokens = nn.Embedding(vocab, dim)   # a table: 151,936 rows × 1,024 
 x = self.embed_tokens(ids)                     # [B, L] → [B, L, 1024]
 ```
 
-At first the rows are random. Training moves them until tokens used in similar ways have similar vectors. The table is also reused at the end, as the output head, so a token's embedding does double duty: it's what the token *means* going in, and what the model compares against coming out. Sharing the table this way (**tied embeddings**) saves 155 million parameters in a model of 600 million.
+At first the rows are random. Training moves them until tokens used in similar ways have similar vectors. The table is also reused at the end, as the output head, so a token's embedding is used twice: as what the token means going in, and as what the model compares against coming out. Sharing the table this way (**tied embeddings**) saves 155 million parameters in a model of 600 million.
 
 ### 3. Position
 
@@ -129,7 +129,7 @@ def rotate(x, cos, sin):                       # rotate each pair (x[i], x[i+hal
     return x * cos + torch.cat([-x[..., half:], x[..., :half]], dim=-1) * sin
 ```
 
-The useful property: the dot product of a rotated query and a rotated key depends only on the *difference* of their positions. So attention sees relative distance ("three tokens back"), not absolute position, which is why a model trained on short texts can often read longer ones. The `start` argument is for generation: a token generated at position 200 is rotated as position 200, even though it's fed in alone.
+The dot product of a rotated query and a rotated key depends only on the *difference* of their positions. So attention sees relative distance ("three tokens back"), not absolute position, which is why a model trained on short texts can often read longer ones. The `start` argument is for generation: a token generated at position 200 is rotated as position 200, even though it's fed in alone.
 
 ### 4. Attention
 
@@ -188,7 +188,7 @@ class Attention(nn.Module):
 Line by line, the ideas:
 
 - **`scores = q @ kᵀ / √head_dim`.** A dot product per (query, key) pair. Dividing by the square root of the width keeps the scores from growing with the width, which would make the softmax too sharp.
-- **The causal mask.** `ahead` is true wherever the key's position is after the query's. Those scores are set to −∞ before the softmax, so they get probability 0. A token can only look *back*, because when the model writes, the future hasn't been written yet. This single mask is what makes the model a next-token predictor rather than a fill-in-the-blank one.
+- **The causal mask.** `ahead` is true wherever the key's position is after the query's. Those scores are set to −∞ before the softmax, so they get probability 0. A token can only look *back*, because when the model writes, the future hasn't been written yet. This mask is what makes the model a next-token predictor rather than a fill-in-the-blank one.
 - **Heads.** The projection is split into 16 independent heads of width 128. Each head computes its own attention pattern, free to look for something different: one might track grammar, another names, another what a pronoun refers to. Their outputs are concatenated and mixed by `o_proj`.
 - **Grouped queries.** Qwen3 uses 8 key/value heads for 16 query heads (`repeat_interleave` duplicates each kv head for two queries). Keys and values are what the cache stores during generation, so halving them halves the cache.
 - **QK-norm.** `q_norm` and `k_norm` normalize each query and key before the dot product, a Qwen3 detail that keeps training stable.
@@ -280,11 +280,11 @@ A model is more than its weights. Qwen releases five files, and our `Release` cl
 | `tokenizer_config.json` | The **chat template** | How a conversation is laid out as text (Chapter 9) |
 | `generation_config.json` | Temperature, top-k, top-p, stop tokens | The sampling the model was tuned for |
 
-Miss one, or get one subtly wrong, and the model breaks *quietly*: it still writes, just worse, and nothing tells you why. Chapter 20 has a story of exactly that.
+Miss one, or get one wrong, and the model still writes, just worse, and nothing says why. Chapter 20 has an example.
 
 ### Checking it
 
-That's the whole model: about 180 lines, not counting the tokenizer and the loader. Built from nothing, it's an empty shape: random weights, and it writes noise.
+The model is about 180 lines, not counting the tokenizer and the loader. Built from nothing, it has random weights and writes noise.
 
 To know it's built right, we load Qwen's weights into our code and compare it with Qwen's own implementation (via the `transformers` library) on the same input. The record:
 
@@ -295,4 +295,4 @@ model: largest difference in its scores 1.4e-04; the same next token at all 198 
 'The capital of France is' → ' Paris. The capital of Germany is Berlin. The capital of'
 ```
 
-Scores agree to one part in ten thousand (floating-point order-of-operations noise), and the predicted next token agrees at every one of 198 positions. We have a mind, and we know it's built right. It knows nothing yet. The next chapter is about how a model learns.
+Scores agree to one part in ten thousand (floating-point order-of-operations noise), and the predicted next token agrees at all 198 positions. The code is right. The next chapter is about how a model learns.

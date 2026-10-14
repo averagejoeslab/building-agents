@@ -2,7 +2,7 @@
 
 **Goal:** take turns, call the tool in the harness's format, look before answering, and stop.
 
-The first way to teach a model its body is to show it: instruction-tuning on recordings of the agent at work, in its own harness, in its own format. Chapter 9 covered the public conversations in the mix and the mechanics of the masked loss. This chapter is about the most important part of the data: sessions of quark doing real work, and how they're made so that every one is true.
+The first way to teach a model its body is to show it: instruction-tuning on recordings of the agent at work, in its own harness, in its own format. Chapter 9 covered the public conversations in the mix and the mechanics of the masked loss. This chapter is about the most important part of the data: sessions of quark doing real work, and how they're made so that each one records what happened.
 
 ### Training tasks
 
@@ -43,7 +43,7 @@ Every file name, number and wording is drawn at random, so the model sees `error
 
 ### Making a demonstration
 
-A demonstration is made by *running* the reference solution in a fresh workspace, every command really executed and every result real, then writing the answer from what came back. It's kept only if the check passes, and only if the last command before the answer was a look:
+A demonstration is made by running the reference solution in a fresh workspace, with every command executed and every result recorded, then writing the answer from what came back. It's kept only if the check passes, and only if the last command before the answer was a look:
 
 ```python
 READS = {"cat", "head", "tail", "ls", "grep", "wc", "python3"}   # the commands that look
@@ -64,7 +64,7 @@ def tool_session():
             return messages + [{"role": "assistant", "content": reply}]
 ```
 
-The point of running it for real: the tool results in the data are what the shell actually printed, so the model learns to read real output, not an imagined version of it.
+Because the commands are run, the tool results in the data are what the shell printed, and the model learns to read real output.
 
 ### A demonstration, as the model trains on it
 
@@ -77,7 +77,7 @@ The shape every session teaches is the same four habits, in order:
 3. **Check:** a command that reads back the result (`cat`, `head`, `tail`, `wc`).
 4. **Answer from what was seen:** the reply quotes the real output of the check.
 
-### Keeping the exam clean
+### Decontamination
 
 Nothing the model trains on may resemble what it's scored on. Decontamination compares each training request with every evaluation request, by the share of words they have in common, ignoring the small words every request has:
 
@@ -118,8 +118,6 @@ The passes are one command and a plain answer: make a folder called stone, then 
 - **The format slips.** A second tool call came out without its `<tool_call>` tags, so the parser of Chapter 16 read it as words, and the harness handed back.
 - **It says instead of doing.** Asked to add a line to a file, it explained the right command in prose instead of calling the tool.
 
-Each of these is a habit, not a lack of knowledge: it knows the commands. It doesn't reliably *do* them. Habits are what practice can change.
-
-But practice has a precondition, and it's the most important idea in the next chapter: reinforcement learning can only make more likely what the model already does *some* of the time. Here, it gets 18 of 32 right. That's a foothold.
+Each of these is a habit rather than a lack of knowledge: it knows the commands but doesn't reliably run them. Practice can change habits, with one precondition, covered in the next chapter: reinforcement learning can only make more likely what the model already does some of the time. Here, it gets 18 of 32 right.
 
 > **Reproduce it:** `uv run model/train.py post instruct`, then `uv run harness/tasks.py models/instruct.pt`. Appendix A has the details.

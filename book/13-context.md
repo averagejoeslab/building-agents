@@ -1,6 +1,6 @@
 ## 13. Context: What It Knows
 
-**Context** is everything the model is shown each time it's asked to write. It's the agent's **working memory**: whatever is in it, the agent has in mind; whatever isn't, it doesn't. And because the model remembers nothing between calls, the harness assembles it fresh, every time.
+**Context** is everything the model is shown each time it's asked to write. It's the agent's **working memory**: whatever is in it, the agent has in mind; whatever isn't, it doesn't. Because the model remembers nothing between calls, the harness assembles it fresh on every call.
 
 ### Parts of a context
 
@@ -34,11 +34,11 @@ One sentence: its name, its body, where it is, and what day it is. Ask again:
   directory is /tmp/shop. Today's date is 2026-10-07.
 ```
 
-No commands needed. It knew.
+No commands were needed.
 
-That's the balance context has to strike. **Too little,** and the agent wastes steps finding things out, or guesses. **Too much,** and every request costs more, and what matters is buried in what doesn't. The goal is the minimum it needs to act well, on whatever it's asked.
+Context has to balance two things. **Too little,** and the agent wastes steps finding things out, or guesses. **Too much,** and every request costs more, and what matters is buried in what doesn't. The goal is the minimum it needs to act well, on whatever it's asked.
 
-That's all five parts. `quark.py` is 50 lines, and with a model in it, it's an agent.
+That is all five parts. `quark.py` is 50 lines.
 
 ### The context, as the model sees it
 
@@ -93,7 +93,7 @@ As an agent grows more capable, its instructions grow into a picture of itself: 
 
 Two design rules run through it. **Each memory has a format contract**: a fixed layout (`- <subject>: <fact>`) that makes it searchable with ordinary text tools, and the instructions show the exact commands to read and write it. And **it includes its own code**: the `mechanics()` function returns the harness's source with the system prompt itself cut out, so the agent can read how it works without the prompt containing itself.
 
-Written from the agent's point of view, the self model tells the model what it is, so it never has to guess. It also costs: 9,400 tokens on every call. Chapter 14's performance section pays that bill.
+Written from the agent's point of view, the self model tells the model what it is, so it never has to guess. It also costs 9,400 tokens on every call. Chapter 14's performance section reduces that cost.
 
 ### Too long to send
 
@@ -109,4 +109,4 @@ quark uses compaction, in Chapter 14: when the API reports the request is too lo
 
 ### Try it
 
-quark works. In the last chapter's run it found the bug, fixed it, ran the tests, and committed. But look at how. It ran `sed -i` on the code and `git commit` without asking. Close the terminal and the conversation is gone. A command that never finishes would hang it forever, and nothing records what it did. You wouldn't leave it running on its own.
+quark works. In the last chapter's run it found the bug, fixed it, ran the tests, and committed. It also ran `sed -i` on the code and `git commit` without asking. Close the terminal and the conversation is gone. A command that never finishes would hang it, and nothing records what it did. It isn't ready to run on its own.

@@ -1,6 +1,6 @@
 ## 20. The Next Round
 
-The gaps in the last chapter are a to-do list. So we did what a lab does with one: **change the data, not the evaluation,** and train again, starting from the same mid-trained model.
+The next round changes the data, keeps the evaluation, and trains again from the same mid-trained model.
 
 ### What changed
 
@@ -11,7 +11,7 @@ The gaps in the last chapter are a to-do list. So we did what a lab does with on
 
 ### Three bugs, found first
 
-Before the new round produced a result, it found three mistakes. Each cost a run. Each is the kind of thing a lab's pipeline is built to catch.
+Before the new round produced a result, it found three mistakes. Each cost a run.
 
 **The chat template is part of the model.** Qwen's template puts an empty thinking block into some assistant turns and not others. Trained on that mix, the first round-two model dropped or doubled its tool-call markers whenever a session had more than one step, and every multi-step task failed. The fix: lay out every training conversation the same way, with no empty block anywhere, and end the prompt exactly where the turn began.
 
@@ -34,7 +34,7 @@ The transcripts changed more than the score. Multi-step tasks that round one nev
 
 Its own check, before training: **37 of 40** (round one, under the broken check, 12 of 40). Then one full round over all 26 kinds, eight tries each: 25 kinds passed **8 of 8**, and one passed **0 of 8**.
 
-Not one group was mixed. So not one update happened. The model after 26 steps was the model before, to the last digit.
+No group was mixed, so no update happened. The model after 26 steps was the model before.
 
 ### The arithmetic of a useful group
 
@@ -56,12 +56,12 @@ For groups of eight:
 | 0.95 | 0.66 | 0.00 | 0.34 |
 | 1.00 | 1.00 | 0.00 | 0.00 |
 
-RL learns fastest on tasks the model passes about half the time, and not at all at the ends. Round two's model passed 25 kinds at *p* ≈ 1 and one at *p* ≈ 0: the worst possible curriculum, built by accident from making the model better at exactly the kinds RL trains on.
+RL learns fastest on tasks the model passes about half the time, and not at all at the ends. Round two's model passed 25 kinds at *p* ≈ 1 and one at *p* ≈ 0: the worst curriculum for RL, which came from making the model better at the kinds RL trains on.
 
 A **curriculum** keeps tasks in the middle. In practice that means measuring each kind's pass rate first, dropping the kinds near 1 or making them harder, adding easier variants of the kinds near 0, and re-measuring as training goes. Labs do this at scale, with thousands of task kinds and difficulty levels, so that some always sit in the useful band.
 
 ### What round two says
 
-Data moved the agent from guessing to working: it looks, acts, checks, and reports what it saw, the four habits the demonstrations teach. It did not move the score, because the remaining failures are a different gap: commands it doesn't quite know, and code fixes it can start but not finish. That's not post-training's job. It's mid-training's: more shell, more code. That's where a lab would spend the next round.
+Data moved the agent from guessing to working: it looks, acts, checks, and reports what it saw, the four habits the demonstrations teach. It did not move the score, because the remaining failures are a different gap: commands it doesn't quite know, and code fixes it can start but not finish. Those are mid-training's job: more shell, more code. That is where the next round would go.
 
-And RL taught its sharpest lesson by doing nothing. Practice needs tasks the model passes *some* of the time. At 8 of 8 it has nothing to learn; at 0 of 8, nothing to learn from. A curriculum for RL has to sit in between, and move as the model does.
+RL needs tasks the model passes some of the time. At 8 of 8 there is nothing to learn; at 0 of 8, nothing to learn from. A curriculum for RL has to sit in between, and move as the model does.

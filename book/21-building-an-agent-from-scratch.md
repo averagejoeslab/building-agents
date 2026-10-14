@@ -2,7 +2,7 @@
 
 ## 21. Building an Agent from Scratch
 
-Here is the whole path, as a lab walks it and as this book did, at the scale of one computer:
+The path, as a lab does it and as this book did, on one computer:
 
 | Step | A frontier lab | This book |
 |---|---|---|
@@ -56,8 +56,6 @@ Every line has a check, and every check runs on data the line never trained on.
 
 ### What to remember
 
-A model is a mind that predicts the next token. Everything it knows comes from training, and what it does with that knowledge comes from post-training. A harness is the body that lets the mind perceive, remember and act. And the mind works best in the body it was trained in. The last step, training the model in its own harness, is where a model becomes *this* agent.
+A model predicts the next token. What it knows comes from pre-training and mid-training; what it does with that comes from post-training. A harness lets the model perceive, remember and act. The model works best in the harness it was trained in.
 
-Every number in this book came from a real run. Most of them are small. That's the point. The path from nothing to an agent is the same at every scale; only the size changes. Build the model and train it in stages; build the harness and its evaluation; train the model in its harness; check every stage twice; and let what fell short decide the next round.
-
-That's how you build an agent from scratch.
+The numbers in this book came from runs on one computer, and most are small. The path from nothing to an agent is the same at any scale; only the size changes. Build the model and train it in stages; build the harness and its evaluation; train the model in its harness; check every stage twice; and let what fell short decide the next round.

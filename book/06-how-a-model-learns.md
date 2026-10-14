@@ -24,7 +24,7 @@ The rest of the chapter takes those lines apart.
 
 ### The targets: the same text, one token on
 
-A language model's training data needs no labels. The text labels itself. If the text is tokens `[t₁, t₂, t₃, t₄]`, then the inputs are `[t₁, t₂, t₃]` and the targets are `[t₂, t₃, t₄]`: at every position, the right answer is the next token.
+A language model's training data needs no labels beyond the text. If the text is tokens `[t₁, t₂, t₃, t₄]`, then the inputs are `[t₁, t₂, t₃]` and the targets are `[t₂, t₃, t₄]`: at every position, the right answer is the next token.
 
 ```python
 starts  = torch.randint(len(data) - 257, (16,))              # 16 random places in the text
@@ -54,7 +54,7 @@ Averaged over every position in the batch, that's the **cross-entropy** loss. So
 
 So when Chapter 7 reports a held-out loss of 7.69 before training and 5.28 after, you can read it: before, the model did slightly worse than a uniform guess over 2,048 tokens; after, it gave the right token about e⁻⁵·²⁸ ≈ 0.5% probability on average, about ten times better than chance. (The average of log-probabilities is dominated by the hard positions, so "0.5% on average" understates how often it's confidently right.)
 
-Why the logarithm? Three reasons. It turns a product of probabilities (the probability of a whole sequence) into a sum, which is numerically stable. It punishes confident mistakes severely: giving 0.001 to the right answer costs 6.9, not 0.999. And its gradient has a clean form, below.
+The logarithm is used for three reasons. It turns a product of probabilities (the probability of a whole sequence) into a sum, which is numerically stable. It punishes confident mistakes: giving 0.001 to the right answer costs 6.9, not 0.999. And its gradient is simple, as shown below.
 
 In PyTorch, `F.cross_entropy(scores, targets)` applies the softmax to the scores and takes the negative log of the target's probability, in one numerically careful operation. `flatten(0, 1)` merges the batch and position dimensions so every prediction is one row.
 
@@ -62,9 +62,9 @@ In PyTorch, `F.cross_entropy(scores, targets)` applies the softmax to the scores
 
 The loss is a function of every parameter in the model: change any weight, and the scores change, so the loss changes. The **gradient** of the loss with respect to a parameter is how much the loss would change per unit change in that parameter, right now. A positive gradient means increasing the parameter increases the loss, so we should decrease it.
 
-Computing 600 million gradients sounds hopeless. It isn't, because of the **chain rule**. The model is a chain of simple operations (matrix multiplies, additions, softmaxes), each of which has a known derivative. `loss.backward()` walks the chain from the loss back to the inputs, multiplying local derivatives as it goes, and leaves each parameter's gradient in `parameter.grad`. This is **backpropagation**, and it costs about twice a forward pass.
+Computing 600 million gradients is practical because of the **chain rule**. The model is a chain of simple operations (matrix multiplies, additions, softmaxes), each of which has a known derivative. `loss.backward()` walks the chain from the loss back to the inputs, multiplying local derivatives as it goes, and leaves each parameter's gradient in `parameter.grad`. This is **backpropagation**, and it costs about twice a forward pass.
 
-At the output head, the gradient has a form worth seeing. For one position, with the model's probability vector *p* and the target as a one-hot vector *y*, the gradient of the cross-entropy with respect to the scores is simply:
+At the output head, the gradient is simple. For one position, with the model's probability vector *p* and the target as a one-hot vector *y*, the gradient of the cross-entropy with respect to the scores is:
 
 ```
 ∂loss/∂scores = p − y
@@ -80,7 +80,7 @@ The simplest update is **gradient descent**: move every parameter a small distan
 θ ← θ − η · ∂loss/∂θ
 ```
 
-η is the **learning rate**. Too large, and each step overshoots: the loss jumps around or blows up. Too small, and training takes forever. The learning rates in this book:
+η is the **learning rate**. Too large, and each step overshoots, so the loss jumps around or diverges. Too small, and training takes too long. The learning rates in this book:
 
 | Stage | Learning rate | Why |
 |---|---|---|
@@ -88,11 +88,11 @@ The simplest update is **gradient descent**: move every parameter a small distan
 | Mid-training, instruction-tuning | 1 × 10⁻⁵ | The weights are already good; small steps preserve what they know |
 | Reinforcement learning | 1 × 10⁻⁶ | The model trains on its own words; a bigger step broke it (Chapter 18) |
 
-Because the batch is a random sample of the text, each gradient is a noisy estimate of the true one. That's **stochastic** gradient descent, and the noise is harmless, even helpful: it lets training escape flat regions.
+Because the batch is a random sample of the text, each gradient is a noisy estimate of the true one. That's **stochastic** gradient descent. The noise helps: it lets training escape flat regions.
 
 ### AdamW: a better step
 
-Plain gradient descent uses the same learning rate for every parameter. But gradients vary wildly in scale across a model: an embedding row for a rare token gets a gradient only when that token appears; a weight in every block gets one every step. **Adam** keeps, for each parameter, a running average of its gradient (*momentum*, which smooths the noise) and of its squared gradient (which measures the scale), and divides the step by the scale, so each parameter moves at a sensible rate. **AdamW** adds *weight decay*, a gentle pull toward zero that discourages any weight from growing huge.
+Plain gradient descent uses the same learning rate for every parameter. But gradients vary widely in scale across a model: an embedding row for a rare token gets a gradient only when that token appears; a weight in every block gets one every step. **Adam** keeps, for each parameter, a running average of its gradient (*momentum*, which smooths the noise) and of its squared gradient (which measures the scale), and divides the step by the scale, so each parameter moves at a sensible rate. **AdamW** adds *weight decay*, a small pull toward zero that keeps weights from growing large.
 
 ```python
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)        # pre-training
@@ -103,7 +103,7 @@ Adam's state is two extra numbers per parameter, so with the gradients, training
 
 ### A worked step, by hand
 
-To make the whole loop concrete, here's a toy with three tokens, A, B, C, and a "model" that's just three scores, one per token, with no input at all. The training text is `A B A A C`, so the target distribution is A 60%, B 20%, C 20%.
+Here is a toy example with three tokens, A, B, C, and a "model" that's just three scores, one per token, with no input at all. The training text is `A B A A C`, so the target distribution is A 60%, B 20%, C 20%.
 
 Start with scores *s* = (0, 0, 0). Softmax gives *p* = (⅓, ⅓, ⅓).
 
@@ -132,9 +132,9 @@ Training a 600-million-parameter model on one computer's CPU needs three economi
 
 ### Held-out data
 
-A model can get good at the text it trains on by memorizing it. That isn't what we want. We want it to get good at text it has never seen.
+A model can get good at the text it trains on by memorizing it. What we want is for it to get good at text it has never seen.
 
-So before training, some data is set aside, **held out**, and never trained on. After training, we measure the loss on it. If the held-out loss fell, the model learned something general. If only the training loss fell, it memorized. The gap between the two is the signature of **overfitting**, and it's why instruction-tuning in Chapter 9 makes exactly one pass over its data: a second pass made the held-out loss rise.
+So before training, some data is set aside, **held out**, and never trained on. After training, we measure the loss on it. If the held-out loss fell, the model learned something general. If only the training loss fell, it memorized. The gap between the two is **overfitting**, and it's why instruction-tuning in Chapter 9 makes exactly one pass over its data: a second pass made the held-out loss rise.
 
 Every stage in this book is checked this way: before and after, on held-out data of its own, asking one question: *did it learn what this stage was meant to teach?*
 
@@ -149,7 +149,7 @@ Training happens in stages, because turning random numbers into a useful model h
 | **Instruction-tuning** | Behave usefully | Example conversations | The assistant's tokens only |
 | **Reinforcement learning** | Succeed reliably | Its own attempts, graded | The assistant's tokens, weighted by the grade |
 
-The split is a convention; labs draw the lines in different places. But the shape is the same everywhere. Pre-training and mid-training put knowledge in. Post-training shapes how the model uses it, and the model becomes whatever the grading rewards. Each stage needs the one before.
+The split is a convention; labs draw the lines in different places. Pre-training and mid-training put knowledge in. Post-training shapes how the model uses it. Each stage builds on the one before.
 
 ### How a model is asked, before it's taught to answer
 

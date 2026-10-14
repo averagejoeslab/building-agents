@@ -2,7 +2,7 @@
 
 ## 10. What a Harness Is
 
-Our model can hold a conversation. Ask it to fix the failing tests, and it will tell you, at best, what it would do. It can't open a file. It can't run the tests. It can't remember yesterday. It doesn't know where it is or what day it is. Everything it lacks, the harness provides.
+Our model can hold a conversation. Ask it to fix the failing tests, and it will tell you, at best, what it would do. It can't open a file, run the tests, or remember yesterday, and it doesn't know where it is or what day it is. The harness provides those.
 
 The harness is everything around the model. It turns the model's tokens into actions, and what happened back into tokens. Its five parts were introduced in Chapter 3; here they are as the loop they make, with control flow holding the other four:
 
@@ -17,7 +17,7 @@ The harness is everything around the model. It turns the model's tokens into act
 
 ### The harness in pseudocode
 
-Before any Python, here is the whole harness in a language-neutral form. Everything in this Part is an implementation of these five procedures; everything in Chapter 14 is a refinement of them.
+Here is the harness in a language-neutral form. Everything in this Part is an implementation of these five procedures; everything in Chapter 14 is a refinement of them.
 
 ```
 -- INPUT: what comes in
@@ -57,13 +57,13 @@ procedure CONTROL_FLOW():
             conversation.append(USER(results))       -- a tool ran: go again
 ```
 
-Two things to notice. The conversation is a plain list of messages, each with a role (`user` or `assistant`) and content (text, or blocks). It's the agent's entire working memory, and it's rebuilt into a context on every call. And the model only ever *asks* to act, by emitting a `TOOL_USE` block; the harness decides whether and how to carry it out. That split is where every safety and security measure in Chapter 14 will go.
+Two things about it. The conversation is a plain list of messages, each with a role (`user` or `assistant`) and content (text, or blocks). It's the agent's entire working memory, and it's rebuilt into a context on every call. And the model only ever *asks* to act, by emitting a `TOOL_USE` block; the harness decides whether and how to carry it out. The safety and security measures in Chapter 14 go in that split.
 
 ### Building around a borrowed mind
 
-We'll build the harness one part at a time, and watch what each part adds. To see each part's effect clearly, the mind inside needs to be capable. Ours, at 600 million parameters, makes enough mistakes of its own that it would hide what the harness is doing. So, as with pre-training, we borrow: we build the body around **Claude Sonnet**, a model built at scale, reached over the internet through Anthropic's API. Once the body is built and proven, our own model moves in (Part IV), and the evaluation will show exactly how far it has to go.
+We'll build the harness one part at a time, and watch what each part adds. To see each part's effect clearly, the mind inside needs to be capable. Ours, at 600 million parameters, makes enough mistakes of its own that it would hide what the harness is doing. So, as with pre-training, we borrow: we build the body around **Claude Sonnet**, a model built at scale, reached over the internet through Anthropic's API. Once the body is built and proven, our own model moves in (Part IV), and the evaluation shows how far it has to go.
 
-This works because only one part, the model interface, knows which model is inside. Everything else deals in plain things: messages, tool-use blocks, and results. Swapping minds means changing one procedure. Chapter 16 does exactly that.
+This works because only one part, the model interface, knows which model is inside. Everything else deals in messages, tool-use blocks, and results. Swapping models means changing one procedure. Chapter 16 does that.
 
 ### Building outward
 
@@ -77,7 +77,7 @@ We build the parts in the order information flows, outward from the model: first
 | 4 | `4_control_flow.py` | `control_flow` |
 | 5 | `quark.py` | `assemble_context` |
 
-The agent is called **quark**. A quark is one of the smallest particles there is, and quark is meant to be the smallest agent: the five parts and nothing more, 50 lines.
+The agent is called **quark**. A quark is one of the smallest particles; quark is meant to be the smallest agent: the five parts, in 50 lines.
 
 ### The job
 

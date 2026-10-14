@@ -10,7 +10,7 @@ By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.c
 
 This book builds an agent from scratch, and teaches each step as it goes. Every chapter shows the code it describes, annotated line by line; the diagrams of each architecture; the actual training examples the model learned from; the arithmetic of gradient descent and reinforcement learning, worked by hand; pseudocode for the harness that you can carry to any language; and, in an appendix, step-by-step instructions for reproducing every experiment, with the numbers you should see.
 
-The code is the real code: the [`building-agents`](https://github.com/averagejoeslab/building-agents) repository, which holds a model built from its parts (`model/model.py`, about 350 lines), its training in stages (`model/train.py`, about 800 lines), a harness built one primitive at a time (`harness/`), and the record of every run (`runs/`). Where the book shows a shorter version of a function, to fit the page or to make one idea stand out, it says so, and the full version is in the repository at the path given.
+The code is the repository's code: the [`building-agents`](https://github.com/averagejoeslab/building-agents) repository, which holds a model built from its parts (`model/model.py`, about 350 lines), its training in stages (`model/train.py`, about 800 lines), a harness built one primitive at a time (`harness/`), and the record of every run (`runs/`). Where the book shows a shorter version of a function, to fit the page or to make one idea stand out, it says so, and the full version is in the repository at the path given.
 
 You'll need to read Python to follow the code. You don't need to have trained a model before, or built an agent. The book builds both, in order, and explains each idea the first time it's used.
 
@@ -18,7 +18,7 @@ The book follows one agent, **quark**, from nothing to working, and one small jo
 
 > A tiny project works out the price of a shopping basket. One of its tests is failing: it's supposed to take ten percent off, and it doesn't. The request is always the same: *"The tests are failing. Find out why and fix it."*
 
-Watch how much has to exist before anything can do that on its own.
+Each chapter adds one of the things that has to exist before anything can do that on its own.
 
 ---
 

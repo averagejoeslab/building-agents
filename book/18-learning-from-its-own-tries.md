@@ -2,9 +2,9 @@
 
 **Goal:** do the work reliably.
 
-The second way to teach a model its body is practice: **reinforcement learning**, or RL. Instead of copying examples, the model tries the work itself, each try is graded, and tries that earned a good grade are made more likely. For an agent, a try is a task done in its harness. That's why the harness had to exist first: it's where the practice happens.
+The second way to teach a model its body is practice: **reinforcement learning**, or RL. Instead of copying examples, the model tries the work itself, each try is graded, and tries that earned a good grade are made more likely. For an agent, a try is a task done in its harness. The harness had to exist first because the practice happens in it.
 
-This chapter explains the idea from first principles, derives the update, shows our implementation, and then tells honestly what happened, including three tries that failed.
+This chapter explains the idea from first principles, derives the update, shows our implementation, and then reports what happened, including three tries that failed.
 
 ### The vocabulary
 
@@ -28,9 +28,9 @@ J(θ) = E_{τ ~ π_θ} [ R(τ) ]
 
 ### Why this is harder than instruction-tuning
 
-In instruction-tuning, the right text is given, and gradient descent makes it more likely. In RL, there is no right text: just a grade on whatever the model wrote. And the grade isn't a differentiable function of the parameters. The check runs `python -m unittest` in a folder; you can't take its derivative.
+In instruction-tuning, the right text is given, and gradient descent makes it more likely. In RL there is no right text, only a grade on whatever the model wrote. And the grade isn't a differentiable function of the parameters. The check runs `python -m unittest` in a folder; you can't take its derivative.
 
-The trick that makes RL work is that you don't need to differentiate the reward. You only need to differentiate the probability of what the model did, which you can, because it's the same log-probability instruction-tuning uses.
+RL works because you don't need to differentiate the reward. You only need to differentiate the probability of what the model did, which you can, because it's the same log-probability instruction-tuning uses.
 
 ### The policy gradient
 
@@ -45,7 +45,7 @@ J(θ)   = Σ_τ  π_θ(τ) · R(τ)
 
 The last line is the **policy gradient** (this form is called **REINFORCE**). It says: to estimate which way to move θ, sample some tries, and for each, take the gradient of its log-probability, scaled by its reward. A try that passed pulls the parameters toward making it more likely. A try that failed, with reward 0, contributes nothing.
 
-And log π_θ(τ) is just the sum of the log-probabilities of the tokens the model wrote, which is exactly what `logprob` from Chapter 9 computes, with the tool results masked out because the model didn't write them. So one RL step is:
+And log π_θ(τ) is the sum of the log-probabilities of the tokens the model wrote, which is what `logprob` from Chapter 9 computes, with the tool results masked out because the model didn't write them. So one RL step is:
 
 ```
 for each task:
@@ -67,13 +67,13 @@ advantage_i = (reward_i − mean(rewards)) / std(rewards)
 
 Now a pass in a group that mostly failed gets a large positive weight, a fail in a group that mostly passed gets a negative one (making it *less* likely), and a group where every try got the same reward gets zero weight on everything. The expected gradient is unchanged by the baseline; its noise is much lower. Using the group's own average as the baseline, with no separate value model, is the approach called **GRPO** (group relative policy optimization).
 
-That last property matters more than any other in this chapter: **if all tries pass, or all fail, there's nothing to learn.** RL learns from the difference between a try that worked and one that didn't.
+If all tries pass, or all fail, there is nothing to learn. RL learns from the difference between a try that worked and one that didn't.
 
 ### Keeping the policy anchored
 
 Pushing a model toward its own words is unstable. It can drift into text that scores well on the grader but stops being sensible, or lose its formatting, and once every try fails there's no signal left to bring it back. Labs add two safeguards:
 
-- **A KL penalty.** A frozen copy of the model from before RL (the *reference*) is kept, and the loss adds a penalty for how far the new model's token probabilities have moved from the reference's. It's a leash.
+- **A KL penalty.** A frozen copy of the model from before RL (the *reference*) is kept, and the loss adds a penalty for how far the new model's token probabilities have moved from the reference's.
 - **Clipped updates.** The change in each token's probability per step is capped (the idea behind **PPO**), so no single step can move the policy far.
 
 Both cost something. The reference is a second copy of the model in memory; clipping needs the old probabilities stored for every token of every try.
@@ -140,7 +140,7 @@ def rl(steps=78, group=8):
 
 *Shortened from `model/train.py`, where the full version is.*
 
-Notice three choices, all forced by running on one computer:
+Three choices, all forced by running on one computer:
 
 - **The weights are the raw rewards**, 1 for a pass and 0 for a fail, not centered advantages. That's REINFORCE without a baseline, and it only ever pushes *toward* passes. It's also known as *rejection-sampling fine-tuning*: imitation of the model's own successes.
 - **No reference model, no clipping.** There isn't memory for a second copy of a 600-million-parameter model alongside its optimizer state.
@@ -161,7 +161,7 @@ Those choices weren't the first ones. Each failed try is kept in `runs/training/
 | **Third** | Passes only (weights 0 and 1), back at 5 × 10⁻⁶ | Broke too: 20% after ten steps, falling |
 | **Kept** | Passes only, at 1 × 10⁻⁶ | Held for all three rounds |
 
-The lesson in one line: **without an anchor, a small model trained on its own words needs a light touch.** Pushing failures down is what a lab does, but a lab does it with a reference model holding the policy in place. Without one, the cheapest stable choice is to only pull toward successes, slowly.
+Without a reference model, a small model trained on its own words needs a small learning rate and no negative weights. Pushing failures down is what a lab does, with a reference model holding the policy in place. Without one, the stable choice was to pull only toward successes, at a small learning rate.
 
 ### What happened
 
@@ -179,7 +179,7 @@ The first ten kinds climbed: `nested_folders` went from 2 of 8 to 7 of 8 to 7 of
 
 ### After: the RL model in quark
 
-On the evaluation (`uv run harness/tasks.py models/rl.pt`): **18 of 32. The same 18.**
+On the evaluation (`uv run harness/tasks.py models/rl.pt`): **18 of 32**, the same 18.
 
 | | File work | Code fixes | Questions | Safety | All |
 |---|---|---|---|---|---|
@@ -188,6 +188,6 @@ On the evaluation (`uv run harness/tasks.py models/rl.pt`): **18 of 32. The same
 
 The transcripts changed, even if the score didn't. The format slips were gone: no tool call without its tags, no wandering into the template's text. A search that had started from the root of the computer (`find /`) now started from the job's folder (`find .`). But what was left was exactly what RL never had a signal on: the code fixes still went `ls`, then a made-up diagnosis. Asked to make a folder and move files into it, it made the folder and reported both done.
 
-**RL made the agent more reliable at what it could already do. It can't teach what never happens.** The evaluation's remaining failures were the things the model couldn't do at all, so practice had nothing to reward.
+RL made the agent more reliable at what it could already do. The evaluation's remaining failures were things the model never did, so practice had nothing to reward.
 
 > **Reproduce it:** `uv run model/train.py post rl` (needs Docker), then `uv run harness/tasks.py models/rl.pt`. Appendix A has the details.

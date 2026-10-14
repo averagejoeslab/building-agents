@@ -14,7 +14,7 @@ That's the loop every agent runs. In cognitive science, the study of how minds w
 
 Then **perceive again**, because acting changes the world, and the change is the next thing to take in.
 
-You're an agent. So is a thermostat, in a very small way: it perceives the temperature, decides it's too cold, and turns on the heat. A chess program is one, and so is a robot vacuum. What makes something an agent isn't how clever it is. It's the loop.
+You're an agent. So is a thermostat, in a very small way: it perceives the temperature, decides it's too cold, and turns on the heat. A chess program is one, and so is a robot vacuum. A thing is an agent when it runs this loop, however simple it is.
 
 ### The loop, as a program
 
@@ -30,7 +30,7 @@ loop:
     if action is STOP: break
 ```
 
-Each of the four verbs becomes a real piece of software by the end of Part III. `decide` will be a language model. `perceive`, `remember` and `act` will be the harness. The loop itself will be a few lines of control flow. Keep this shape in mind: when something in the book seems complicated, find which of these four verbs it belongs to.
+Each of the four verbs becomes a real piece of software by the end of Part III. `decide` will be a language model. `perceive`, `remember` and `act` will be the harness. The loop itself will be a few lines of control flow. When something later in the book seems complicated, find which of these four verbs it belongs to.
 
 ### Memory
 
@@ -53,4 +53,4 @@ What changed is the arrival of **language models**: programs that read and write
 
 An agent built that way is a **language agent**, or an **LLM agent**, after the *large language model* at its center. This book builds one from nothing.
 
-But a language model alone is not an agent. It can decide, but it can't perceive, remember, or act. Before we see why, it's worth asking why anyone would want to build one at all.
+A language model alone is not an agent. It can decide, but it can't perceive, remember, or act. Chapter 3 covers the rest.

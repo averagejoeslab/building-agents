@@ -1,6 +1,6 @@
 ## 12. Closing the Loop
 
-**Control flow** decides what happens next. Its rule is simple:
+**Control flow** decides what happens next. Its rule:
 
 - If the model asked to run something, run it, send the result back, and let the model go again.
 - If it didn't, it's done with this request. Hand back to the person for their next message.
@@ -63,9 +63,9 @@ $ git add prices.py && git commit -q -m "Fix total() to apply discount as a perc
 < I committed the fix as `d6beb65`, "Fix total() to apply discount as a percentage". Only `prices.py` is in the commit.
 ```
 
-Walk through what the loop did. First call: the model emitted a text block and a tool call; the harness showed the text, ran the command, and sent the listing back. Second call: seeing the files, the model asked to read them and run the tests, in one command. (It tried `pytest`, which wasn't installed, then `unittest`, which was. The error went back as a result, like any other.) Third call: with the test output in context, it reasoned out the bug and fixed it, in one command that also re-ran the tests. Fourth call: the tests passed, so it wrote an answer with no tool call, and the inner loop broke. Then *"Commit the fix"* needed no explanation, because the whole conversation went back with it.
+What the loop did. First call: the model emitted a text block and a tool call; the harness showed the text, ran the command, and sent the listing back. Second call: seeing the files, the model asked to read them and run the tests, in one command. (It tried `pytest`, which wasn't installed, then `unittest`, which was. The error went back as a result, like any other.) Third call: with the test output in context, it reasoned out the bug and fixed it, in one command that also re-ran the tests. Fourth call: the tests passed, so it wrote an answer with no tool call, and the inner loop broke. Then *"Commit the fix"* needed no explanation, because the whole conversation went back with it.
 
-**This is an agent.** It perceived, decided, acted, and went again, as many times as the job took, then handed back.
+This is an agent: it perceived, decided, acted, and went again until the job was done, then handed back.
 
 ### What it doesn't know
 
@@ -79,4 +79,4 @@ $ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a
   and make changes in the environment I'm given.
 ```
 
-It had to go looking for where it was. It doesn't know its own name, what its body is, where it's working, or what day it is. Every one of those is a step spent finding out, or worse, a guess. The last part fixes that.
+It had to go looking for where it was. It doesn't know its own name, what its body is, where it's working, or what day it is. Each of those costs a step to find out, or a guess. The last part fixes that.

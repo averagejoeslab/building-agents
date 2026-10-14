@@ -2,9 +2,9 @@
 
 **Goal:** know language, and as much about the world as the text can teach.
 
-Pre-training is the first and by far the largest stage. The model reads an enormous amount of text and learns to predict every next token in it. Nothing else. No questions, no answers, no instructions. Just text, and the next token, everywhere.
+Pre-training is the first and by far the largest stage. The model reads a large amount of text and learns to predict every next token in it. There are no questions, answers or instructions in the data, only text.
 
-It sounds too simple to work. But to predict the next token of a news story well, the model has to pick up grammar, facts, how arguments go, and what people tend to say next. Pre-training is where nearly all of a model's knowledge comes from.
+To predict the next token of a news story well, the model has to pick up grammar, facts, how arguments go, and what people tend to say next. Pre-training is where nearly all of a model's knowledge comes from.
 
 ### The experiment
 
@@ -71,9 +71,9 @@ But marve thy turn, I'll prove you at night.
 I saw you to my young lady"  held-out loss 5.28
 ```
 
-Read the losses with Chapter 6's table. **7.69** before training is a hair worse than a uniform guess over 2,048 tokens (7.62): random weights, as expected. The *training* loss falls steadily to **2.18**, but the *held-out* loss only reaches **5.28**. That gap is overfitting: 3.7 million parameters trained for 1,405 steps on 320,000 tokens have begun to memorize the plays. A lab's model sees each token roughly once; ours saw each about 18 times (1,405 steps × 4,096 tokens ÷ 320,093).
+Read the losses with Chapter 6's table. **7.69** before training is slightly worse than a uniform guess over 2,048 tokens (7.62): random weights, as expected. The *training* loss falls steadily to **2.18**, but the *held-out* loss only reaches **5.28**. That gap is overfitting: 3.7 million parameters trained for 1,405 steps on 320,000 tokens have begun to memorize the plays. A lab's model sees each token roughly once; ours saw each about 18 times (1,405 steps × 4,096 tokens ÷ 320,093).
 
-And yet the samples show real learning. Before: a jumble of fragments, because the tokenizer's merges are real words and the random model strings them together at random. After: verse, line breaks of the right length, a second-person address, real names, near-sense ("Sent both of them, and you shall…"). Nobody told it what a play looks like. It learned that from predicting the next token.
+The samples still show learning. Before: fragments, because the tokenizer's merges are real words and the random model strings them together at random. After: verse, line breaks of the right length, a second-person address, names, near-sense ("Sent both of them, and you shall…"). It learned what a play looks like from predicting the next token.
 
 ```
 loss
@@ -92,7 +92,7 @@ loss
 
 The same code, trained by a lab, writes far better. The difference is scale: Qwen's models were pre-trained on about 36 trillion tokens, for months, on a large cluster. That's over 100 million times more text than our Shakespeare, and a model 160 times bigger.
 
-This is the one stage a single builder can't match. So, as the labs' open releases allow, we borrow one that's been done: **Qwen3-0.6B-Base**, Qwen's model after its pre-training and mid-training, before any post-training. Because our code is built to Qwen3's design, its weights load straight in (`load_real` in `model.py`), and its tokenizer's merges load into our `Tokenizer`.
+This is the one stage a single builder can't match, so we borrow one that's been done: **Qwen3-0.6B-Base**, Qwen's model after its pre-training and mid-training, before any post-training. Because our code is built to Qwen3's design, its weights load straight in (`load_real` in `model.py`), and its tokenizer's merges load into our `Tokenizer`.
 
 ```python
 def load_real(name="Qwen/Qwen3-0.6B-Base"):
@@ -114,8 +114,8 @@ I am Romeo, a man of the world, a man of the city, a man of the law, a man of th
 a man of the law, a man of the law, a man of the law, …
 ```
 
-Fluent, then stuck in a loop. (The loop is partly an artifact of greedy decoding: with temperature 0, a repeating pattern that's most likely at one step stays most likely.) It knows language, and a great deal about the world. Nothing has taught it how to behave: when to stop, what's being asked, how to take a turn.
+Fluent, then stuck in a loop. (The loop is partly an artifact of greedy decoding: with temperature 0, a repeating pattern that's most likely at one step stays most likely.) It knows language and a great deal about the world. It hasn't been taught when to stop, what's being asked, or how to take a turn.
 
-That's what a base model is: a vast store of knowledge with no manners. The next two stages shape it. First, toward the job.
+That is a base model. The next two stages shape it.
 
 > **Reproduce it:** `uv run model/train.py pre`, which trains for a fixed 20 minutes. Appendix A has the details and what to expect.

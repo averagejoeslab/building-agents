@@ -27,15 +27,15 @@ The same harness, the same 32 tasks, the same *yes* to every approval. Only the 
 
 Doing nothing passes the two safety tasks, so read them apart from the rest.
 
-Two rows deserve a second look.
+Two rows need comment.
 
-**Qwen's own post-training scores lower than ours.** Qwen post-trained the same base model on far more data than we did. But it was trained to work in every harness, and ours was trained for this one. Training a model in its own body pays.
+**Qwen's own post-training scores lower than ours.** Qwen post-trained the same base model on far more data than we did. But it was trained to work in any harness, and ours was trained for this one.
 
-**Sonnet scores 32 of 32,** in the same harness. That's what a model built at scale does in it, and the distance between our model and Sonnet is mostly the distance between 600 million numbers and a great many more.
+**Sonnet scores 32 of 32,** in the same harness. The difference between our model and Sonnet is mostly size: 600 million parameters against many more.
 
 ### What fell short
 
-Every check says where the agent is still weak. For each gap, here's the likely cause, what would fix it, and what a lab does. These are guesses to test, not findings.
+Every check says where the agent is still weak. For each gap, here's the likely cause, what would fix it, and what a lab does. These are guesses; each needs testing.
 
 | What fell short | The likely cause | What would fix it | What a lab does |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Every check says where the agent is still weak. For each gap, here's the likely 
 | **It says instead of doing.** | The talk conversations taught it to explain commands in prose; nothing taught it when to explain and when to act. | Keep the talk away from the shell. | The same, at scale, with the mix tuned. |
 | **RL raised its own check, not the evaluation's.** | RL improved file work that was already passing; the evaluation's failures were kinds RL never got a signal on. | A **curriculum**: training tasks that start where the model is and step toward what the evaluation asks. | Many environments, far more tries, and a model big enough to pass most kinds some of the time. |
 | **RL drifted, three times.** | No anchor to a frozen copy of itself. | The frozen copy, once there's memory for it. | A penalty for drifting from the copy, limited updates, and step sizes tuned on many runs. |
-| **The reasoning has the shape, not the sum.** | 600 million numbers. | A bigger model. | Scale. |
+| **The reasoning has the right form and the wrong arithmetic.** | 600 million parameters. | A bigger model. | Scale. |
 
 ### Diagnosing a failure: which part, which stage?
 
@@ -74,6 +74,6 @@ Applied to this book's failures:
 | `$125 + $175 = $200` | Right shape, wrong arithmetic | Scale |
 | Question kinds never pass in RL | The folder changed only by `.quark/` | The check (Chapter 20) |
 
-None of the failures lives in the harness: Sonnet passes all 32 tasks in the same harness, so the body is proven. That's the value of building the harness around a capable model first. Once it passes everything, every remaining failure belongs to the mind.
+None of the failures is in the harness: Sonnet passes all 32 tasks in it. That is the reason for building the harness around a capable model first: once it passes everything, the remaining failures are the model's.
 
-The agent got better at being an agent in its harness: 2, then 18, then 18 of 32. The gains came from instruction-tuning, and the reliability from RL. The gaps say what the next round should train.
+The score went 2, then 18, then 18 of 32. The gain came from instruction-tuning, and the reliability from RL. The gaps set what the next round trains.

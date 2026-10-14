@@ -10,7 +10,7 @@ Give a model a sequence of tokens, and it produces a score for every token in it
 
 > **TokensOut = Model(TokensIn)**
 
-That's the whole job. Everything a model seems to know, everything it seems to do, comes from doing that one thing very well.
+That is all a model does.
 
 ```
             ┌──────────── append ◄────────────┐
@@ -51,7 +51,7 @@ Step by step:
 4. **The last position predicts.** The final vector is compared with every token's embedding, all 151,936 of them, giving each a score. (The model actually scores every position, which training uses; for generation only the last one matters.)
 5. **One is picked.** The highest score is for ` Paris`. It's appended, and the whole thing runs again to predict what follows.
 
-Asked to keep going, our implementation of this model writes: *"The capital of France is Paris. The capital of Germany is Berlin. The capital of…"* It has learned what tends to follow what, so well that it reads like knowledge.
+Asked to keep going, our implementation of this model writes: *"The capital of France is Paris. The capital of Germany is Berlin. The capital of…"* It has learned what tends to follow what.
 
 ### Scores, probabilities, and picking
 
@@ -61,7 +61,7 @@ The output head's scores are called **logits**. They're turned into probabilitie
 p(token_i) = exp(s_i) / Σ_j exp(s_j)
 ```
 
-A model doesn't decide which token comes next. It gives every token a probability. Something else picks, and there are several ways to:
+The model gives every token a probability. Something else picks. There are several ways to:
 
 | Way | What it does | When it's used |
 |---|---|---|
@@ -74,15 +74,15 @@ The code for all four is in Chapter 5, under *Generation*. This is why you can a
 
 ### Why "next token" is enough
 
-It's reasonable to doubt that predicting the next token could amount to reasoning. The answer is in what it takes to predict well. To predict the next token of *"The capital of France is"*, the model has to know the fact. To predict the next token of a half-finished proof, it has to follow the proof. To predict the next token of a shell session, it has to know what the commands do. Trained on enough text, a model that predicts well has absorbed whatever structure the text contains, because that structure is what makes the next token predictable.
+Whether predicting the next token amounts to reasoning depends on what it takes to predict well. To predict the next token of *"The capital of France is"*, the model has to know the fact. To predict the next token of a half-finished proof, it has to follow the proof. To predict the next token of a shell session, it has to know what the commands do. Trained on enough text, a model that predicts well has absorbed whatever structure the text contains, because that structure is what makes the next token predictable.
 
 ### What a model can't do
 
-Notice what's missing. A model:
+A model:
 
 - **can't see.** It knows only the tokens it's given.
 - **can't remember.** Every call starts fresh. A conversation only seems remembered because the whole thing is sent again each time.
 - **can't act.** It writes tokens. If those tokens spell out a command, nothing runs it.
 - **can only take in so much.** There's a limit to how many tokens it can read at once, its **context window**. Qwen3-0.6B's is 32,768 tokens.
 
-Those limits are why an agent needs a harness. But first, we need a model. The next chapter builds one.
+The harness makes up for those limits (Part III). The next chapter builds the model.

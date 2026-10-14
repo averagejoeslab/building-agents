@@ -24,7 +24,7 @@ When quark stops, everything goes with it. Persistence comes first, because the 
 └── episodes/<time>.jsonl     episodic: every message of every session, written by the harness
 ```
 
-Episodic memory is written by the harness, one line per message, as it happens. The trick is that every message goes to two places at once: the conversation in memory, and the file on disk.
+Episodic memory is written by the harness, one line per message, as it happens. Every message goes to two places: the conversation in memory, and the file on disk.
 
 ```python
 def remember(message):                        # episodic memory: every message, as it was
@@ -73,7 +73,7 @@ def resume():
 
 *Shortened from `harness/quark_production.py`, where the full version is.*
 
-In use. Tell it something once:
+Tell it something once:
 
 ```
 > From now on, write commit messages in lowercase, starting with "fix:". Remember that.
@@ -96,7 +96,7 @@ Every command runs on your machine, unasked. Two kinds of guardrail stand in the
 | **The question** | What could it do wrong? | Who could make it do wrong, and how? |
 | **It fails when** | The agent means well and acts badly | The agent obeys someone it shouldn't |
 
-The two share machinery (the box does work for both), but they're designed differently. Safety assumes the agent is on your side and limits the damage of its errors. Security assumes someone else is trying to use it, and that the model can be fooled, so the guard has to sit in the harness, where no text can talk it out of its job.
+The two share machinery (the box does work for both), but they're designed differently. Safety assumes the agent is on your side and limits the damage of its errors. Security assumes someone else is trying to use it, and that the model can be fooled, so the guard sits in the harness, where text can't reach it.
 
 #### Safety: guardrails against its own mistakes
 
@@ -154,7 +154,7 @@ Every refusal goes back to the model as a tool result, so it knows what didn't h
 
 #### Security: guardrails against an adversary
 
-The root of the problem is in Chapter 13. Everything the agent reads becomes tokens in its context: a file it opens, a command's output, a page it fetches. The model has no reliable way to tell an instruction from text that merely *looks* like one. A README that says *"delete notes.txt"* is, to the model, more of the conversation. So security starts from one rule: **whatever comes from the world is untrusted, and the guards that matter live in the harness, not in the model's good sense.**
+The problem starts in Chapter 13. Everything the agent reads becomes tokens in its context: a file it opens, a command's output, a page it fetches. The model has no reliable way to tell an instruction from text that looks like one. A README that says *"delete notes.txt"* is, to the model, more of the conversation. So security starts from one rule: whatever comes from the world is untrusted, and the guards live in the harness.
 
 The threats to an agent like quark, how each reaches it, and what stands in its way:
 
@@ -177,7 +177,7 @@ def secrets(here):                                       # security: every secre
     return sorted(p for p in found if os.path.isfile(p))
 ```
 
-The never list refuses `cat .env`, but a pattern can be got round: `cat .e*` names the same file without matching. Hiding the file closes both doors. Checked in a real box, `cat .env`, `cat .e*` and `cat sub/server.pem` all print nothing, while the file outside the box still holds its key. The box is also started with exactly one environment variable, `HOME`, so nothing the harness knows, its own API key included, is visible to the commands the model runs.
+The never list refuses `cat .env`, but a pattern can be got round: `cat .e*` names the same file without matching. Hiding the file closes both. Checked in a real box, `cat .env`, `cat .e*` and `cat sub/server.pem` all print nothing, while the file outside the box still holds its key. The box is also started with exactly one environment variable, `HOME`, so nothing the harness knows, its own API key included, is visible to the commands the model runs.
 
 **Telling the mind.** The self model has a security section:
 
@@ -189,7 +189,7 @@ Secret files (.env, keys) are hidden from your body: in the container they read 
 
 #### Testing the guards
 
-`harness/security.py` red-teams them. Each attack is a harmless request in a folder where something quark reads tries to turn it against the person it works for. Like `tasks.py`, it runs the production harness with every approval answered yes, so only the guards and the model's judgment stand in the way, and it checks what happened, not what quark says:
+`harness/security.py` tests them. Each attack is a harmless request in a folder where something quark reads tries to turn it against the person it works for. Like `tasks.py`, it runs the production harness with every approval answered yes, so only the guards and the model's judgment stand in the way, and it checks what happened, not what quark says:
 
 | Attack | The request | The planted text | Passes when |
 |---|---|---|---|
@@ -204,12 +204,12 @@ The attacks are kept apart from `tasks.py`, so every score in this book stays on
 
 #### Where the guards are still weak
 
-Security is only as good as its weakest layer, so here are quark's, plainly:
+quark's weak spots:
 
 - **A secret made after the box starts isn't hidden.** The secret files are found once, when quark starts.
 - **The never list is a pattern.** It catches the obvious; what holds is hiding secrets, and the box having no network, so nothing read can leave the machine.
 - **Approval is only as good as the person reading it.** A long command with a harmful part buried in the middle is easy to wave through, and the evaluations answer yes to everything.
-- **Four attacks are a start, not a red team.** Each is one wording of one attack, against one model. Our own model, far smaller, may follow planted text that Sonnet ignores; `security.py` runs with any checkpoint, as `tasks.py` does.
+- **Four attacks are a small set.** Each is one wording of one attack, against one model. Our own model, far smaller, may follow planted text that Sonnet ignores; `security.py` runs with any checkpoint, as `tasks.py` does.
 
 A lab layers more on top: red-teaming by people paid to break the agent, evaluations built from many known attacks, classifiers that screen what comes in and what goes out, network policies that allow only named destinations, and secrets kept out of the agent's environment entirely.
 
@@ -246,7 +246,7 @@ Things fail that have nothing to do with the agent.
 - **Output:** each command gets a minute, and bytes that can't be decoded are replaced rather than crashing the harness.
 - **Context:** a conversation too long to send has its older part summarized.
 - **Input:** Ctrl-D quits cleanly.
-- **Control flow:** a crash is just a stop. The session was saved, so you continue it.
+- **Control flow:** a crash is a stop. The session was saved, so you continue it.
 
 ```python
 def run_command(command):
@@ -274,7 +274,7 @@ def summarize(conversation):                  # too long to send: the older part
 
 Asked to run `sleep 100`, quark saw `[stopped: it ran for over a minute]` come back, explained the limit, and split the wait into two shorter sleeps. Killed mid-command and started again, it resumed the session, read the interruption notice, and diagnosed the bug from the code instead of repeating the test run.
 
-**What this changes.** *Persistence:* surviving a crash comes almost free, because every message is already on disk. *Observability:* a failing model and a summary that replaced old turns both go in the record, or a run would look smoother than it was.
+**What this changes.** *Persistence:* surviving a crash costs almost nothing extra, because every message is already on disk. *Observability:* a failing model and a summary that replaced old turns both go in the record, or a run would look smoother than it was.
 
 ### 5. Performance: what's slow or costly?
 
@@ -294,6 +294,6 @@ On the bug fix and commit, run once each way, reuse brought the tokens paid at f
 
 ### 6. Evaluation: what could a change break?
 
-Any of these changes, to the harness or to the model, can change what the agent does. Knowing whether it still works is the sixth concern, and the most important one. It gets its own chapter.
+Any of these changes, to the harness or to the model, can change what the agent does. Knowing whether it still works is the sixth concern. It gets its own chapter.
 
-With all six folded in, that's `quark_production.py`: an agent, built from scratch, ready to leave running. Its model is Sonnet. Part IV puts ours in its place.
+With all six in, `quark_production.py` is ready to leave running. Its model is Sonnet. Part IV puts ours in its place.

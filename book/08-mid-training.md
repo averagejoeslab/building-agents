@@ -33,11 +33,11 @@ def chunks(model, texts, length=512):
     return torch.tensor(ids[:len(ids) // (length + 1) * (length + 1)]).view(-1, length + 1)
 ```
 
-Two rules shape the data before any training happens.
+Two rules apply to the data before training.
 
 **Hold some out.** The pages are shuffled; 200 are set aside and never trained on.
 
-**Keep it apart from the final exam.** The finished agent will be evaluated on 32 tasks (Chapter 15). Nothing the model trains on may resemble them, or the evaluation would measure memory instead of skill. So any page with an example whose words overlap an evaluation request by 40% or more is dropped. This is **decontamination**; the function that measures the overlap is in Chapter 17. Here it removed 14 pages, leaving 6,773, about 1,042,929 tokens.
+**Keep it apart from the evaluation.** The finished agent will be evaluated on 32 tasks (Chapter 15). Nothing the model trains on may resemble them, or the evaluation would measure memory instead of skill. So any page with an example whose words overlap an evaluation request by 40% or more is dropped. This is **decontamination**; the function that measures the overlap is in Chapter 17. Here it removed 14 pages, leaving 6,773, about 1,042,929 tokens.
 
 ### The training
 
@@ -106,12 +106,12 @@ Order and exact flags vary between right answers (`-a` and `--all`, say), so the
 
 It predicts the pages far better: a drop of 0.49 in loss means it finds the held-out pages about e⁰·⁴⁹ ≈ 1.6 times more likely per token. It names the right command a little more often.
 
-The gap between the two numbers is itself a lesson. The loss is measured on every token of a page, and most of those are prose and placeholders: the page's layout, its "More information" line, `{{path/to/file}}`. The command is a few words of each page, and the base model already knew most of them from pre-training. A small dose of mid-training teaches the *style* of the pages more than new commands. A lab would give it far more, and would measure the thing it cares about directly.
+The two numbers moved by different amounts because they measure different things. The loss is measured on every token of a page, and most of those are prose and placeholders: the page's layout, its "More information" line, `{{path/to/file}}`. The command is a few words of each page, and the base model already knew most of them from pre-training. A small dose of mid-training teaches the style of the pages more than new commands. A lab would give it far more, and would measure the thing it cares about directly.
 
 (A note on the record: `runs/training/midtrain.txt` shows the shell check as 31/100 before and 22/100 after, from an earlier, stricter version of `fits` that compared exact strings. The check was rewritten to compare words, and run again on the same two models without retraining: `uv run model/train.py check`. Those are the 48 and 53 above. Chapter 20 has more to say about checks that are wrong.)
 
 ### What it can't do yet
 
-Our model knows language, and knows the shell a little better. But ask it to do something, and it won't. It continues text. It has never seen a conversation's turn end, or a request answered, or a tool called. Making it behave is the work of post-training.
+Our model knows language, and knows the shell a little better. Ask it to do something, and it continues the text instead. It has never seen a conversation's turn end, a request answered, or a tool called. Post-training teaches that.
 
 > **Reproduce it:** `uv run model/train.py mid`, then `uv run model/train.py check`. Appendix A has the details.

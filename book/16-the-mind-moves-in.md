@@ -2,7 +2,7 @@
 
 ## 16. The Mind Moves In
 
-The harness is built and proven. Now we take out the borrowed mind and put ours in.
+The harness is built and evaluated. Now the borrowed model comes out and ours goes in.
 
 Only one part changes: the **model interface**. Instead of sending the conversation to Sonnet over the network, it runs our model on this computer. Everything else in `quark_production.py` is untouched, because the rest of the harness only ever sees messages, `tool_use` blocks, and results.
 
@@ -69,9 +69,9 @@ def our_response(context, on_each_piece, most=512):
 
 *Shortened from `harness/quark_production.py`, where the full version is.*
 
-`Block` is a dictionary that answers attribute lookups, so `block.type` and `block.input` work on our blocks exactly as they do on Sonnet's. The harness can't tell the difference, which is the point. `QUARK_MODEL=models/instruct.pt` (or any checkpoint) selects our model; empty selects Sonnet.
+`Block` is a dictionary that answers attribute lookups, so `block.type` and `block.input` work on our blocks exactly as they do on Sonnet's. The harness can't tell the difference. `QUARK_MODEL=models/instruct.pt` (or any checkpoint) selects our model; empty selects Sonnet.
 
-### Two details that matter more than they look
+### Two details
 
 **Give it the context it will be trained on.** Sonnet gets quark's 9,400-token self model. Our model gets the one-sentence instructions of Chapter 13, the ones its training examples use, through a `brief()` that `assemble_context` picks when `OURS` is set. A small model does best in the context it knows.
 
@@ -79,9 +79,9 @@ def our_response(context, on_each_piece, most=512):
 
 ### Why train it here
 
-The model's training so far taught it language, the shell, and how to take turns. None of that taught it to be *this agent, in this body*: to call *this* tool in *this* format, read *these* results, and keep going until *this* kind of job is done. A lab's model is post-trained for many harnesses at once. Training a model in its own harness teaches it the body it actually has.
+The model's training so far taught it language, the shell, and how to take turns. None of that taught it to be this agent, in this body: to call this tool in this format, read these results, and keep going until this kind of job is done. A lab's model is post-trained for many harnesses at once. Training a model in its own harness teaches it the body it actually has.
 
-That training happens in two ways, by example (Chapter 17) and by practice (Chapter 18). But first, a measurement.
+That training happens in two ways, by example (Chapter 17) and by practice (Chapter 18). First, a measurement.
 
 ### Before: the mid-trained model in quark
 

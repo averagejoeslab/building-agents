@@ -1,14 +1,14 @@
 ## 3. Mind and Body
 
-Every language agent being built today, however complicated, is made of two parts.
+A language agent is made of two parts.
 
-The **model** is the mind. It does one thing: it takes text in and outputs the next piece of text. That's all. It decides, in the sense that what it writes is its choice of what to say or do next. But it can't see anything it isn't handed, it can't remember anything between one use and the next, and nothing it writes happens in the world. It can write the words of a command, and the command doesn't run.
+The **model** is the mind. It does one thing: it takes text in and outputs the next piece of text. It decides, in the sense that what it writes is its choice of what to say or do next. But it can't see anything it isn't handed, it can't remember anything between one use and the next, and nothing it writes happens in the world. It can write the words of a command, and the command doesn't run.
 
 The **harness** is the body. It's everything around the model: it takes in what's happening, gathers what the model needs to see, hands it over, carries out what the model decides, and sends the results back around. It turns the model's words into actions, and what happened back into words.
 
 > **Agent = Harness(Model)**
 
-Neither works alone. A model without a harness is an engine on a workbench: it turns, but goes nowhere. A harness without a model is a car with no engine: everything is in place, and nothing decides where to go.
+Neither works alone. A model without a harness can decide but can't perceive or act. A harness without a model can perceive and act, and nothing decides.
 
 ### The architecture
 
@@ -20,17 +20,17 @@ Read it left to right. Something comes in (a person's request, or the result of 
 
 ### What researchers call it
 
-In 2023, researchers at Princeton published [*Cognitive Architectures for Language Agents*](https://arxiv.org/abs/2309.02427), or **CoALA** (Sumers, Yao, Narasimhan and Griffiths). It noticed that people building language agents were reinventing, one project at a time, ideas cognitive science had worked out decades earlier, and gave them a common map. A language agent, in CoALA's terms, has:
+In 2023, researchers at Princeton published [*Cognitive Architectures for Language Agents*](https://arxiv.org/abs/2309.02427), or **CoALA** (Sumers, Yao, Narasimhan and Griffiths). It maps the parts of a language agent onto ideas cognitive science had worked out decades earlier. A language agent, in CoALA's terms, has:
 
 - **Memory:** a *working memory* for what's in mind now, and long-term memories that are *episodic* (what happened), *semantic* (what's true, about the world and itself) and *procedural* (how to do things). Procedural memory lives in two places: in the model's trained weights, and in the agent's own code.
 - **Actions:** *external* ones, which reach into the world (running a command, speaking to a person); and *internal* ones, which work on its own memory: *retrieval* (bringing something from long-term memory into working memory), *reasoning* (thinking in working memory) and *learning* (writing to long-term memory).
 - **A decision cycle:** propose what to do, evaluate the options, select one, execute it, observe, and go again.
 
-CoALA also makes an observation this book leans on: a language model can be seen as a *probabilistic production system*. A production system is a set of rules that rewrite strings. A language model rewrites strings too, by appending to them, except that its rules are learned and its choices are sampled. That's why the same architectures that organized rule-based agents in the 1980s organize language agents now.
+CoALA also observes that a language model can be seen as a *probabilistic production system*. A production system is a set of rules that rewrite strings. A language model rewrites strings too, by appending to them, except that its rules are learned and its choices are sampled. That's why the same architectures that organized rule-based agents in the 1980s organize language agents now.
 
 ### The five parts of every harness
 
-However it's built, every harness does the same five jobs:
+Every harness does five jobs:
 
 | Part | What it does | In cognitive science | CoALA |
 |---|---|---|---|
@@ -40,7 +40,7 @@ However it's built, every harness does the same five jobs:
 | **Output** | Handles the response: shows its words, or carries it out as an action | Acting | Grounding actions |
 | **Control flow** | Decides what happens next: go again, hand back, or stop | The cycle | The decision cycle |
 
-Here is the pseudocode from Chapter 1 again, with the five parts named. This is the whole harness; Part III fills each line in.
+Here is the pseudocode from Chapter 1 again, with the five parts named. Part III fills each line in.
 
 ```
 procedure CONTROL_FLOW:
