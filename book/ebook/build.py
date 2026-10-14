@@ -164,7 +164,8 @@ def front(pages):
 <p><strong>Building Agents</strong><br>From nothing to a model, a harness, and a model trained in its harness<br>First edition</p>
 <p>By Chase Dovey · Average Joes Lab<br>cdovey.dev · github.com/averagejoeslab</p>
 <p>Every number, quote and result in this book comes from a real run, kept with the code in the building-agents repository: github.com/averagejoeslab/building-agents.</p>
-<p>Data sources named in the text keep their own licences: tldr-pages (CC BY 4.0), smol-smoltalk (Apache 2.0), GSM8K (MIT), Hermes function-calling (Apache 2.0), Magicoder OSS-Instruct (MIT), NL2Bash (research data). Qwen3-0.6B and Qwen3-0.6B-Base are released by the Qwen team.</p>
+<p>© 2026 Chase Dovey. The text of this book is licensed under Creative Commons Attribution 4.0 (CC BY 4.0), and its code under the MIT License. Set in Source Serif 4 and Inter, under the SIL Open Font License.</p>
+<p>Data sources named in the text keep their own licences: tldr-pages (CC BY 4.0), smol-smoltalk (Apache 2.0), GSM8K (MIT), Hermes function-calling (Apache 2.0), Magicoder OSS-Instruct (MIT), NL2Bash (MIT). Qwen3-0.6B and Qwen3-0.6B-Base are released by the Qwen team.</p>
 </section>
 {"".join(toc)}
 <section class="preface"><div class="marker">@@PREFACE@@</div><h2>Preface</h2>{md(preface)}</section>

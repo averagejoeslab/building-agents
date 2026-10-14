@@ -90,7 +90,7 @@ The mix teaches broad habits with public data, and the agent's own habits with r
 | Kind | Source (licence) | Count | What it teaches |
 |---|---|---|---|
 | Talk | smol-smoltalk (Apache 2.0) | 300 | Everyday conversation, in turns |
-| Ask for a command | NL2Bash (research data) | 300 | A request in, one `<tool_call>` out |
+| Ask for a command | NL2Bash (MIT) | 300 | A request in, one `<tool_call>` out |
 | Reason | GSM8K (MIT), worked steps as a `<think>` block | 300 | Think first, then answer |
 | Call tools | Hermes function-calling (Apache 2.0) | 300 | The tool-call format, across many tools |
 | Write code | Magicoder OSS-Instruct (MIT) | 300 | Programs from descriptions |

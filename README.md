@@ -1221,7 +1221,7 @@ and went on until it ran out of tokens. It continues the text in front of it, th
 | Kind | Data | How many |
 |---|---|---|
 | Talk | [smol-smoltalk](https://huggingface.co/datasets/HuggingFaceTB/smol-smoltalk) (Apache 2.0) | 300 |
-| Ask for a command | [NL2Bash](https://github.com/TellinaTool/nl2bash) (published research data; no licence listed) | 300 |
+| Ask for a command | [NL2Bash](https://github.com/TellinaTool/nl2bash) (MIT) | 300 |
 | Reason | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) (MIT): worked steps, as thinking | 300 |
 | Call tools, many kinds | [Hermes function-calling](https://huggingface.co/datasets/NousResearch/hermes-function-calling-v1) (Apache 2.0), in the format Qwen's comes from | 300 |
 | Write code | [Magicoder OSS-Instruct](https://huggingface.co/datasets/ise-uiuc/Magicoder-OSS-Instruct-75K) (MIT) | 300 |
@@ -1430,3 +1430,11 @@ The transcripts changed more than the score ([`runs/training/tasks-instruct.said
 **Reinforcement learning, round two.** Its own check before training: **37/40** held-out training tasks (round one, under the broken check, 12/40). Then one full round over all 26 kinds, eight tries each: 25 kinds passed **8/8**, one (`csv_total`) **0/8**. Not one group was mixed, so not one update happened; the model after 26 steps is the model before, to the last digit ([`runs/training/rl.txt`](./runs/training/rl.txt)). RL learns from the difference between a try that passed and one that failed; a curriculum the model has mastered gives it nothing, and so does one it can't touch.
 
 **What round two says.** Data moved the agent from guessing to working: it looks, acts, checks and reports what it saw, the four habits the demonstrations teach, and the multi-step tasks it was built for now pass. It did not move the score, because the score's remaining failures are a different gap: commands it doesn't quite know (`wc`'s flags, how `grep` takes a pattern, that a Python file holds code) and code fixes it can start but not finish in time. That is mid-training's job, more shell and code, not post-training's, and it is where a lab would spend the next round. And RL needs a curriculum that sits between the two: kinds this model passes some of the time. At 8/8 and 0/8, there is nothing to reinforce.
+
+## License
+
+The code (`model/`, `harness/`, `paper/quark.py` and the book's build scripts) is under the [MIT License](./LICENSE). The writing (this README, [the book](./book/), [the paper](./paper/)) and the records in `runs/` are under [Creative Commons Attribution 4.0](./LICENSE-CC-BY-4.0) (CC BY 4.0): you can share and adapt them, for any purpose, as long as you credit Chase Dovey and link back to this repo.
+
+The training data in `data/`, the Qwen models it trains, and the book's fonts come from others and keep their own licenses: see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+
+Copyright © 2026 Chase Dovey.

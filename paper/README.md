@@ -24,7 +24,7 @@ mkdir -p arxiv && cp -r main.tex main.bbl references.bib quark.py sections arxiv
 tar -czf arxiv.tar.gz -C arxiv .
 ```
 
-Upload `arxiv.tar.gz`. Suggested categories: **cs.AI** (primary), cs.SE, cs.CL.
+Upload `arxiv.tar.gz`. Suggested categories: **cs.AI** (primary), cs.SE, cs.CL. When arXiv asks for a license, choose **CC BY 4.0**, the license this repo gives the paper.
 
 ## Layout
 
@@ -35,3 +35,7 @@ Upload `arxiv.tar.gz`. Suggested categories: **cs.AI** (primary), cs.SE, cs.CL.
 | `references.bib`, `main.bbl` | Bibliography, and its compiled form for arXiv |
 | `quark.py` | The reference harness reproduced in the appendix (a copy of `harness/quark.py`) |
 | `main.pdf` | The compiled paper |
+
+## License
+
+The paper is licensed under [CC BY 4.0](../LICENSE-CC-BY-4.0), and `quark.py` under the [MIT License](../LICENSE).

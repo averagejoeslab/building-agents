@@ -66,3 +66,7 @@ Watch how much has to exist before anything can do that on its own.
 
 - A. [Reproducing Every Experiment](./A-reproducing-every-experiment.md)
 - B. [Glossary](./B-glossary.md)
+
+## License
+
+The book is licensed under [CC BY 4.0](../LICENSE-CC-BY-4.0), and its code under the [MIT License](../LICENSE). Its data sources and fonts keep their own licenses: see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
