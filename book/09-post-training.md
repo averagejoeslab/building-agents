@@ -140,19 +140,21 @@ To make a cup of tea, follow these steps:
 
 A tool call, in the right format, that looks before it acts: the habit the quark sessions teach.
 
-**A word problem.** *Carmen has $100, Samantha has $25 more than Carmen, and Daisy has $50 more than Samantha. How much do all three have?* Before, it writes a different word problem. After:
+**A word problem.** *Pearl has $100, Athena has $25 more than Pearl, and Duchess has $50 more than Athena. How much do all three have?* Before, it writes a different word problem. After:
 
 ```
 <think>
-Samantha has $25 + $100 = $125.
-Daisy has $50 + $125 = $175.
+Athena has $25 + $100 = $125.
+Duchess has $50 + $125 = $175.
 All three girls have $125 + $175 = $200 combined.
 </think>
 
 The answer is 200.
 ```
 
-It now takes turns, answers what was asked, and stops. It has the *shape* of reasoning but not yet the substance: it left Carmen out, and the right answer is 400. Instruction-tuning teaches behavior. It can't give a 600-million-parameter model arithmetic it doesn't have.
+*(The names in this example have been changed from the ones in the GSM8K question and the recorded reply; everything else is as the model wrote it.)*
+
+It now takes turns, answers what was asked, and stops. It has the *shape* of reasoning but not yet the substance: it left Pearl out, and the right answer is 400. Instruction-tuning teaches behavior. It can't give a 600-million-parameter model arithmetic it doesn't have.
 
 We have a mind that can hold a conversation. It still can't do anything. Now we build its body.
 
