@@ -36,6 +36,30 @@ Its own check, before training: **37 of 40** (round one, under the broken check,
 
 Not one group was mixed. So not one update happened. The model after 26 steps was the model before, to the last digit.
 
+### The arithmetic of a useful group
+
+Round two's RL did nothing because every group was all-pass or all-fail. How likely is that? If a model passes a kind of task with probability *p*, and tries it *G* times independently, the chance that the group is **mixed**, so that it has something to learn from, is:
+
+```
+P(mixed) = 1 − p^G − (1 − p)^G
+```
+
+For groups of eight:
+
+| p (chance of passing) | P(all pass) | P(all fail) | P(mixed): a useful group |
+|---|---|---|---|
+| 0.00 | 0.00 | 1.00 | 0.00 |
+| 0.05 | 0.00 | 0.66 | 0.34 |
+| 0.20 | 0.00 | 0.17 | 0.83 |
+| 0.50 | 0.004 | 0.004 | 0.99 |
+| 0.80 | 0.17 | 0.00 | 0.83 |
+| 0.95 | 0.66 | 0.00 | 0.34 |
+| 1.00 | 1.00 | 0.00 | 0.00 |
+
+RL learns fastest on tasks the model passes about half the time, and not at all at the ends. Round two's model passed 25 kinds at *p* ≈ 1 and one at *p* ≈ 0: the worst possible curriculum, built by accident from making the model better at exactly the kinds RL trains on.
+
+A **curriculum** keeps tasks in the middle. In practice that means measuring each kind's pass rate first, dropping the kinds near 1 or making them harder, adding easier variants of the kinds near 0, and re-measuring as training goes. Labs do this at scale, with thousands of task kinds and difficulty levels, so that some always sit in the useful band.
+
 ### What round two says
 
 Data moved the agent from guessing to working: it looks, acts, checks, and reports what it saw, the four habits the demonstrations teach. It did not move the score, because the remaining failures are a different gap: commands it doesn't quite know, and code fixes it can start but not finish. That's not post-training's job. It's mid-training's: more shell, more code. That's where a lab would spend the next round.

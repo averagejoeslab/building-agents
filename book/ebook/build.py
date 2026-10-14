@@ -32,6 +32,15 @@ li p { margin: 0; text-align: left; }
 table { width: 100%; border-collapse: collapse; margin: 0.9em 0 1.1em; font-size: 8.4pt; line-height: 1.35; break-inside: avoid; }
 th, td { text-align: left; vertical-align: top; padding: 0.35em 0.45em; border-bottom: 0.5pt solid var(--rule); }
 th { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 7.6pt; letter-spacing: 0.02em; color: var(--soft); border-bottom: 0.8pt solid var(--ink); }
+pre { font-family: 'DejaVu Sans Mono', monospace; font-size: 7pt; line-height: 1.42; background: #f6f4ef; border-left: 2pt solid #d9d6cf;
+      padding: 0.6em 0.75em; margin: 0.6em 0 1em; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; break-inside: auto; }
+.ln { display: block; min-height: 1.42em; }
+pre code { background: none; padding: 0; font-size: 1em; border-radius: 0; }
+figure { margin: 1em 0 1.2em; break-inside: avoid; }
+figure img { width: 100%; display: block; }
+figcaption { font-size: 8.4pt; line-height: 1.4; color: var(--soft); margin-top: 0.5em; font-style: italic; }
+.chapter-body h2 { font-size: 13pt; font-weight: 600; margin: 1.6em 0 0.6em; break-after: avoid; }
+td code, th code { font-size: 0.86em; }
 hr { border: 0; border-top: 0.5pt solid var(--rule); margin: 1.4em 0; }
 
 /* chapters */
@@ -68,8 +77,8 @@ h3 + p, h4 + p { break-before: avoid; }
 .copyright p { text-align: left; margin-bottom: 0.7em; }
 .toc { break-after: page; }
 .toc h2 { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20pt; margin: 0.15in 0 0.7em; }
-.toc-part { font-family: 'Inter', sans-serif; font-size: 7.4pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin: 0.85em 0 0.25em; }
-.toc-row { display: flex; align-items: baseline; font-size: 9.6pt; margin: 0.1em 0; }
+.toc-part { font-family: 'Inter', sans-serif; font-size: 7.4pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin: 0.6em 0 0.15em; }
+.toc-row { display: flex; align-items: baseline; font-size: 9.2pt; margin: 0.02em 0; }
 .toc-row .n { width: 1.7em; color: var(--soft); font-family: 'Inter', sans-serif; font-size: 8.5pt; }
 .toc-row .t { flex: 0 1 auto; }
 .toc-row .dots { flex: 1; border-bottom: 0.6pt dotted #b9b4aa; margin: 0 0.4em; transform: translateY(-0.25em); }
@@ -88,9 +97,14 @@ LOOP_SVG = """<svg class="cover-loop" viewBox="0 0 200 200" xmlns="http://www.w3
 
 def md(text):
     text = re.sub(r"\\>", "&gt;", text)
-    return markdown.markdown(text, extensions=["tables", "sane_lists"])
+    out = markdown.markdown(text, extensions=["tables", "sane_lists", "fenced_code"])
+    out = out.replace('src="figures/', 'src="file://' + os.path.join(os.path.abspath(BOOK), "figures") + '/')   # figures, from the book's folder
+    out = re.sub(r"<pre><code([^>]*)>(.*?)</code></pre>", lambda m: "<pre><code" + m[1] + ">" + "".join(
+        f'<span class="ln" style="padding-left:{len(line) - len(line.lstrip(" ")) + 4}ch;text-indent:-{len(line) - len(line.lstrip(" ")) + 4}ch">{line}</span>'
+        for line in m[2].rstrip("\n").split("\n")) + "</code></pre>", out, flags=re.S)   # wrapped lines hang
+    return re.sub(r"<p>(<img [^>]+>)</p>\s*<p><em>(.+?)</em></p>", r'<figure>\1<figcaption>\2</figcaption></figure>', out, flags=re.S)
 
-files = sorted(glob.glob(os.path.join(BOOK, "[0-9][0-9]-*.md")))
+files = sorted(glob.glob(os.path.join(BOOK, "[0-9][0-9]-*.md"))) + sorted(glob.glob(os.path.join(BOOK, "[A-Z]-*.md")))
 chapters, parts = [], []
 body = []
 for f in files:
@@ -101,12 +115,17 @@ for f in files:
         body.append(f'<section class="part"><div class="marker">@@PART{len(parts)}@@</div><div class="part-num">{m[1]}</div>'
                     f'<div class="part-title">{html.escape(m[2])}</div><div class="part-rule"></div></section>')
         src = src[m.end():]
-    h = re.match(r"\s*## (\d+)\. (.+)\n", src)
+    h = re.match(r"\s*## (\d+)\. (.+)\n", src) or re.match(r"\s*# Appendix ([A-Z]): (.+)\n", src)
     num, title = h[1], h[2]
     rest = src[h.end():]
+    if num == "A":                                       # the appendices get a part page of their own
+        parts.append(("Appendices", "Reference", len(chapters)))
+        body.append(f'<section class="part"><div class="marker">@@PART{len(parts)}@@</div><div class="part-num">Appendices</div>'
+                    f'<div class="part-title">Reference</div><div class="part-rule"></div></section>')
     chapters.append((num, title))
+    label = f"Appendix {num}" if num.isalpha() else f"Chapter {num}"
     body.append(f'<section class="chapter"><div class="chapter-head"><div class="marker">@@CH{num}@@</div>'
-                f'<div class="chapter-num">Chapter {num}</div><h2 class="chapter-title">{html.escape(title)}</h2>'
+                f'<div class="chapter-num">{label}</div><h2 class="chapter-title">{html.escape(title)}</h2>'
                 f'<div class="chapter-rule"></div></div><div class="chapter-body">{md(rest)}</div></section>')
 
 def page(content, title="Building Agents"):
@@ -116,11 +135,11 @@ def page(content, title="Building Agents"):
 open(os.path.join(TMP, "body.html"), "w").write(page("".join(body)))
 
 readme = open(os.path.join(BOOK, "README.md")).read()
-preface = readme.split("## Preface", 1)[1].split("---", 1)[0]
+preface = readme.split("## Preface to the second edition", 1)[1].split("---", 1)[0]
 
 def front(pages):
     toc = ['<section class="toc"><h2>Contents</h2>',
-           f'<div class="toc-row"><span class="n"></span><span class="t">Preface</span></div>']
+           f'<div class="toc-row"><span class="n"></span><span class="t">Preface to the Second Edition</span></div>']
     part_at = {start: (pn, pt) for pn, pt, start in parts}
     for i, (num, title) in enumerate(chapters):
         if i in part_at:
@@ -130,21 +149,21 @@ def front(pages):
                    f'<span class="dots"></span><span class="p">{pages.get(num, "")}</span></div>')
     toc.append("</section>")
     return page(f"""
-<section class="cover"><div class="cover-inner"><div class="cover-kicker">From nothing to an agent</div>
+<section class="cover"><div class="cover-inner"><div class="cover-kicker">Second edition</div>
 <div class="cover-title">Building<br>Agents</div>
 <div class="cover-sub">From nothing to a model, a harness, and a model trained in its harness</div></div>
 {LOOP_SVG}
 <div class="cover-author">Chase Dovey<span>Average Joes Lab</span></div></section>
 <section class="titlepage"><h1>Building Agents</h1><div class="sub">From nothing to a model, a harness,<br>and a model trained in its harness</div>
-<div class="by">Chase Dovey</div><div class="lab">Average Joes Lab</div></section>
+<div class="lab" style="margin-top:1.4em">Second edition</div><div class="by">Chase Dovey</div><div class="lab">Average Joes Lab</div></section>
 <section class="copyright">
-<p><strong>Building Agents</strong><br>From nothing to a model, a harness, and a model trained in its harness</p>
+<p><strong>Building Agents</strong><br>From nothing to a model, a harness, and a model trained in its harness<br>Second edition</p>
 <p>By Chase Dovey · Average Joes Lab<br>cdovey.dev · github.com/averagejoeslab</p>
 <p>Every number, quote and result in this book comes from a real run, kept with the code in the building-agents repository: github.com/averagejoeslab/building-agents.</p>
 <p>Data sources named in the text keep their own licences: tldr-pages (CC BY 4.0), smol-smoltalk (Apache 2.0), GSM8K (MIT), Hermes function-calling (Apache 2.0), Magicoder OSS-Instruct (MIT), NL2Bash (research data). Qwen3-0.6B and Qwen3-0.6B-Base are released by the Qwen team.</p>
 </section>
 {"".join(toc)}
-<section class="preface"><div class="marker">@@PREFACE@@</div><h2>Preface</h2>{md(preface)}</section>
+<section class="preface"><div class="marker">@@PREFACE@@</div><h2>Preface to the Second Edition</h2>{md(preface)}</section>
 """)
 
 def render(html_name, pdf_name, numbered, start=1):
@@ -154,7 +173,7 @@ def render(html_name, pdf_name, numbered, start=1):
 def find_markers(pdf):
     found = {}
     for i, p in enumerate(PdfReader(pdf).pages):
-        for mk in re.findall(r"@@(PART\d+|CH\d+|PREFACE)@@", p.extract_text() or ""):
+        for mk in re.findall(r"@@(PART\d+|CH\w+?|PREFACE)@@", p.extract_text() or ""):
             found.setdefault(mk, i)
     return found
 
@@ -178,14 +197,14 @@ for name in ["front.pdf", "body.pdf"]:
         w.add_page(p)
 w.add_outline_item("Cover", 0)
 w.add_outline_item("Contents", 3)
-if "PREFACE" in fmarks: w.add_outline_item("Preface", fmarks["PREFACE"])
+if "PREFACE" in fmarks: w.add_outline_item("Preface to the Second Edition", fmarks["PREFACE"])
 part_at = {start: (pn, pt, k + 1) for k, (pn, pt, start) in enumerate(parts)}
 parent = None
 for i, (num, title) in enumerate(chapters):
     if i in part_at:
         pn, pt, k = part_at[i]
         parent = w.add_outline_item(f"{pn}: {pt}", front_n + marks[f"PART{k}"])
-    w.add_outline_item(f"{num}. {title}", front_n + marks[f"CH{num}"], parent=parent)
+    w.add_outline_item(f"{num}. {title}" if num.isdigit() else f"Appendix {num}: {title}", front_n + marks[f"CH{num}"], parent=parent)
 w.add_metadata({"/Title": "Building Agents", "/Author": "Chase Dovey",
                 "/Subject": "From nothing to a model, a harness, and a model trained in its harness"})
 w.page_mode = "/UseOutlines"

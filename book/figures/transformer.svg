@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 480" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3a3a40"/>
+    </marker>
+  </defs>
+  <rect width="700" height="480" fill="#ffffff"/>
+  <!-- left column: pipeline -->
+  <g text-anchor="middle">
+    <rect x="40" y="20" width="200" height="34" rx="6" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="42">"The capital of France is"</text>
+    <line x1="140" y1="54" x2="140" y2="74" stroke="#3a3a40" stroke-width="1.3" marker-end="url(#a)"/>
+    <text x="250" y="68" text-anchor="start" fill="#5b5b60" font-size="11">1 · tokenizer</text>
+
+    <rect x="40" y="76" width="200" height="34" rx="6" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="98">[785, 6722, 315, 9625, 374]</text>
+    <line x1="140" y1="110" x2="140" y2="130" stroke="#3a3a40" stroke-width="1.3" marker-end="url(#a)"/>
+    <text x="250" y="124" text-anchor="start" fill="#5b5b60" font-size="11">2 · embedding  [5 × 1,024]</text>
+
+    <rect x="30" y="132" width="220" height="218" rx="8" fill="#faf8f4" stroke="#8a3b12" stroke-width="1.5"/>
+    <text x="140" y="152" fill="#8a3b12" font-weight="600" font-size="11" letter-spacing="1">BLOCK × 28</text>
+    <rect x="60" y="166" width="160" height="30" rx="5" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="186">RMSNorm</text>
+    <rect x="60" y="204" width="160" height="38" rx="5" fill="#14161a"/>
+    <text x="140" y="221" fill="#f4efe6" font-weight="600">4 · Attention</text>
+    <text x="140" y="235" fill="#cfc8bc" font-size="10.5">3 · RoPE on queries, keys</text>
+    <circle cx="140" cy="258" r="9" fill="#fff" stroke="#3a3a40"/><text x="140" y="262">+</text>
+    <rect x="60" y="276" width="160" height="26" rx="5" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="293">RMSNorm</text>
+    <rect x="60" y="306" width="160" height="22" rx="5" fill="#14161a"/>
+    <text x="140" y="321" fill="#f4efe6" font-weight="600" font-size="11">gated MLP · 3,072 wide</text>
+    <circle cx="140" cy="338" r="7" fill="#fff" stroke="#3a3a40"/><text x="140" y="342" font-size="11">+</text>
+    <!-- residual lines -->
+    <path d="M44,166 L44,258 L130,258" fill="none" stroke="#8a3b12" stroke-width="1.2" marker-end="url(#a)"/>
+    <path d="M236,262 L236,338 L149,338" fill="none" stroke="#8a3b12" stroke-width="1.2" marker-end="url(#a)"/>
+    <text x="18" y="214" fill="#8a3b12" font-size="10" transform="rotate(-90 18 214)">residual</text>
+
+    <line x1="140" y1="350" x2="140" y2="366" stroke="#3a3a40" stroke-width="1.3" marker-end="url(#a)"/>
+    <rect x="40" y="368" width="200" height="34" rx="6" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="390">RMSNorm, then 6 · output head</text>
+    <line x1="140" y1="402" x2="140" y2="422" stroke="#3a3a40" stroke-width="1.3" marker-end="url(#a)"/>
+    <text x="250" y="416" text-anchor="start" fill="#5b5b60" font-size="11">→ 5 × 151,936 scores</text>
+    <rect x="40" y="424" width="200" height="34" rx="6" fill="#fff" stroke="#3a3a40"/>
+    <text x="140" y="446">7 · generation: pick " Paris"</text>
+    <path d="M240,441 L400,441 L400,37 L242,37" fill="none" stroke="#d98a52" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#a)"/>
+    <text x="412" y="250" fill="#d98a52" font-size="11" text-anchor="middle" transform="rotate(90 412 250)">append the new token, and round again</text>
+  </g>
+  <!-- right column: attention detail -->
+  <g>
+    <text x="450" y="40" font-weight="600" font-size="13">Inside attention, one head</text>
+    <text x="450" y="62" fill="#5b5b60" font-size="11">each token: a query, a key, a value</text>
+    <g font-size="10.5" fill="#3a3a40" text-anchor="middle">
+      <text x="510" y="92">The</text><text x="546" y="92">capital</text><text x="582" y="92">of</text><text x="618" y="92">France</text><text x="654" y="92">is</text>
+    </g>
+    <g font-size="10.5" fill="#3a3a40" text-anchor="end">
+      <text x="488" y="116">The</text><text x="488" y="140">capital</text><text x="488" y="164">of</text><text x="488" y="188">France</text><text x="488" y="212">is</text>
+    </g>
+    <!-- grid: opacity = weight; masked cells hatched -->
+    <g stroke="#fff" stroke-width="2">
+      <rect x="494" y="100" width="34" height="22" fill="#8a3b12" fill-opacity="1"/>
+      <rect x="530" y="100" width="34" height="22" fill="#e9e5dc"/><rect x="566" y="100" width="34" height="22" fill="#e9e5dc"/><rect x="602" y="100" width="34" height="22" fill="#e9e5dc"/><rect x="638" y="100" width="34" height="22" fill="#e9e5dc"/>
+      <rect x="494" y="124" width="34" height="22" fill="#8a3b12" fill-opacity=".3"/><rect x="530" y="124" width="34" height="22" fill="#8a3b12" fill-opacity=".7"/>
+      <rect x="566" y="124" width="34" height="22" fill="#e9e5dc"/><rect x="602" y="124" width="34" height="22" fill="#e9e5dc"/><rect x="638" y="124" width="34" height="22" fill="#e9e5dc"/>
+      <rect x="494" y="148" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/><rect x="530" y="148" width="34" height="22" fill="#8a3b12" fill-opacity=".5"/><rect x="566" y="148" width="34" height="22" fill="#8a3b12" fill-opacity=".4"/>
+      <rect x="602" y="148" width="34" height="22" fill="#e9e5dc"/><rect x="638" y="148" width="34" height="22" fill="#e9e5dc"/>
+      <rect x="494" y="172" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/><rect x="530" y="172" width="34" height="22" fill="#8a3b12" fill-opacity=".4"/><rect x="566" y="172" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/><rect x="602" y="172" width="34" height="22" fill="#8a3b12" fill-opacity=".4"/>
+      <rect x="638" y="172" width="34" height="22" fill="#e9e5dc"/>
+      <rect x="494" y="196" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/><rect x="530" y="196" width="34" height="22" fill="#8a3b12" fill-opacity=".2"/><rect x="566" y="196" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/><rect x="602" y="196" width="34" height="22" fill="#8a3b12" fill-opacity=".5"/><rect x="638" y="196" width="34" height="22" fill="#8a3b12" fill-opacity=".1"/>
+    </g>
+    <text x="450" y="244" fill="#5b5b60" font-size="10.5">rows: queries · columns: keys</text>
+    <text x="450" y="260" fill="#5b5b60" font-size="10.5">darker: more weight · grey: masked, never ahead</text>
+    <text x="450" y="276" fill="#5b5b60" font-size="10.5">(illustrative weights)</text>
+    <text x="450" y="306" font-size="11.5">weights = softmax(q·kᵀ / √128, masked)</text>
+    <text x="450" y="326" font-size="11.5">output  = weights · v</text>
+    <text x="450" y="354" fill="#5b5b60" font-size="10.5">16 query heads share 8 key/value heads</text>
+  </g>
+</svg>

@@ -30,6 +30,30 @@ What we couldn't match was size: of the model, the data, the environments, the t
 9. **Check every stage twice:** on its own held-out data, and as an agent, in its harness, on the evaluation.
 10. **Let what fell short decide the next round.** Change the data, not the evaluation. Fix the checks when they're wrong. Train again.
 
+### The whole method, as pseudocode
+
+```
+procedure BUILD_AGENT(job):
+    model   ← ARCHITECTURE()                                  -- Ch 5: seven parts; check against a reference
+    model   ← PRETRAIN(model, all text)                        -- Ch 7: next token, everywhere
+    model   ← MIDTRAIN(model, text for the job)                -- Ch 8: next token, chosen data
+    model   ← INSTRUCT(model, conversations)                   -- Ch 9: assistant tokens only
+    harness ← HARNESS(input, context, model_interface, output, control_flow)   -- Ch 10–13
+    harness ← HARDEN(harness, persistence, safety, observability, resilience, performance)  -- Ch 14
+    eval    ← TASKS(job, known answers, checks of what was done)              -- Ch 15
+    assert eval(harness(capable model)) is perfect             -- the body is proven
+    loop:                                                      -- rounds
+        model ← INSTRUCT(model, verified sessions in harness)  -- Ch 17
+        model ← RL(model, harness, training tasks passed sometimes)   -- Ch 18
+        score ← eval(harness(model))                           -- Ch 19
+        if score is good enough: ship harness(model)
+        gaps  ← DIAGNOSE(failures)                             -- which part, which stage
+        change the data, the curriculum, or the checks for the gaps   -- Ch 20
+        -- never change the evaluation to fit the model
+```
+
+Every line has a check, and every check runs on data the line never trained on.
+
 ### What to remember
 
 A model is a mind that predicts the next token. Everything it knows comes from training, and what it does with that knowledge comes from post-training. A harness is the body that lets the mind perceive, remember and act. And the mind works best in the body it was trained in. The last step, training the model in its own harness, is where a model becomes *this* agent.

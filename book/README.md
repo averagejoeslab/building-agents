@@ -2,17 +2,19 @@
 
 ### From nothing to a model, a harness, and a model trained in its harness
 
+**Second edition**
+
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
 ---
 
-## Preface
+## Preface to the second edition
 
-This book is about how an agent is built from scratch: not by calling someone else's AI, but by making each part yourself. You'll build the model, the mind that decides, and train it. You'll build the harness, the body that lets the mind see and act. Then you'll train the mind inside its body, so it gets better at using it.
+The first edition told the story of building an agent from scratch in plain words, with no code. This edition tells the same story as a technical teaching book. Every chapter now shows the code it describes, annotated line by line; the diagrams of each architecture; the actual training examples the model learned from; the arithmetic of gradient descent and reinforcement learning, worked by hand; pseudocode for the harness that you can carry to any language; and, in an appendix, step-by-step instructions for reproducing every experiment, with the numbers you should see.
 
-That's how the labs that make frontier agents work. They build a model, train it in stages, build the harness the agent will live in, and then train the model inside that harness. This book follows the same path at the scale of one computer. Where one computer runs out, we say so, and borrow something bigger.
+The code is the real code: the [`building-agents`](https://github.com/averagejoeslab/building-agents) repository, which holds a model built from its parts (`model/model.py`, about 350 lines), its training in stages (`model/train.py`, about 800 lines), a harness built one primitive at a time (`harness/`), and the record of every run (`runs/`). Where the book shows a shorter version of a function, to fit the page or to make one idea stand out, it says so, and the full version is in the repository at the path given.
 
-Everything in it really happened. Every number, every quote from a model, every success and failure comes from a real run, kept in the [`building-agents`](https://github.com/averagejoeslab/building-agents) repository alongside the code. You don't need to read the code to follow the book. Each chapter explains what was built, why, and what happened, in plain words. If you want to see how, the code is there.
+You'll need to read Python to follow the code. You don't need to have trained a model before, or built an agent. The book builds both, in order, and explains each idea the first time it's used.
 
 The book follows one agent, **quark**, from nothing to working, and one small job, from the first chapter where it appears to the last:
 
@@ -36,7 +38,7 @@ Watch how much has to exist before anything can do that on its own.
 
 4. [What a Model Does](./04-what-a-model-does.md)
 5. [The Seven Parts of a Model](./05-the-seven-parts-of-a-model.md)
-6. [How a Model Learns](./06-how-a-model-learns.md)
+6. [How a Model Learns: Gradient Descent](./06-how-a-model-learns.md)
 7. [Pre-training: Language and the World](./07-pre-training.md)
 8. [Mid-training: Knowing the Job](./08-mid-training.md)
 9. [Post-training: Learning to Behave](./09-post-training.md)
@@ -54,10 +56,15 @@ Watch how much has to exist before anything can do that on its own.
 
 16. [The Mind Moves In](./16-the-mind-moves-in.md)
 17. [Learning from Examples](./17-learning-from-examples.md)
-18. [Learning from Its Own Tries](./18-learning-from-its-own-tries.md)
+18. [Learning from Its Own Tries: Reinforcement Learning](./18-learning-from-its-own-tries.md)
 19. [Reading the Results](./19-reading-the-results.md)
 20. [The Next Round](./20-the-next-round.md)
 
 **Part V: The Method**
 
 21. [Building an Agent from Scratch](./21-building-an-agent-from-scratch.md)
+
+**Appendices**
+
+- A. [Reproducing Every Experiment](./A-reproducing-every-experiment.md)
+- B. [Glossary](./B-glossary.md)

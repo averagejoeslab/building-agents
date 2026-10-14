@@ -15,8 +15,23 @@ People build agents for the same reasons they hire help:
 
 You don't have to. You can take a model someone else trained, wrap it in a harness someone else built, and have an agent this afternoon. Many good agents are made that way.
 
-But building one from scratch is the way to *understand* one. When an agent fails, the cause could be in the model: it didn't know something, or never learned a habit. Or it could be in the harness: it couldn't see what it needed, or couldn't do what it decided. Or it could be in how the two fit together: the model was trained for a different body than the one it's in. You can only tell these apart if you know what each part is and how it's made.
+But building one from scratch is the way to *understand* one. When an agent fails, the cause could be in the model: it didn't know something, or never learned a habit. Or it could be in the harness: it couldn't see what it needed, or couldn't do what it decided. Or it could be in how the two fit together: the model was trained for a different body than the one it's in. You can only tell these apart if you know what each part is and how it's made. Chapter 19 does exactly this diagnosis, gap by gap, and every diagnosis depends on knowing where each piece came from.
 
 And building from scratch is how the frontier labs do it. They don't take a model and a harness off the shelf. They design the model, train it in stages, build the harness the agent will live in, and then train the model *inside that harness*, so the mind learns to use the body it actually has. The best agents come from that last step, and it's the one least often explained.
 
-This book does all of it: the model, its training, the harness, and the training of the model in the harness. To do that, we first need a precise picture of what the parts are.
+### What "from scratch" means here
+
+This book builds everything, but not everything at full size. The honest accounting:
+
+| | Built here | Borrowed, and why |
+|---|---|---|
+| **Model architecture** | Yes: every part, in about 350 lines | Checked against Qwen's implementation to prove it's right |
+| **Tokenizer** | Yes: the learning algorithm and the encoder | Qwen's learned merges are loaded for the large model |
+| **Pre-training** | Yes, from random numbers, on 320,000 tokens | Qwen3-0.6B-Base's weights for the rest: 36 trillion tokens is beyond one computer |
+| **Mid-training** | Yes | |
+| **Instruction-tuning** | Yes: data pipeline, masking, training loop | Public datasets for the general conversation kinds |
+| **Reinforcement learning** | Yes: the loop, the reward, the update | |
+| **Harness** | Yes: every line | Claude Sonnet as the mind while the body is built |
+| **Evaluation** | Yes: 32 tasks and their checks | |
+
+Everything borrowed is swapped in through an interface we also built, so the swap is visible and reversible. Where our scale falls short of a lab's, the book says by how much, and what the lab does instead.

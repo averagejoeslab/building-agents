@@ -16,25 +16,41 @@ Then **perceive again**, because acting changes the world, and the change is the
 
 You're an agent. So is a thermostat, in a very small way: it perceives the temperature, decides it's too cold, and turns on the heat. A chess program is one, and so is a robot vacuum. What makes something an agent isn't how clever it is. It's the loop.
 
+### The loop, as a program
+
+Everything in this book is built on one shape. Written as pseudocode, an agent is:
+
+```
+state ← initial memory
+loop:
+    observation ← perceive(world)
+    state       ← remember(state, observation)
+    action      ← decide(state)
+    world       ← act(world, action)
+    if action is STOP: break
+```
+
+Each of the four verbs becomes a real piece of software by the end of Part III. `decide` will be a language model. `perceive`, `remember` and `act` will be the harness. The loop itself will be a few lines of control flow. Keep this shape in mind: when something in the book seems complicated, find which of these four verbs it belongs to.
+
 ### Memory
 
-The loop needs memory, because deciding well depends on more than what's in front of you right now. Cognitive science describes several kinds, and we'll use all of them in this book:
+The loop needs memory, because deciding well depends on more than what's in front of you right now. Cognitive science describes several kinds, and we'll build all of them:
 
-| Kind | What it holds | In you |
-|---|---|---|
-| **Working memory** | What's in mind right now | The sentence you're reading, and what it's about |
-| **Episodic memory** | What happened | What you did this morning |
-| **Semantic memory** | What's true | That Paris is the capital of France |
-| **Procedural memory** | How to do things | How to ride a bike |
+| Kind | What it holds | In you | In our agent (Chapter 14) |
+|---|---|---|---|
+| **Working memory** | What's in mind right now | The sentence you're reading | The model's context window |
+| **Episodic memory** | What happened | What you did this morning | A log of every session, on disk |
+| **Semantic memory** | What's true | That Paris is the capital of France | A file of facts, one per line |
+| **Procedural memory** | How to do things | How to ride a bike | The model's weights, and a folder of skills |
 
-Working memory is small and fast and constantly changing. The other three are long-term: they last, and you reach into them when you need something.
+Working memory is small, fast, and rebuilt constantly. The other three are long-term: they last, and you reach into them when you need something.
 
 ### Language agents
 
-For most of computing history, agents were narrow. A thermostat decides only about heat. A chess program only plays chess. Each one's deciding was written by hand, rule by rule, for its one job.
+For most of computing history, agents were narrow. A thermostat decides only about heat. A chess program only plays chess. Each one's `decide` was written by hand, rule by rule, for its one job.
 
-What changed is the arrival of **language models**: programs that read and write text well enough to reason about almost anything that can be described in words. A language model can be the *deciding* part of an agent, for almost any job. Give it a description of the situation, and it can decide what to do next.
+What changed is the arrival of **language models**: programs that read and write text well enough to reason about almost anything that can be described in words. A language model can be the `decide` of an agent, for almost any job. Give it a description of the situation, and it writes what to do next.
 
-An agent built that way is a **language agent**, or an **LLM agent**, after the *large language model* at its center. This book is about building one from nothing.
+An agent built that way is a **language agent**, or an **LLM agent**, after the *large language model* at its center. This book builds one from nothing.
 
 But a language model alone is not an agent. It can decide, but it can't perceive, remember, or act. Before we see why, it's worth asking why anyone would want to build one at all.

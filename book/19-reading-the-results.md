@@ -46,4 +46,34 @@ Every check says where the agent is still weak. For each gap, here's the likely 
 | **RL drifted, three times.** | No anchor to a frozen copy of itself. | The frozen copy, once there's memory for it. | A penalty for drifting from the copy, limited updates, and step sizes tuned on many runs. |
 | **The reasoning has the shape, not the sum.** | 600 million numbers. | A bigger model. | Scale. |
 
+### Diagnosing a failure: which part, which stage?
+
+Every failure in an agent lives somewhere: in a part of the harness, or in a stage of the model's training. The fix depends on finding where. Read the transcript (`runs/training/tasks-*.said.txt` holds every one) and ask, in order:
+
+```
+procedure DIAGNOSE(failed task, transcript):
+    if the harness never showed the model what it needed:          → CONTEXT or INPUT
+    if the model asked for the right thing and it didn't happen:  → OUTPUT (the parser, the box, the never list)
+    if the loop stopped too early or ran too long:                  → CONTROL FLOW
+    if the model's reply broke format (no tags, template text):     → POST-TRAINING: format, chat template
+    if the model knew what to do but didn't do it:                 → POST-TRAINING: habits (examples, then RL)
+    if the model didn't know the command or the fact:              → MID-TRAINING: knowledge
+    if the model couldn't reason it through at all:                → SCALE: a bigger model
+    if the check itself is wrong:                                   → THE EVALUATION
+```
+
+Applied to this book's failures:
+
+| Failure | Evidence in the transcript | Where it lives |
+|---|---|---|
+| Continues the template's text | No tool call, 512 tokens of template wording | Post-training: has never seen a turn end |
+| Answers after one look | `ls`, then a made-up cause | Post-training: habit (demonstrations too short) |
+| Tool call without tags | Bare JSON, handed back as words | Post-training: format |
+| Says instead of doing | The right command, in prose | Post-training: talk data taught explaining |
+| `wc -s`, `grep` on the wrong files | A wrong command, run | Mid-training: knowledge |
+| `$125 + $175 = $200` | Right shape, wrong arithmetic | Scale |
+| Question kinds never pass in RL | The folder changed only by `.quark/` | The check (Chapter 20) |
+
+None of the failures lives in the harness: Sonnet passes all 32 tasks in the same harness, so the body is proven. That's the value of building the harness around a capable model first. Once it passes everything, every remaining failure belongs to the mind.
+
 The agent got better at being an agent in its harness: 2, then 18, then 18 of 32. The gains came from instruction-tuning, and the reliability from RL. The gaps say what the next round should train.
