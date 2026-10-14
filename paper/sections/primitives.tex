@@ -41,7 +41,7 @@ Algorithm~\ref{alg:harness} gives the whole harness as pseudocode. Every harness
 
 \subsection{\prim{Output}: carry the response out}
 \textbf{Role.} Handle what the model returns: show its words, and carry out its requests to act, collecting each result.
-\textbf{Without it.} The model may even write a command, in its trained tool-call format, but nothing runs it; its action is only text.
+\textbf{Without it.} The model can only describe what it would do; nothing it writes is carried out, and asked to fix the tests it asks to be shown the code.
 \textbf{With it but without control flow.} The agent acts once and stops. It lists the project's files, and the list goes nowhere: the result of the action never reaches the model.
 \textbf{Design space.} The \emph{tool set}, from a single general tool (a shell) to dozens of specific ones (read, write, edit, search, browse, a computer-use interface); the \emph{action format}, from structured tool calls to code the model writes and the harness executes \citep{wang2024codeact} to edit formats such as search-and-replace blocks or diffs; the \emph{execution environment}, from the host machine to a container or remote sandbox; and the \emph{presentation} of results, including truncation, formatting and error messages, which \citet{yang2024sweagent} show matter to performance. The model only ever requests an action; \prim{Output} decides whether and how it happens, which is why the guardrails of \S\ref{sec:production} live here.
 
@@ -52,7 +52,7 @@ Algorithm~\ref{alg:harness} gives the whole harness as pseudocode. Every harness
 
 \subsection{\prim{Context}: assemble what the model sees}
 \textbf{Role.} Assemble, for each call, everything the model is shown: instructions, the tools it can use, the conversation so far, and anything retrieved from memory. Context is the agent's working memory, rebuilt on every call.
-\textbf{Without it.} The agent works, but does not know what it is, where it is, or what day it is. Asked who it is and where it is working, it must spend actions finding out, or guesses. In our runs a model with no instructions identified itself as a different provider's assistant. One sentence of context (a name, the tool it acts through, the working directory and the date) answers the question without any action.
+\textbf{Without it.} The agent works, but does not know what it is, where it is, or what day it is. Asked who it is and where it is working, it must spend actions finding out: in our runs it ran \texttt{pwd}, \texttt{whoami} and \texttt{uname} before answering, and still described itself only as ``an AI assistant''. A model with no such context can also guess wrongly about what it is. One sentence of context (a name, the tool it acts through, the working directory and the date) answers the question without any action.
 \textbf{Design space.} What goes into the \emph{instructions} (identity, rules, the agent's own capabilities, project-specific guidance from files such as \texttt{AGENTS.md}); how the \emph{tools} are described; how \emph{long-term memory} is brought in (preloaded, retrieved on demand, or searched by the agent through its own tools); and how the context is kept within the window when it grows, by dropping old turns, summarizing them, or including only what the moment needs. Context also carries roles, and roles carry authority: instructions in the system role outrank text that arrives in a tool result, a distinction that matters for security (\S\ref{sec:production}).
 
 \subsection{Necessity and sufficiency}

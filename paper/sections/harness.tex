@@ -17,6 +17,7 @@ The definition draws the boundary at the model's weights and its sampling. Every
 
 \begin{figure}[t]
 \centering
+\resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
   node distance=8mm and 8mm,
   box/.style={draw, rounded corners=2pt, minimum width=21mm, minimum height=9mm, align=center, font=\small},
@@ -24,7 +25,7 @@ The definition draws the boundary at the model's weights and its sampling. Every
   arr/.style={-{Stealth[length=2mm]}, thick}]
   \node[box] (in) {\prim{Input}\\[-1pt]\scriptsize perceive};
   \node[box, right=of in] (ctx) {\prim{Context}\\[-1pt]\scriptsize working memory};
-  \node[model, right=of ctx] (m) {Model\\[-1pt]\scriptsize tokens $\to$ next token};
+  \node[model, right=17mm of ctx] (m) {Model\\[-1pt]\scriptsize tokens $\to$ next token};
   \node[box, right=of m] (out) {\prim{Output}\\[-1pt]\scriptsize act};
   \node[font=\small, right=10mm of out] (p) {person};
   \draw[arr] (in) -- (ctx);
@@ -34,7 +35,7 @@ The definition draws the boundary at the model's weights and its sampling. Every
   \draw[arr] (out.south) -- ++(0,-8mm) -| node[pos=0.25, below, font=\scriptsize]{a tool's result comes back in: go again} (in.south);
   \draw[arr, dashed] (p.north) -- ++(0,7mm) -| node[pos=0.25, above, font=\scriptsize]{a request} (in.north);
   \node[draw, dotted, rounded corners=4pt, inner sep=4mm, fit=(in)(ctx)(m)(out), label={[font=\scriptsize]north west:\prim{Control flow} holds the loop}] {};
-\end{tikzpicture}
+\end{tikzpicture}}
 \caption{The agent loop. The harness's five primitives surround the model; \prim{Control flow} decides whether the loop runs again, hands back, or stops.}
 \label{fig:loop}
 \end{figure}

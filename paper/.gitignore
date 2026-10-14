@@ -1,0 +1,10 @@
+*.aux
+*.log
+*.out
+*.blg
+*.fls
+*.fdb_latexmk
+*.toc
+*.synctex.gz
+arxiv/
+arxiv.tar.gz
