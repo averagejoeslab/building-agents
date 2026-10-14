@@ -23,6 +23,7 @@ No GPU is needed. Everything in the record was run on a CPU.
 | 2 | `uv run model/train.py pre` | 7 | `runs/training/pretrain.txt` | Held-out loss from about 7.7 to about 5.3 in 20 minutes; Shakespeare-shaped text after |
 | 3 | `uv run --env-file .env harness/quark.py` | 11–13 | (interactive) | The five parts; type the shop request in a copy of `harness/shop/` |
 | 4 | `uv run harness/tasks.py` | 15 | `runs/harness/tasks-sonnet.txt` | `all 32/32` |
+| 4b | `uv run harness/security.py` | 14 | `runs/harness/security.txt` | `security 4/4` |
 | 5 | `uv run model/train.py mid` | 8 | `runs/training/midtrain.txt`, `models/midtrain.pt` | Held-out loss 1.896 → about 1.41 |
 | 6 | `uv run model/train.py check` | 8 | appends to `midtrain.txt` | Shell check about 48/100 before, about 53/100 after |
 | 7 | `uv run harness/tasks.py models/midtrain.pt` | 16 | `runs/training/tasks-midtrain.txt` | `all 2/32`: the two safety tasks |
