@@ -1,4 +1,4 @@
-\begin{thebibliography}{32}
+\begin{thebibliography}{30}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -94,15 +94,6 @@ Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir~G. Patil, Ion
   Stoica, and Joseph~E. Gonzalez.
 \newblock {MemGPT}: Towards {LLMs} as operating systems, 2023.
 
-\bibitem[Park et~al.(2023)Park, O'Brien, Cai, Morris, Liang, and
-  Bernstein]{park2023generative}
-Joon~Sung Park, Joseph~C. O'Brien, Carrie~J. Cai, Meredith~Ringel Morris, Percy
-  Liang, and Michael~S. Bernstein.
-\newblock Generative agents: Interactive simulacra of human behavior.
-\newblock In \emph{Proceedings of the 36th Annual ACM Symposium on User
-  Interface Software and Technology (UIST)}, 2023.
-\newblock arXiv:2304.03442.
-
 \bibitem[Russell and Norvig(2020)]{russell2020aima}
 Stuart Russell and Peter Norvig.
 \newblock \emph{Artificial Intelligence: A Modern Approach}.
@@ -158,13 +149,6 @@ Theodore~R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas~L. Griffiths.
 \newblock mini-{SWE}-agent.
 \newblock \url{https://github.com/SWE-agent/mini-swe-agent}, 2025.
 
-\bibitem[Wang et~al.(2023)Wang, Xie, Jiang, Mandlekar, Xiao, Zhu, Fan, and
-  Anandkumar]{wang2023voyager}
-Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Mandlekar, Chaowei Xiao, Yuke Zhu,
-  Linxi Fan, and Anima Anandkumar.
-\newblock Voyager: An open-ended embodied agent with large language models,
-  2023.
-
 \bibitem[Wang et~al.(2024)Wang, Chen, Yuan, Zhang, Li, Peng, and
   Ji]{wang2024codeact}
 Xingyao Wang, Yangyi Chen, Lifan Yuan, Yizhe Zhang, Yunzhu Li, Hao Peng, and
@@ -195,11 +179,6 @@ Xingyao Wang, Simon Rosenberg, Juan Michelini, Calvin Smith, Hoang Tran, Engel
 \newblock The {OpenHands} software agent {SDK}: A composable and extensible
   foundation for production agents, 2025{\natexlab{b}}.
 
-\bibitem[Xi et~al.(2023)Xi, Chen, Guo, et~al.]{xi2023rise}
-Zhiheng Xi, Wenxiang Chen, Xin Guo, et~al.
-\newblock The rise and potential of large language model based agents: A
-  survey, 2023.
-
 \bibitem[Xia et~al.(2024)Xia, Deng, Dunn, and Zhang]{xia2024agentless}
 Chunqiu~Steven Xia, Yinlin Deng, Soren Dunn, and Lingming Zhang.
 \newblock Agentless: Demystifying {LLM}-based software engineering agents,
@@ -224,5 +203,12 @@ Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan,
 \newblock {ReAct}: Synergizing reasoning and acting in language models.
 \newblock In \emph{International Conference on Learning Representations}, 2023.
 \newblock arXiv:2210.03629.
+
+\bibitem[Young(2025)]{anthropic2025harnesses}
+J.~Young.
+\newblock Effective harnesses for long-running agents.
+\newblock
+  \url{https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents},
+  2025.
 
 \end{thebibliography}

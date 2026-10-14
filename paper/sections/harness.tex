@@ -5,7 +5,7 @@
 \[
   \textit{TokensOut} = \textit{Model}(\textit{TokensIn}).
 \]
-Chat templates, tool-call formats and reasoning tokens are conventions for laying out \textit{TokensIn} and reading \textit{TokensOut}; they are learned by the model in training, but they are written and parsed by something else.
+Chat templates, tool-call formats and reasoning tokens are conventions for laying out \textit{TokensIn} and reading \textit{TokensOut}; models can learn to emit calls to external tools \citep{schick2023toolformer}, and they learn these conventions in training, but the calls are carried out, and the conventions written and parsed, by something else.
 
 \paragraph{The harness.} We define the \emph{harness} as everything in an agent that is not the model: the software that turns the world into tokens for the model, and the model's tokens into effects on the world. An agent is a model inside a harness:
 \[
