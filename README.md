@@ -2,6 +2,8 @@
 
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
+> **The book:** [*Building Agents: From nothing to a model, a harness, and a model trained in its harness*](./book/) teaches everything in this repo, chapter by chapter, with annotated code and every experiment explained. [Read it online](./book/) or [download the PDF](./book/Building-Agents.pdf).
+
 ## What an agent is
 
 In cognitive science, an agent is a system that perceives its environment, keeps what it needs in memory, decides, and acts to pursue a goal, in a cycle: perceive, decide, act, perceive the result. Memory comes in kinds: *working* memory holds what's in mind now; long-term memory holds what happened (*episodic*), what's true (*semantic*) and how to do things (*procedural*).
