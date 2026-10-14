@@ -33,7 +33,7 @@ table { width: 100%; border-collapse: collapse; margin: 0.9em 0 1.1em; font-size
 th, td { text-align: left; vertical-align: top; padding: 0.35em 0.45em; border-bottom: 0.5pt solid var(--rule); }
 th { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 7.6pt; letter-spacing: 0.02em; color: var(--soft); border-bottom: 0.8pt solid var(--ink); }
 pre { font-family: 'DejaVu Sans Mono', monospace; font-size: 7pt; line-height: 1.42; background: #f6f4ef; border-left: 2pt solid #d9d6cf;
-      padding: 0.6em 0.75em; margin: 0.6em 0 1em; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; break-inside: auto; }
+      padding: 0.6em 0.75em; margin: 0.6em 0 1em; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; break-inside: avoid; }
 .ln { display: block; min-height: 1.42em; }
 pre code { background: none; padding: 0; font-size: 1em; border-radius: 0; }
 figure { margin: 1em 0 1.2em; break-inside: avoid; }
@@ -41,6 +41,10 @@ figure img { width: 100%; display: block; }
 figcaption { font-size: 8.4pt; line-height: 1.4; color: var(--soft); margin-top: 0.5em; font-style: italic; }
 .chapter-body h2 { font-size: 13pt; font-weight: 600; margin: 1.6em 0 0.6em; break-after: avoid; }
 td code, th code { font-size: 0.86em; }
+thead { display: table-header-group; }
+tr, td, th { break-inside: avoid; }
+h2, h3, h4, .chapter-head { break-after: avoid; }
+figure, blockquote, pre, table { break-before: auto; }
 hr { border: 0; border-top: 0.5pt solid var(--rule); margin: 1.4em 0; }
 
 /* chapters */
