@@ -135,11 +135,11 @@ def page(content, title="Building Agents"):
 open(os.path.join(TMP, "body.html"), "w").write(page("".join(body)))
 
 readme = open(os.path.join(BOOK, "README.md")).read()
-preface = readme.split("## Preface to the second edition", 1)[1].split("---", 1)[0]
+preface = readme.split("## Preface", 1)[1].split("---", 1)[0]
 
 def front(pages):
     toc = ['<section class="toc"><h2>Contents</h2>',
-           f'<div class="toc-row"><span class="n"></span><span class="t">Preface to the Second Edition</span></div>']
+           f'<div class="toc-row"><span class="n"></span><span class="t">Preface</span></div>']
     part_at = {start: (pn, pt) for pn, pt, start in parts}
     for i, (num, title) in enumerate(chapters):
         if i in part_at:
@@ -149,21 +149,21 @@ def front(pages):
                    f'<span class="dots"></span><span class="p">{pages.get(num, "")}</span></div>')
     toc.append("</section>")
     return page(f"""
-<section class="cover"><div class="cover-inner"><div class="cover-kicker">Second edition</div>
+<section class="cover"><div class="cover-inner"><div class="cover-kicker">From nothing to an agent</div>
 <div class="cover-title">Building<br>Agents</div>
 <div class="cover-sub">From nothing to a model, a harness, and a model trained in its harness</div></div>
 {LOOP_SVG}
 <div class="cover-author">Chase Dovey<span>Average Joes Lab</span></div></section>
 <section class="titlepage"><h1>Building Agents</h1><div class="sub">From nothing to a model, a harness,<br>and a model trained in its harness</div>
-<div class="lab" style="margin-top:1.4em">Second edition</div><div class="by">Chase Dovey</div><div class="lab">Average Joes Lab</div></section>
+<div class="by">Chase Dovey</div><div class="lab">Average Joes Lab</div></section>
 <section class="copyright">
-<p><strong>Building Agents</strong><br>From nothing to a model, a harness, and a model trained in its harness<br>Second edition</p>
+<p><strong>Building Agents</strong><br>From nothing to a model, a harness, and a model trained in its harness<br>First edition</p>
 <p>By Chase Dovey · Average Joes Lab<br>cdovey.dev · github.com/averagejoeslab</p>
 <p>Every number, quote and result in this book comes from a real run, kept with the code in the building-agents repository: github.com/averagejoeslab/building-agents.</p>
 <p>Data sources named in the text keep their own licences: tldr-pages (CC BY 4.0), smol-smoltalk (Apache 2.0), GSM8K (MIT), Hermes function-calling (Apache 2.0), Magicoder OSS-Instruct (MIT), NL2Bash (research data). Qwen3-0.6B and Qwen3-0.6B-Base are released by the Qwen team.</p>
 </section>
 {"".join(toc)}
-<section class="preface"><div class="marker">@@PREFACE@@</div><h2>Preface to the Second Edition</h2>{md(preface)}</section>
+<section class="preface"><div class="marker">@@PREFACE@@</div><h2>Preface</h2>{md(preface)}</section>
 """)
 
 def render(html_name, pdf_name, numbered, start=1):
@@ -197,7 +197,7 @@ for name in ["front.pdf", "body.pdf"]:
         w.add_page(p)
 w.add_outline_item("Cover", 0)
 w.add_outline_item("Contents", 3)
-if "PREFACE" in fmarks: w.add_outline_item("Preface to the Second Edition", fmarks["PREFACE"])
+if "PREFACE" in fmarks: w.add_outline_item("Preface", fmarks["PREFACE"])
 part_at = {start: (pn, pt, k + 1) for k, (pn, pt, start) in enumerate(parts)}
 parent = None
 for i, (num, title) in enumerate(chapters):

@@ -2,15 +2,13 @@
 
 ### From nothing to a model, a harness, and a model trained in its harness
 
-**Second edition**
-
 By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.com/averagejoeslab)
 
 ---
 
-## Preface to the second edition
+## Preface
 
-The first edition told the story of building an agent from scratch in plain words, with no code. This edition tells the same story as a technical teaching book. Every chapter now shows the code it describes, annotated line by line; the diagrams of each architecture; the actual training examples the model learned from; the arithmetic of gradient descent and reinforcement learning, worked by hand; pseudocode for the harness that you can carry to any language; and, in an appendix, step-by-step instructions for reproducing every experiment, with the numbers you should see.
+This book builds an agent from scratch, and teaches each step as it goes. Every chapter shows the code it describes, annotated line by line; the diagrams of each architecture; the actual training examples the model learned from; the arithmetic of gradient descent and reinforcement learning, worked by hand; pseudocode for the harness that you can carry to any language; and, in an appendix, step-by-step instructions for reproducing every experiment, with the numbers you should see.
 
 The code is the real code: the [`building-agents`](https://github.com/averagejoeslab/building-agents) repository, which holds a model built from its parts (`model/model.py`, about 350 lines), its training in stages (`model/train.py`, about 800 lines), a harness built one primitive at a time (`harness/`), and the record of every run (`runs/`). Where the book shows a shorter version of a function, to fit the page or to make one idea stand out, it says so, and the full version is in the repository at the path given.
 
