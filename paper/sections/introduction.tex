@@ -1,0 +1,26 @@
+\section{Introduction}
+\label{sec:intro}
+
+A language model does one thing: given a sequence of tokens, it produces a distribution over the next token. It cannot see a file it was not shown, remember a conversation it was not sent again, or carry out a command it wrote. Yet language models are now routinely described as agents that read codebases, run tests, browse the web and fix bugs. The gap between what a model is and what an agent does is filled by software around the model. That software is the subject of this paper.
+
+The software goes by many names. Research papers call it a \emph{scaffold} or \emph{scaffolding}; libraries call themselves \emph{frameworks} or \emph{SDKs}; products speak of an \emph{agent runtime} or \emph{orchestration layer}; and the term \emph{harness} has become common among practitioners who build coding agents. The names point at the same thing, but none comes with a definition precise enough to say what the thing contains, where it ends and the model begins, or how two instances of it differ. As a result, agents are compared by the model they use, and the harness is treated as an unremarkable detail, even though results on the same benchmark with the same model can differ widely depending on the system around it (\S\ref{sec:implications}).
+
+\paragraph{Position.} We argue three claims.
+\begin{enumerate}
+  \item \textbf{Every LLM agent is a model wrapped in a harness}: $\textit{Agent} = \textit{Harness}(\textit{Model})$. The model maps tokens to a next token and nothing more. The harness is everything else.
+  \item \textbf{Every harness is built from the same five primitives}: \prim{Input}, \prim{Context}, \prim{Model interface}, \prim{Output} and \prim{Control flow}. Each is necessary: remove one and the agent fails in a specific, predictable way. Together they are sufficient to express the agents in common use.
+  \item \textbf{The differences between harnesses are implementation decisions within the primitives}, not differences in kind. Whether an agent has one tool or forty, a graph or a loop, a repository map or a summarizer, it answers the same five questions differently.
+\end{enumerate}
+
+\paragraph{Why it matters.} A shared vocabulary turns a vague object into one that can be designed, compared and studied. If the harness is named and decomposed, benchmark results can report which harness produced them and isolate its effect; a failure can be traced to the primitive responsible; a harness can be ported to a new model by changing one primitive; and a model can be trained for the harness it will run in. We return to each of these in \S\ref{sec:implications}.
+
+\paragraph{Contributions.}
+\begin{itemize}
+  \item A definition of the harness, and of the boundary between harness and model (\S\ref{sec:harness}).
+  \item Five primitives, each with its role in the agent loop, an argument for its necessity, and the design space within it (\S\ref{sec:primitives}).
+  \item A suggestion of how six production concerns fold into the primitives (\S\ref{sec:production}).
+  \item A case study mapping widely used harnesses onto the primitives, and the implementation decisions that distinguish them (\S\ref{sec:casestudy}).
+  \item Implications for building, comparing and training agents, and a discussion of alternative views (\S\ref{sec:implications}, \S\ref{sec:alternatives}).
+\end{itemize}
+
+Our claims are drawn from building a harness from nothing, one primitive at a time, around a fixed model and a fixed task, and observing what each version could and could not do; the resulting reference harness, \emph{quark}, is about fifty lines and is reproduced in Appendix~\ref{app:quark}. The code, transcripts and evaluation are public.\footnote{\url{https://github.com/averagejoeslab/building-agents}}

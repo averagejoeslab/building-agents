@@ -1,0 +1,80 @@
+\section{The Five Primitives}
+\label{sec:primitives}
+
+We identify five primitives. For each we give its role, the evidence that it is necessary (the failure of a harness built without it), and the design space within it, which is where harnesses differ. The necessity arguments come from building a harness outward from the model, adding one primitive at a time, and running each version on the same task: a small Python project with a failing test, and the request \emph{``The tests are failing. Find out why and fix it.''} The transcripts are in the repository.
+
+Algorithm~\ref{alg:harness} gives the whole harness as pseudocode. Every harness we examine in \S\ref{sec:casestudy} is an elaboration of it.
+
+\begin{algorithm}[t]
+\caption{The five primitives of a harness. Lines are labelled with the primitive they implement.}
+\label{alg:harness}
+\small
+\begin{algorithmic}[1]
+\Procedure{ControlFlow}{\,}
+  \State $\textit{conversation} \gets [\,]$
+  \Loop \Comment{outer loop: one request at a time}
+    \State $\textit{conversation}.\textsc{append}(\textsc{User}(\Call{Input}{\,}))$ \Comment{\prim{Input}: from a person}
+    \Loop \Comment{inner loop: one request, carried through}
+      \State $\textit{ctx} \gets \Call{Context}{\textit{conversation}}$ \Comment{\prim{Context}}
+      \State $\textit{response} \gets \Call{ModelInterface}{\textit{ctx}}$ \Comment{\prim{Model interface}}
+      \State $\textit{conversation}.\textsc{append}(\textsc{Assistant}(\textit{response}))$
+      \State $\textit{results} \gets \Call{Output}{\textit{response}}$ \Comment{\prim{Output}: show words, run actions}
+      \If{$\textit{results} = \emptyset$} \textbf{break} \Comment{nothing ran: hand back}
+      \EndIf
+      \State $\textit{conversation}.\textsc{append}(\textsc{User}(\textit{results}))$ \Comment{\prim{Input}: from the world}
+    \EndLoop
+  \EndLoop
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{\prim{Model interface}: reach the model}
+\textbf{Role.} Send an assembled context to the model and return its response in a form the rest of the harness can read: words, and structured requests to act.
+\textbf{Without it.} There is no agent at all, only weights.
+\textbf{With only it.} The model answers, but cannot act; asked to fix failing tests, it explains that it cannot see the code. A request written into the program means nobody else can ask it anything.
+\textbf{Design space.} Hosted API or local inference; one provider or many (directly or through a translation layer); native tool-call formats or tool calls parsed from text; streaming or whole responses; and the translation between the harness's internal message format and the model's chat template. The model interface is the only primitive that knows which model is inside, which is why changing models means changing it alone.
+
+\subsection{\prim{Input}: capture what comes in}
+\textbf{Role.} Capture what enters the agent: requests from a person, and results from the world.
+\textbf{Without it.} The agent can only ever do one, fixed thing.
+\textbf{Design space.} The \emph{source} of input (a terminal prompt, an editor panel, a chat channel, a command-line argument for non-interactive use, an issue tracker, a scheduled trigger or a webhook) and its \emph{kind} (text, images, files, the results of actions, and interrupts). The second kind of input, results from the world, is easy to overlook and is what makes acting worthwhile: an action's result is new perception.
+
+\subsection{\prim{Output}: carry the response out}
+\textbf{Role.} Handle what the model returns: show its words, and carry out its requests to act, collecting each result.
+\textbf{Without it.} The model may even write a command, in its trained tool-call format, but nothing runs it; its action is only text.
+\textbf{With it but without control flow.} The agent acts once and stops. It lists the project's files, and the list goes nowhere: the result of the action never reaches the model.
+\textbf{Design space.} The \emph{tool set}, from a single general tool (a shell) to dozens of specific ones (read, write, edit, search, browse, a computer-use interface); the \emph{action format}, from structured tool calls to code the model writes and the harness executes \citep{wang2024codeact} to edit formats such as search-and-replace blocks or diffs; the \emph{execution environment}, from the host machine to a container or remote sandbox; and the \emph{presentation} of results, including truncation, formatting and error messages, which \citet{yang2024sweagent} show matter to performance. The model only ever requests an action; \prim{Output} decides whether and how it happens, which is why the guardrails of \S\ref{sec:production} live here.
+
+\subsection{\prim{Control flow}: decide what happens next}
+\textbf{Role.} Shape the loop: send results back and go again, hand back to the person, or stop.
+\textbf{Without it.} The agent acts once. With it, the same model, tool and request become an agent: it lists the files, reads them, runs the tests, reads the failure, edits the code, runs the tests again and reports, then hands back. Because the whole conversation returns on every call, a follow-up such as \emph{``Commit the fix''} needs no explanation.
+\textbf{Design space.} A single open loop that runs until the model stops requesting actions; a fixed pipeline of model calls (a \emph{workflow}); an explicit graph of steps; delegation to sub-agents with their own contexts; planning or approval modes that change what is allowed; and stopping rules such as step limits, budgets and interrupts. \citet{anthropic2024effective}'s workflows and agents differ here, and only here.
+
+\subsection{\prim{Context}: assemble what the model sees}
+\textbf{Role.} Assemble, for each call, everything the model is shown: instructions, the tools it can use, the conversation so far, and anything retrieved from memory. Context is the agent's working memory, rebuilt on every call.
+\textbf{Without it.} The agent works, but does not know what it is, where it is, or what day it is. Asked who it is and where it is working, it must spend actions finding out, or guesses. In our runs a model with no instructions identified itself as a different provider's assistant. One sentence of context (a name, the tool it acts through, the working directory and the date) answers the question without any action.
+\textbf{Design space.} What goes into the \emph{instructions} (identity, rules, the agent's own capabilities, project-specific guidance from files such as \texttt{AGENTS.md}); how the \emph{tools} are described; how \emph{long-term memory} is brought in (preloaded, retrieved on demand, or searched by the agent through its own tools); and how the context is kept within the window when it grows, by dropping old turns, summarizing them, or including only what the moment needs. Context also carries roles, and roles carry authority: instructions in the system role outrank text that arrives in a tool result, a distinction that matters for security (\S\ref{sec:production}).
+
+\subsection{Necessity and sufficiency}
+Each primitive answers a question no other primitive answers: \emph{how is the model reached} (\prim{Model interface}), \emph{what comes in} (\prim{Input}), \emph{what is done with what comes out} (\prim{Output}), \emph{what happens next} (\prim{Control flow}) and \emph{what the model is shown} (\prim{Context}). Removing any one produces the specific failure described above, so none is redundant. For sufficiency, we offer the case study of \S\ref{sec:casestudy}: every capability we found in widely used harnesses is an implementation of one of the five, or a production concern that folds into them. We discuss candidates for a sixth primitive in \S\ref{sec:alternatives}.
+
+\subsection{Relation to CoALA}
+The primitives give an operational reading of CoALA's components \citep{sumers2024coala}. CoALA's working memory is \prim{Context}; its long-term memories are stores that \prim{Context} reads from and \prim{Output} writes to; its grounding actions are carried out by \prim{Output} and their observations return through \prim{Input}; its internal reasoning happens in the model, reached through \prim{Model interface}; and its decision cycle is \prim{Control flow}. Table~\ref{tab:coala} summarizes the mapping.
+
+\begin{table}[t]
+\centering
+\small
+\caption{The five primitives, the agent cycle they serve, and the corresponding CoALA components.}
+\label{tab:coala}
+\begin{tabularx}{\linewidth}{@{}lYYY@{}}
+\toprule
+Primitive & Role & In the agent cycle & CoALA \\
+\midrule
+\prim{Input} & Capture requests and results & Perceive & Observations \\
+\prim{Context} & Assemble what the model sees & Working and long-term memory & Working memory; retrieval \\
+\prim{Model interface} & Request a response & Decide & Reasoning (by the LLM) \\
+\prim{Output} & Show words, carry out actions & Act & Grounding actions; learning (writes) \\
+\prim{Control flow} & Go again, hand back, or stop & The cycle & Decision cycle \\
+\bottomrule
+\end{tabularx}
+\end{table}

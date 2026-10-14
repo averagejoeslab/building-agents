@@ -1,0 +1,38 @@
+\section{Production Concerns Fold into the Primitives}
+\label{sec:production}
+
+A harness that works is not yet a harness one would leave running. Production systems add persistence, guardrails, logging, retries, caching and evaluation, and it is tempting to treat these as further components. We suggest instead that each is a \emph{concern}: a question asked of every primitive, whose answer changes how some primitives are implemented, rather than a new primitive. Table~\ref{tab:concerns} is the matrix we found useful; we offer it as a suggestion, not a fixed taxonomy.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Production concerns as questions asked of each primitive. Each cell names what the concern touches in that primitive; ``---'' means we found nothing essential there.}
+\label{tab:concerns}
+\begin{tabularx}{\linewidth}{@{}l*{6}{Y}@{}}
+\toprule
+& \textbf{Persistence} & \textbf{Safety \& security} & \textbf{Observability} & \textbf{Resilience} & \textbf{Performance} & \textbf{Evaluation} \\
+& \emph{What should outlast the session?} & \emph{What could do harm, and who could make it?} & \emph{What should we see?} & \emph{What could fail?} & \emph{What is slow or costly?} & \emph{What could a change break?} \\
+\midrule
+\prim{Input} & --- & a way to interrupt & --- & input ending & --- & --- \\
+\prim{Context} & memories; resumed sessions & untrusted content; poisoned memory & --- & too long to send & resending everything & the instructions \\
+\prim{Model interface} & --- & --- & tokens, latency & a failing provider & waiting for the whole reply & the model \\
+\prim{Output} & --- & harmful actions; secrets leaving & what each action did & a hanging action & large results & the tools \\
+\prim{Control flow} & the task in progress & runaway loops; the audit record & each decision & a crash & --- & the loop \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Persistence.} The model remembers nothing between calls, so anything that should outlast a session is stored by the harness and brought back by \prim{Context}: a log of every message (episodic memory), facts (semantic memory), and reusable procedures or project instructions (procedural memory). \prim{Control flow} can resume an interrupted session from the log. Checkpointing the \emph{workspace}, so that an agent's changes can be rolled back, belongs here as well.
+
+\paragraph{Safety and security.} We separate two kinds of guardrail. \emph{Safety} guards against the agent's own mistakes: a sandbox that limits where damage can happen, approvals before consequential actions, actions that are never allowed, step limits and interrupts. \emph{Security} guards against someone turning the agent against its user: text in a file or web page that tries to steer the model (prompt injection), requests that would leak secrets, instructions planted in long-term memory, and tampering with the record of what was done. Both live mostly in \prim{Output}, which carries out actions, and in \prim{Context}, which decides how much authority each piece of text receives.
+
+\paragraph{Observability.} A record of each model call (tokens, latency, cost), each action and its result, and each refusal or stop, kept where the agent cannot alter it. It is written by \prim{Control flow} and \prim{Output}, and read by people, not by the model.
+
+\paragraph{Resilience.} Retries and fallback providers in \prim{Model interface}; time limits on actions in \prim{Output}; summarization or truncation when a request is too long in \prim{Context}; and resumption after a crash in \prim{Control flow}.
+
+\paragraph{Performance.} Caching the unchanged prefix of the context between calls; streaming responses; running independent actions in parallel; trimming large results; and using smaller models for auxiliary calls such as summarization.
+
+\paragraph{Evaluation.} Tasks with known answers, run in fresh environments, checked by what the agent did rather than what it said, and held out from any training. Evaluation is a concern of every primitive at once, because a change to any of them can change behaviour.
+
+\paragraph{The concerns interact.} Persistence creates a security surface (a poisoned memory steers every later session); streaming changes safety (an interrupt can now stop a reply mid-sentence); summarization changes persistence (the summary must say where the originals are kept). Treating concerns as questions asked of each primitive makes these interactions visible, where treating them as separate components hides them.
