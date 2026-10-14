@@ -5,3 +5,4 @@ __pycache__/
 .quark/
 data/tldr/
 models/
+book/ebook/tmp/

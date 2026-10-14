@@ -24,6 +24,8 @@ Watch how much has to exist before anything can do that on its own.
 
 ## Contents
 
+**[Download the book as a PDF](./Building-Agents.pdf)**
+
 **Part I: The Agent**
 
 1. [What an Agent Is](./01-what-an-agent-is.md)
