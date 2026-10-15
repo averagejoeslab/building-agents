@@ -1,0 +1,14 @@
+\section{Using the Vocabulary}
+\label{sec:uses}
+\paragraph{Locating a failure} When an agent fails, the primitives give a short list of places to look, in order; each question rules out a place the next assumes.
+\begin{enumerate}
+  \item \textbf{\prim{Context}: was the model shown what it needed?} If the file, the result or the instruction is not in the request that was sent, nothing downstream is at fault.
+  \item \textbf{\prim{Output}: did what it asked for happen?} A parser that dropped a call, a sandbox that refused it, a truncated result.
+  \item \textbf{\prim{Control flow}: did the loop stop early or run too long?} A step limit reached early, a hand-back on a response with work still in it, a repeated action.
+  \item \textbf{\prim{Model interface}: was the response read correctly?} A tool call in the right format but not recognized, a stream cut off and treated as complete.
+  \item \textbf{\prim{Input}: did the right thing come in?} A result delivered to the wrong turn, an interrupt lost.
+  \item \textbf{Only then, the model.}
+\end{enumerate}
+
+\paragraph{Reporting a harness} If $\textit{Agent} = \textit{Harness}(\textit{Model})$, a benchmark score belongs to the pair. Holding one model fixed, SWE-agent \cite{yang2024sweagent} resolves ten times as many SWE-bench tasks as retrieval-augmented generation, and METR found that tailoring a scaffold to one model more than doubled the length of tasks it could complete \cite{metr2025update}. \cite{zhang2026stop} argue that the harness should be disclosed whenever agents are compared, and a disclosure needs a schema. We suggest the five primitives: the input sources; what the context holds and how it is fitted; the provider, decoding settings and retry policy; the tools, their output formats and the execution environment; and the loop's shape and stopping rules. Table~\ref{tab:summary} is such a disclosure for six harnesses.
+

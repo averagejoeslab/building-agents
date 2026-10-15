@@ -1,0 +1,33 @@
+\section{Three Levels: Primitive, Design Decision, Production Concern}
+\label{sec:levels}
+Descriptions of harnesses mix three kinds of statement. ``It has a loop'' names a primitive. ``It gives the model forty tools'' names a decision within one. ``It runs commands in a sandbox'' names a measure taken for a reason that applies to every primitive. Keeping the three apart is the main use of the vocabulary.
+
+\paragraph{Primitives} A primitive is a mechanism every harness has, defined by its function on the request path. A harness has exactly five.
+
+\paragraph{Design decisions} A design decision is one way of implementing a primitive. It is the level at which harnesses differ and at which they are usually described: a single shell tool or a set of file tools (\prim{Output}); a loop or a graph (\prim{Control flow}); one provider or a gateway to many (\prim{Model interface}). A design decision never adds a primitive; it fills one. The test is whether a different harness could choose differently and still be a harness.
+
+\paragraph{Production concerns} A production concern is a question asked of every primitive, whose answer changes how some primitives are implemented. We use six (Table~\ref{tab:concerns}): what should outlast the session (persistence); what could do harm, and who could make it (safety and security); what did it do (observability); what if something breaks (resilience); what is slow or costly (performance); and how do we know it still works (evaluation). A concern is not a part of the harness. A sandbox is not a sixth primitive; it is the safety answer in \prim{Output}. A memory store is not a sixth primitive; it is the persistence answer in \prim{Context} and \prim{Output}. The test is whether the thing is motivated by a question that could equally be asked of a different primitive.
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Six production concerns as questions asked of each primitive. Each cell names what the concern changes in that primitive; ``---'' means nothing essential was found there in the harnesses examined.}
+\label{tab:concerns}
+\begin{tabularx}{\textwidth}{@{}l*{6}{Y}@{}}
+\toprule
+& \textbf{Persistence} & \textbf{Safety \& security} & \textbf{Observability} & \textbf{Resilience} & \textbf{Performance} & \textbf{Evaluation} \\
+& \emph{What outlasts the session?} & \emph{What could do harm, and who could make it?} & \emph{What did it do?} & \emph{What if something breaks?} & \emph{What is slow or costly?} & \emph{Does it still work?} \\
+\midrule
+\prim{Input} & an unfinished session offered back & approvals asked of a person & refusals recorded & input ending; interrupts & --- & yes to every approval in a test run \\
+\prim{Context} & memories; resumed transcripts & untrusted content; poisoned memory; roles and authority & --- & compaction when too long & caching the unchanged prefix; trimming results & the instructions under test \\
+\prim{Model interface} & --- & --- & tokens, latency, cost per call & retries; a backup model & streaming & the model under test \\
+\prim{Output} & --- & sandboxes; never-lists; secrets hidden; pinned images & what each action did & time limits on actions & parallel actions; smaller models for side tasks & the tools under test \\
+\prim{Control flow} & the task in progress; a diary of every message & runaway loops; the record kept out of reach & each decision & resume after a crash & --- & the loop under test \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\paragraph{Rules for the cases at the boundaries}
+\label{sec:rules}
+The negative definitions decide most cases. Thirteen rules, each needed for a component found in \S\ref{sec:deconstruction}, decide the rest; those used below: a component is assigned by its \emph{function, not its location}, so an approval decision inside a tool's runtime is \prim{Control flow}; a \emph{program the model writes} at run time is \prim{Control flow} if it sequences model calls and \prim{Output} if it sequences only tools; a \emph{sub-agent} is a harness of its own, and delegation to it is \prim{Control flow} of the outer harness; and one primitive may use another \emph{as a service}, as when \prim{Context} asks the model to summarize old turns before compacting them, in which case the component is assigned by what it \emph{decides} and the call it makes is a use of \prim{Model interface}. The negative definitions are about responsibility, not about which function calls which.

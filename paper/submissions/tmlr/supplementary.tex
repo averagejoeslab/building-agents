@@ -1,0 +1,36 @@
+%% Supplementary material for the TMLR submission: Appendix B, the evidence for the deconstruction.
+%% Cross-references to the main paper's sections are resolved from full.aux (xr-hyper), so build full.tex first.
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{xr-hyper}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\externaldocument{full}
+
+\newcommand{\prim}[1]{\textmd{\textsc{#1}}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlist{nosep,leftmargin=*}
+\captionsetup{font=small,labelfont=bf}
+
+\title{Supplementary Material for\\Agent = Harness(Model): Five Mechanistic Primitives, and What Is Not One}
+\author{\name Chase Dovey \email chase@odovey.com\\\addr Average Joes Lab}
+
+\begin{document}
+\maketitle
+\noindent This supplement is Appendix~B of the paper: the evidence for every assignment in the deconstruction of \S\ref{sec:deconstruction}. The accompanying archive holds the source files it was generated from (\texttt{evidence/}, one Markdown file per harness, and the brief the deconstruction followed) and the five minimal harnesses of Appendix~A (\texttt{minimal/}).
+
+\appendix
+\setcounter{section}{1}
+\begingroup\footnotesize\sloppy
+\input{appendix-b}
+\endgroup
+\end{document}

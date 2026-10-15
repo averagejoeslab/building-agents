@@ -16,8 +16,9 @@ An LLM agent is a model wrapped in a harness, and every harness is built from fi
 | `evidence/EVIDENCE-*.md` | The deconstruction of each harness: every assignment with a file-and-line or page-and-section citation at the pinned version |
 | `evidence/BRIEF.md` | The definitions, rules and output format the deconstruction followed |
 | `minimal/` | The five minimal harnesses reproduced in Appendix A (copies of `harness/1_model_interface.py` to `harness/quark.py`) |
-| `references.bib`, `main.bbl` | Bibliography, and its compiled form for arXiv |
+| `references.bib`, `main.bbl` | Bibliography, and its compiled form (included in the arXiv tarball) |
 | `main.pdf` | The compiled paper |
+| `submissions/` | One build per venue: arXiv, the ICSE 2027 workshops, TMLR |
 
 ## Build
 
@@ -27,18 +28,9 @@ python3 evidence/to_latex.py > sections/appendix-b.tex   # only if the evidence 
 latexmk -pdf main.tex
 ```
 
-## Submit to arXiv
+## Submitting
 
-arXiv compiles the sources itself but doesn't run BibTeX reliably, so the generated `main.bbl` is committed and included:
-
-```bash
-cd paper
-latexmk -pdf main.tex                                   # refreshes main.bbl
-mkdir -p arxiv && cp -r main.tex main.bbl references.bib minimal sections arxiv/
-tar -czf arxiv.tar.gz -C arxiv .
-```
-
-Upload `arxiv.tar.gz`. Suggested categories: **cs.AI** (primary), cs.SE. When arXiv asks for a license, choose **CC BY 4.0**, the license this repo gives the paper.
+`submissions/` holds one build per venue, each from the same `sections/`: an arXiv tarball, a five-page IEEE short version for the ICSE 2027 workshops (AGENT'27 and AGENTVERIFY 2027), and an anonymized TMLR version with its supplementary material. See [`submissions/README.md`](./submissions/README.md) for the steps for each venue.
 
 ## Checking an assignment
 

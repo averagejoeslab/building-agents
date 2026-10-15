@@ -1,0 +1,41 @@
+\section{Deconstruction of Six Harnesses}
+\label{sec:deconstruction}
+If the position holds, a harness built by someone else, for a different purpose, at a different scale, should decompose into the five primitives with nothing left over, and its differences from other harnesses should be locatable as design decisions within a primitive. We test this on six.
+
+\paragraph{Selection} We chose harnesses in wide use whose primary sources were available, across three kinds: two command-line coding agents from model developers (Claude Code \cite{claudecode} and Codex CLI \cite{codexcli}), two open-source coding agents built outside the model developers (opencode \cite{opencode} and pi \cite{pi}), one general-purpose agent built for messaging platforms as well as the terminal (Hermes Agent \cite{hermes}), and one workflow framework (LangGraph \cite{langgraph}), for which we deconstruct the canonical ReAct agent it ships together with the runtime that executes it. Five of the six publish their source; Claude Code does not, and is deconstructed from its documentation.
+
+\paragraph{Method} For each harness we (i) read the source at a pinned commit, or the documentation on a stated date, and mapped the path of a request from the moment a message arrives to the next model call; (ii) assigned every component on that path to exactly one primitive, or to one production concern together with the primitive it changes, by the definitions of \S\ref{sec:primitives} and the rules of \S\ref{sec:rules}, citing a file and line range or a page and section for each; and (iii) recorded every component that was hard to place. The assignments were made with an AI coding agent as a research instrument, under the author's direction and review, and each can be checked against its cited source without the agent.
+
+\paragraph{Summary} Table~\ref{tab:summary} gives the six side by side, one row per primitive. Every component we found has a home, and the differences between the harnesses are in the rows. None of the six required a sixth row.
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\caption{Six harnesses by primitive, abridged. Each cell is the design decision that harness made within the primitive; the full table and the evidence for each cell are published with the paper. Versions: Claude Code documentation as of 15 October 2026; Codex CLI f0c5077; opencode 654b79b; pi 5ab7fe7; Hermes Agent 7bf3766; LangGraph 5eb60ae.}
+\label{tab:summary}
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}p{1.5cm}YYYYYY@{}}
+\toprule
+& Claude Code & Codex CLI & opencode & pi & Hermes Agent & LangGraph \\
+\midrule
+\prim{Input} & prompts, stdin, messages queued mid-turn, sub-agent reports & one operation channel per thread; steering queue; mailbox & durable inbox rows, delivered as steer or queue & terminal, print and RPC modes; steer and follow-up queues & one message event from CLI, 25 gateways, HTTP, ACP, cron & writes to a typed state channel, merged by a reducer \\
+\addlinespace
+\prim{Context} & cached prefix (system, tools, \texttt{CLAUDE.md}); compaction re-injects memory & Responses item list; world-state sections as diffs; three compaction modes & event-sourced history re-projected per call; compaction at $\sim$90\% or provider-native & projection of a session tree; sectioned prompt diffed into patches & three-tier byte-stable prompt; compaction at 50\%, prune then summarize & the state's messages; window-fitting left to a user hook \\
+\addlinespace
+\prim{Model}\newline\prim{interface} & Messages API, streaming; 10 retries; fallback chain & Responses API; WebSocket, falling back to HTTP; 5 retries & in-house request compiled per protocol; retry split by output started & one stream function over $\sim$15 adapters; overflow to compaction & chat-completions client, pluggable transports; fallback chain & one LangChain call per step; no client of its own \\
+\addlinespace
+\prim{Output} & built-in tools plus MCP; read-only calls concurrent; OS sandbox & one orchestrator: approve, sandbox, run; V8 code mode & tools run concurrently as they stream; code-mode interpreter & plain tool objects, parallel; no core sandbox; QuickJS code mode & core tools plus bridge; sandboxed terminal; approval gate & tool node, concurrent in-process; errors become messages \\
+\addlinespace
+\prim{Control flow} & loop until no tool calls; six-step permission gate with a classifier model; agent tool to depth 3 & task per turn; hooks, Guardian reviewer, then person; sub-agents as sessions & one fibre per session; per-agent step budget; child sessions, depth 1 & inner tool loop, outer follow-up loop, session loop; virtual-model routing & phase-verdict loop; stop-gate nudges; flat threaded delegation & a user-written graph run as supersteps; recursion limit \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\paragraph{What was hard to place} Three cases recur across harnesses.
+\begin{itemize}
+  \item \textbf{Primitives that call the model.} In Claude Code, opencode and pi, compaction decides what to summarize and then calls the model to summarize it; Claude Code's web-fetch tool and pi's code mode call models from inside a tool. Read as a call graph, these break the rule that \prim{Context} and \prim{Output} never call the model; read as responsibility, they do not, since the component still decides one thing and uses \prim{Model interface} to do it. The rule on primitives as services was added for them.
+  \item \textbf{Approval gates inside tools.} In opencode and Hermes the code that asks the person sits inside the tool that would act, and in Codex the approval requirement depends on what the sandbox allows. By function the gate is \prim{Control flow} and the enforcement is \prim{Output}; by location they are one file.
+  \item \textbf{Decisions carried out by editing the context.} opencode enforces a step budget by appending an assistant message and disabling tools; Hermes's stop gates append a synthetic message and go again; LangGraph replaces the model's answer with a canned message at the step budget. Each is a \prim{Control flow} decision whose mechanism is a change to what the model is shown, and we record both.
+\end{itemize}
+One finding is a boundary question. Claude Code's server-side permission classifier runs inside the API during the session's own requests, and opencode can delegate compaction to the provider: a function the vocabulary places in the harness runs on the provider's side, and the local harness holds only a verdict or an opaque item. The primitives still apply, with the harness split across two machines. But the boundary of \S\ref{sec:boundary} is at the model's weights, not at the API, and a deconstruction from client source alone misses the part behind the API. We found no component in the six that satisfied none of the five definitions.

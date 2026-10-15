@@ -1,0 +1,61 @@
+%% TMLR submission: the full paper in the TMLR style, anonymized.
+%% Build: ./build.sh  (writes an anonymized references.bib, builds full.pdf, supplementary.pdf and supplementary.zip)
+%% For the camera-ready or a preprint, change \usepackage{tmlr} to \usepackage[preprint]{tmlr} and restore the author block.
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\newcommand{\prim}[1]{\textmd{\textsc{#1}}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlist{nosep,leftmargin=*}
+\setlist[description]{font=\normalfont\bfseries,style=nextline,labelindent=0pt}
+\captionsetup{font=small,labelfont=bf}
+
+\title{Agent = Harness(Model):\\Five Mechanistic Primitives, and What Is Not One}
+% The style file prints "Anonymous authors / Paper under double-blind review" unless [preprint] or [accepted] is given.
+\author{\name Chase Dovey \email chase@odovey.com\\\addr Average Joes Lab}
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/boundary}
+\input{sections/primitives}
+\input{sections/levels}
+\input{sections/deconstruction}
+\input{sections/uses}
+\input{sections/objections}
+\input{sections/limitations}
+\input{sections/related}
+\input{sections/conclusion}
+\input{sections/disclosure}
+
+\bibliographystyle{tmlr}
+\bibliography{references}
+
+\appendix
+\input{sections/appendix-a}
+
+\section{Evidence for the Deconstruction}
+\label{app:evidence}
+Every assignment in \S\ref{sec:deconstruction}, with its evidence, is given in the supplementary material: a 50-page PDF with the same section structure as this appendix, and the source files it was generated from, one per harness. For harnesses with published source, a citation is a path and a line range at the pinned commit; for Claude Code it is a documentation page and section heading on the date read.
+\end{document}

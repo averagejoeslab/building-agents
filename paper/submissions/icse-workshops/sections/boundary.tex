@@ -1,0 +1,30 @@
+\section{The Boundary: Model and Harness}
+\label{sec:boundary}
+\paragraph{The model} We take a language model to be a function from a token sequence to a distribution over the next token, applied autoregressively until a stop token is produced: $\textit{TokensOut} = \textit{Model}(\textit{TokensIn})$. Chat templates, tool-call formats and reasoning tokens are conventions for laying out \textit{TokensIn} and reading \textit{TokensOut}. Models learn these conventions in training, and can learn to emit calls to tools \cite{schick2023toolformer}, but the calls are carried out, and the conventions written and parsed, by something else. Viewed from outside, the model keeps no state between calls, cannot read from or act on its environment, and cannot call itself again.
+
+\paragraph{The harness} The harness is everything in an agent that is not the model: the software that turns the world into tokens for the model, and the model's tokens into effects on the world. The boundary is at the model's weights and its sampling. Everything the model is shown, everything it can do, and everything that happens between one call and the next is on the harness side, including things often attributed to the model: memory across sessions, tool use, and knowledge of the date or the working directory. Algorithm~\ref{alg:harness} gives the shape every harness shares, each line labelled with its primitive: something comes in, the harness assembles a context around it and sends it to the model, and the harness handles the response, showing words to a person or carrying out the actions requested. If an action produced a result, the result comes back in and the loop runs again; if not, control returns to the person.
+
+\begin{algorithm}[t]
+\caption{A harness. Lines are labelled with the primitive they implement.}
+\label{alg:harness}
+\footnotesize
+\begin{algorithmic}[1]
+\Procedure{ControlFlow}{\,}
+  \State $\textit{conv} \gets [\,]$
+  \Loop \Comment{outer loop: one request at a time}
+    \State $\textit{conv}.\textsc{append}(\textsc{User}(\Call{Input}{\,}))$ \Comment{\prim{Input}: a person}
+    \Loop \Comment{inner loop: one request, carried through}
+      \State $\textit{ctx} \gets \Call{Context}{\textit{conv}}$ \Comment{\prim{Context}}
+      \State $\textit{resp} \gets \Call{ModelInterface}{\textit{ctx}}$ \Comment{\prim{Model interface}}
+      \State $\textit{conv}.\textsc{append}(\textsc{Assistant}(\textit{resp}))$
+      \State $\textit{results} \gets \Call{Output}{\textit{resp}}$ \Comment{\prim{Output}: words, actions}
+      \If{$\textit{results} = \emptyset$} \textbf{break} \Comment{nothing ran: hand back}
+      \EndIf
+      \State $\textit{conv}.\textsc{append}(\textsc{User}(\textit{results}))$ \Comment{\prim{Input}: the world}
+    \EndLoop
+  \EndLoop
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Scope} The primitives describe the path of a request at run time; hosting, packaging, configuration loading and the user-interface framework are out of scope, and the model is held fixed. What makes a harness an agent's is a \prim{Control flow} that feeds the results of actions back to the model.
