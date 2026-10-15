@@ -7,6 +7,8 @@
 
 \paragraph{Documentation-only analysis.} Claude Code's source is not published. Its deconstruction rests on its documentation and Anthropic's published descriptions, which state what the harness does but not always how. Negative definitions are harder to confirm from documentation than from source, and a documented feature may differ from the shipped one.
 
+\paragraph{The harness is not always in one place.} Two of the six run part of their harness behind the provider's API (\S\ref{sec:summary}). A deconstruction from client source or documentation describes the local part; the part on the provider's side is visible only through its effects. As providers absorb more harness functions, this gap will grow.
+
 \paragraph{Products change.} Every assignment is pinned to a commit or a documentation date. Several of the six harnesses change weekly. The deconstruction describes them on those dates, and a reader checking it later should use the pinned versions.
 
 \paragraph{Who made the assignments.} The assignments were made by the author with an AI coding agent as a research instrument (see the disclosure), against the definitions of \S\ref{sec:primitives} and the rules of \S\ref{sec:rules}, and each cites its evidence. No second, independent decomposition was made, so the agreement between two people applying the definitions is unmeasured. The rules in \S\ref{sec:rules} are where disagreement would most likely arise: they follow from the definitions, but another reader could draw some boundaries elsewhere.

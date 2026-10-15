@@ -16,17 +16,17 @@ Anyone can now type the request, and the answer is the same: \emph{``I don't hav
 \subsection{Plus \prim{Output}}
 \lstinputlisting[firstline=4,linerange={6-26}]{minimal/3_output.py}
 A tool is described to the model, and \texttt{handle\_output} runs each command the model asks for and collects the result:
-\begin{verbatim}
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
 > The tests are failing. Find out why and fix it.
 < I'll start by exploring the project and running the tests.
 $ pwd; ls -la; git status 2>/dev/null | head
-\end{verbatim}
+\end{lstlisting}
 Then it stops. The command ran and printed the files, and the result went nowhere: nothing carries it back to the model. What is missing is the decision to go again.
 
 \subsection{Plus \prim{Control flow}}
 \lstinputlisting[firstline=4,linerange={31-41}]{minimal/4_control_flow.py}
 With the results sent back and the model called again until it stops requesting actions, the same model, tool and request finish the task:
-\begin{verbatim}
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
 > The tests are failing. Find out why and fix it.
 < Let me start by looking at the project and running the tests.
 $ pwd; ls -la; git status 2>/dev/null | head
@@ -37,23 +37,23 @@ $ python -m unittest -v 2>&1 | tail -20
   code to match the documented behavior.
 $ sed -i 's|return round(subtotal - discount, 2)|return round(subtotal * (1 - discount / 100), 2)|' prices.py && cat prices.py && python -m unittest 2>&1 | tail -5
 < The tests pass now. The bug was in prices.py, not in the tests.
-\end{verbatim}
+\end{lstlisting}
 This is an agent. Asked a question about itself, though, it has to go looking:
-\begin{verbatim}
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
 > Who are you, and where are you working?
 < I'll check the environment first so I can answer accurately.
 $ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a; ls -la | head -20
 < I'm an AI assistant. I can run shell commands, and I use that to read files,
   run code and make changes in the environment I'm given.
-\end{verbatim}
+\end{lstlisting}
 It does not know its name, its body, its working directory or the date. What is missing is what the model is shown.
 
 \subsection{Plus \prim{Context}: the complete harness}
 \lstinputlisting[firstline=4]{minimal/quark.py}
 One sentence of context, assembled on every call, answers the question without any action:
-\begin{verbatim}
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
 > Who are you, and where are you working?
 < I'm quark, an agent that works by running shell commands through bash. My
   working directory is /tmp/shop. Today's date is 2026-10-07.
-\end{verbatim}
+\end{lstlisting}
 This is the whole harness: fifty lines, five functions, one per primitive. It runs commands on the host without asking and forgets everything when it exits; the production concerns of \S\ref{sec:levels} are what it lacks, and the companion repository adds them one question at a time to produce \texttt{quark\_production.py}. The same repository later replaces \texttt{request\_response} with a function that runs a local model and translates between the Messages format and the model's chat template, leaving the other four primitives unchanged; that is the porting claim of \S\ref{sec:uses} in practice.
