@@ -18,7 +18,7 @@ An LLM agent is a model wrapped in a harness, and every harness is built from fi
 | `minimal/` | The five minimal harnesses reproduced in Appendix A (copies of `harness/1_model_interface.py` to `harness/quark.py`) |
 | `references.bib`, `main.bbl` | Bibliography, and its compiled form (included in the arXiv tarball) |
 | `main.pdf` | The compiled paper |
-| `submissions/` | One build per venue: arXiv, the ICSE 2027 workshops, TMLR |
+| `submissions/` | One build per venue: arXiv, AGENTVERIFY 2027, TMLR |
 
 ## Build
 
@@ -30,7 +30,7 @@ latexmk -pdf main.tex
 
 ## Submitting
 
-`submissions/` holds one build per venue, each from the same `sections/`: an arXiv tarball, a five-page IEEE short version for the ICSE 2027 workshops (AGENT'27 and AGENTVERIFY 2027), and an anonymized TMLR version with its supplementary material. See [`submissions/README.md`](./submissions/README.md) for the steps for each venue.
+`submissions/` holds one build per venue, each from the same `sections/`: an arXiv tarball, a five-page IEEE short version for the AGENTVERIFY 2027 workshop, and an anonymized TMLR version with its supplementary material. See [`submissions/README.md`](./submissions/README.md) for the steps for each venue.
 
 ## Checking an assignment
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds short.pdf (AGENT'27, single-anonymous) and short-anon.pdf (AGENTVERIFY 2027, double-blind).
+# Builds short-anon.pdf (the AGENTVERIFY 2027 submission, double-blind) and short.pdf (the same paper with the author block).
 # The summary table reuses the Codex cells and the bibliography from the full paper, so TEXINPUTS
 # and BIBINPUTS point two levels up.
 set -e
