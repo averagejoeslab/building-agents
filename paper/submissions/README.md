@@ -5,7 +5,7 @@ One version of the paper per venue, each built from the same `../sections/` file
 | Folder | Venue | What it builds | Status |
 |---|---|---|---|
 | `arxiv/` | [arXiv](https://arxiv.org/submit), cs.AI (cs.SE cross-list) | `arxiv.tar.gz`: the full paper's sources with the compiled bibliography | ready to upload |
-| `icse-workshops/` | [AGENTVERIFY 2027](https://agentverify2027.github.io/) (papers due 6 Nov 2026) and [AGENT'27](https://conf.researchr.org/home/icse-2027/agent-2027) (due 13 Nov 2026), both ICSE 2027 workshops | `short.pdf`: a five-page IEEE two-column position paper, references included | ready for AGENT'27; confirm AGENTVERIFY's page limit on its HotCRP site first |
+| `icse-workshops/` | [AGENTVERIFY 2027](https://agentverify2027.github.io/cfp.html) (papers due 6 Nov 2026) and [AGENT'27](https://conf.researchr.org/home/icse-2027/agent-2027) (due 13 Nov 2026), both ICSE 2027 workshops | `short-anon.pdf` for AGENTVERIFY (double-blind) and `short.pdf` for AGENT'27: the same five-page IEEE position paper, references included | ready to upload |
 | `tmlr/` | [TMLR](https://jmlr.org/tmlr/) | `full.pdf`: the full paper in the TMLR style, anonymized; `supplementary.zip`: Appendix B as a PDF plus the evidence and minimal-harness sources | ready to upload |
 
 ## Build
@@ -14,7 +14,7 @@ Each folder has a `build.sh`; run it from anywhere. The short version and the TM
 
 ```bash
 paper/submissions/arxiv/build.sh            # arxiv.tar.gz
-paper/submissions/icse-workshops/build.sh   # short.pdf
+paper/submissions/icse-workshops/build.sh   # short.pdf and short-anon.pdf
 paper/submissions/tmlr/build.sh             # full.pdf, supplementary.pdf, supplementary.zip
 ```
 
@@ -24,10 +24,10 @@ Upload `arxiv/arxiv.tar.gz`. arXiv compiles the sources itself and does not run 
 
 ## ICSE 2027 workshops (AGENT'27 and AGENTVERIFY 2027)
 
-`icse-workshops/short.tex` is the IEEE conference template (`IEEEtran.cls`, included) with its own condensed sections in `icse-workshops/sections/`; the summary table reuses the Codex cells from `../sections/`, and the bibliography is the shared `references.bib`. The result is five pages including references, the AGENT'27 limit for short papers (position papers are explicitly welcome there). Review is single-anonymous, so the author block stays.
+`icse-workshops/short.tex` is the IEEE conference template (`IEEEtran.cls`, included) with its own condensed sections in `icse-workshops/sections/`; the summary table reuses the Codex cells from `../sections/`, and the bibliography is the shared `references.bib`. The result is five pages including references. `short-anon.tex` builds the same paper with the author block blanked and the one bibliography entry naming the author replaced, and `build.sh` fails if identifying text is found in it.
 
-- **AGENT'27:** submit `short.pdf` at <https://icse2027-agent.hotcrp.com/> by 13 November 2026 (AoE). Full papers may run to 8 pages if the longer form is wanted.
-- **AGENTVERIFY 2027:** abstracts 1 November, papers 6 November 2026 (AoE), at <https://icse2027-agentverify.hotcrp.com/>. The workshop page states no page limit or template; as an ICSE workshop it will almost certainly be the IEEE template, but confirm before submitting.
+- **AGENTVERIFY 2027** ([call for papers](https://agentverify2027.github.io/cfp.html)): IEEE format, **double-blind**. Full papers up to 8 pages and short papers up to 4, both including references, so the five-page paper goes in as a full paper. "Harness engineering for execution, evaluation, and deployment" is a listed topic. Abstracts 1 November, papers 6 November 2026 (AoE), at <https://icse2027-agentverify.hotcrp.com/>; the HotCRP site itself shows a deadline of 14 November 2026, 06:59 EST (13 November AoE), so the 6 November date on the workshop page is the one to meet. Accepted papers go into the ICSE 2027 workshop proceedings, with a non-archival option. Submit `short-anon.pdf`.
+- **AGENT'27** ([page](https://conf.researchr.org/home/icse-2027/agent-2027)): IEEE format, **single-anonymous**. Short papers (position papers are explicitly welcome) up to 5 pages and full papers up to 8, both including references; no paid extra pages. Papers due 13 November 2026 (AoE) at <https://icse2027-agent.hotcrp.com/>. Submit `short.pdf`.
 
 The condensed prose is a separate copy, so a change to the position in `../sections/` must be carried into `icse-workshops/sections/` by hand.
 

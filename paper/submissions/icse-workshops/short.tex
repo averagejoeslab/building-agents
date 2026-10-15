@@ -1,5 +1,6 @@
-%% Short version for the ICSE 2027 workshops (AGENT'27, AGENTVERIFY 2027):
-%% IEEE conference template, five pages including references.
+%% Short version for the ICSE 2027 workshops: IEEE conference template, five pages including references.
+%% short.pdf (this file) is for AGENT'27, which is single-anonymous; short-anon.pdf (short-anon.tex) is the
+%% same paper anonymized for AGENTVERIFY 2027, which is double-blind.
 %% Build: ./build.sh  (sets TEXINPUTS so the shared table cells in ../../sections resolve)
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
@@ -22,8 +23,14 @@
 \setlist{nosep,leftmargin=*}
 
 \title{Agent = Harness(Model):\\Five Mechanistic Primitives, and What Is Not One}
-\author{\IEEEauthorblockN{Chase Dovey}
-\IEEEauthorblockA{Average Joes Lab\\\texttt{https://cdovey.dev}}}
+% short-anon.tex defines \anonymous before inputting this file: the author block is blanked and the
+% bibliography entry that names the author is taken from a generated references-anon.bib.
+\ifdefined\anonymous
+  \author{\IEEEauthorblockN{Anonymous authors}\IEEEauthorblockA{Paper under double-blind review}}
+\else
+  \author{\IEEEauthorblockN{Chase Dovey}
+  \IEEEauthorblockA{Average Joes Lab\\\texttt{https://cdovey.dev}}}
+\fi
 
 \begin{document}
 \maketitle
@@ -40,5 +47,5 @@
 \input{sections/conclusion}
 
 \bibliographystyle{IEEEtran}
-\bibliography{references}
+\ifdefined\anonymous\bibliography{references-anon}\else\bibliography{references}\fi
 \end{document}
