@@ -5,7 +5,7 @@
 \renewcommand{\arraystretch}{1.2}
 \caption{Six harnesses by primitive. Each cell is the design decision that harness made within the primitive; the evidence for each is in Appendix~\ref{app:evidence}.}
 \label{tab:summary}
-\begin{tabularx}{\linewidth}{@{}>{\bfseries}p{1.7cm}YYYYYY@{}}
+\begin{tabularx}{\linewidth}{@{}>{\bfseries}p{1.9cm}YYYYYY@{}}
 \toprule
 & Claude Code & Codex CLI & opencode & pi & Hermes Agent & LangGraph \\
 \midrule
@@ -25,7 +25,7 @@ projection of a session tree; sectioned prompt diffed into patches; compaction p
 three-tier byte-stable prompt; memory and project files; compaction at 50\% by prune then summarize; tool-search bridge &
 the state's messages plus one system message; window-fitting left to a user hook \\
 \addlinespace
-\prim{Model interface} &
+\prim{Model}\newline\prim{interface} &
 Messages API, streaming; 10 retries; idle watchdogs; user-configured fallback chain &
 \input{sections/summary-codex-mi} &
 in-house request compiled per protocol; SSE or WebSocket; retry split by whether output started &
