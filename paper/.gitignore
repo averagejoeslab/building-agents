@@ -6,5 +6,5 @@
 *.fdb_latexmk
 *.toc
 *.synctex.gz
-arxiv/
-arxiv.tar.gz
+/arxiv/
+/arxiv.tar.gz
