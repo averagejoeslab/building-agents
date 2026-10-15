@@ -4,7 +4,7 @@ By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.c
 
 > **The book:** [*Building Agents: From nothing to a model, a harness, and a model trained in its harness*](./book/) teaches everything in this repo, chapter by chapter, with annotated code and every experiment explained. [Read it online](./book/) or [download the PDF](./book/Building-Agents.pdf).
 
-> **The paper:** [*Agent = Harness(Model): The Five Primitives of Every Agent Harness*](./paper/) is a position paper on what a harness is, the five primitives every harness is built from, and how widely used harnesses fit them. [Read the PDF](./paper/main.pdf) or see [the LaTeX sources](./paper/).
+> **The paper:** [*Agent = Harness(Model): Five Mechanistic Primitives, and What Is Not One*](./paper/) is a position paper: every harness is built from five mechanistic primitives, and everything else about a harness is a design decision within a primitive or a production concern asked of every primitive. It tests the claim by deconstructing six harnesses from their sources (Claude Code, Codex CLI, opencode, pi, Hermes Agent, a LangGraph workflow), with the evidence published. [Read the PDF](./paper/main.pdf) or see [the LaTeX sources](./paper/).
 
 ## What an agent is
 
@@ -1433,7 +1433,7 @@ The transcripts changed more than the score ([`runs/training/tasks-instruct.said
 
 ## License
 
-The code (`model/`, `harness/`, `paper/quark.py` and the book's build scripts) is under the [MIT License](./LICENSE). The writing (this README, [the book](./book/), [the paper](./paper/)) and the records in `runs/` are under [Creative Commons Attribution 4.0](./LICENSE-CC-BY-4.0) (CC BY 4.0): you can share and adapt them, for any purpose, as long as you credit Chase Dovey and link back to this repo.
+The code (`model/`, `harness/`, `paper/minimal/`, `paper/evidence/to_latex.py` and the book's build scripts) is under the [MIT License](./LICENSE). The writing (this README, [the book](./book/), [the paper](./paper/)) and the records in `runs/` are under [Creative Commons Attribution 4.0](./LICENSE-CC-BY-4.0) (CC BY 4.0): you can share and adapt them, for any purpose, as long as you credit Chase Dovey and link back to this repo.
 
 The training data in `data/`, the Qwen models it trains, and the book's fonts come from others and keep their own licenses: see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
