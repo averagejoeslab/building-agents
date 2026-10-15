@@ -1,0 +1,19 @@
+\section{Deconstruction of Six Harnesses}
+\label{sec:deconstruction}
+
+If the position holds, a harness built by someone else, for a different purpose, at a different scale, should decompose into the five primitives with nothing left over, and its differences from other harnesses should be locatable as design decisions within a primitive. We test this on six.
+
+\paragraph{Selection.} We chose harnesses in wide use whose primary sources were available, across three kinds: two command-line coding agents from model developers (Claude Code \citep{claudecode} and Codex CLI \citep{codexcli}), two open-source coding agents built outside the model developers (opencode \citep{opencode} and pi \citep{pi}), one general-purpose agent built for messaging platforms as well as the terminal (Hermes Agent \citep{hermes}), and one workflow framework (LangGraph \citep{langgraph}), for which we deconstruct the canonical agent it ships, a ReAct loop, together with the runtime that executes it. The workflow framework is included to test the claim that a workflow and an agent differ only in \prim{Control flow}. Five of the six publish their source; Claude Code does not, and is deconstructed from its documentation. The six are not a sample of all harnesses, and \S\ref{sec:limitations} says what that leaves untested.
+
+\paragraph{Method.} For each harness we (i) read the source at a pinned commit, or the documentation on a stated date, and mapped the path of a request from the moment a message arrives to the next model call; (ii) assigned every component on that path to exactly one primitive, or to one production concern together with the primitive it changes, by the definitions of \S\ref{sec:primitives} and the rules of \S\ref{sec:rules}, citing a file and line range or a page and section for each; and (iii) recorded every component that was hard to place and how it was resolved, or that it was not. Components outside the request path (hosting, packaging, UI frameworks) were noted and left unassigned. The evidence is in Appendix~\ref{app:evidence} and in the repository as a file per harness; the subsections below summarize it.
+
+%% PER-HARNESS SUBSECTIONS: filled from the evidence files
+\input{sections/deconstruction-harnesses}
+
+\subsection{Summary}
+\label{sec:summary}
+Table~\ref{tab:summary} gives the six side by side, one row per primitive. Every component we found has a home. The differences between the harnesses are in the rows: what comes in and from where, what the context holds and how it is fitted, how the model is reached, which tools exist and where they run, and what shape the loop has. None of the six required a sixth row.
+
+\input{sections/deconstruction-summary}
+
+\paragraph{What was hard to place.} The hard cases are collected in Appendix~\ref{app:evidence}. Three recur. Approval and sandboxing are coupled in several harnesses: whether to ask depends on what the sandbox allows, and a sandbox denial can trigger a new approval. Each piece still has one home (the gate is \prim{Control flow}, the enforcement is \prim{Output}), but the two read each other, which is the interaction of concerns noted in \S\ref{sec:levels}. Modes and skills bundle decisions across primitives and are packaging rather than parts. And several harnesses let the model drive other primitives through tools (spawn a sub-agent, ask the user, enter a plan), which the tool-channel rule places. We found no component that satisfied none of the five definitions.

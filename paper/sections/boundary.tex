@@ -1,0 +1,45 @@
+\section{The Boundary: Model and Harness}
+\label{sec:boundary}
+
+\paragraph{The model.} We take a language model to be a function from a token sequence to a distribution over the next token, applied autoregressively until a stop token is produced:
+\[
+  \textit{TokensOut} = \textit{Model}(\textit{TokensIn}).
+\]
+Chat templates, tool-call formats and reasoning tokens are conventions for laying out \textit{TokensIn} and reading \textit{TokensOut}. Models learn these conventions in training, and can learn to emit calls to tools \citep{schick2023toolformer}, but the calls are carried out, and the conventions written and parsed, by something else. Viewed from outside, the model keeps no state between calls, cannot read from or act on its environment, and cannot call itself again.
+
+\paragraph{The harness.} The harness is everything in an agent that is not the model: the software that turns the world into tokens for the model, and the model's tokens into effects on the world.
+\[
+  \textit{Agent} = \textit{Harness}(\textit{Model}).
+\]
+The boundary is at the model's weights and its sampling. Everything the model is shown, everything it can do, and everything that happens between one call and the next is on the harness side. This includes things often attributed to the model: memory across sessions (the harness stores and retrieves it), tool use (the model emits a request; the harness carries it out), and knowledge of the date or the working directory (the harness writes it into the context).
+
+\paragraph{The loop.} Figure~\ref{fig:loop} shows the shape every harness shares. Something comes in: a request from a person, an event, or the result of an earlier action. The harness assembles a context around it and sends the context to the model. The model runs its own inner loop, one token at a time, until it stops. The harness handles the response: it shows words to a person, or carries out the actions the response requests. If an action produced a result, the result comes back in and the loop runs again; if not, control returns to the person, or the agent stops.
+
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  node distance=8mm and 8mm,
+  box/.style={draw, rounded corners=2pt, minimum width=21mm, minimum height=9mm, align=center, font=\small},
+  model/.style={box, fill=black!85, text=white, minimum width=27mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  \node[box] (in) {\prim{Input}\\[-1pt]\scriptsize perceive};
+  \node[box, right=of in] (ctx) {\prim{Context}\\[-1pt]\scriptsize working memory};
+  \node[model, right=17mm of ctx] (m) {Model\\[-1pt]\scriptsize tokens $\to$ next token};
+  \node[box, right=of m] (out) {\prim{Output}\\[-1pt]\scriptsize act};
+  \node[font=\small, right=10mm of out] (p) {person};
+  \draw[arr] (in) -- (ctx);
+  \draw[arr] (ctx) -- node[above, font=\scriptsize]{\prim{Model}} node[below, font=\scriptsize]{\prim{interface}} (m);
+  \draw[arr] (m) -- (out);
+  \draw[arr] (out) -- (p);
+  \draw[arr] (out.south) -- ++(0,-8mm) -| node[pos=0.25, below, font=\scriptsize]{a tool's result comes back in: go again} (in.south);
+  \draw[arr, dashed] (p.north) -- ++(0,7mm) -| node[pos=0.25, above, font=\scriptsize]{a request} (in.north);
+  \node[draw, dotted, rounded corners=4pt, inner sep=4mm, fit=(in)(ctx)(m)(out), label={[font=\scriptsize]north west:\prim{Control flow} holds the loop}] {};
+\end{tikzpicture}}
+\caption{The agent loop. The five primitives surround the model; \prim{Control flow} decides whether the loop runs again, hands back, or stops.}
+\label{fig:loop}
+\end{figure}
+
+\paragraph{Scope.} The primitives describe what happens on the path of a request at run time. Software that ships with a harness but never acts on that path is out of scope: hosting and transport, configuration loading, packaging, the user-interface framework, and the infrastructure that carries telemetry (what is recorded is in scope; the pipe that carries it is not). Model development is out of scope too: the model is held fixed.
+
+\paragraph{Not every harness is an agent's.} A program that makes one model call and prints the reply has a harness, but a trivial one: its input is fixed, its context is one message, its output is printed, and its control flow is a straight line. The primitives describe this case as well. What makes a harness an agent's is a \prim{Control flow} that feeds the results of actions back to the model.

@@ -1,12 +1,10 @@
 \section{The Five Primitives}
 \label{sec:primitives}
 
-We identify five primitives. For each we give its role, the evidence that it is necessary (the failure of a harness built without it), and the design space within it, which is where harnesses differ. The necessity arguments come from building a harness outward from the model, adding one primitive at a time, and running each version on the same task: a small Python project with a failing test, and the request \emph{``The tests are failing. Find out why and fix it.''} The transcripts are in the repository.
-
-Algorithm~\ref{alg:harness} gives the whole harness as pseudocode. Every harness we examine in \S\ref{sec:casestudy} is an elaboration of it.
+Algorithm~\ref{alg:harness} gives a harness as pseudocode, each line labelled with its primitive. Every harness in \S\ref{sec:deconstruction} is an elaboration of it. For each primitive we give its \emph{mechanism} (what it does on the path of a request), its \emph{negative definition} (what it never does, and which primitive does), and its \emph{design space} (the decisions a harness makes within it). The negative definitions make the five mutually exclusive: each piece of a harness has one home, assigned by its function rather than by its name or its location in the code.
 
 \begin{algorithm}[t]
-\caption{The five primitives of a harness. Lines are labelled with the primitive they implement.}
+\caption{A harness. Lines are labelled with the primitive they implement.}
 \label{alg:harness}
 \small
 \begin{algorithmic}[1]
@@ -28,53 +26,30 @@ Algorithm~\ref{alg:harness} gives the whole harness as pseudocode. Every harness
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{\prim{Model interface}: reach the model}
-\textbf{Role.} Send an assembled context to the model and return its response in a form the rest of the harness can read: words, and structured requests to act.
-\textbf{Without it.} There is no agent at all, only weights.
-\textbf{With only it.} The model answers, but cannot act; asked to fix failing tests, it explains that it cannot see the code. A request written into the program means nobody else can ask it anything.
-\textbf{Design space.} Hosted API or local inference; one provider or many (directly or through a translation layer); native tool-call formats or tool calls parsed from text; streaming or whole responses; and the translation between the harness's internal message format and the model's chat template. The model interface is the only primitive that knows which model is inside, which is why changing models means changing it alone.
-
 \subsection{\prim{Input}: capture what comes in}
-\textbf{Role.} Capture what enters the agent: requests from a person, and results from the world.
-\textbf{Without it.} The agent can only ever do one, fixed thing.
-\textbf{Design space.} The \emph{source} of input (a terminal prompt, an editor panel, a chat channel, a command-line argument for non-interactive use, an issue tracker, a scheduled trigger or a webhook) and its \emph{kind} (text, images, files, the results of actions, and interrupts). The second kind of input, results from the world, is easy to overlook and is what makes acting worthwhile: an action's result is new perception.
+\textbf{Mechanism.} Capture what enters the agent and hand it to \prim{Context}. There are two sources: a person (a message, a file, an interrupt, an answer to a question the model asked) and the world (the result of an action, an event, a scheduled trigger).
+\textbf{Never.} \prim{Input} never decides what the model is shown; that is \prim{Context}. It never runs anything; that is \prim{Output}. An answer a person gives that the \emph{harness} consumes, such as an approval, is not input but a \prim{Control flow} decision; an answer the \emph{model} consumes, returned as a tool result, is input.
+\textbf{Design space.} The source: a terminal, an editor, a chat channel, a command-line argument, an issue tracker, a webhook, a message queue. The kind: text, images, files, audio, the results of actions, interrupts, and mid-turn steering. The second source, results from the world, is what makes acting worthwhile: an action's result is new perception.
+
+\subsection{\prim{Context}: assemble what the model is shown}
+\textbf{Mechanism.} Assemble, for one call, everything the model is shown: instructions, the tools' descriptions, the conversation so far, and anything retrieved from memory or the environment; and fit it to the window, by truncation, compaction or selection. \prim{Context} is the agent's working memory, rebuilt on every call.
+\textbf{Never.} \prim{Context} never calls the model; that is \prim{Model interface}. It never acts on the world; that is \prim{Output}. Reading a memory store is \prim{Context}; writing one, if the model requests it, is an action and so \prim{Output}. Code that decides what the model sees is \prim{Context} even when it sits inside a tool: a tool that attaches project instructions to a file it reads, or condenses a web page before returning it, is doing \prim{Context}'s work.
+\textbf{Design space.} What goes in the instructions (identity, rules, the agent's own capabilities, project files such as \texttt{AGENTS.md}); how tools are described; how long-term memory comes in (preloaded, retrieved on demand, or searched by the agent through its own tools); the roles each piece is placed in, which carry authority; and what happens when the window fills: drop old turns, summarize them, or include only what the moment needs.
+
+\subsection{\prim{Model interface}: reach the model}
+\textbf{Mechanism.} Send the assembled context to the model and bring back its response in a form the rest of the harness can read: words, and structured requests to act. This includes the client, the wire format, the translation between the harness's message format and the model's chat template, streaming, retrying a failed request, and switching to a backup model when the request could not be served.
+\textbf{Never.} \prim{Model interface} never decides what the request contains; that is \prim{Context}. It never acts on the response; that is \prim{Output}. It receives a stream; rendering each fragment as it arrives is \prim{Output}. A change of model because the request could not be served (unavailable, overloaded, refused) is \prim{Model interface}; a change of model keyed to the work (planning, a cheap model for a side task) is \prim{Control flow}.
+\textbf{Design space.} A hosted API or local inference; one provider or many, directly or through a translation layer; native tool-call formats or tool calls parsed from text; streaming or whole responses; retry policy and backup models. \prim{Model interface} is the only primitive that knows which model is inside, which is why changing the model means changing it alone.
 
 \subsection{\prim{Output}: carry the response out}
-\textbf{Role.} Handle what the model returns: show its words, and carry out its requests to act, collecting each result.
-\textbf{Without it.} The model can only describe what it would do; nothing it writes is carried out, and asked to fix the tests it asks to be shown the code.
-\textbf{With it but without control flow.} The agent acts once and stops. It lists the project's files, and the list goes nowhere: the result of the action never reaches the model.
-\textbf{Design space.} The \emph{tool set}, from a single general tool (a shell) to dozens of specific ones (read, write, edit, search, browse, a computer-use interface); the \emph{action format}, from structured tool calls to code the model writes and the harness executes \citep{wang2024codeact} to edit formats such as search-and-replace blocks or diffs; the \emph{execution environment}, from the host machine to a container or remote sandbox; and the \emph{presentation} of results, including truncation, formatting and error messages, which \citet{yang2024sweagent} show matter to performance. The model only ever requests an action; \prim{Output} decides whether and how it happens, which is why the guardrails of \S\ref{sec:production} live here.
+\textbf{Mechanism.} Handle what the model returned: show its words to a person, and carry out each requested action, collecting its result. The tool set, the executor that runs an action, and the environment it runs in are \prim{Output}.
+\textbf{Never.} \prim{Output} never decides whether to go again; that is \prim{Control flow}. It never assembles the next request; that is \prim{Context}. The model only ever \emph{requests} an action; \prim{Output} decides whether and how it happens, which is where sandboxes and never-lists live. Several tool calls from one response run concurrently: \prim{Output}. Several \emph{model} calls run concurrently: \prim{Control flow}. A program the model writes at run time that calls tools without calling the model is \prim{Output}; one that sequences model calls is \prim{Control flow}.
+\textbf{Design space.} The tool set, from one general tool (a shell) to dozens of specific ones (read, write, edit, search, browse, computer use); the action format, from structured tool calls to code the model writes and the harness executes \citep{wang2024codeact} to edit formats such as search-and-replace blocks; the execution environment, from the host machine to a container or a remote sandbox; and the presentation of results, including truncation and error messages, which \citet{yang2024sweagent} show affect performance.
 
 \subsection{\prim{Control flow}: decide what happens next}
-\textbf{Role.} Shape the loop: send results back and go again, hand back to the person, or stop.
-\textbf{Without it.} The agent acts once. With it, the same model, tool and request become an agent: it lists the files, reads them, runs the tests, reads the failure, edits the code, runs the tests again and reports, then hands back. Because the whole conversation returns on every call, a follow-up such as \emph{``Commit the fix''} needs no explanation.
-\textbf{Design space.} A single open loop that runs until the model stops requesting actions; a fixed pipeline of model calls (a \emph{workflow}); an explicit graph of steps; delegation to sub-agents with their own contexts; planning or approval modes that change what is allowed; and stopping rules such as step limits, budgets and interrupts. \citet{anthropic2024effective}'s workflows and agents differ here, and only here.
+\textbf{Mechanism.} Define the shape of the loop: send results back and go again, hand back to the person, or stop. Step and token budgets, approval gates the harness consumes, delegation to sub-agents and the sequencing of several agents, and routing to a model keyed to the work are all \prim{Control flow}.
+\textbf{Never.} \prim{Control flow} never captures input, assembles context, calls the model or runs a tool. It sequences the other four. A workflow in which code fixes the order of model calls \citep{anthropic2024effective} and an agent in which the model directs its own process differ here and only here.
+\textbf{Design space.} A single open loop that runs until the model stops requesting actions; a fixed pipeline; an explicit graph; sub-agents with contexts of their own; planning or approval modes that change what is allowed; and stopping rules: step limits, budgets, interrupts, loop detection.
 
-\subsection{\prim{Context}: assemble what the model sees}
-\textbf{Role.} Assemble, for each call, everything the model is shown: instructions, the tools it can use, the conversation so far, and anything retrieved from memory. Context is the agent's working memory, rebuilt on every call.
-\textbf{Without it.} The agent works, but does not know what it is, where it is, or what day it is. Asked who it is and where it is working, it must spend actions finding out: in our runs it ran \texttt{pwd}, \texttt{whoami} and \texttt{uname} before answering, and still described itself only as ``an AI assistant''. A model with no such context can also guess wrongly about what it is. One sentence of context (a name, the tool it acts through, the working directory and the date) answers the question without any action.
-\textbf{Design space.} What goes into the \emph{instructions} (identity, rules, the agent's own capabilities, project-specific guidance from files such as \texttt{AGENTS.md}); how the \emph{tools} are described; how \emph{long-term memory} is brought in (preloaded, retrieved on demand, or searched by the agent through its own tools); and how the context is kept within the window when it grows, by dropping old turns, summarizing them, or including only what the moment needs. Context also carries roles, and roles carry authority: instructions in the system role outrank text that arrives in a tool result, a distinction that matters for security (\S\ref{sec:production}).
-
-\subsection{Necessity and sufficiency}
-Each primitive answers a question no other primitive answers: \emph{how is the model reached} (\prim{Model interface}), \emph{what comes in} (\prim{Input}), \emph{what is done with what comes out} (\prim{Output}), \emph{what happens next} (\prim{Control flow}) and \emph{what the model is shown} (\prim{Context}). Removing any one produces the specific failure described above, so none is redundant. For sufficiency, we offer the case study of \S\ref{sec:casestudy}: every capability we found in widely used harnesses is an implementation of one of the five, or a production concern that folds into them. We discuss candidates for a sixth primitive in \S\ref{sec:alternatives}.
-
-\subsection{Relation to CoALA}
-The primitives give an operational reading of CoALA's components \citep{sumers2024coala}. CoALA's working memory is \prim{Context}; its long-term memories are stores that \prim{Context} reads from and \prim{Output} writes to; its grounding actions are carried out by \prim{Output} and their observations return through \prim{Input}; its internal reasoning happens in the model, reached through \prim{Model interface}; and its decision cycle is \prim{Control flow}. Table~\ref{tab:coala} summarizes the mapping.
-
-\begin{table}[t]
-\centering
-\small
-\caption{The five primitives, the agent cycle they serve, and the corresponding CoALA components.}
-\label{tab:coala}
-\begin{tabularx}{\linewidth}{@{}lYYY@{}}
-\toprule
-Primitive & Role & In the agent cycle & CoALA \\
-\midrule
-\prim{Input} & Capture requests and results & Perceive & Observations \\
-\prim{Context} & Assemble what the model sees & Working and long-term memory & Working memory; retrieval \\
-\prim{Model interface} & Request a response & Decide & Reasoning (by the LLM) \\
-\prim{Output} & Show words, carry out actions & Act & Grounding actions; learning (writes) \\
-\prim{Control flow} & Go again, hand back, or stop & The cycle & Decision cycle \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\subsection{Necessity}
+Each primitive answers a question no other answers: what comes in, what the model is shown, how the model is reached, what is done with what comes out, and what happens next. Appendix~\ref{app:minimal} gives the five minimal harnesses from which the definitions were drawn, built one primitive at a time around a fixed model and task. Each version fails in a specific way without the next primitive: with only \prim{Model interface}, the model answers but cannot act and nobody can ask it anything else; with \prim{Input}, anyone can ask and it still cannot act; with \prim{Output}, it acts once and the result goes nowhere; with \prim{Control flow}, it finishes the task but does not know what it is or where it is, and spends actions finding out; with \prim{Context}, it knows. This shows that each primitive removes a failure the others do not. It does not show that no sixth primitive could ever be needed; \S\ref{sec:deconstruction} tests that against existing harnesses, and \S\ref{sec:limitations} says what would refute it.

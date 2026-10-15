@@ -8,6 +8,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{longtable}
 \usepackage{makecell}
 \usepackage{multirow}
 \usepackage{array}
@@ -25,9 +26,10 @@
 \newcommand{\prim}[1]{\textmd{\textsc{#1}}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \setlist{nosep,leftmargin=*}
+\setlist[description]{font=\normalfont\bfseries,style=nextline,labelindent=0pt}
 \captionsetup{font=small,labelfont=bf}
 
-\title{\textbf{Agent = Harness(Model):}\\The Five Primitives of Every Agent Harness}
+\title{\textbf{Agent = Harness(Model):}\\Five Mechanistic Primitives, and What Is Not One}
 \author{Chase Dovey\\Average Joes Lab\\\texttt{https://cdovey.dev}}
 \date{}
 
@@ -36,19 +38,22 @@
 
 \input{sections/abstract}
 \input{sections/introduction}
-\input{sections/background}
-\input{sections/harness}
+\input{sections/boundary}
 \input{sections/primitives}
-\input{sections/production}
-\input{sections/casestudy}
-\input{sections/implications}
-\input{sections/alternatives}
+\input{sections/levels}
+\input{sections/deconstruction}
+\input{sections/uses}
+\input{sections/objections}
+\input{sections/limitations}
+\input{sections/related}
 \input{sections/conclusion}
+\input{sections/disclosure}
 
 \bibliographystyle{plainnat}
 \bibliography{references}
 
 \appendix
-\input{sections/appendix}
+\input{sections/appendix-a}
+\input{sections/appendix-b}
 
 \end{document}

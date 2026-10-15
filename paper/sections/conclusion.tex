@@ -1,6 +1,4 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-We have argued that every LLM agent is a model wrapped in a harness, and that every harness is built from five primitives: \prim{Input}, \prim{Context}, \prim{Model interface}, \prim{Output} and \prim{Control flow}. The production concerns that make a harness safe and dependable are questions asked of these primitives, not additional parts. The harnesses in wide use today, however different they appear, make different decisions within the same five primitives.
-
-The harness is where most of an agent's behaviour is decided: what it knows about itself and its situation, what it is able and allowed to do, how it recovers from failure, and when it goes again. It deserves to be named, decomposed and reported with the same care as the model inside it. We hope the vocabulary proposed here helps make that routine.
+An LLM agent is a model wrapped in a harness, and a harness is five mechanistic primitives: \prim{Input}, \prim{Context}, \prim{Model interface}, \prim{Output} and \prim{Control flow}. What distinguishes one harness from another is the design decisions made within those primitives, and what makes a harness fit to run is the answers it gives to six questions asked of each. Six harnesses in wide use, deconstructed from their sources, fit this description with nothing left over. The vocabulary gives an engineer five places to look before blaming the model, and gives a benchmark a way to say which harness produced a score.
