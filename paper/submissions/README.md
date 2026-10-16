@@ -34,7 +34,7 @@ AGENT'27 is not used: a paper in its IEEE proceedings would bar the full paper f
 
 ## AGENTVERIFY 2027
 
-`agentverify/short.tex` is the IEEE conference template (`IEEEtran.cls`, included) with its own condensed sections in `agentverify/sections/`; the summary table reuses the Codex cells from `../sections/`, and the bibliography is the shared `references.bib`. The result is five pages including references. `short-anon.tex` builds the same paper with the author block blanked and the one bibliography entry naming the author replaced, and `build.sh` fails if identifying text is found in it.
+`agentverify/short.tex` is the IEEE conference template (`IEEEtran.cls`, included) with its own condensed sections in `agentverify/sections/`; the summary table reuses the Codex cells from `../sections/`, and the bibliography is the shared `references.bib`. The result is five pages including references. `short-anon.tex` builds the same paper with the author block blanked, and `build.sh` fails if identifying text is found in it.
 
 The [call for papers](https://agentverify2027.github.io/cfp.html): IEEE format, **double-blind**. Full papers up to 8 pages and short papers up to 4, both including references, so the five-page paper goes in as a **full paper**. "Harness engineering for execution, evaluation, and deployment" is a listed topic. Abstracts 1 November, papers 6 November 2026 (AoE), at <https://icse2027-agentverify.hotcrp.com/>; the HotCRP site itself shows 14 November 2026, 06:59 EST (13 November AoE), so meet the 6 November date. Notification 11 December 2026, camera-ready 29 January 2027, workshop in Dublin on 25 April 2027; one author must register and present. Choose the **non-archival option** on submission. Submit `short-anon.pdf`; `short.pdf` is the camera-ready form.
 
@@ -45,10 +45,9 @@ The condensed prose is a separate copy, so a change to the position in `../secti
 `tmlr/full.tex` compiles the full paper with the mandatory TMLR style file (`tmlr.sty`, `tmlr.bst`, `fancyhdr.sty`, included). TMLR review is double-blind, and `build.sh` anonymizes the build:
 
 - the style file prints *Anonymous authors* in place of the author block until `[preprint]` or `[accepted]` is passed;
-- the one bibliography entry naming the author (the companion book and repository) is replaced in a generated copy of `references.bib`;
 - Appendix C, the evidence, is moved out of the paper into `supplementary.pdf`, and the paper's Appendix C becomes a one-paragraph pointer to it;
 - `supplementary.zip` holds that PDF, the `evidence/` Markdown files it was generated from, and the `minimal/` harnesses of Appendix A.
 
 Before uploading, check `full.pdf` once more for anything identifying (the build already checks that the author's name, lab and domains do not appear in the text). Upload `full.pdf` as the submission and `supplementary.zip` as supplementary material at <https://openreview.net/group?id=TMLR>. There is no deadline and no page limit. The paper's "Prior sharing" paragraph discloses the preprint and the non-archival workshop version, which TMLR's policy permits.
 
-For the camera-ready, change `\usepackage{tmlr}` to `\usepackage[accepted]{tmlr}` in `full.tex`, restore the real `references.bib` entry (delete the anonymizing step in `build.sh`), and add the OpenReview link the style file asks for.
+For the camera-ready, change `\usepackage{tmlr}` to `\usepackage[accepted]{tmlr}` in `full.tex` and add the OpenReview link the style file asks for.

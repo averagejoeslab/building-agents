@@ -4,24 +4,10 @@
 set -e
 cd "$(dirname "$0")"
 
-# The bibliography is the full paper's, with the entry that names the author replaced.
-python3 - <<'PY'
-import re
-bib = open("../../references.bib").read()
-anon = """@misc{course,
-  author = {Anonymous},
-  title  = {Building Agents: companion book and repository},
-  year   = {2026},
-  note   = {Anonymized for review. The minimal harnesses and transcripts it cites are in the supplementary material}
-}"""
-bib, n = re.subn(r"@\w+\{course,.*?\n\}", anon, bib, count=1, flags=re.S)
-assert n == 1, "course entry not found"
-open("references.bib", "w").write(bib)
-PY
 
 # The supplement is Appendix B compiled on its own; its cross-references to the paper's sections
 # are resolved from full.aux, so the paper is built first and the supplement is always rebuilt.
-export TEXINPUTS="../../:"
+export TEXINPUTS="../../:" BIBINPUTS="../../:"
 latexmk -pdf -interaction=nonstopmode full.tex
 latexmk -pdf -g -interaction=nonstopmode supplementary.tex
 

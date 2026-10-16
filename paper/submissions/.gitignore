@@ -7,7 +7,5 @@
 *.log
 *.out
 *.toc
-tmlr/references.bib
 arxiv/src/
 tmlr/stage/
-agentverify/references-anon.bib

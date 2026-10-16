@@ -1,7 +1,7 @@
 \section{The Minimal Harnesses}
 \label{app:minimal}
 
-The five programs of \S\ref{sec:primitives}, complete, without their dependency headers. Each is the previous one plus one primitive. They are \texttt{harness/1\_model\_interface.py} to \texttt{harness/quark.py} in the companion repository \citep{course}, and the transcripts quoted in \S\ref{sec:primitives} are from the recorded runs there. The companion repository adds the production concerns of \S\ref{sec:levels} to the last program one question at a time, and later replaces \texttt{request\_response} with a function that runs a local model and translates between the Messages format and the model's chat template, leaving the other four primitives unchanged.
+The five programs of \S\ref{sec:primitives}, complete, without their dependency headers. Each is the previous one plus one primitive, and the transcripts quoted in \S\ref{sec:primitives} are from recorded runs of these programs. They are published with the paper. Replacing \texttt{request\_response} in the last program with a function that runs a local model and translates between the Messages format and the model's chat template leaves the other four primitives unchanged, which is the porting property of \S\ref{sec:vocabulary}.
 
 \lstset{basicstyle=\ttfamily\scriptsize, columns=fullflexible, keepspaces=true, breaklines=true, frame=single, rulecolor=\color{black!25}, commentstyle=\color{black!55}, language=Python, showstringspaces=false}
 
