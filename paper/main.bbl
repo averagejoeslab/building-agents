@@ -1,9 +1,15 @@
-\begin{thebibliography}{26}
+\begin{thebibliography}{39}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[{All Hands AI}(2026)]{openhands}
+{All Hands AI}.
+\newblock {OpenHands} and the {OpenHands} software agent {SDK}.
+\newblock \url{https://github.com/All-Hands-AI/OpenHands}, 2026.
+\newblock Commit aa593c7, 2026-10-16; SDK commit 5fa4dea, 2026-10-15.
 
 \bibitem[{Anomaly and contributors}(2026)]{opencode}
 {Anomaly and contributors}.
@@ -22,6 +28,30 @@
 \newblock \url{https://code.claude.com/docs/en/how-claude-code-works}, 2026.
 \newblock Documentation as read on 2026-10-15.
 
+\bibitem[{Anysphere}(2026)]{cursor}
+{Anysphere}.
+\newblock Cursor documentation.
+\newblock \url{https://cursor.com/docs}, 2026.
+\newblock Documentation as read on 2026-10-16.
+
+\bibitem[Block(2026)]{goose}
+Block.
+\newblock goose.
+\newblock \url{https://github.com/block/goose}, 2026.
+\newblock Commit 5eca486, 2026-10-16.
+
+\bibitem[{Cline Bot Inc.}(2026)]{cline}
+{Cline Bot Inc.}
+\newblock Cline.
+\newblock \url{https://github.com/cline/cline}, 2026.
+\newblock Commit 23791b9, 2026-10-15.
+
+\bibitem[{CrewAI Inc.}(2026)]{crewai}
+{CrewAI Inc.}
+\newblock {CrewAI}.
+\newblock \url{https://github.com/crewAIInc/crewAI}, 2026.
+\newblock Commit 6115839, 2026-10-15.
+
 \bibitem[Dovey(2026)]{course}
 Chase Dovey.
 \newblock Building agents: From nothing to a model, a harness, and a model
@@ -35,6 +65,37 @@ Run-Ze Fan, Zihao Zhang, Simin Ma, Yebowen Hu, Shouju Wang, Kaiqiang Song, Fei
   Liu, Hamed Zamani, and Xiaoyang Wang.
 \newblock An empirical study of harness design for coding agents.
 \newblock \emph{arXiv preprint arXiv:2609.20804}, 2026.
+
+\bibitem[Gauthier(2026)]{aider}
+Paul Gauthier.
+\newblock Aider: {AI} pair programming in your terminal.
+\newblock \url{https://github.com/Aider-AI/aider}, 2026.
+\newblock Commit 5dc9490, 2026-05-22.
+
+\bibitem[GitHub(2026)]{copilot}
+GitHub.
+\newblock {GitHub} {Copilot} coding agent documentation.
+\newblock \url{https://docs.github.com/en/copilot}, 2026.
+\newblock Documentation as read on 2026-10-16.
+
+\bibitem[Google(2026{\natexlab{a}})]{geminicli}
+Google.
+\newblock Gemini {CLI}.
+\newblock \url{https://github.com/google-gemini/gemini-cli},
+  2026{\natexlab{a}}.
+\newblock Commit b25669d, 2026-10-16.
+
+\bibitem[Google(2026{\natexlab{b}})]{googleadk}
+Google.
+\newblock Agent development kit ({Python}).
+\newblock \url{https://github.com/google/adk-python}, 2026{\natexlab{b}}.
+\newblock Commit f78149a, 2026-10-15.
+
+\bibitem[{Hugging Face}(2026)]{smolagents}
+{Hugging Face}.
+\newblock smolagents.
+\newblock \url{https://github.com/huggingface/smolagents}, 2026.
+\newblock Commit 96f33fa, 2026-10-06.
 
 \bibitem[Jimenez et~al.(2024)Jimenez, Yang, Wettig, Yao, Pei, Press, and
   Narasimhan]{jimenez2024swebench}
@@ -77,6 +138,12 @@ Sayash Kapoor et~al.
   \url{https://evals.alignment.org/notes/2026-02-13-measuring-time-horizon-using-claude-code-and-codex/},
   2026.
 
+\bibitem[Microsoft(2026)]{autogen}
+Microsoft.
+\newblock {AutoGen}.
+\newblock \url{https://github.com/microsoft/autogen}, 2026.
+\newblock Commit 027ecf0, 2026-04-06.
+
 \bibitem[{Model Context Protocol}(2026)]{mcp}
 {Model Context Protocol}.
 \newblock {Model Context Protocol}: Architecture overview.
@@ -94,6 +161,12 @@ Sayash Kapoor et~al.
 \newblock {Codex CLI}.
 \newblock \url{https://github.com/openai/codex}, 2026.
 \newblock Commit f0c5077, 2026-10-15.
+
+\bibitem[OpenAI(2026)]{openaiagents}
+OpenAI.
+\newblock {OpenAI} agents {SDK} ({Python}).
+\newblock \url{https://github.com/openai/openai-agents-python}, 2026.
+\newblock Commit 17d994b, 2026-10-15.
 
 \bibitem[Packer et~al.(2023)Packer, Wooders, Lin, Fang, Patil, Stoica, and
   Gonzalez]{packer2023memgpt}
@@ -136,6 +209,12 @@ Theodore~R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas~L. Griffiths.
 \newblock Cognitive architectures for language agents.
 \newblock \emph{Transactions on Machine Learning Research}, 2024.
 \newblock arXiv:2309.02427.
+
+\bibitem[{SWE-agent contributors}(2026)]{sweagentsrc}
+{SWE-agent contributors}.
+\newblock {SWE-agent}.
+\newblock \url{https://github.com/SWE-agent/SWE-agent}, 2026.
+\newblock Commit 3ea751c, 2026-07-16.
 
 \bibitem[Wang et~al.(2024)Wang, Chen, Yuan, Zhang, Li, Peng, and
   Ji]{wang2024codeact}

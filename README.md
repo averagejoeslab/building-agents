@@ -4,7 +4,7 @@ By **[Chase Dovey](https://cdovey.dev/)** · [Average Joes Lab](https://github.c
 
 > **The book:** [*Building Agents: From nothing to a model, a harness, and a model trained in its harness*](./book/) teaches everything in this repo, chapter by chapter, with annotated code and every experiment explained. [Read it online](./book/) or [download the PDF](./book/Building-Agents.pdf).
 
-> **The paper:** [*Agent = Harness(Model): Five Mechanistic Primitives, and What Is Not One*](./paper/) is a position paper: every harness is built from five mechanistic primitives, and everything else about a harness is a design decision within a primitive or a production concern asked of every primitive. It tests the claim by deconstructing six harnesses from their sources (Claude Code, Codex CLI, opencode, pi, Hermes Agent, a LangGraph workflow), with the evidence published. [Read the PDF](./paper/main.pdf) or see [the LaTeX sources](./paper/).
+> **The paper:** [*Agent = Harness(Model): Five Mechanistic Primitives, and What Is Not One*](./paper/) proposes the architecture of every harness: five primitives, each shown as the smallest program that adds it, with everything else a design decision within a primitive or a production concern asked of every primitive. It deconstructs nineteen harnesses against the five, six from their sources at pinned versions (Claude Code, Codex CLI, opencode, pi, Hermes Agent, a LangGraph workflow) and thirteen more at summary level, with the evidence published, and sets out the comparisons of implementations that would both use the framework and test it. [Read the PDF](./paper/main.pdf) or see [the LaTeX sources](./paper/).
 
 ## What an agent is
 

@@ -74,17 +74,18 @@ def convert(path):
     close()
     return "\n".join(out)
 
-print(r"\section{Evidence for the Deconstruction}")
-print(r"\label{app:evidence}")
-print(r"Every assignment in \S\ref{sec:deconstruction}, with its evidence. For harnesses with published source, a citation is a path and a line range at the pinned commit; for a harness read from documentation it is a page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}. \textbf{Path conventions} are given at the start of each harness; \textbf{not found} means the mechanism was looked for and not found, not that it is absent. The first six harnesses are deconstructed in full; the thirteen that follow at summary level, two to five components per primitive.")
-print(r"\small")
-for name in ORDER:
-    path = os.path.join(HERE, f"EVIDENCE-{name}.md")
-    if os.path.exists(path):
-        print(convert(path)); print()
-print(r"\subsection*{The wider set, at summary level}")
-for name in WIDE:
-    path = os.path.join(HERE, f"WIDE-{name}.md")
-    if os.path.exists(path):
-        print(convert(path)); print()
-print(r"\normalsize")
+if __name__ == "__main__":
+    print(r"\section{Evidence for the Deconstruction}")
+    print(r"\label{app:evidence}")
+    print(r"Every assignment in \S\ref{sec:deconstruction}, with its evidence. For harnesses with published source, a citation is a path and a line range at the pinned commit; for a harness read from documentation it is a page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}. \textbf{Path conventions} are given at the start of each harness; \textbf{not found} means the mechanism was looked for and not found, not that it is absent. The first six harnesses are deconstructed in full; the thirteen that follow at summary level, two to five components per primitive.")
+    print(r"\small")
+    for name in ORDER:
+        path = os.path.join(HERE, f"EVIDENCE-{name}.md")
+        if os.path.exists(path):
+            print(convert(path)); print()
+    print(r"\subsection*{The wider set, at summary level}")
+    for name in WIDE:
+        path = os.path.join(HERE, f"WIDE-{name}.md")
+        if os.path.exists(path):
+            print(convert(path)); print()
+    print(r"\normalsize")

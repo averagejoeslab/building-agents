@@ -5,6 +5,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from to_latex import inline, WIDE, HERE
 
 PRIMS = ["Input", "Context", "Model interface", "Output", "Control flow"]
+PROPER = {"Jinja", "Canvas", "GitHub", "LiteLLM", "OpenAI", "Gemini", "Cursor", "Copilot", "Docker", "Vercel", "BaseLlm", "BaseTool",
+          "NextStep", "RunState", "ReAct", "Python", "JSON", "Seatbelt", "Landlock", "Responses", "Runner", "Flow", "Crew", "PageRank"}
+
+def lower_first(cell):
+    w = cell.split(" ", 1)[0]
+    if w and w[0].isupper() and w[1:].islower() and w not in PROPER:
+        return w.lower() + cell[len(w):]
+    return cell
 
 def summary(path):
     text = open(path).read()
@@ -16,7 +24,7 @@ def summary(path):
         if line.startswith("|") and not re.match(r"^\|\s*-", line) and not line.startswith("| Primitive"):
             k, v = [c.strip() for c in line.strip("|").split("|")[:2]]
             cells[k] = v
-    return name, version, [cells.get(p, "") for p in PRIMS]
+    return name, version, [lower_first(cells.get(p, "")) for p in PRIMS]
 
 rows = []
 for slug in WIDE:
@@ -24,21 +32,22 @@ for slug in WIDE:
     if os.path.exists(p):
         rows.append(summary(p))
 
-print(r"\begin{table}[p]")
-print(r"\centering")
-print(r"\scriptsize")
-print(r"\setlength{\tabcolsep}{3pt}")
-print(r"\renewcommand{\arraystretch}{1.15}")
-print(r"\caption{Thirteen more harnesses by primitive, read from their sources or documentation at summary level. Each cell is the design decision that harness made within the primitive; the evidence for each is in Appendix~\ref{app:evidence}, which also gives the pinned commit or documentation date.}")
-print(r"\label{tab:wide}")
-print(r"\begin{tabularx}{\linewidth}{@{}>{\bfseries\raggedright\arraybackslash}p{1.7cm}YYYYY@{}}")
+print(r"\begingroup\scriptsize\setlength{\tabcolsep}{3pt}\renewcommand{\arraystretch}{1.15}")
+print(r"\begin{longtable}{@{}>{\bfseries\raggedright\arraybackslash}p{1.6cm}*{5}{>{\raggedright\arraybackslash}p{2.84cm}}@{}}")
+print(r"\caption{Thirteen more harnesses by primitive, read from their sources or documentation at summary level. Each cell is the design decision that harness made within the primitive; the evidence for each is in Appendix~\ref{app:evidence}, which also gives the pinned commit or documentation date.}\label{tab:wide}\\")
 print(r"\toprule")
 print(" & " + " & ".join(r"\prim{%s}" % p for p in PRIMS) + r" \\")
 print(r"\midrule")
+print(r"\endfirsthead")
+print(r"\toprule")
+print(" & " + " & ".join(r"\prim{%s}" % p for p in PRIMS) + r" \\")
+print(r"\midrule")
+print(r"\endhead")
+print(r"\bottomrule")
+print(r"\endlastfoot")
 for name, version, cells in rows:
     short = re.sub(r"\s*\(.*?\)\s*", " ", name).strip()
     print(inline(short) + " & " + " & ".join(inline(c) for c in cells) + r" \\")
     print(r"\addlinespace")
-print(r"\bottomrule")
-print(r"\end{tabularx}")
-print(r"\end{table}")
+print(r"\end{longtable}")
+print(r"\endgroup")
