@@ -21,8 +21,6 @@ PY
 
 # The supplement is Appendix B compiled on its own; its cross-references to the paper's sections
 # are resolved from full.aux, so the paper is built first and the supplement is always rebuilt.
-# The label that the paper's stub Appendix C also defines is dropped from the copy.
-sed '/\\label{app:evidence}/d' ../../sections/appendix-b.tex > appendix-b.tex
 export TEXINPUTS="../../:"
 latexmk -pdf -interaction=nonstopmode full.tex
 latexmk -pdf -g -interaction=nonstopmode supplementary.tex

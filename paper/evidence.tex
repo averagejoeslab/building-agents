@@ -1,0 +1,36 @@
+%% The evidence for the deconstruction, as a document of its own: latexmk -pdf evidence.tex
+%% Cross-references to the paper's sections are resolved from main.aux, so build main.tex first.
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{xr-hyper}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\externaldocument{main}
+\newcommand{\prim}[1]{\textmd{\textsc{#1}}}
+\setlist{nosep,leftmargin=*}
+
+\title{Evidence for the Deconstruction\\[4pt]\large Supplement to \emph{Agent = Harness(Model): Five Mechanistic Primitives, and What Is Not One}}
+\author{Chase Dovey\\Average Joes Lab\\\texttt{https://cdovey.dev}}
+\date{}
+
+\begin{document}
+\maketitle
+\noindent This document is Appendix~C of the paper: every assignment in its deconstruction (\S\ref{sec:deconstruction}), with its evidence. The first six harnesses are deconstructed in full, the thirteen of the wider set at summary level, two to five components per primitive. For harnesses with published source, a citation is a path and a line range at the pinned commit; for a harness read from documentation it is a page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}, with the brief the deconstruction followed. Each harness's entry opens with its source, its pinned version and the path conventions used; \emph{not found} means the mechanism was looked for and not found, not that it is absent.
+
+\appendix
+\setcounter{section}{2}
+\section{Evidence for the Deconstruction}
+\begingroup\footnotesize\sloppy
+\input{sections/appendix-b}
+\endgroup
+\end{document}

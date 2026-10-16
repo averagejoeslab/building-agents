@@ -1,4 +1,5 @@
-"""Appendix B from the evidence files: python3 to_latex.py > ../sections/appendix-b.tex
+"""The evidence document's body from the evidence files: python3 to_latex.py > ../sections/appendix-b.tex
+The heading and the conventions paragraph are in evidence.tex (the standalone document) and in the paper's stub Appendix C.
 Each EVIDENCE-*.md is one harness, in the fixed structure of BRIEF.md; this turns it into LaTeX, escaping as it goes."""
 import re, sys, os, glob
 
@@ -75,9 +76,6 @@ def convert(path):
     return "\n".join(out)
 
 if __name__ == "__main__":
-    print(r"\section{Evidence for the Deconstruction}")
-    print(r"\label{app:evidence}")
-    print(r"Every assignment in \S\ref{sec:deconstruction}, with its evidence. For harnesses with published source, a citation is a path and a line range at the pinned commit; for a harness read from documentation it is a page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}. \textbf{Path conventions} are given at the start of each harness; \textbf{not found} means the mechanism was looked for and not found, not that it is absent. The first six harnesses are deconstructed in full; the thirteen that follow at summary level, two to five components per primitive.")
     print(r"\small")
     for name in ORDER:
         path = os.path.join(HERE, f"EVIDENCE-{name}.md")

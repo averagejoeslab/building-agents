@@ -8,7 +8,6 @@
 *.out
 *.toc
 tmlr/references.bib
-tmlr/appendix-b.tex
 arxiv/src/
 tmlr/stage/
 agentverify/references-anon.bib

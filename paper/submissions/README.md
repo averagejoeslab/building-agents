@@ -20,7 +20,7 @@ paper/submissions/tmlr/build.sh             # full.pdf, supplementary.pdf, suppl
 
 ## arXiv
 
-Upload `arxiv/arxiv.tar.gz`. arXiv compiles the sources itself and does not run BibTeX reliably, so the tarball carries `main.bbl`. Choose **cs.AI** as the primary category, cross-list **cs.SE**, and pick the **CC BY 4.0** license, which is the license this repository gives the paper. Post to arXiv first: TMLR and AGENTVERIFY both allow preprints, so an arXiv version blocks nothing. Once it is live, put the arXiv link in `../README.md`.
+Upload `arxiv/arxiv.tar.gz`. arXiv compiles the sources itself and does not run BibTeX reliably, so the tarball carries `main.bbl`; the evidence document rides along in `anc/` as an ancillary file. Choose **cs.AI** as the primary category, cross-list **cs.SE**, and pick the **CC BY 4.0** license, which is the license this repository gives the paper. Post to arXiv first: TMLR and AGENTVERIFY both allow preprints, so an arXiv version blocks nothing. Once it is live, put the arXiv link in `../README.md`.
 
 ## The plan, and why
 
