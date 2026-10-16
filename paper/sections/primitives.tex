@@ -1,55 +1,97 @@
-\section{The Five Primitives}
+\section{The Primitives}
 \label{sec:primitives}
 
-Algorithm~\ref{alg:harness} gives a harness as pseudocode, each line labelled with its primitive. Every harness in \S\ref{sec:deconstruction} is an elaboration of it. For each primitive we give its \emph{mechanism} (what it does on the path of a request), its \emph{negative definition} (what it never does, and which primitive does), and its \emph{design space} (the decisions a harness makes within it). The negative definitions make the five mutually exclusive: each piece of a harness has one home, assigned by its function rather than by its name or its location in the code.
+Each primitive is defined by what it does and by what it never does. The negative definitions make the five mutually exclusive: every piece of a harness has one home, assigned by its function rather than by its name or its location in the code. Table~\ref{tab:primitives} collects the definitions.
 
-\begin{algorithm}[t]
-\caption{A harness. Lines are labelled with the primitive they implement.}
-\label{alg:harness}
-\small
-\begin{algorithmic}[1]
-\Procedure{ControlFlow}{\,}
-  \State $\textit{conversation} \gets [\,]$
-  \Loop \Comment{outer loop: one request at a time}
-    \State $\textit{conversation}.\textsc{append}(\textsc{User}(\Call{Input}{\,}))$ \Comment{\prim{Input}: from a person}
-    \Loop \Comment{inner loop: one request, carried through}
-      \State $\textit{ctx} \gets \Call{Context}{\textit{conversation}}$ \Comment{\prim{Context}}
-      \State $\textit{response} \gets \Call{ModelInterface}{\textit{ctx}}$ \Comment{\prim{Model interface}}
-      \State $\textit{conversation}.\textsc{append}(\textsc{Assistant}(\textit{response}))$
-      \State $\textit{results} \gets \Call{Output}{\textit{response}}$ \Comment{\prim{Output}: show words, run actions}
-      \If{$\textit{results} = \emptyset$} \textbf{break} \Comment{nothing ran: hand back}
-      \EndIf
-      \State $\textit{conversation}.\textsc{append}(\textsc{User}(\textit{results}))$ \Comment{\prim{Input}: from the world}
-    \EndLoop
-  \EndLoop
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
+To show each primitive rather than describe it, we use five programs, each the previous one plus one primitive, all run on the same task: a two-file Python project whose \texttt{total()} subtracts a discount as a flat amount where the test expects a percentage, and the request \emph{``The tests are failing. Find out why and fix it.''} The model is Claude Sonnet through Anthropic's Messages API. The complete programs are in Appendix~\ref{app:minimal}; the excerpts below are the lines each primitive adds. In the transcripts, \texttt{>} is what the person typed, \texttt{<} what the model said, and \texttt{\$} a command it ran.
 
-\subsection{\prim{Input}: capture what comes in}
-\textbf{Mechanism.} Capture what enters the agent and hand it to \prim{Context}. There are two sources: a person (a message, a file, an interrupt, an answer to a question the model asked) and the world (the result of an action, an event, a scheduled trigger).
-\textbf{Never.} \prim{Input} never decides what the model is shown; that is \prim{Context}. It never runs anything; that is \prim{Output}. An answer a person gives that the \emph{harness} consumes, such as an approval, is not input but a \prim{Control flow} decision; an answer the \emph{model} consumes, returned as a tool result, is input.
-\textbf{Design space.} The source: a terminal, an editor, a chat channel, a command-line argument, an issue tracker, a webhook, a message queue. The kind: text, images, files, audio, the results of actions, interrupts, and mid-turn steering. The second source, results from the world, is what makes acting worthwhile: an action's result is new perception.
-
-\subsection{\prim{Context}: assemble what the model is shown}
-\textbf{Mechanism.} Assemble, for one call, everything the model is shown: instructions, the tools' descriptions, the conversation so far, and anything retrieved from memory or the environment; and fit it to the window, by truncation, compaction or selection. \prim{Context} is the agent's working memory, rebuilt on every call.
-\textbf{Never.} \prim{Context} never calls the model; that is \prim{Model interface}. It never acts on the world; that is \prim{Output}. Reading a memory store is \prim{Context}; writing one, if the model requests it, is an action and so \prim{Output}. Code that decides what the model sees is \prim{Context} even when it sits inside a tool: a tool that attaches project instructions to a file it reads, or condenses a web page before returning it, is doing \prim{Context}'s work.
-\textbf{Design space.} What goes in the instructions (identity, rules, the agent's own capabilities, project files such as \texttt{AGENTS.md}); how tools are described; how long-term memory comes in (preloaded, retrieved on demand, or searched by the agent through its own tools); the roles each piece is placed in, which carry authority; and what happens when the window fills: drop old turns, summarize them, or include only what the moment needs.
+\lstset{basicstyle=\ttfamily\scriptsize, columns=fullflexible, keepspaces=true, breaklines=true, frame=single, rulecolor=\color{black!25}, commentstyle=\color{black!55}, language=Python, showstringspaces=false}
+\newcommand{\transcript}{\lstset{language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily}}
 
 \subsection{\prim{Model interface}: reach the model}
-\textbf{Mechanism.} Send the assembled context to the model and bring back its response in a form the rest of the harness can read: words, and structured requests to act. This includes the client, the wire format, the translation between the harness's message format and the model's chat template, streaming, retrying a failed request, and switching to a backup model when the request could not be served.
-\textbf{Never.} \prim{Model interface} never decides what the request contains; that is \prim{Context}. It never acts on the response; that is \prim{Output}. It receives a stream; rendering each fragment as it arrives is \prim{Output}. A change of model because the request could not be served (unavailable, overloaded, refused) is \prim{Model interface}; a change of model keyed to the work (planning, a cheap model for a side task) is \prim{Control flow}.
-\textbf{Design space.} A hosted API or local inference; one provider or many, directly or through a translation layer; native tool-call formats or tool calls parsed from text; streaming or whole responses; retry policy and backup models. \prim{Model interface} is the only primitive that knows which model is inside, which is why changing the model means changing it alone.
+\textbf{Does.} Send the assembled context to the model and bring back its response in a form the rest of the harness can read: words, and structured requests to act. The client, the wire format, the translation to the model's chat template, streaming, retries, and switching to a backup model when a request could not be served.
+\textbf{Never.} Decide what the request contains (\prim{Context}). Act on the response (\prim{Output}).
+
+\lstinputlisting[firstline=4]{minimal/1_model_interface.py}
+The model answers, but it can only answer: \emph{``I don't have access to your code, test files, or test output. Nothing came through in your message besides the request.''} The request is written into the program, so nobody can ask it anything else.
+
+\subsection{\prim{Input}: capture what comes in}
+\textbf{Does.} Capture what enters the agent and hand it to \prim{Context}. Two sources: a person (a message, a file, an interrupt, an answer to a question the model asked) and the world (the result of an action, an event, a scheduled trigger).
+\textbf{Never.} Decide what the model is shown (\prim{Context}). Run anything (\prim{Output}).
+
+\lstinputlisting[firstline=4,linerange={11-16}]{minimal/2_input.py}
+Anyone can now type the request, and the answer is the same: \emph{``I don't have the code or the test output yet, so I can't tell why the tests are failing. Could you share\ldots''} It can only talk.
 
 \subsection{\prim{Output}: carry the response out}
-\textbf{Mechanism.} Handle what the model returned: show its words to a person, and carry out each requested action, collecting its result. The tool set, the executor that runs an action, and the environment it runs in are \prim{Output}.
-\textbf{Never.} \prim{Output} never decides whether to go again; that is \prim{Control flow}. It never assembles the next request; that is \prim{Context}. The model only ever \emph{requests} an action; \prim{Output} decides whether and how it happens, which is where sandboxes and never-lists live. Several tool calls from one response run concurrently: \prim{Output}. Several \emph{model} calls run concurrently: \prim{Control flow}. A program the model writes at run time that calls tools without calling the model is \prim{Output}; one that sequences model calls is \prim{Control flow}.
-\textbf{Design space.} The tool set, from one general tool (a shell) to dozens of specific ones (read, write, edit, search, browse, computer use); the action format, from structured tool calls to code the model writes and the harness executes \citep{wang2024codeact} to edit formats such as search-and-replace blocks; the execution environment, from the host machine to a container or a remote sandbox; and the presentation of results, including truncation and error messages, which \citet{yang2024sweagent} show affect performance.
+\textbf{Does.} Handle what the model returned: show its words to a person, and carry out each requested action, collecting its result. The tool set, the executor that runs an action, and the environment it runs in.
+\textbf{Never.} Decide whether to go again (\prim{Control flow}). Assemble the next request (\prim{Context}). The model only ever \emph{requests} an action; \prim{Output} decides whether and how it happens, which is where sandboxes and never-lists live.
+
+\lstinputlisting[firstline=4,linerange={6-26}]{minimal/3_output.py}
+A tool is described to the model, and \texttt{handle\_output} runs each command the model asks for and collects the result:
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
+> The tests are failing. Find out why and fix it.
+< I'll start by exploring the project and running the tests.
+$ pwd; ls -la; git status 2>/dev/null | head
+\end{lstlisting}
+Then it stops. The command ran and printed the files, and the result went nowhere.
 
 \subsection{\prim{Control flow}: decide what happens next}
-\textbf{Mechanism.} Define the shape of the loop: send results back and go again, hand back to the person, or stop. Step and token budgets, approval gates the harness consumes, delegation to sub-agents and the sequencing of several agents, and routing to a model keyed to the work are all \prim{Control flow}.
-\textbf{Never.} \prim{Control flow} never captures input, assembles context, calls the model or runs a tool. It sequences the other four. A workflow in which code fixes the order of model calls \citep{anthropic2024effective} and an agent in which the model directs its own process differ here and only here.
-\textbf{Design space.} A single open loop that runs until the model stops requesting actions; a fixed pipeline; an explicit graph; sub-agents with contexts of their own; planning or approval modes that change what is allowed; and stopping rules: step limits, budgets, interrupts, loop detection.
+\textbf{Does.} Define the shape of the loop: send results back and go again, hand back to the person, or stop. Step and token budgets, approval gates the harness consumes, delegation to sub-agents, and routing to a model keyed to the work.
+\textbf{Never.} Capture input, assemble context, call the model or run a tool. It sequences the other four.
 
-\subsection{Necessity}
-Each primitive answers a question no other answers: what comes in, what the model is shown, how the model is reached, what is done with what comes out, and what happens next. Appendix~\ref{app:minimal} gives the five minimal harnesses from which the definitions were drawn, built one primitive at a time around a fixed model and task. Each version fails in a specific way without the next primitive: with only \prim{Model interface}, the model answers but cannot act and nobody can ask it anything else; with \prim{Input}, anyone can ask and it still cannot act; with \prim{Output}, it acts once and the result goes nowhere; with \prim{Control flow}, it finishes the task but does not know what it is or where it is, and spends actions finding out; with \prim{Context}, it knows. This shows that each primitive removes a failure the others do not. It does not show that no sixth primitive could ever be needed; \S\ref{sec:deconstruction} tests that against existing harnesses, and \S\ref{sec:limitations} says what would refute it.
+\lstinputlisting[firstline=4,linerange={31-41}]{minimal/4_control_flow.py}
+With the results sent back and the model called again until it stops requesting actions, the same model, tool and request finish the task:
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
+> The tests are failing. Find out why and fix it.
+< Let me start by looking at the project and running the tests.
+$ pwd; ls -la; git status 2>/dev/null | head
+$ cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30
+$ python -m unittest -v 2>&1 | tail -20
+< The docstring says the discount is a percentage, but the code subtracts it
+  as a flat amount. So 25 - 10 = 15 instead of 25 x 0.9 = 22.5. I'll fix the
+  code to match the documented behavior.
+$ sed -i 's|return round(subtotal - discount, 2)|return round(subtotal * (1 - discount / 100), 2)|' prices.py && cat prices.py && python -m unittest 2>&1 | tail -5
+< The tests pass now. The bug was in prices.py, not in the tests.
+\end{lstlisting}
+This is an agent. Asked a question about itself, it has to go looking:
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
+> Who are you, and where are you working?
+< I'll check the environment first so I can answer accurately.
+$ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a; ls -la | head -20
+< I'm an AI assistant. I can run shell commands, and I use that to read files,
+  run code and make changes in the environment I'm given.
+\end{lstlisting}
+It does not know its name, its body, its working directory or the date.
+
+\subsection{\prim{Context}: assemble what the model is shown}
+\textbf{Does.} Assemble, for one call, everything the model is shown: instructions, the tools' descriptions, the conversation so far, and anything retrieved from memory or the environment; and fit it to the window by truncation, compaction or selection. \prim{Context} is the agent's working memory, rebuilt on every call.
+\textbf{Never.} Call the model (\prim{Model interface}). Act on the world (\prim{Output}). Reading a memory store is \prim{Context}; writing one, if the model requests it, is an action and so \prim{Output}.
+
+\lstinputlisting[firstline=4]{minimal/quark.py}
+One sentence of context, assembled on every call, answers the question without any action:
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
+> Who are you, and where are you working?
+< I'm quark, an agent that works by running shell commands through bash. My
+  working directory is /tmp/shop. Today's date is 2026-10-07.
+\end{lstlisting}
+This is the whole harness: fifty lines, five functions, one per primitive. It runs commands on the host without asking and forgets everything when it exits; the production concerns of \S\ref{sec:levels} are what it lacks.
+
+\begin{table}[t]
+\centering
+\small
+\caption{The five primitives. Each is defined by what it does and what it never does; the last column is what it hands to the next.}
+\label{tab:primitives}
+\begin{tabularx}{\linewidth}{@{}lYYY@{}}
+\toprule
+Primitive & Does & Never & Hands on \\
+\midrule
+\prim{Input} & captures what comes in, from a person or from the world & decides what the model is shown; runs anything & the captured item, to \prim{Context} \\
+\prim{Context} & assembles what the model is shown on one call, and fits it to the window & calls the model; acts on the world & one request, to \prim{Model interface} \\
+\prim{Model interface} & sends the request and returns the response as words and requests to act & decides what the request contains; acts on the response & the response, to \prim{Output} \\
+\prim{Output} & shows words to a person; carries out each requested action and collects its result & decides whether to go again; assembles the next request & the results, to \prim{Control flow} \\
+\prim{Control flow} & decides: go again, hand back, or stop & captures, assembles, calls, or runs & results back to \prim{Input}, or control to the person \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Each primitive removes a failure the others do not.} With only \prim{Model interface}, the model answers but cannot act and nobody can ask it anything else; with \prim{Input}, anyone can ask and it still cannot act; with \prim{Output}, it acts once and the result goes nowhere; with \prim{Control flow}, it finishes the task but spends actions finding out where it is; with \prim{Context}, it knows. The same five programs, run with a local model in place of the hosted one, needed one function changed: \texttt{request\_response}, which is \prim{Model interface}. That is the porting property of \S\ref{sec:vocabulary} in practice.

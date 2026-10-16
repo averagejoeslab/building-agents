@@ -21,7 +21,7 @@ PY
 
 # The supplement is Appendix B compiled on its own; its cross-references to the paper's sections
 # are resolved from full.aux, so the paper is built first and the supplement is always rebuilt.
-# The label that the paper's stub Appendix B also defines is dropped from the copy.
+# The label that the paper's stub Appendix C also defines is dropped from the copy.
 sed '/\\label{app:evidence}/d' ../../sections/appendix-b.tex > appendix-b.tex
 export TEXINPUTS="../../:"
 latexmk -pdf -interaction=nonstopmode full.tex
@@ -29,12 +29,12 @@ latexmk -pdf -g -interaction=nonstopmode supplementary.tex
 
 rm -rf supplementary.zip stage && mkdir -p stage/evidence stage/minimal
 cp supplementary.pdf stage/
-cp ../../evidence/BRIEF.md ../../evidence/EVIDENCE-*.md stage/evidence/
+cp ../../evidence/BRIEF.md ../../evidence/EVIDENCE-*.md ../../evidence/WIDE-*.md stage/evidence/
 cp ../../minimal/*.py stage/minimal/
 cat > stage/README.txt <<'TXT'
 Supplementary material, anonymized for review.
-  supplementary.pdf   Appendix B: the evidence for every assignment in the deconstruction (Section 5)
-  evidence/           the source of Appendix B: one Markdown file per harness, and the brief the deconstruction followed
+  supplementary.pdf   Appendix C: the evidence for every assignment in the deconstruction (Section 5)
+  evidence/           the source of Appendix C: one Markdown file per harness, and the brief the deconstruction followed
   minimal/            the five minimal harnesses of Appendix A, one primitive at a time
 TXT
 (cd stage && zip -qr ../supplementary.zip .)

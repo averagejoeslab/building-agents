@@ -46,9 +46,9 @@ The condensed prose is a separate copy, so a change to the position in `../secti
 
 - the style file prints *Anonymous authors* in place of the author block until `[preprint]` or `[accepted]` is passed;
 - the one bibliography entry naming the author (the companion book and repository) is replaced in a generated copy of `references.bib`;
-- Appendix B, the fifty pages of evidence, is moved out of the paper into `supplementary.pdf`, and the paper's Appendix B becomes a one-paragraph pointer to it;
+- Appendix C, the evidence, is moved out of the paper into `supplementary.pdf`, and the paper's Appendix C becomes a one-paragraph pointer to it;
 - `supplementary.zip` holds that PDF, the `evidence/` Markdown files it was generated from, and the `minimal/` harnesses of Appendix A.
 
-Before uploading, check `full.pdf` once more for anything identifying (the build already checks that the author's name, lab and domains do not appear in the text). Upload `full.pdf` as the submission and `supplementary.zip` as supplementary material at <https://openreview.net/group?id=TMLR>. There is no deadline and no page limit; the main text is 18 pages. The paper's "Prior sharing" paragraph discloses the preprint and the non-archival workshop version, which TMLR's policy permits.
+Before uploading, check `full.pdf` once more for anything identifying (the build already checks that the author's name, lab and domains do not appear in the text). Upload `full.pdf` as the submission and `supplementary.zip` as supplementary material at <https://openreview.net/group?id=TMLR>. There is no deadline and no page limit. The paper's "Prior sharing" paragraph discloses the preprint and the non-archival workshop version, which TMLR's policy permits.
 
 For the camera-ready, change `\usepackage{tmlr}` to `\usepackage[accepted]{tmlr}` in `full.tex`, restore the real `references.bib` entry (delete the anonymizing step in `build.sh`), and add the OpenReview link the style file asks for.

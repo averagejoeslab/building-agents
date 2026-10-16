@@ -1,59 +1,17 @@
-\section{The Minimal Harnesses, One Primitive at a Time}
+\section{The Minimal Harnesses}
 \label{app:minimal}
 
-The definitions in \S\ref{sec:primitives} were drawn from five programs, each the previous one plus one primitive, all run on the same task: a two-file Python project whose \texttt{total()} subtracts a discount as a flat amount where the test expects a percentage, and the request \emph{``The tests are failing. Find out why and fix it.''} The model is Claude Sonnet through Anthropic's Messages API; the files are \texttt{harness/1\_model\_interface.py} to \texttt{harness/quark.py} in the companion repository \citep{course}, reproduced here without their dependency headers. The transcripts quoted are from the recorded runs there. In the transcripts, \texttt{>} is what the person typed, \texttt{<} what the model said, and \texttt{\$} a command it ran.
+The five programs of \S\ref{sec:primitives}, complete, without their dependency headers. Each is the previous one plus one primitive. They are \texttt{harness/1\_model\_interface.py} to \texttt{harness/quark.py} in the companion repository \citep{course}, and the transcripts quoted in \S\ref{sec:primitives} are from the recorded runs there. The companion repository adds the production concerns of \S\ref{sec:levels} to the last program one question at a time, and later replaces \texttt{request\_response} with a function that runs a local model and translates between the Messages format and the model's chat template, leaving the other four primitives unchanged.
 
 \lstset{basicstyle=\ttfamily\scriptsize, columns=fullflexible, keepspaces=true, breaklines=true, frame=single, rulecolor=\color{black!25}, commentstyle=\color{black!55}, language=Python, showstringspaces=false}
 
 \subsection{\prim{Model interface} alone}
 \lstinputlisting[firstline=4]{minimal/1_model_interface.py}
-The model answers, but it can only answer: \emph{``I don't have access to your code, test files, or test output. Nothing came through in your message besides the request.''} The request is written into the program, so nobody can ask it anything else. What is missing is a way for something to come in.
-
 \subsection{Plus \prim{Input}}
-\lstinputlisting[firstline=4,linerange={11-16}]{minimal/2_input.py}
-Anyone can now type the request, and the answer is the same: \emph{``I don't have the code or the test output yet, so I can't tell why the tests are failing. Could you share\ldots''} It can only talk. What is missing is a way to act.
-
+\lstinputlisting[firstline=4]{minimal/2_input.py}
 \subsection{Plus \prim{Output}}
-\lstinputlisting[firstline=4,linerange={6-26}]{minimal/3_output.py}
-A tool is described to the model, and \texttt{handle\_output} runs each command the model asks for and collects the result:
-\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
-> The tests are failing. Find out why and fix it.
-< I'll start by exploring the project and running the tests.
-$ pwd; ls -la; git status 2>/dev/null | head
-\end{lstlisting}
-Then it stops. The command ran and printed the files, and the result went nowhere: nothing carries it back to the model. What is missing is the decision to go again.
-
+\lstinputlisting[firstline=4]{minimal/3_output.py}
 \subsection{Plus \prim{Control flow}}
-\lstinputlisting[firstline=4,linerange={31-41}]{minimal/4_control_flow.py}
-With the results sent back and the model called again until it stops requesting actions, the same model, tool and request finish the task:
-\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
-> The tests are failing. Find out why and fix it.
-< Let me start by looking at the project and running the tests.
-$ pwd; ls -la; git status 2>/dev/null | head
-$ cat prices.py test_prices.py; python -m pytest -q 2>&1 | tail -30
-$ python -m unittest -v 2>&1 | tail -20
-< The docstring says the discount is a percentage, but the code subtracts it
-  as a flat amount. So 25 - 10 = 15 instead of 25 x 0.9 = 22.5. I'll fix the
-  code to match the documented behavior.
-$ sed -i 's|return round(subtotal - discount, 2)|return round(subtotal * (1 - discount / 100), 2)|' prices.py && cat prices.py && python -m unittest 2>&1 | tail -5
-< The tests pass now. The bug was in prices.py, not in the tests.
-\end{lstlisting}
-This is an agent. Asked a question about itself, though, it has to go looking:
-\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
-> Who are you, and where are you working?
-< I'll check the environment first so I can answer accurately.
-$ echo "user: $(whoami)"; echo "host: $(hostname)"; echo "cwd: $(pwd)"; uname -a; ls -la | head -20
-< I'm an AI assistant. I can run shell commands, and I use that to read files,
-  run code and make changes in the environment I'm given.
-\end{lstlisting}
-It does not know its name, its body, its working directory or the date. What is missing is what the model is shown.
-
+\lstinputlisting[firstline=4]{minimal/4_control_flow.py}
 \subsection{Plus \prim{Context}: the complete harness}
 \lstinputlisting[firstline=4]{minimal/quark.py}
-One sentence of context, assembled on every call, answers the question without any action:
-\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize,breaklines=true,breakindent=1.5em,frame=none,commentstyle=\ttfamily,keywordstyle=\ttfamily,stringstyle=\ttfamily]
-> Who are you, and where are you working?
-< I'm quark, an agent that works by running shell commands through bash. My
-  working directory is /tmp/shop. Today's date is 2026-10-07.
-\end{lstlisting}
-This is the whole harness: fifty lines, five functions, one per primitive. It runs commands on the host without asking and forgets everything when it exits; the production concerns of \S\ref{sec:levels} are what it lacks, and the companion repository adds them one question at a time to produce \texttt{quark\_production.py}. The same repository later replaces \texttt{request\_response} with a function that runs a local model and translates between the Messages format and the model's chat template, leaving the other four primitives unchanged; that is the porting claim of \S\ref{sec:uses} in practice.

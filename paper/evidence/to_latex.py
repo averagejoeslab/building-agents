@@ -4,6 +4,7 @@ import re, sys, os, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ORDER = ["claude-code", "codex", "opencode", "pi", "hermes", "langgraph"]
+WIDE = ["swe-agent", "openhands", "aider", "cline", "gemini-cli", "goose", "openai-agents", "google-adk", "autogen", "crewai", "smolagents", "cursor", "copilot"]
 
 def esc(text):                                            # LaTeX-escape plain text
     for a, b in (("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"), ("$", r"\$"), ("#", r"\#"), ("_", r"\_"),
@@ -75,10 +76,15 @@ def convert(path):
 
 print(r"\section{Evidence for the Deconstruction}")
 print(r"\label{app:evidence}")
-print(r"Every assignment in \S\ref{sec:deconstruction}, with its evidence. For harnesses with published source, a citation is a path and a line range at the pinned commit; for Claude Code it is a documentation page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}. \textbf{Path conventions} are given at the start of each harness; \textbf{not found} means the mechanism was looked for and not found, not that it is absent.")
+print(r"Every assignment in \S\ref{sec:deconstruction}, with its evidence. For harnesses with published source, a citation is a path and a line range at the pinned commit; for a harness read from documentation it is a page and section heading on the date read. The same files are published in the repository under \texttt{paper/evidence/}. \textbf{Path conventions} are given at the start of each harness; \textbf{not found} means the mechanism was looked for and not found, not that it is absent. The first six harnesses are deconstructed in full; the thirteen that follow at summary level, two to five components per primitive.")
 print(r"\small")
 for name in ORDER:
     path = os.path.join(HERE, f"EVIDENCE-{name}.md")
+    if os.path.exists(path):
+        print(convert(path)); print()
+print(r"\subsection*{The wider set, at summary level}")
+for name in WIDE:
+    path = os.path.join(HERE, f"WIDE-{name}.md")
     if os.path.exists(path):
         print(convert(path)); print()
 print(r"\normalsize")

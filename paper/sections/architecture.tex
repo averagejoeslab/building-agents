@@ -1,0 +1,80 @@
+\section{The Architecture}
+\label{sec:architecture}
+
+A language model is a function from a sequence of tokens to a distribution over the next token, applied until a stop token is produced:
+\[
+  \textit{TokensOut} = \textit{Model}(\textit{TokensIn}).
+\]
+Viewed from outside, the model keeps no state between calls, cannot read from or act on its environment, and cannot call itself again. Chat templates, tool-call formats and reasoning tokens are conventions for laying out \textit{TokensIn} and reading \textit{TokensOut}; models learn them in training and can learn to emit calls to tools \citep{schick2023toolformer}, but the calls are carried out, and the conventions written and parsed, by something else.
+
+That something else is the harness: everything in an agent that is not the model. It turns the world into tokens for the model and the model's tokens into effects on the world.
+\[
+  \textit{Agent} = \textit{Harness}(\textit{Model}).
+\]
+The boundary is at the model's weights and its sampling. Memory across sessions, tool use and knowledge of the date or the working directory are all on the harness side. The software has many names: evaluations call it a \emph{scaffold} \citep{anthropic2025swebench,metr2025update}, libraries call themselves \emph{frameworks}, \emph{SDKs} or an \emph{orchestration framework and runtime} \citep{langgraph}, and \emph{harness} is common among people who build coding agents \citep{anthropic2025harnesses}. None of the names says what the thing contains.
+
+We propose that it contains five parts, and that the five are the same in every harness.
+
+\begin{description}
+  \item[\prim{Input}] captures what comes in.
+  \item[\prim{Context}] assembles what the model is shown.
+  \item[\prim{Model interface}] sends the request and returns the response.
+  \item[\prim{Output}] carries the response out: words to a person, actions on the world.
+  \item[\prim{Control flow}] decides whether to go again, hand back, or stop.
+\end{description}
+
+Figure~\ref{fig:loop} shows how they sit around the model, and Algorithm~\ref{alg:harness} gives the loop they form, each line labelled with its primitive. Something comes in: a request from a person, an event, or the result of an earlier action. The harness assembles a context around it and sends the context to the model. The harness handles the response: it shows words to a person, or carries out the actions the response requests. If an action produced a result, the result comes back in and the loop runs again; if not, control returns to the person, or the agent stops. Every harness in \S\ref{sec:deconstruction} is an elaboration of this loop.
+
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  node distance=8mm and 8mm,
+  box/.style={draw, rounded corners=2pt, minimum width=21mm, minimum height=9mm, align=center, font=\small},
+  model/.style={box, fill=black!85, text=white, minimum width=27mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  \node[box] (in) {\prim{Input}\\[-1pt]\scriptsize perceive};
+  \node[box, right=of in] (ctx) {\prim{Context}\\[-1pt]\scriptsize working memory};
+  \node[model, right=17mm of ctx] (m) {Model\\[-1pt]\scriptsize tokens $\to$ next token};
+  \node[box, right=of m] (out) {\prim{Output}\\[-1pt]\scriptsize act};
+  \node[font=\small, right=10mm of out] (p) {person};
+  \draw[arr] (in) -- (ctx);
+  \draw[arr] (ctx) -- node[above, font=\scriptsize]{\prim{Model}} node[below, font=\scriptsize]{\prim{interface}} (m);
+  \draw[arr] (m) -- (out);
+  \draw[arr] (out) -- (p);
+  \draw[arr] (out.south) -- ++(0,-8mm) -| node[pos=0.25, below, font=\scriptsize]{a tool's result comes back in: go again} (in.south);
+  \draw[arr, dashed] (p.north) -- ++(0,7mm) -| node[pos=0.25, above, font=\scriptsize]{a request} (in.north);
+  \node[draw, dotted, rounded corners=4pt, inner sep=4mm, fit=(in)(ctx)(m)(out), label={[font=\scriptsize]north west:\prim{Control flow} holds the loop}] {};
+\end{tikzpicture}}
+\caption{The agent loop. The five primitives surround the model; \prim{Control flow} decides whether the loop runs again, hands back, or stops.}
+\label{fig:loop}
+\end{figure}
+
+\begin{algorithm}[t]
+\caption{A harness. Lines are labelled with the primitive they implement.}
+\label{alg:harness}
+\small
+\begin{algorithmic}[1]
+\Procedure{ControlFlow}{\,}
+  \State $\textit{conversation} \gets [\,]$
+  \Loop \Comment{outer loop: one request at a time}
+    \State $\textit{conversation}.\textsc{append}(\textsc{User}(\Call{Input}{\,}))$ \Comment{\prim{Input}: from a person}
+    \Loop \Comment{inner loop: one request, carried through}
+      \State $\textit{ctx} \gets \Call{Context}{\textit{conversation}}$ \Comment{\prim{Context}}
+      \State $\textit{response} \gets \Call{ModelInterface}{\textit{ctx}}$ \Comment{\prim{Model interface}}
+      \State $\textit{conversation}.\textsc{append}(\textsc{Assistant}(\textit{response}))$
+      \State $\textit{results} \gets \Call{Output}{\textit{response}}$ \Comment{\prim{Output}: show words, run actions}
+      \If{$\textit{results} = \emptyset$} \textbf{break} \Comment{nothing ran: hand back}
+      \EndIf
+      \State $\textit{conversation}.\textsc{append}(\textsc{User}(\textit{results}))$ \Comment{\prim{Input}: from the world}
+    \EndLoop
+  \EndLoop
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Everything else said about a harness is at one of two other levels. A \emph{design decision} is one way of implementing a primitive: one tool or forty, a loop or a graph, a repository map or a summarizer. A \emph{production concern} is a question asked of every primitive: what should outlast the session, what could do harm, what did it do, what if something breaks, what is slow, how do we know it still works. Neither adds a primitive (\S\ref{sec:levels}).
+
+\paragraph{Scope.} The primitives describe what happens on the path of a request at run time. Software that ships with a harness but never acts on that path is out of scope: hosting and transport, configuration loading, packaging, the user-interface framework, and the infrastructure that carries telemetry. The model is held fixed. A program that makes one model call and prints the reply has a harness, a trivial one; what makes a harness an agent's is a \prim{Control flow} that feeds the results of actions back to the model.
+
+\paragraph{What this paper does.} \S\ref{sec:primitives} shows each primitive as the smallest program that adds it. \S\ref{sec:levels} separates the primitives from design decisions and production concerns. \S\ref{sec:vocabulary} says why a shared vocabulary for the harness is needed and what it is for: comparing primitives by their implementations, and isolating a failure to the primitives an implementation touches. \S\ref{sec:deconstruction} deconstructs the popular harnesses against the five: six from their sources at pinned versions, and a wider set from their sources or documentation at summary level. \S\ref{sec:further} sets out the comparisons that would both use the framework and test it. The minimal harnesses are in Appendix~\ref{app:minimal}, the rules for the cases at the boundaries in Appendix~\ref{app:rules}, and the evidence for every assignment in Appendix~\ref{app:evidence}.

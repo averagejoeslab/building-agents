@@ -1,0 +1,19 @@
+\section{Rules for the Cases at the Boundaries}
+\label{app:rules}
+The negative definitions of \S\ref{sec:primitives} decide most cases. The following rules decide the rest. Each was needed for a component found in \S\ref{sec:deconstruction}.
+
+\begin{description}
+  \item[Function, not location.] A component is assigned by what it does, not by the file or the name it has. Code inside a tool that decides what the model sees is \prim{Context}. An approval decision made inside a tool's runtime is \prim{Control flow}.
+  \item[The tool channel.] The model drives other primitives through tool calls: spawning a sub-agent, entering a planning mode, writing a plan, searching for tools, asking the person a question. The call is \prim{Output}; its effect is assigned to the primitive it changes.
+  \item[Backup versus routing.] A model change triggered by a request that could not be served is \prim{Model interface}. A model change keyed to the work is \prim{Control flow}. A fixed model for one class of request, such as compaction summaries, is a request setting and \prim{Model interface}.
+  \item[Receiving versus rendering.] Receiving a response as a stream is \prim{Model interface}; rendering each fragment is \prim{Output}.
+  \item[Parallel actions versus parallel calls.] Several tool calls from one response run concurrently: \prim{Output}. Several model calls issued concurrently, to divide a task or to vote: \prim{Control flow}.
+  \item[The reader of a record.] A record kept for the model (a searchable transcript) is \prim{Context}. A record kept for the operator (a trace) is observability. An artifact for the user (a diff view) is \prim{Output}. One file may serve several readers, and each use is assigned separately.
+  \item[The consumer of an answer.] An answer the harness consumes (an approval) is \prim{Control flow}. An answer the model consumes (the result of an ask-the-user tool) is \prim{Input}.
+  \item[Direct actions by a person.] A command the person runs through the harness's own executor, whose output enters the conversation, is \prim{Input}, although it reuses \prim{Output}'s executor.
+  \item[Model-written programs.] A program the model writes at run time is \prim{Control flow} if it sequences model calls and \prim{Output} if it sequences only tools.
+  \item[Bundles.] A mode, a skill, a hook system or an agent profile is packaging that bundles decisions across several primitives. Decomposed, each element has one home: a planning mode is a context template, a restricted tool set and an approval gate; a hook system is a dispatcher (\prim{Control flow}) whose events each affect one primitive.
+  \item[Nested harnesses.] A sub-agent is a harness of its own, and delegation to it is \prim{Control flow} of the outer harness. The same holds for model-backed components inside a harness, such as an approval reviewer or a termination judge: each is \prim{Control flow} with a \prim{Model interface} call.
+  \item[Primitives as services.] One primitive may use another's mechanism to do its job: \prim{Context} asks the model to summarize old turns before compacting them; a web-fetch tool in \prim{Output} asks the model to condense a page before returning it. The component is assigned by what it \emph{decides} (what to compact, what to return), and the call it makes is a use of \prim{Model interface}. The negative definitions are about responsibility, not about which function calls which.
+  \item[Tool protocols.] A protocol such as MCP \citep{mcp} provides pluggable \prim{Output} (third-party tools). Its other features are assigned by function: resources and prompts are \prim{Context}; sampling borrows the client's \prim{Model interface}; elicitation is \prim{Input}.
+\end{description}

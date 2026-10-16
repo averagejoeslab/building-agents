@@ -1,13 +1,50 @@
-\section{Three Levels: Primitive, Design Decision, Production Concern}
+\section{Design Decisions and Production Concerns}
 \label{sec:levels}
 
-Descriptions of harnesses mix three kinds of statement. ``It has a loop'' names a primitive. ``It gives the model forty tools'' names a decision within one. ``It runs commands in a sandbox'' names a measure taken for a reason that applies to every primitive. Keeping the three apart is the main use of the vocabulary, and the deconstruction in \S\ref{sec:deconstruction} records each component at its level.
+Descriptions of harnesses mix three kinds of statement. ``It has a loop'' names a primitive. ``It gives the model forty tools'' names a decision within one. ``It runs commands in a sandbox'' names a measure taken for a reason that applies to every primitive. Keeping the three apart is the main use of the vocabulary. A primitive is a mechanism every harness has, defined by its function on the request path; a harness has exactly five. The other two levels are where harnesses differ and where they are made fit to run.
 
-\paragraph{Primitives.} A primitive is a mechanism every harness has, defined by its function on the request path (\S\ref{sec:primitives}). A harness has exactly five. A harness that lacks one is not an agent's harness, or is not a harness.
+\subsection{Design decisions}
+A design decision is one way of implementing a primitive. It is the level at which harnesses differ, and the level at which they are usually described. A design decision never adds a primitive; it fills one. The test for whether something is a design decision is whether a different harness could make a different choice and still be a harness. Table~\ref{tab:decisions} lists the decisions found in the deconstruction of \S\ref{sec:deconstruction}, by primitive, with the choices the harnesses made.
 
-\paragraph{Design decisions.} A design decision is one way of implementing a primitive. It is the level at which harnesses differ, and the level at which they are usually described: a single shell tool or a set of file tools (\prim{Output}); a repository map or a project file in the instructions (\prim{Context}); a loop that runs until the model stops or a graph with named nodes (\prim{Control flow}); one provider or a gateway to many (\prim{Model interface}); a terminal or a message queue (\prim{Input}). A design decision never adds a primitive; it fills one. The test for whether something is a design decision is whether a different harness could make a different choice and still be a harness.
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{Design decisions by primitive, and the choices seen across the harnesses deconstructed in \S\ref{sec:deconstruction}.}
+\label{tab:decisions}
+\begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}p{3.1cm}Y@{}}
+\toprule
+Primitive & Decision & Choices seen \\
+\midrule
+\prim{Input} & source & terminal; editor; chat gateways; HTTP; issue tracker; scheduled trigger; a typed state channel \\
+ & mid-turn messages & delivered at the next step boundary (steer); after the turn (queue); as an interrupt; not at all \\
+ & the person's answers & consumed by the harness as approvals; returned to the model as tool results \\
+\addlinespace
+\prim{Context} & instructions & a system prompt alone; plus project files (\texttt{CLAUDE.md}, \texttt{AGENTS.md}); plus memory files; a sectioned prompt diffed into patches \\
+ & long-term memory & none; files preloaded into the instructions; a store searched by the agent through tools; summaries carried forward \\
+ & window fitting & drop old turns; summarize (prune, then summarize); compaction at a threshold with a verbatim tail; provider-native compaction; left to user code \\
+ & layout for caching & a stable prefix with changes appended; instruction changes frozen as dated events; byte-stable tiers \\
+\addlinespace
+\prim{Model interface} & client & provider SDK; in-house request compiled per protocol; one stream function over adapters; a library's chat-model call \\
+ & transport & HTTP with server-sent events; WebSocket, falling back to HTTP \\
+ & retries and backup & none; three to ten retries; retry split by whether output started; a fallback chain of models \\
+ & action format & native tool calls; calls parsed from text; a code block to execute \\
+\addlinespace
+\prim{Output} & tool set & one shell; a fixed built-in set; built-in plus MCP; plain tool objects; a tool node \\
+ & action format & structured calls; model-written code run in an interpreter (V8, QuickJS, in-process) \\
+ & execution environment & the host; an OS sandbox with a domain allowlist; a container; a remote sandbox \\
+ & parallelism & sequential; read-only calls concurrent; all calls concurrent as they stream \\
+\addlinespace
+\prim{Control flow} & loop shape & until no tool call; one task per turn; a user-written graph run as supersteps; a phase-verdict loop \\
+ & stopping rules & step budget; token or cost budget; unlimited; recursion limit; stop-gate nudges \\
+ & approval & a rule pipeline ending in a prompt; a classifier model; a reviewer model; each tool asserting its own permission \\
+ & delegation & an agent tool to a fixed depth; child sessions; sub-agents as full sessions; flat threaded delegation \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
-\paragraph{Production concerns.} A production concern is a question asked of every primitive, whose answer changes how some primitives are implemented. We use six (Table~\ref{tab:concerns}): what should outlast the session (persistence); what could do harm, and who could make it (safety and security); what did it do (observability); what if something breaks (resilience); what is slow or costly (performance); and how do we know it still works (evaluation). A concern is not a part of the harness. A sandbox is not a sixth primitive; it is the safety answer in \prim{Output}. A memory store is not a sixth primitive; it is the persistence answer in \prim{Context} and \prim{Output}. The test for whether something is a concern is whether it is motivated by a question that could equally be asked of a different primitive.
+\subsection{Production concerns}
+A production concern is a question asked of every primitive, whose answer changes how some primitives are implemented. We use six (Table~\ref{tab:concerns}): what should outlast the session (persistence); what could do harm, and who could make it (safety and security); what did it do (observability); what if something breaks (resilience); what is slow or costly (performance); and how do we know it still works (evaluation). A concern is not a part of the harness. A sandbox is not a sixth primitive; it is the safety answer in \prim{Output}. A memory store is not a sixth primitive; it is a store in the world that \prim{Context} reads and \prim{Output} writes, kept for the persistence concern. A trace is not a sixth primitive; it is the observability answer, recorded wherever the primitive it watches runs. The test for whether something is a concern is whether it is motivated by a question that could equally be asked of a different primitive.
 
 \begin{table}[t]
 \centering
@@ -29,24 +66,7 @@ Descriptions of harnesses mix three kinds of statement. ``It has a loop'' names 
 \end{tabularx}
 \end{table}
 
-\paragraph{The concerns interact.} Persistence creates a security surface: a poisoned memory steers every later session. Streaming changes safety: an interrupt can stop a reply mid-sentence, and the harness must record what was said rather than a finished answer. Summarizing changes persistence: the summary must say where the originals are kept. Treating concerns as questions asked of each primitive makes these interactions visible; treating them as separate components hides them.
+The concerns interact. Persistence creates a security surface: a poisoned memory steers every later session. Streaming changes safety: an interrupt can stop a reply mid-sentence, and the harness must record what was said rather than a finished answer. Summarizing changes persistence: the summary must say where the originals are kept. Treating concerns as questions asked of each primitive makes these interactions visible; treating them as separate components hides them.
 
-\subsection{Rules for the cases at the boundaries}
-\label{sec:rules}
-The negative definitions decide most cases. The following rules decide the rest. Each was needed for a component found in \S\ref{sec:deconstruction}.
-
-\begin{description}
-  \item[Function, not location.] A component is assigned by what it does, not by the file or the name it has. Code inside a tool that decides what the model sees is \prim{Context}. An approval decision made inside a tool's runtime is \prim{Control flow}.
-  \item[The tool channel.] The model drives other primitives through tool calls: spawning a sub-agent, entering a planning mode, writing a plan, searching for tools, asking the person a question. The call is \prim{Output}; its effect is assigned to the primitive it changes.
-  \item[Backup versus routing.] A model change triggered by a request that could not be served is \prim{Model interface}. A model change keyed to the work is \prim{Control flow}. A fixed model for one class of request, such as compaction summaries, is a request setting and \prim{Model interface}.
-  \item[Receiving versus rendering.] Receiving a response as a stream is \prim{Model interface}; rendering each fragment is \prim{Output}.
-  \item[Parallel actions versus parallel calls.] Several tool calls from one response run concurrently: \prim{Output}. Several model calls issued concurrently, to divide a task or to vote: \prim{Control flow}.
-  \item[The reader of a record.] A record kept for the model (a searchable transcript) is \prim{Context}. A record kept for the operator (a trace) is observability. An artifact for the user (a diff view) is \prim{Output}. One file may serve several readers, and each use is assigned separately.
-  \item[The consumer of an answer.] An answer the harness consumes (an approval) is \prim{Control flow}. An answer the model consumes (the result of an ask-the-user tool) is \prim{Input}.
-  \item[Direct actions by a person.] A command the person runs through the harness's own executor, whose output enters the conversation, is \prim{Input}, although it reuses \prim{Output}'s executor.
-  \item[Model-written programs.] A program the model writes at run time is \prim{Control flow} if it sequences model calls and \prim{Output} if it sequences only tools.
-  \item[Bundles.] A mode, a skill, a hook system or an agent profile is packaging that bundles decisions across several primitives. Decomposed, each element has one home: a planning mode is a context template, a restricted tool set and an approval gate; a hook system is a dispatcher (\prim{Control flow}) whose events each affect one primitive.
-  \item[Nested harnesses.] A sub-agent is a harness of its own, and delegation to it is \prim{Control flow} of the outer harness. The same holds for model-backed components inside a harness, such as an approval reviewer or a termination judge: each is \prim{Control flow} with a \prim{Model interface} call.
-  \item[Primitives as services.] One primitive may use another's mechanism to do its job: \prim{Context} asks the model to summarize old turns before compacting them; a web-fetch tool in \prim{Output} asks the model to condense a page before returning it. The component is assigned by what it \emph{decides} (what to compact, what to return), and the call it makes is a use of \prim{Model interface}. The negative definitions are about responsibility, not about which function calls which.
-  \item[Tool protocols.] A protocol such as MCP \citep{mcp} provides pluggable \prim{Output} (third-party tools). Its other features are assigned by function: resources and prompts are \prim{Context}; sampling borrows the client's \prim{Model interface}; elicitation is \prim{Input}.
-\end{description}
+\subsection{Bundles and the cases at the boundaries}
+Much of what a harness's documentation names is a bundle. A mode, a skill, a hook system or an agent profile packages decisions across several primitives: a planning mode is a context template, a restricted tool set and an approval gate; a hook system is a dispatcher in \prim{Control flow} whose events each affect one primitive. Decomposed, each element has one home. The negative definitions decide most placements. Thirteen rules, each needed for a component found in \S\ref{sec:deconstruction}, decide the rest, and are given in Appendix~\ref{app:rules}. Three are used often enough to state here. A component is assigned by its function, not its location: an approval decision made inside a tool's runtime is \prim{Control flow}. A sub-agent is a harness of its own, and delegation to it is \prim{Control flow} of the outer harness. And one primitive may use another's mechanism to do its job: \prim{Context} may ask the model to summarize old turns before compacting them, and the component is assigned by what it decides, with the call it makes a use of \prim{Model interface}.

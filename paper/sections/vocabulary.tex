@@ -1,0 +1,51 @@
+\section{Why a Vocabulary}
+\label{sec:vocabulary}
+
+\subsection{Harnesses change results as much as models do}
+If $\textit{Agent} = \textit{Harness}(\textit{Model})$, a benchmark score belongs to the pair. The evidence that the harness term is large is now direct. Holding GPT-4 Turbo fixed, \citet{yang2024sweagent} report 1.31\% of SWE-bench \citep{jimenez2024swebench} resolved with retrieval-augmented generation and 12.47\% with their agent, and on SWE-bench Lite 11.00\% for a shell-only agent against 18.00\% for SWE-agent, with only the harness changing. Anthropic notes that performance ``can vary significantly based on this scaffolding, even when using the same underlying AI model'' \citep{anthropic2025swebench}. METR found that tailoring a scaffold to one model more than doubled the length of tasks it could complete \citep{metr2025update}, and later that two mature harnesses did not outperform their default scaffolds \citep{metr2026harness}, which suggests the effect is largest where the design decisions differ most. \citet{zhang2026stop} argue that harness configuration can account for more variance in performance than the choice of model, and ask that the harness be disclosed when agents are compared; \citet{kapoor2025hal} evaluate models, scaffolds and benchmarks as separate dimensions.
+
+A disclosure needs a schema, and a comparison needs the harness stated in parts. Without one, two agents built on the same model are compared as wholes, and a difference between them cannot be attributed to anything smaller than ``the scaffold''. The five primitives are the schema: the input sources; what the context holds and how it is fitted to the window; the provider, decoding settings and retry policy; the tools, their output formats and the execution environment; and the loop's shape and stopping rules. Table~\ref{tab:summary} and Table~\ref{tab:wide} are such disclosures for nineteen harnesses.
+
+\subsection{Comparing primitives by their implementations}
+With the harness stated in five parts, a question that could not be asked becomes well-posed: which implementation of a primitive is better, for which model, on which task? The form of the study is to hold the model and four primitives fixed, vary the fifth, and measure. \citet{fan2026empirical} do this for three decisions in a coding harness, planning, the action space and context management, across four models, and find that each changes behaviour. Their three dimensions were chosen independently of this paper and each falls within one primitive: planning in \prim{Control flow}, the action space in \prim{Output}, context management in \prim{Context}. The vocabulary says what the other dimensions are, and says which parts must be held fixed for a result to be attributed to the one varied. \S\ref{sec:further} lists the comparisons the framework makes well-posed.
+
+The same property makes a harness portable. Because only \prim{Model interface} knows which model is inside, a harness can be moved to a new model or provider by changing that primitive alone. A harness loses this property when model-specific details leak into other primitives: a provider's tool-call format assumed in \prim{Output}, or a provider's error strings matched in \prim{Context} management. The deconstruction records such leaks where it found them. It also says what a model trained for one harness must learn: the context layout it will be shown (\prim{Context}), the format in which it must request actions and the shape of the results it will read (\prim{Output}), and the loop it runs in (\prim{Control flow}).\footnote{In the companion book, a 0.6-billion-parameter model instruction-tuned on sessions recorded in its own harness rose from 2 to 18 of 32 held-out tasks in that harness, where the same base model post-trained by its developers for general use scored 14. The experiment, its data and its checks are described there \citep{course}; this paper makes no claim that rests on it.}
+
+\subsection{Isolating a failure}
+\label{sec:debugging}
+When an agent fails, the primitives give a short list of places to look, in order. The order matters: each question rules out a place the next question assumes.
+\begin{enumerate}
+  \item \textbf{\prim{Context}: was the model shown what it needed?} Read the request that was sent. If the file, the result or the instruction is not in it, the model could not have used it, and nothing downstream is at fault.
+  \item \textbf{\prim{Output}: did what it asked for happen?} Compare the action the model requested with what ran. A parser that dropped a call, a sandbox that refused it, a tool that returned a truncated result, and an error message the model could not read are all \prim{Output}.
+  \item \textbf{\prim{Control flow}: did the loop stop early or run too long?} A step limit reached before the task was done, a hand-back on a response that still had work in it, and a loop that repeated the same action are \prim{Control flow}.
+  \item \textbf{\prim{Model interface}: was the response read correctly?} A tool call emitted in the right format but not recognized, a stream cut off and treated as complete, and a backup model substituted without notice are \prim{Model interface}.
+  \item \textbf{\prim{Input}: did the right thing come in?} A result delivered to the wrong turn, an interrupt lost, a person's answer consumed by the harness when the model needed it.
+  \item \textbf{Only then, the model.} If the model was shown what it needed, asked for the wrong thing, and its request was carried out as asked, the failure is the model's: its knowledge, its habits, or its size.
+\end{enumerate}
+An implementation touches some primitives and not others, and a failure is isolated to the ones it touches. Two examples from our own transcripts. A small model, after instruction-tuning, sometimes emitted a second tool call as bare JSON without its \texttt{<tool\_call>} tags. The harness read the JSON as words, found no action, and handed back. Question 4 locates this in \prim{Model interface}, whose parser defines what counts as a call; the fix was on the model side, but the diagnosis was the harness's. In the same experiments, four kinds of task could never pass during reinforcement learning because the check compared the folder before and after, and the harness's own memory directory changed the folder on every run. No question in the list locates this, because the fault was in the evaluation, a concern, not in a primitive. Building the harness around a capable model first, until it passed every task in the evaluation, is what let every later failure be attributed to the model swapped in.
+
+\subsection{Existing vocabularies}
+\label{sec:related}
+The loop that harnesses implement goes back to ReAct \citep{yao2023react}, which interleaves a model's reasoning with actions whose results return to it as observations; in artificial intelligence more broadly, an agent perceives its environment and acts on it \citep{russell2020aima}. Later patterns live in particular primitives: Reflexion \citep{shinn2023reflexion} writes reflections on failed attempts and carries them into the next, a decision in \prim{Control flow} and \prim{Context}; MemGPT \citep{packer2023memgpt} pages information in and out of a limited window, a decision in \prim{Context}; Toolformer \citep{schick2023toolformer} trains the model to emit tool calls, moving policy into the model while the calls are still carried out by \prim{Output}; CodeAct \citep{wang2024codeact} has the model write code as its action format, a decision in \prim{Output}.
+
+\citet{sumers2024coala} organize language agents by memory (working, episodic, semantic, procedural), an action space of external and internal actions, and a decision cycle. CoALA describes what an agent \emph{is}, as a cognitive architecture; this paper describes what software an agent is \emph{made of}. The correspondence is in Table~\ref{tab:coala}. Two things here have no counterpart there: \prim{Model interface} as a component, and the production concerns as a level of description distinct from the architecture. CoALA's memory modules, with the retrieval and learning actions that read and write them, are design decisions in \prim{Context} and \prim{Output} here, not a component.
+
+\begin{table}[t]
+\centering
+\small
+\caption{The five primitives, the step of the agent cycle each serves, and the CoALA component it corresponds to.}
+\label{tab:coala}
+\begin{tabularx}{\linewidth}{@{}lYYY@{}}
+\toprule
+Primitive & Mechanism & In the agent cycle & CoALA \\
+\midrule
+\prim{Input} & capture requests and results & perceive & observations \\
+\prim{Context} & assemble what the model is shown & working and long-term memory & working memory; retrieval \\
+\prim{Model interface} & request a response & decide & reasoning (by the model) \\
+\prim{Output} & show words, carry out actions & act & grounding actions; learning (writes) \\
+\prim{Control flow} & go again, hand back, or stop & the cycle & decision cycle \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\citet{yang2024sweagent} name the agent-computer interface, the commands a model is given, their output format and guardrails such as linting edits, and show it changes performance on software tasks; in our terms the interface is a set of design decisions in \prim{Output} and \prim{Context}, and this paper asks what the complete set of components is, of which the interface is part. \citet{anthropic2024effective} distinguish workflows, in which code fixes the sequence of model calls, from agents, in which the model directs its own process, and describe patterns built on an ``augmented LLM''; we treat the distinction as a property of \prim{Control flow}, and decompose the augmented LLM into \prim{Context} (retrieval, memory) and \prim{Output} (tools) around a \prim{Model interface}. \citet{jin2026agentprimitives} use ``primitives'' for recurring patterns of model calls in multi-agent systems (review, voting, planning and execution); in our terms these are shapes of \prim{Control flow}, and the two uses of the word are complementary. Tool protocols such as MCP \citep{mcp} provide pluggable \prim{Output}, with their other features assigned by function (Appendix~\ref{app:rules}).
