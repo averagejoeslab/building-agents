@@ -12,7 +12,7 @@
 - **Stop hook, steering, sub-agents:** `StopHookOperation` lets a plugin deny ending the turn up to `stop_hook_block_cap` times; `SteerOperation` drains queued user messages between model and tool turns; `SubagentOperation` with `ForegroundSubagentRunner` runs a delegated `SubAgent` session (own recipe, max_turns and provider) through `stream_subagent_turn` and delivers its outcome back as a message. `sm/ops_stop_hook.rs:L80–L119`; `sm/ops_steer.rs:L60–L97`; `g/agents/subagent_handler.rs:L35–L82`, `L102–L130`; `g/agents/platform_extensions/summon.rs:L396–L421`, `L460–L470`
 
 ## Input
-- **User message:** `Agent::reply` → `reply_impl` → `reply_with_state_machine_inner`, which persists the message with `session_manager.add_message` before the machine runs; the CLI calls `agent.reply` per prompt. `g/agents/agent.rs:L953–L1035`, `L637–L660`; `cli/session/mod.rs:L1333–L1340`
+- **User message:** `Agent::reply` -> `reply_impl` -> `reply_with_state_machine_inner`, which persists the message with `session_manager.add_message` before the machine runs; the CLI calls `agent.reply` per prompt. `g/agents/agent.rs:L953–L1035`, `L637–L660`; `cli/session/mod.rs:L1333–L1340`
 - **Mid-turn messages:** `Agent::steer` pushes into a per-session queue that `SteerOperation` consumes; a message carrying an `ElicitationResponse` completes a pending MCP elicitation instead of starting a turn. `g/agents/agent.rs:L293–L302`, `L996–L1031`
 - **Tool results:** executed, declined and unparseable requests are recorded into one user message of tool responses, emitted and persisted as an `AppendMessage` effect. `sm/ops_toolcalling.rs:L1044–L1100`; `sm/session.rs:L52–L56`
 
